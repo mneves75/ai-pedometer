@@ -1,0 +1,23 @@
+# CODEOWNERS - Define code ownership for review requirements
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @mneves75
+
+# Core services require owner review
+/AIPedometer/Core/ @mneves75
+
+# AI features
+/AIPedometer/Core/AI/ @mneves75
+/AIPedometer/Features/AICoach/ @mneves75
+
+# Security-sensitive files
+/AIPedometer/Core/HealthKit/ @mneves75
+*.entitlements @mneves75
+project.yml @mneves75
+
+# Shared code affects all targets
+/Shared/ @mneves75
+
+# Documentation
+*.md @mneves75

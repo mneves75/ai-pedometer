@@ -1,0 +1,134 @@
+name: AIPedometer
+options:
+  bundleIdPrefix: com.mneves
+  deploymentTarget:
+    iOS: 26.0
+    watchOS: 26.0
+  createIntermediateGroups: true
+  xcodeVersion: "26.0"
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+settings:
+  base:
+    DEVELOPMENT_TEAM: Q96FUTC5G8
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: 6.2
+    ENABLE_STRICT_CONCURRENCY: complete
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ENABLE_SWIFT_TESTING: YES
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    PRODUCT_BUNDLE_IDENTIFIER: com.mneves.aipedometer
+    MARKETING_VERSION: 0.1
+    CURRENT_PROJECT_VERSION: 1
+    INFOPLIST_FILE: AIPedometer/Resources/Info.plist
+    INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+    INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+    INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright 2026 MNeves"
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    ENABLE_PREVIEWS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    SWIFT_UPCOMING_FEATURE_IMPLICIT_OPEN_EXISTENTIALS: YES
+    SWIFT_UPCOMING_FEATURE_BARE_SLASH_REGEX_LITERAL: YES
+    SWIFT_UPCOMING_FEATURE_GLOBAL_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_ISOLATED_DEFAULT_ARGUMENTS: YES
+    SWIFT_UPCOMING_FEATURE_STRICT_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_FORWARD_TRAILING_CLOSURES: YES
+    SWIFT_UPCOMING_FEATURE_WARN_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_DISABLE_OUT_OF_PROCESS_SWIFT: YES
+    SWIFT_UPCOMING_FEATURE_STRICT_DOUBLE: YES
+    SWIFT_UPCOMING_FEATURE_SWIFTUI_OBSERVATION: YES
+    SWIFT_UPCOMING_FEATURE_ANNOTATED_CODE_COMPLETION: YES
+    SWIFT_UPCOMING_FEATURE_TYPE_INFERENCE_FROM_DEFAULTS: YES
+    SWIFT_UPCOMING_FEATURE_CONSUMING_SELF: YES
+    SWIFT_UPCOMING_FEATURE_NON_ESCAPABLE_TYPES: YES
+    SWIFT_UPCOMING_FEATURE_PACK_ITERATION: YES
+    SWIFT_UPCOMING_FEATURE_WARN_IMPLICIT_OVERRIDES: YES
+    SWIFT_UPCOMING_FEATURE_CONFORMER_METATYPES: YES
+    SWIFT_UPCOMING_FEATURE_SWIFT_6: YES
+    SWIFT_COMPILATION_MODE: wholemodule
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+    CLANG_TREAT_WARNINGS_AS_ERRORS: YES
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+packages: {}
+targets:
+  AIPedometer:
+    type: application
+    platform: iOS
+    sources:
+      - path: AIPedometer
+      - path: Shared
+    resources:
+      - path: AIPedometer/Resources
+      - path: Shared/Resources
+    entitlements:
+      path: AIPedometer/Resources/AIPedometer.entitlements
+    settings:
+      base:
+        PRODUCT_NAME: AIPedometer
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: AIPedometer/Resources/Info.plist
+        ENABLE_BACKGROUND_MODES: YES
+        INFOPLIST_KEY_UIBackgroundModes: fetch processing health-updates
+    dependencies: []
+  AIPedometerWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: AIPedometerWidgets
+      - path: Shared
+    resources:
+      - path: AIPedometerWidgets/Resources
+    entitlements:
+      path: AIPedometerWidgets/Resources/AIPedometerWidgets.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mneves.aipedometer.widgets
+        INFOPLIST_FILE: AIPedometerWidgets/Resources/Info.plist
+        SKIP_INSTALL: YES
+        ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    dependencies: []
+  AIPedometerWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: AIPedometerWatch
+      - path: Shared
+    resources:
+      - path: AIPedometerWatch/Resources
+    entitlements:
+      path: AIPedometerWatch/Resources/AIPedometerWatch.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mneves.aipedometer.watch
+        INFOPLIST_FILE: AIPedometerWatch/Resources/Info.plist
+        WK_COMPANION_APP_BUNDLE_IDENTIFIER: com.mneves.aipedometer
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SKIP_INSTALL: NO
+    dependencies:
+      - target: AIPedometer
+  AIPedometerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AIPedometerTests
+    dependencies:
+      - target: AIPedometer
+  AIPedometerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: AIPedometerUITests
+    dependencies:
+      - target: AIPedometer

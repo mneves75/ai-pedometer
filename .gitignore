@@ -1,0 +1,110 @@
+# Xcode
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# Build products
+build/
+DerivedData/
+*.app
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj
+
+# CocoaPods (if used)
+Pods/
+Podfile.lock
+
+# Carthage (if used)
+Carthage/Build/
+Carthage/Checkouts/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# Code Injection
+iOSInjectionProject/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Thumbnails
+*.Trashes
+
+# IDEs and editors
+*.swp
+*.swo
+*~
+.idea/
+*.sublime-project
+*.sublime-workspace
+.vscode/
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+firebaserc
+
+# Environment and secrets
+.env
+.env.*
+*.local
+Config/Local.xcconfig
+Secrets/
+credentials.json
+GoogleService-Info.plist
+
+# Archives
+*.ipa
+*.archive
+*.zip
+
+# Xcode specific
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+*.hmap
+*.ipa
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Playground
+timeline.xctimeline
+playground.xcworkspace
+
+# Testing
+*.xcresult
+coverage/
+TestResults/
+
+# Provisioning profiles
+*.mobileprovision
+*.provisionprofile
+
+# Debug logs
+*.log
+
+# Internal planning artifacts
+agent_planning/
+.planning/
+.sisyphus/
+progress.md
+tests.json
