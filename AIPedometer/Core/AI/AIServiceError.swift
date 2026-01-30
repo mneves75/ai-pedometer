@@ -1,0 +1,77 @@
+import CryptoKit
+import Foundation
+
+/// Errors that can occur when using AI services
+enum AIServiceError: Error, Sendable {
+    case sessionNotConfigured
+    case modelUnavailable(AIUnavailabilityReason)
+    case generationFailed(underlying: String)
+    case tokenLimitExceeded
+    case guardrailViolation
+    case invalidResponse
+}
+
+/// Reasons why the AI model may be unavailable
+enum AIUnavailabilityReason: String, Sendable, Equatable {
+    case deviceNotEligible
+    case appleIntelligenceNotEnabled
+    case modelNotReady
+    case unknown
+    
+    var userFacingMessage: String {
+        switch self {
+        case .deviceNotEligible:
+            return String(localized: "Your device doesn't support Apple Intelligence", comment: "AI unavailable - device not eligible")
+        case .appleIntelligenceNotEnabled:
+            return String(localized: "Enable Apple Intelligence in Settings to use AI features", comment: "AI unavailable - not enabled")
+        case .modelNotReady:
+            return String(localized: "AI model is being prepared. Please try again later.", comment: "AI unavailable - model not ready")
+        case .unknown:
+            return String(localized: "AI features are temporarily unavailable", comment: "AI unavailable - unknown reason")
+        }
+    }
+    
+    var hasAction: Bool {
+        self == .appleIntelligenceNotEnabled
+    }
+    
+    var actionTitle: String {
+        String(localized: "Open Settings", comment: "Button to open Settings app")
+    }
+}
+
+extension AIServiceError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .sessionNotConfigured:
+            return String(localized: "AI session not configured", comment: "Error - session not configured")
+        case .modelUnavailable(let reason):
+            return reason.userFacingMessage
+        case .generationFailed:
+            return String(localized: "AI generation failed. Please try again.", comment: "Error - generation failed")
+        case .tokenLimitExceeded:
+            return String(localized: "The conversation is too long. Please start a new conversation.", comment: "Error - token limit exceeded")
+        case .guardrailViolation:
+            return String(localized: "The request could not be processed due to content restrictions.", comment: "Error - guardrail violation")
+        case .invalidResponse:
+            return String(localized: "Received an invalid response from the AI model.", comment: "Error - invalid response")
+        }
+    }
+}
+
+extension AIServiceError {
+    var logDescription: String {
+        switch self {
+        case .generationFailed(let underlying):
+            return "AI generation failed [ref:\(Self.errorFingerprint(for: underlying))]"
+        default:
+            return localizedDescription
+        }
+    }
+
+    private static func errorFingerprint(for message: String) -> String {
+        let digest = SHA256.hash(data: Data(message.utf8))
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return String(hex.prefix(12))
+    }
+}

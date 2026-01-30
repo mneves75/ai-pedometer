@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.mneves.aipedometer.refresh</string>
+		<string>com.mneves.aipedometer.processing</string>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>AI Pedometer</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.6.3</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>AppStoreID</key>
+	<string>$(APP_STORE_ID)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>AI Pedometer needs access to your step count and activity data to show your progress.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>AI Pedometer saves workouts to Apple Health to keep your records consistent.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AI Pedometer uses motion data to count your steps.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>health-updates</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+</dict>
+</plist>
