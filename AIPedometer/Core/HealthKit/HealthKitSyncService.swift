@@ -271,34 +271,31 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     
     private func syncDailyRecords(from startDate: Date, to endDate: Date) async throws {
         let currentGoal = goalService.currentGoal
-        
-        // Iterate day by day
-        var current = calendar.startOfDay(for: startDate)
-        let end = calendar.startOfDay(for: endDate)
-        
-        while current <= end {
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: current) ?? current
-            let goalForDay = goalService.goal(for: current) ?? currentGoal
-            
-            // Fetch from HealthKit
-            let steps = try await healthKitService.fetchSteps(from: current, to: dayEnd)
-            let distance = try await healthKitService.fetchDistance(from: current, to: dayEnd)
-            let floors = try await healthKitService.fetchFloors(from: current, to: dayEnd)
-            let calories = Double(steps) * AppConstants.Metrics.caloriesPerStep
-            
-            // Upsert to SwiftData
+        let settings = ActivitySettings.current(userDefaults: userDefaults)
+
+        let summaries = try await healthKitService.fetchDailySummaries(
+            from: startDate,
+            to: endDate,
+            activityMode: settings.activityMode,
+            distanceMode: settings.distanceMode,
+            manualStepLength: settings.manualStepLength,
+            dailyGoal: currentGoal
+        )
+
+        for summary in summaries {
+            let goalForDay = goalService.goal(for: summary.date) ?? currentGoal
+            let calories = Double(summary.steps) * AppConstants.Metrics.caloriesPerStep
+
             try upsertDailyRecord(
-                date: current,
-                steps: steps,
-                distance: distance,
-                floors: floors,
+                date: summary.date,
+                steps: summary.steps,
+                distance: summary.distance,
+                floors: summary.floors,
                 calories: calories,
                 goal: goalForDay
             )
-            
-            current = dayEnd
         }
-        
+
         try modelContext.save()
     }
     

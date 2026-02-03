@@ -23,6 +23,15 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         manualStepLength: Double,
         dailyGoal: Int
     )?
+    var fetchDailySummariesRangeCallCount = 0
+    var lastFetchDailySummariesRangeArgs: (
+        startDate: Date,
+        endDate: Date,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    )?
     var errorToThrow: (any Error)?
 
     func requestAuthorization() async throws {
@@ -82,6 +91,29 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         fetchDailySummariesCallCount += 1
         lastFetchDailySummariesArgs = (
             days: days,
+            activityMode: activityMode,
+            distanceMode: distanceMode,
+            manualStepLength: manualStepLength,
+            dailyGoal: dailyGoal
+        )
+        return dailySummariesToReturn
+    }
+
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    ) async throws -> [DailyStepSummary] {
+        if let error = errorToThrow {
+            throw error
+        }
+        fetchDailySummariesRangeCallCount += 1
+        lastFetchDailySummariesRangeArgs = (
+            startDate: startDate,
+            endDate: endDate,
             activityMode: activityMode,
             distanceMode: distanceMode,
             manualStepLength: manualStepLength,
@@ -443,6 +475,60 @@ struct StepTrackingServiceTests {
         #expect(service.todayDistance == 850.5)
         #expect(service.todayFloors == 3)
         #expect(service.todayCalories == Double(1234) * AppConstants.Metrics.caloriesPerStep)
+    }
+
+    @Test("Live updates keep HealthKit totals when HealthKit exceeds pedometer")
+    @MainActor
+    func liveUpdatesUseHealthKitWhenHigher() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        mockHealthKit.stepsToReturn = 8000
+        mockHealthKit.distanceToReturn = 1200
+        mockHealthKit.floorsToReturn = 6
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.start()
+
+        mockMotion.simulateLiveUpdate(PedometerSnapshot(steps: 7000, distance: 900, floorsAscended: 4))
+
+        #expect(service.todaySteps == 8000)
+        #expect(service.todayDistance == 1200)
+        #expect(service.todayFloors == 6)
+    }
+
+    @Test("Live updates keep pedometer totals when HealthKit lags")
+    @MainActor
+    func liveUpdatesUsePedometerWhenHigher() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        mockHealthKit.stepsToReturn = 3000
+        mockHealthKit.distanceToReturn = 400
+        mockHealthKit.floorsToReturn = 1
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.start()
+
+        mockMotion.simulateLiveUpdate(PedometerSnapshot(steps: 4500, distance: 650, floorsAscended: 2))
+
+        #expect(service.todaySteps == 4500)
+        #expect(service.todayDistance == 650)
+        #expect(service.todayFloors == 2)
     }
 
     @Test("Wheelchair mode uses HealthKit pushes and ignores live motion updates")

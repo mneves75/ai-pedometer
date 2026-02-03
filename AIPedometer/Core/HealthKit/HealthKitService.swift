@@ -10,6 +10,7 @@ protocol HealthKitServiceProtocol: Sendable {
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
+    func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
     func saveWorkout(_ session: WorkoutSession) async throws
 }
 
@@ -129,42 +130,107 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         manualStepLength: Double = AppConstants.Defaults.manualStepLengthMeters,
         dailyGoal: Int = AppConstants.defaultDailyGoal
     ) async throws -> [DailyStepSummary] {
+        guard days > 0 else { return [] }
         let now = Date.now
-        var summaries: [DailyStepSummary] = []
-        let builder = HealthKitSummaryBuilder(
+        let endDate = now
+        let endDay = calendar.startOfDay(for: now)
+        let startDay = calendar.date(byAdding: .day, value: -(days - 1), to: endDay) ?? endDay
+        return try await fetchDailySummaries(
+            from: startDay,
+            to: endDate,
             activityMode: activityMode,
             distanceMode: distanceMode,
             manualStepLength: manualStepLength,
             dailyGoal: dailyGoal
         )
+    }
 
-        // Fetch all days concurrently for better performance
-        try await withThrowingTaskGroup(of: (Int, DailyStepSummary).self) { group in
-            for offset in (0..<days).reversed() {
-                guard let date = calendar.date(byAdding: .day, value: -offset, to: now) else { continue }
-                let start = calendar.startOfDay(for: date)
-                let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
+        activityMode: ActivityTrackingMode = .steps,
+        distanceMode: DistanceEstimationMode = .automatic,
+        manualStepLength: Double = AppConstants.Defaults.manualStepLengthMeters,
+        dailyGoal: Int = AppConstants.defaultDailyGoal
+    ) async throws -> [DailyStepSummary] {
+        let startDay = calendar.startOfDay(for: startDate)
+        guard startDay <= endDate else { return [] }
+        let endDay = calendar.startOfDay(for: endDate)
 
-                group.addTask {
-                    let summary = try await builder.build(
-                        date: start,
-                        fetchSteps: { try await self.fetchSteps(from: start, to: end) },
-                        fetchWheelchairPushes: { try await self.fetchWheelchairPushes(from: start, to: end) },
-                        fetchDistance: { try await self.fetchDistance(from: start, to: end) },
-                        fetchFloors: { try await self.fetchFloors(from: start, to: end) }
-                    )
-                    return (offset, summary)
+        let activityType: HKQuantityTypeIdentifier = activityMode == .steps ? .stepCount : .pushCount
+        let activityTotals = try await fetchDailyTotals(
+            typeIdentifier: activityType,
+            unit: .count(),
+            from: startDay,
+            to: endDate
+        )
+
+        let distanceTotals: [Date: Double]
+        var distanceUnavailable = false
+        do {
+            distanceTotals = try await fetchDailyTotals(
+                typeIdentifier: .distanceWalkingRunning,
+                unit: .meter(),
+                from: startDay,
+                to: endDate
+            )
+        } catch {
+            distanceUnavailable = true
+            Loggers.health.warning("healthkit.distance_unavailable", metadata: [
+                "error": error.localizedDescription
+            ])
+            distanceTotals = [:]
+        }
+
+        let floorsTotals: [Date: Double]
+        var floorsUnavailable = false
+        do {
+            floorsTotals = try await fetchDailyTotals(
+                typeIdentifier: .flightsClimbed,
+                unit: .count(),
+                from: startDay,
+                to: endDate
+            )
+        } catch {
+            floorsUnavailable = true
+            Loggers.health.warning("healthkit.floors_unavailable", metadata: [
+                "error": error.localizedDescription
+            ])
+            floorsTotals = [:]
+        }
+
+        var summaries: [DailyStepSummary] = []
+        var current = startDay
+        while current <= endDay {
+            let activityCount = Int(activityTotals[current] ?? 0)
+
+            let distance: Double
+            switch distanceMode {
+            case .manual:
+                distance = Double(activityCount) * manualStepLength
+            case .automatic:
+                if distanceUnavailable {
+                    distance = Double(activityCount) * manualStepLength
+                } else {
+                    distance = distanceTotals[current] ?? 0
                 }
             }
 
-            // Collect results
-            var results: [(Int, DailyStepSummary)] = []
-            for try await result in group {
-                results.append(result)
-            }
+            let floors = floorsUnavailable ? 0 : Int(floorsTotals[current] ?? 0)
 
-            // Sort by offset (reversed) to maintain chronological order
-            summaries = results.sorted { $0.0 > $1.0 }.map(\.1)
+            summaries.append(
+                DailyStepSummary(
+                    date: current,
+                    steps: activityCount,
+                    distance: distance,
+                    floors: floors,
+                    calories: Double(activityCount) * AppConstants.Metrics.caloriesPerStep,
+                    goal: dailyGoal
+                )
+            )
+
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
         }
 
         return summaries
@@ -204,6 +270,54 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                     }
                 }
             }
+        }
+    }
+
+    private func fetchDailyTotals(
+        typeIdentifier: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [Date: Double] {
+        let calendar = calendar
+        let quantityType = HKQuantityType(typeIdentifier)
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
+        let anchorDate = calendar.startOfDay(for: startDate)
+        let interval = DateComponents(day: 1)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: quantityType,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum,
+                anchorDate: anchorDate,
+                intervalComponents: interval
+            )
+
+            query.initialResultsHandler = { _, collection, error in
+                if let error {
+                    if Self.isNoDataError(error) {
+                        continuation.resume(returning: [:])
+                        return
+                    }
+                    Loggers.health.error("healthkit.collection_query_failed", metadata: [
+                        "error": String(describing: error),
+                        "type": typeIdentifier.rawValue
+                    ])
+                    continuation.resume(throwing: HealthKitError.queryFailed)
+                    return
+                }
+
+                var totals: [Date: Double] = [:]
+                if let collection {
+                    collection.enumerateStatistics(from: anchorDate, to: endDate) { statistics, _ in
+                        let total = statistics.sumQuantity()?.doubleValue(for: unit) ?? 0
+                        totals[calendar.startOfDay(for: statistics.startDate)] = total
+                    }
+                }
+                continuation.resume(returning: totals)
+            }
+            healthStore.execute(query)
         }
     }
 }

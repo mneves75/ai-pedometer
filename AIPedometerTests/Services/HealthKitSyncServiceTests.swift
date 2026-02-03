@@ -153,9 +153,24 @@ struct HealthKitSyncServiceTests {
         modelContext.insert(StepGoal(dailySteps: 10000, startDate: today))
         try modelContext.save()
 
-        mockHealthKit.stepsToReturn = 5000
-        mockHealthKit.distanceToReturn = 1000
-        mockHealthKit.floorsToReturn = 2
+        mockHealthKit.dailySummariesToReturn = [
+            DailyStepSummary(
+                date: yesterday,
+                steps: 5000,
+                distance: 1000,
+                floors: 2,
+                calories: Double(5000) * AppConstants.Metrics.caloriesPerStep,
+                goal: 8000
+            ),
+            DailyStepSummary(
+                date: today,
+                steps: 7000,
+                distance: 1400,
+                floors: 3,
+                calories: Double(7000) * AppConstants.Metrics.caloriesPerStep,
+                goal: 10000
+            )
+        ]
         userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
 
         try await service.performIncrementalSync()
@@ -170,6 +185,22 @@ struct HealthKitSyncServiceTests {
 
         #expect(goalsByDate[yesterday] == 8000)
         #expect(goalsByDate[today] == 10000)
+    }
+
+    @Test("Sync requests daily summaries using current activity settings")
+    func syncUsesActivitySettingsForDailySummaries() async throws {
+        let (service, mockHealthKit, userDefaults, _) = makeTestEnvironment()
+        userDefaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
+        userDefaults.set(DistanceEstimationMode.manual.rawValue, forKey: AppConstants.UserDefaultsKeys.distanceEstimationMode)
+        userDefaults.set(0.85, forKey: AppConstants.UserDefaultsKeys.manualStepLengthMeters)
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+
+        try await service.performIncrementalSync()
+
+        let args = mockHealthKit.lastFetchDailySummariesRangeArgs
+        #expect(args?.activityMode == .wheelchairPushes)
+        #expect(args?.distanceMode == .manual)
+        #expect(args?.manualStepLength == 0.85)
     }
 
     @Test("AI context snapshot counts goal hits using historical goals")

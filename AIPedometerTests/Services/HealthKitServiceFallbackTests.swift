@@ -162,6 +162,17 @@ private final class FailingHealthKitService: HealthKitServiceProtocol {
         throw queryError
     }
 
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    ) async throws -> [DailyStepSummary] {
+        throw queryError
+    }
+
     func saveWorkout(_ session: WorkoutSession) async throws {
         throw queryError
     }
@@ -187,6 +198,14 @@ private final class SpyHealthKitService: HealthKitServiceProtocol {
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
     func fetchDailySummaries(
         days: Int,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    ) async throws -> [DailyStepSummary] { [] }
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
         activityMode: ActivityTrackingMode,
         distanceMode: DistanceEstimationMode,
         manualStepLength: Double,

@@ -60,14 +60,38 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
     ) async throws -> [DailyStepSummary] {
         guard days > 0 else { return [] }
         let today = calendar.startOfDay(for: now())
-        return (0..<days).reversed().compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+        let startDay = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
+        return try await fetchDailySummaries(
+            from: startDay,
+            to: now(),
+            activityMode: activityMode,
+            distanceMode: distanceMode,
+            manualStepLength: manualStepLength,
+            dailyGoal: dailyGoal
+        )
+    }
+
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    ) async throws -> [DailyStepSummary] {
+        let startDay = calendar.startOfDay(for: startDate)
+        guard startDay <= endDate else { return [] }
+        let endDay = calendar.startOfDay(for: endDate)
+
+        var summaries: [DailyStepSummary] = []
+        var current = startDay
+        while current <= endDay {
             let activityCount: Int
             switch activityMode {
             case .steps:
-                activityCount = steps(for: date, dailyGoal: dailyGoal)
+                activityCount = steps(for: current, dailyGoal: dailyGoal)
             case .wheelchairPushes:
-                activityCount = Int(Double(steps(for: date, dailyGoal: dailyGoal)) * 0.9)
+                activityCount = Int(Double(steps(for: current, dailyGoal: dailyGoal)) * 0.9)
             }
 
             let distance: Double
@@ -79,15 +103,22 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
             }
 
             let floors = max(activityCount / 500, 0)
-            return DailyStepSummary(
-                date: date,
-                steps: activityCount,
-                distance: distance,
-                floors: floors,
-                calories: Double(activityCount) * AppConstants.Metrics.caloriesPerStep,
-                goal: dailyGoal
+            summaries.append(
+                DailyStepSummary(
+                    date: current,
+                    steps: activityCount,
+                    distance: distance,
+                    floors: floors,
+                    calories: Double(activityCount) * AppConstants.Metrics.caloriesPerStep,
+                    goal: dailyGoal
+                )
             )
+
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
         }
+
+        return summaries
     }
 
     func saveWorkout(_ session: WorkoutSession) async throws {

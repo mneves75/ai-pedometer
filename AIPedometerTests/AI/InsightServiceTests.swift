@@ -458,6 +458,18 @@ private final class StubHealthKitService: HealthKitServiceProtocol, Sendable {
         return dailySummaries
     }
 
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    ) async throws -> [DailyStepSummary] {
+        fetchDailySummariesCallCount += 1
+        return dailySummaries
+    }
+
     func saveWorkout(_ session: WorkoutSession) async throws {}
 }
 

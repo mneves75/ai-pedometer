@@ -408,6 +408,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         healthKitDistance: Double,
         healthKitFloors: Int
     ) {
+        // Keep live updates at max(HealthKit, CMPedometer) to avoid double-counting Apple Watch steps.
         guard activitySettings.activityMode == .steps else {
             liveBaseline = nil
             pendingBaseline = nil

@@ -118,6 +118,35 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
     }
 
+    func fetchDailySummaries(
+        from startDate: Date,
+        to endDate: Date,
+        activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode,
+        manualStepLength: Double,
+        dailyGoal: Int
+    ) async throws -> [DailyStepSummary] {
+        try await fetchWithGracefulFallback(emptyValue: []) {
+            try await primary.fetchDailySummaries(
+                from: startDate,
+                to: endDate,
+                activityMode: activityMode,
+                distanceMode: distanceMode,
+                manualStepLength: manualStepLength,
+                dailyGoal: dailyGoal
+            )
+        } fakeData: {
+            try await demoService.fetchDailySummaries(
+                from: startDate,
+                to: endDate,
+                activityMode: activityMode,
+                distanceMode: distanceMode,
+                manualStepLength: manualStepLength,
+                dailyGoal: dailyGoal
+            )
+        }
+    }
+
     func saveWorkout(_ session: WorkoutSession) async throws {
         guard isSyncEnabled else {
             Loggers.health.info("healthkit.workout_save_skipped", metadata: ["reason": "sync_disabled"])

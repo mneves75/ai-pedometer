@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2] - 2026-02-03
+
+### Fixed
+
+- Hardened step merging to consistently prefer HealthKit totals and avoid Apple Watch double counting in live updates.
+- Stabilized MotionService delivery tests to remove flaky concurrency timing.
+- HealthKit daily summaries now use collection queries and sync respects activity settings (wheelchair/manual distance) to avoid mismatched counts.
+
+### Tests
+
+- Added StepTrackingService merge tests for HealthKit vs pedometer scenarios.
+- Extended sync coverage for activity settings and daily summaries.
+- Full unit suite now passes deterministically.
+
 ## [0.1] - 2026-01-29
 
 Initial public release.

@@ -226,6 +226,14 @@ final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
         manualStepLength _: Double,
         dailyGoal _: Int
     ) async throws -> [DailyStepSummary] { [] }
+    func fetchDailySummaries(
+        from _: Date,
+        to _: Date,
+        activityMode _: ActivityTrackingMode,
+        distanceMode _: DistanceEstimationMode,
+        manualStepLength _: Double,
+        dailyGoal _: Int
+    ) async throws -> [DailyStepSummary] { [] }
 
     func saveWorkout(_ session: WorkoutSession) async throws {
         _ = session
