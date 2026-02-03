@@ -43,78 +43,35 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     }
 
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double {
-        let distanceType = HKQuantityType(.distanceWalkingRunning)
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKStatisticsQuery(
-                quantityType: distanceType,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum
-            ) { _, statistics, error in
-                if let error {
-                    if Self.isNoDataError(error) {
-                        continuation.resume(returning: 0)
-                        return
-                    }
-                    Loggers.health.error("healthkit.distance_query_failed", metadata: ["error": String(describing: error)])
-                    continuation.resume(throwing: HealthKitError.queryFailed)
-                    return
-                }
-                let meters = statistics?.sumQuantity()?.doubleValue(for: .meter()) ?? 0
-                continuation.resume(returning: meters)
-            }
-            healthStore.execute(query)
-        }
+        try await fetchMergedSum(
+            type: .distanceWalkingRunning,
+            unit: .meter(),
+            from: startDate,
+            to: endDate,
+            errorLogEvent: "healthkit.distance_query_failed"
+        )
     }
 
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
-        let floorsType = HKQuantityType(.flightsClimbed)
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKStatisticsQuery(
-                quantityType: floorsType,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum
-            ) { _, statistics, error in
-                if let error {
-                    if Self.isNoDataError(error) {
-                        continuation.resume(returning: 0)
-                        return
-                    }
-                    Loggers.health.error("healthkit.floors_query_failed", metadata: ["error": String(describing: error)])
-                    continuation.resume(throwing: HealthKitError.queryFailed)
-                    return
-                }
-                let floors = statistics?.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                continuation.resume(returning: Int(floors))
-            }
-            healthStore.execute(query)
-        }
+        let floors = try await fetchMergedSum(
+            type: .flightsClimbed,
+            unit: .count(),
+            from: startDate,
+            to: endDate,
+            errorLogEvent: "healthkit.floors_query_failed"
+        )
+        return Int(floors)
     }
 
     private func fetchCumulativeCount(type: HKQuantityTypeIdentifier, from startDate: Date, to endDate: Date) async throws -> Int {
-        let quantityType = HKQuantityType(type)
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKStatisticsQuery(
-                quantityType: quantityType,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum
-            ) { _, statistics, error in
-                if let error {
-                    if Self.isNoDataError(error) {
-                        continuation.resume(returning: 0)
-                        return
-                    }
-                    Loggers.health.error("healthkit.query_failed", metadata: ["error": String(describing: error), "type": type.rawValue])
-                    continuation.resume(throwing: HealthKitError.queryFailed)
-                    return
-                }
-                let count = statistics?.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                continuation.resume(returning: Int(count))
-            }
-            healthStore.execute(query)
-        }
+        let total = try await fetchMergedSum(
+            type: type,
+            unit: .count(),
+            from: startDate,
+            to: endDate,
+            errorLogEvent: "healthkit.query_failed"
+        )
+        return Int(total)
     }
 
     nonisolated static func isNoDataError(_ error: any Error) -> Bool {
@@ -279,43 +236,123 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         from startDate: Date,
         to endDate: Date
     ) async throws -> [Date: Double] {
+        let samples = try await fetchQuantitySamples(
+            type: typeIdentifier,
+            from: startDate,
+            to: endDate,
+            errorLogEvent: "healthkit.daily_sample_query_failed"
+        )
+        if samples.isEmpty { return [:] }
+
+        let values = samples.map { sample in
+            HealthKitSampleValue(
+                start: sample.startDate,
+                end: sample.endDate,
+                value: sample.quantity.doubleValue(for: unit),
+                sourceBundleIdentifier: sample.sourceRevision.source.bundleIdentifier,
+                productType: sample.sourceRevision.productType,
+                deviceModel: sample.device?.model,
+                deviceName: sample.device?.name
+            )
+        }
+
         let calendar = calendar
-        let quantityType = HKQuantityType(typeIdentifier)
+        let result = await Task.detached {
+            HealthKitSampleMerger.mergeDailyTotals(
+                samples: values,
+                calendar: calendar,
+                from: startDate,
+                to: endDate
+            )
+        }.value
+
+        if result.daysWithMultipleSources > 0 {
+            Loggers.health.info("healthkit.source_merge_applied_daily", metadata: [
+                "type": typeIdentifier.rawValue,
+                "days_with_multiple_sources": "\(result.daysWithMultipleSources)",
+                "days_with_overlap": "\(result.daysWithOverlap)",
+                "total_days": "\(result.totalDays)",
+                "segments": "\(result.segmentCount)"
+            ])
+        }
+
+        return result.totals
+    }
+
+    private func fetchMergedSum(
+        type: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        from startDate: Date,
+        to endDate: Date,
+        errorLogEvent: String
+    ) async throws -> Double {
+        let samples = try await fetchQuantitySamples(
+            type: type,
+            from: startDate,
+            to: endDate,
+            errorLogEvent: errorLogEvent
+        )
+        if samples.isEmpty { return 0 }
+
+        let values = samples.map { sample in
+            HealthKitSampleValue(
+                start: sample.startDate,
+                end: sample.endDate,
+                value: sample.quantity.doubleValue(for: unit),
+                sourceBundleIdentifier: sample.sourceRevision.source.bundleIdentifier,
+                productType: sample.sourceRevision.productType,
+                deviceModel: sample.device?.model,
+                deviceName: sample.device?.name
+            )
+        }
+
+        let result = await Task.detached {
+            HealthKitSampleMerger.mergeTotal(samples: values)
+        }.value
+
+        if result.mergedSources {
+            Loggers.health.info("healthkit.source_merge_applied", metadata: [
+                "type": type.rawValue,
+                "source_count": "\(result.prioritiesPresent.count)",
+                "overlap_seconds": "\(result.overlapSeconds)",
+                "segments": "\(result.segmentCount)"
+            ])
+        }
+
+        return result.total
+    }
+
+    private func fetchQuantitySamples(
+        type: HKQuantityTypeIdentifier,
+        from startDate: Date,
+        to endDate: Date,
+        errorLogEvent: String
+    ) async throws -> [HKQuantitySample] {
+        let quantityType = HKQuantityType(type)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
-        let anchorDate = calendar.startOfDay(for: startDate)
-        let interval = DateComponents(day: 1)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
 
         return try await withCheckedThrowingContinuation { continuation in
-            let query = HKStatisticsCollectionQuery(
-                quantityType: quantityType,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum,
-                anchorDate: anchorDate,
-                intervalComponents: interval
-            )
-
-            query.initialResultsHandler = { _, collection, error in
+            let query = HKSampleQuery(
+                sampleType: quantityType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
                 if let error {
                     if Self.isNoDataError(error) {
-                        continuation.resume(returning: [:])
+                        continuation.resume(returning: [])
                         return
                     }
-                    Loggers.health.error("healthkit.collection_query_failed", metadata: [
+                    Loggers.health.error(errorLogEvent, metadata: [
                         "error": String(describing: error),
-                        "type": typeIdentifier.rawValue
+                        "type": type.rawValue
                     ])
                     continuation.resume(throwing: HealthKitError.queryFailed)
                     return
                 }
-
-                var totals: [Date: Double] = [:]
-                if let collection {
-                    collection.enumerateStatistics(from: anchorDate, to: endDate) { statistics, _ in
-                        let total = statistics.sumQuantity()?.doubleValue(for: unit) ?? 0
-                        totals[calendar.startOfDay(for: statistics.startDate)] = total
-                    }
-                }
-                continuation.resume(returning: totals)
+                let quantitySamples = samples as? [HKQuantitySample] ?? []
+                continuation.resume(returning: quantitySamples)
             }
             healthStore.execute(query)
         }

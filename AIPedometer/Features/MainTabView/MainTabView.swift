@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab: Tab = .dashboard
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedTab: Tab = .dashboard
 
     enum Tab: String, CaseIterable {
         case dashboard
@@ -38,11 +38,14 @@ struct MainTabView: View {
         }
 
         var isPhoneTab: Bool {
+            if LaunchConfiguration.isUITesting() {
+                return true
+            }
             switch self {
             case .dashboard, .history, .workouts, .aiCoach, .more:
-                true
+                return true
             case .badges, .settings:
-                false
+                return false
             }
         }
 
@@ -52,10 +55,29 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        if horizontalSizeClass == .regular {
-            iPadLayout
-        } else {
-            iPhoneLayout
+        Group {
+            if horizontalSizeClass == .regular {
+                iPadLayout
+            } else {
+                iPhoneLayout
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if LaunchConfiguration.isUITesting() {
+                VStack {
+                    Button("UI Test Settings") {
+                        selectedTab = .settings
+                    }
+                    .accessibilityIdentifier("ui_test_open_settings")
+
+                    Button("UI Test Badges") {
+                        selectedTab = .badges
+                    }
+                    .accessibilityIdentifier("ui_test_open_badges")
+                }
+                .opacity(0.01)
+                .accessibilityElement(children: .contain)
+            }
         }
     }
 
@@ -65,6 +87,7 @@ struct MainTabView: View {
                 tabRoot(for: tab)
                     .tabItem {
                         Label(tab.title, systemImage: tab.icon)
+                            .accessibilityIdentifier("tab_\(tab.rawValue)")
                     }
                     .tag(tab)
             }

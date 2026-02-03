@@ -2,199 +2,216 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Agent Notes
-Run notes are stored at `agent_planning/ultrawork-notes.txt` (append each run and reuse between sessions).
+## Run Notes
 
-For detailed guidelines (mission, quality gates, playbooks), see `AGENTS.md`.
+Append notes for each run in `agent_planning/ultrawork-notes.txt` (what worked, what didn’t, missing context) and reuse between sessions. Link: [agent_planning/ultrawork-notes.txt](agent_planning/ultrawork-notes.txt).
 
 ## Build Commands
 
 ```bash
 # Generate Xcode project (required after project.yml changes)
-# IMPORTANT: Always restore entitlements after — xcodegen resets them to empty dicts
+# CRITICAL: xcodegen resets entitlements to empty dicts — always restore after
 xcodegen generate && Scripts/restore-entitlements.sh
 
-# Build for simulator
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
+# Build for simulator (CI uses iPhone 17)
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # Run all tests
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
 
-# Run a single test file (Swift Testing)
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+# Run a single test file
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
   test -only-testing:AIPedometerTests/DailyStepCalculatorTests
 
-# Build and install on physical device ("My iPhone")
+# Run a single test method
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+  test -only-testing:AIPedometerTests/DailyStepCalculatorTests/testMergeSteps
+
+# Build and install on physical device ("My iPhone" — iPhone 17 Pro Max)
+# Note: xcodebuild uses native UDID, devicectl uses hashed UDID (same device)
   ~/Library/Developer/Xcode/DerivedData/AIPedometer-*/Build/Products/Debug-iphoneos/AIPedometer.app
-
-# Regenerate app icons
-swift Scripts/generate-app-icon.swift
-
-# Verify AGENTS.md sync with GUIDELINES-REF
-bash Scripts/check-agents-sync.sh
 ```
 
-If XcodeBuildMCP is available, prefer using MCP tools:
+If XcodeBuildMCP is available, prefer MCP tools (`build_run_sim`, `run_tests`).
+
+**CI pipeline** (`.github/workflows/ci.yml`): xcodegen generate → restore entitlements → build (DEBUG, no signing) → unit tests → UI tests. Runs on `macos-15` with Xcode 26.
+
+## Architecture
+
+### Targets
+
+| Target | Platform | Purpose |
+|--------|----------|---------|
+| `AIPedometer` | iOS 26+ | Main app |
+| `AIPedometerWatch` | watchOS 26+ | Companion watch app |
+| `AIPedometerWidgets` | iOS 26+ | Lock Screen + Home Screen widgets |
+| `AIPedometerTests` | iOS | Unit tests (Swift Testing) |
+| `AIPedometerUITests` | iOS | UI tests |
+
+All targets share code from `Shared/` (models, design system, utilities, resources).
+
+### Service Dependency Graph
+
 ```
-mcp__xcodebuildmcp__build_run_sim   # Build and run on simulator
-mcp__xcodebuildmcp__run_tests       # Run tests
-```
-
-**Device UDID formats** (same device, different tools):
-
-## Git Hooks
-
-Enable repo hooks for AGENTS.md sync enforcement:
-```bash
-git config core.hooksPath .githooks
-```
-
-## Architecture Overview
-
-### Dependency Graph
-
-```
-AIPedometerApp (entry point)
-    ├── AppStartupCoordinator   → one-time init (after onboarding)
-    ├── AppLifecycleCoordinator → scene phase transitions
-    ├── PersistenceController.shared → ModelContainer (SwiftData)
-    ├── StepTrackingService ← (HealthKitService, MotionService, SharedDataStore)
-    ├── FoundationModelsService → LanguageModelSession (Apple AI)
-    │   └── InsightService, CoachService, TrainingPlanService
-    ├── WorkoutSessionController ← (HealthKitService, LiveActivityManager)
-    ├── NotificationService / SmartNotificationService
-    ├── HealthKitSyncService ← (HealthKitService, SwiftData)
+AIPedometerApp.init()  ← creates all services, injects via .environment()
+    ├── AppStartupCoordinator   → one-time init (after onboarding, skipped in UI tests)
+    ├── AppLifecycleCoordinator → foreground refresh on .active scene phase
+    ├── PersistenceController.shared → SwiftData ModelContainer
+    ├── StepTrackingService ← (HealthKitServiceFallback, MotionService, SharedDataStore)
+    ├── FoundationModelsService → Apple Foundation Models (LanguageModelSession)
+    │   ├── InsightService   → daily step insights
+    │   ├── CoachService     → personalized coaching
+    │   └── TrainingPlanService → AI-generated training plans
+    ├── WorkoutSessionController ← (HealthKitServiceFallback, LiveActivityManager)
+    ├── HealthKitSyncService ← (HealthKitServiceFallback, SwiftData)
+    ├── BadgeService, NotificationService, SmartNotificationService
     ├── BackgroundTaskService ← StepTrackingService
-    ├── MetricKitService.shared (singleton)
-    └── WatchSyncService.shared
+    └── WatchSyncService.shared, MetricKitService.shared (singletons)
 ```
 
-All services are created in `AIPedometerApp.init()` and injected via `.environment()`. Views access them with `@Environment(ServiceType.self)`.
+Views access services with `@Environment(ServiceType.self)`.
 
-**Coordinators pattern**: `AppStartupCoordinator` handles one-time initialization after onboarding (background tasks, watch sync, tracking). `AppLifecycleCoordinator` handles foreground refresh on `.active` scene phase. Both use closure injection for testability.
+### Step Data Flow
 
-### Service Patterns
+The dashboard merges two data sources to avoid double-counting Apple Watch steps:
 
-**Protocol-first design**: Every service has a protocol suffix (e.g., `HealthKitServiceProtocol`) enabling test mocks. Services are `@MainActor @Observable` classes.
+```
+HealthKit (includes Watch)  ──┐
+                               ├── StepTrackingService.mergeSteps() → max(HK, pedometer)
+CMPedometer (iPhone only)  ───┘
+                                    ↓
+                              SharedDataStore (today's steps/goal)
+                                    ↓
+                        ┌─────────────────────────┐
+                        │ DashboardView (ring)     │
+                        │ InsightService (AI card) │
+                        │ Widgets (via App Group)  │
+                        └─────────────────────────┘
+```
 
-**Structured logging**: Use `Loggers.category.level("event.name", metadata: [...])`. Categories: `app`, `health`, `motion`, `tracking`, `workouts`, `badges`, `background`, `widgets`, `ai`, `sync`.
+### Demo Mode Architecture
 
-### SwiftData Schema
+`DemoModeStore` controls two independent toggles:
+- `isPremiumEnabled` — bypasses subscription checks (unlocks AI features)
+- `useFakeData` — switches to synthetic HealthKit data
 
-Models defined in `SchemaV1` (`AIPedometer/Core/Persistence/Migrations/ModelMigrationPlan.swift`):
-- `DailyStepRecord`, `StepGoal`, `Streak`, `EarnedBadge`
-- `WorkoutSession`, `TrainingPlanRecord`, `AuditEvent`
+`HealthKitServiceFallback` wraps the real `HealthKitService` and delegates to `DemoHealthKitService` when `useFakeData` is on. All services receive `HealthKitServiceFallback`, never the raw service.
 
-Persistence uses App Group (`group.com.mneves.aipedometer`) for widget/watch data sharing.
+### AI Data Confidence
 
-### AI Integration
+AI services use `DataConfidence.reliable` vs `.uncertain` to prevent hallucination. When confidence is uncertain (data not yet loaded, HealthKit unavailable), the system returns a fallback message instead of generating insights from stale data.
 
-`FoundationModelsService` wraps Apple's Foundation Models framework. It provides:
-- `respond(to:)` for text responses
-- `respond(to:as:)` for structured `Generable` types
-- `streamResponse(to:)` for streaming
-- Tool support via `configure(with:)`
+### Coordinator Pattern
 
-AI-related services (InsightService, CoachService, TrainingPlanService) compose this service with domain-specific prompts.
+Both coordinators use closure injection (no direct service references) for testability:
+- `AppStartupCoordinator` — runs once after onboarding: registers background tasks, starts watch sync, begins step tracking, performs initial HealthKit sync
+- `AppLifecycleCoordinator` — runs on each `.active` transition: refreshes authorizations, AI availability, today's data, foreground sync
 
-**DataConfidence pattern**: AI services use `DataConfidence.reliable` vs `.uncertain` to distinguish between confirmed zero-step data and unavailable/loading states. This prevents AI hallucination when data sources are unreliable—the system returns a fallback message instead of generating insights from potentially stale data.
+### Persistence
+
+SwiftData with dual-store strategy: primary store in App Group shared container (accessible by app, watch, widgets), fallback to Application Support, then in-memory. `PersistenceController.resetStore()` available for UI test state reset.
+
+Models in `SchemaV1` (`Core/Persistence/Migrations/ModelMigrationPlan.swift`): `DailyStepRecord`, `StepGoal`, `Streak`, `EarnedBadge`, `WorkoutSession`, `TrainingPlanRecord`, `AuditEvent`, `AIContextSnapshot`. All models use soft delete (`deletedAt: Date?`).
 
 ## Code Conventions
 
 ### Swift 6.2 Strict Concurrency
 
-All warnings are errors. Key settings from `project.yml`:
-- `SWIFT_STRICT_CONCURRENCY: complete`
-- `SWIFT_TREAT_WARNINGS_AS_ERRORS: YES`
-- `SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES` - requires `any` prefix for protocol existentials
-- `SWIFT_UPCOMING_FEATURE_GLOBAL_CONCURRENCY: YES` - global actor isolation enforcement
+All warnings are errors (`SWIFT_TREAT_WARNINGS_AS_ERRORS: YES`). Key constraints:
+- `SWIFT_STRICT_CONCURRENCY: complete` — full data-race safety
+- `SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES` — requires `any` prefix for protocol types used as values
+- Services must be `@MainActor @Observable`. Cross-isolation types must be `Sendable`.
+- Build configuration in `Config/*.xcconfig`, project definition in `project.yml`.
 
-Services must be `@MainActor` or properly isolated. Use `Sendable` for cross-isolation types. Build configuration lives in `Config/*.xcconfig`.
+### Protocol-First Design
+
+Every service has a protocol (e.g., `HealthKitServiceProtocol`). Mocks follow `Mock<ServiceName>` naming. Services are injected via `.environment()`, never instantiated in views.
 
 ### Testing
 
-Uses Swift Testing framework (`import Testing`, `@Test`, `#expect`). Example pattern:
-
-```swift
-@Test
-func descriptiveTestName() {
-    let sut = SystemUnderTest()
-    #expect(sut.result == expected)
-}
-
-// Table-driven tests with arguments
-@Test(arguments: [
-    (input: 0, expected: "0 steps"),
-    (input: 1000, expected: "1,000 steps"),
-])
-func formatsStepCount(input: Int, expected: String) {
-    #expect(formatSteps(input) == expected)
-}
-```
-
-Mocks follow naming convention: `Mock<ServiceName>` (e.g., `MockFoundationModelsService`).
+Swift Testing framework (`import Testing`, `@Test`, `#expect`). Prefer table-driven tests with `arguments:` for parameterized cases. Unit tests in `AIPedometerTests/`, UI tests in `AIPedometerUITests/`. Closure injection pattern for mocking coordinators (counter-based tracking, no heavy mock frameworks).
 
 ### Localization
 
-All user-facing strings go in `Shared/Resources/Localizable.xcstrings`. Currently supports:
-- English (en)
-- Portuguese Brazil (pt-BR)
+String Catalogs at `Shared/Resources/Localizable.xcstrings`. Supports English (en) and Portuguese Brazil (pt-BR). All user-facing strings use `String(localized:)`.
 
-### Shared Module
+### Logging
 
-`Shared/` contains cross-target code used by iOS app, watchOS, and widgets:
-- `Models/` - Data transfer types (`SharedStepData`, `WatchPayload`, etc.)
-- `DesignSystem/` - `DesignTokens`, `GlassModifiers`, `HapticService`
-- `Utilities/` - `Logger`, `Formatters`, `LaunchConfiguration`
-- `Extensions/` - Date, View, Int, Double helpers
-
-### Feature Organization
-
-Features in `AIPedometer/Features/` follow structure:
-```
-FeatureName/
-├── FeatureNameView.swift    # Main view
-└── Components/              # Feature-specific subviews (if needed)
-```
-
-Core services in `AIPedometer/Core/` organized by domain:
-```
-Core/
-├── AI/            # FoundationModelsService, InsightService, CoachService, TrainingPlanService
-├── Background/    # BackgroundTaskService for refresh/processing tasks
-├── Badges/        # BadgeService, achievement definitions
-├── Goals/         # GoalService, step goal management
-├── HealthKit/     # HealthKitService, authorization, sync
-├── Motion/        # MotionService, CoreMotion wrapper
-├── Notifications/ # NotificationService, SmartNotificationService
-├── Performance/   # MetricKitService for system metrics
-├── Persistence/   # SwiftData controller, models, migrations
-├── StepTracking/  # Main tracking service, calculators, aggregators
-├── WatchConnectivity/  # WatchSyncService
-└── Workouts/      # WorkoutSessionController, LiveActivityManager
-```
+`Loggers.category.level("event.name", metadata: [...])`. Categories: `app`, `health`, `motion`, `tracking`, `workouts`, `badges`, `background`, `widgets`, `ai`, `sync`.
 
 ## Signing & Entitlements
 
-**Bundle ID**: `com.mneves.aipedometer`
 
-Entitlements are defined in target-specific `.entitlements` files:
-- `AIPedometer/Resources/AIPedometer.entitlements` - HealthKit, App Groups
-- `AIPedometerWatch/Resources/AIPedometerWatch.entitlements` - HealthKit, App Groups
-- `AIPedometerWidgets/Resources/AIPedometerWidgets.entitlements` - App Groups only
+Three entitlements files (HealthKit + App Groups for app/watch, App Groups only for widgets). `xcodegen generate` **silently resets all entitlements to empty dicts** — always run `Scripts/restore-entitlements.sh` after. The CI workflow does this automatically.
 
-**Critical**: `xcodegen generate` resets all entitlements to empty `<dict/>`. Always run `Scripts/restore-entitlements.sh` after regenerating. The combined command `xcodegen generate && Scripts/restore-entitlements.sh` prevents silent HealthKit failures.
+App Group `group.com.mneves.aipedometer` enables data sharing between app, widgets, and watch.
 
 ## Common Pitfalls
 
-1. **Enum alignment**: AI-related enums (like `TrainingGoal`) must match between `AIGenerableModels.swift` and UI code. Case names are lowercase (`.reach10k` not `.reach10K`).
+1. **Entitlements wipe**: `xcodegen generate` alone = broken HealthKit. Always combine with `Scripts/restore-entitlements.sh`.
+2. **Enum alignment**: AI enums (e.g., `TrainingGoal`) must match between `AIGenerableModels.swift` and UI code. Cases are lowercase (`.reach10k` not `.reach10K`).
+3. **Protocol existentials**: Swift 6 requires `any` prefix — `any HealthKitServiceProtocol`, not `HealthKitServiceProtocol`.
+4. **Version sync**: Keep `MARKETING_VERSION` in `project.yml` aligned with `CHANGELOG.md`.
+5. **AI zero-step grounding**: When steps=0 with `.reliable` confidence, AI prompts must acknowledge inactivity — never fabricate achievements.
+7. **Simulator name**: CI uses `iPhone 17` — keep local commands consistent to avoid destination mismatches.
 
-2. **Protocol existentials**: Swift 6 requires `any` prefix for protocol types used as values (e.g., `any HealthKitServiceProtocol`).
+## Further Reading
 
-3. **@MainActor services**: All services are `@MainActor`. When accessing from non-isolated contexts, use `await MainActor.run { }`.
+| Document | Purpose |
+|----------|---------|
+| `AGENTS.md` | Agent guidelines, mandatory reading lists, quality gates |
+| `docs/agents/` | Detailed guides: project structure, build/dev, coding style, testing, git workflow |
+| `CONTRIBUTING.md` | Setup instructions, PR checklist |
+| `CHANGELOG.md` | Version history (keep aligned with `MARKETING_VERSION`) |
 
-4. **Version sync**: Keep `MARKETING_VERSION` in `project.yml` aligned with `CHANGELOG.md` version.
+## Workflow Orchestration
 
-5. **HealthKit fallback**: `HealthKitServiceFallback` wraps real HealthKit with demo mode support. When `DemoModeStore.useFakeData` is enabled, it returns synthetic data for testing.
+### 1. Plan Mode Default
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+- If something goes sideways, STOP and re-plan immediately — don't keep pushing
+- Use plan mode for verification steps, not just building
+- Write detailed specs upfront to reduce ambiguity
 
-6. **AI zero-step handling**: When step count is zero with `.reliable` confidence, AI must not hallucinate activity. Use explicit prompts that acknowledge inactivity rather than generating fictional insights.
+### 2. Subagent Strategy
+- Offload research, exploration, and parallel analysis to subagents to keep main context window clean
+- For complex problems, throw more compute at it via subagents
+- One task per subagent for focused execution
+
+### 3. Self-Improvement Loop
+- After ANY correction from the user: update `tasks/lessons.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review lessons at session start for relevant project
+
+### 4. Verification Before Done
+- Never mark a task complete without proving it works
+- Diff behavior between main and your changes when relevant
+- Ask yourself: "Would a staff engineer approve this?"
+- Run tests, check logs, demonstrate correctness
+
+### 5. Demand Elegance (Balanced)
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+- Skip this for simple, obvious fixes — don't over-engineer
+- Challenge your own work before presenting it
+
+### 6. Autonomous Bug Fixing
+- When given a bug report: just fix it. Don't ask for hand-holding
+- Point at logs, errors, failing tests → then resolve them
+- Zero context switching required from the user
+- Go fix failing CI tests without being told how
+
+## Task Management
+
+1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review to `tasks/todo.md`
+6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. No hacks. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.

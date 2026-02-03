@@ -9,6 +9,8 @@ struct AICoachView: View {
 
     var body: some View {
         coachContent
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("ai_coach_view")
             .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "AI Coach", comment: "AI Coach navigation title"))
             .navigationBarTitleDisplayMode(.inline)
@@ -26,6 +28,13 @@ struct AICoachView: View {
 
     private var coachContent: some View {
         VStack(spacing: 0) {
+            if LaunchConfiguration.isUITesting() {
+                // Stable UI test marker when AI availability hides the welcome copy.
+                Text("AI Coach Screen")
+                    .font(.caption2)
+                    .opacity(0.01)
+                    .accessibilityIdentifier("ai_coach_marker")
+            }
             if case .unavailable(let reason) = aiService.availability {
                 AIAvailabilityBanner(reason: reason)
                     .padding(DesignTokens.Spacing.md)

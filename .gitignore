@@ -108,6 +108,8 @@ agent_planning/
 .sisyphus/
 progress.md
 tests.json
+.osgrep
+output/
 notes/
 tasks/
 progress.txt

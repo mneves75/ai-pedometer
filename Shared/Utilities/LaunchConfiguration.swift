@@ -2,8 +2,28 @@ import Foundation
 import Observation
 
 enum LaunchConfiguration {
+    private static let uiTestingArgument = "-ui-testing"
+    private static let uiTestingEnvironmentKey = "UI_TESTING"
+
     static func isUITesting(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        arguments.contains("-ui-testing")
+        isUITesting(
+            arguments: arguments,
+            environment: ProcessInfo.processInfo.environment
+        )
+    }
+
+    static func isUITesting(
+        arguments: [String],
+        environment: [String: String]
+    ) -> Bool {
+        if arguments.contains(uiTestingArgument) {
+            return true
+        }
+        if let envValue = environment[uiTestingEnvironmentKey] {
+            let normalizedValue = envValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return normalizedValue == "1" || normalizedValue == "true"
+        }
+        return false
     }
 
     static func shouldResetState(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {

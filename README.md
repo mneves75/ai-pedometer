@@ -102,7 +102,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.2
+**Current**: 0.3
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
