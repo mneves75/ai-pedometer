@@ -43,4 +43,24 @@ struct AIServiceErrorTests {
         #expect(log.contains("ref:"))
         #expect(!log.contains("Socket"))
     }
+
+    @Test("Partial response notice is specific for generation failures")
+    func partialResponseNoticeGenerationFailed() {
+        let notice = AIServiceError.generationFailed(underlying: "Socket closed").partialResponseNotice
+        let expected = String(
+            localized: "The response was interrupted and may be incomplete. Try again to continue.",
+            comment: "Inline warning for partial AI response interrupted by generation failure"
+        )
+        #expect(notice == expected)
+    }
+
+    @Test("Partial response notice is specific for token limit interruptions")
+    func partialResponseNoticeTokenLimit() {
+        let notice = AIServiceError.tokenLimitExceeded.partialResponseNotice
+        let expected = String(
+            localized: "The response hit the conversation limit and may be incomplete. Start a new conversation to continue.",
+            comment: "Inline warning for partial AI response interrupted by token/context limit"
+        )
+        #expect(notice == expected)
+    }
 }

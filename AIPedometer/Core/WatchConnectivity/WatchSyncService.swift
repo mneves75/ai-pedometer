@@ -6,6 +6,8 @@ import WatchConnectivity
 final class WatchSyncService: NSObject, WCSessionDelegate {
     static let shared = WatchSyncService()
 
+    private var lastQueuedTransferAt: Date?
+
     private override init() {
         super.init()
     }
@@ -31,7 +33,31 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         )
         do {
             let encoded = try JSONEncoder().encode(payload)
-            session.transferUserInfo([WatchPayload.transferKey: encoded])
+            // Always update application context with the latest snapshot (overwrites previous).
+            do {
+                try session.updateApplicationContext([WatchPayload.transferKey: encoded])
+            } catch {
+                Loggers.sync.warning("watch.update_application_context_failed", metadata: [
+                    "error": error.localizedDescription
+                ])
+            }
+
+            // If reachable, push the snapshot immediately for best UX.
+            if session.isReachable {
+                session.sendMessage([WatchPayload.transferKey: encoded], replyHandler: nil) { error in
+                    Loggers.sync.warning("watch.send_message_failed", metadata: [
+                        "error": error.localizedDescription
+                    ])
+                }
+            }
+
+            // Queue userInfo as a durability mechanism, but throttle to avoid an unbounded queue.
+            let now = Date.now
+            let minInterval: TimeInterval = 10 * 60
+            if lastQueuedTransferAt == nil || now.timeIntervalSince(lastQueuedTransferAt ?? .distantPast) >= minInterval {
+                session.transferUserInfo([WatchPayload.transferKey: encoded])
+                lastQueuedTransferAt = now
+            }
         } catch {
             Loggers.sync.error("watch.payload_encode_failed", metadata: [
                 "error": error.localizedDescription

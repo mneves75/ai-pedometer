@@ -1,11 +1,10 @@
 import SwiftUI
 import SwiftData
-import UIKit
 
 struct TrainingPlansView: View {
+    @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @Environment(TrainingPlanService.self) private var planService
     @Environment(FoundationModelsService.self) private var aiService
-    @Environment(\.openURL) private var openURL
 
     @Query(
         filter: #Predicate<TrainingPlanRecord> { $0.deletedAt == nil },
@@ -14,12 +13,17 @@ struct TrainingPlansView: View {
     ) private var plans: [TrainingPlanRecord]
 
     @State private var showingCreateSheet = false
+    
+    private var activityMode: ActivityTrackingMode {
+        ActivityTrackingMode(rawValue: activityModeRaw) ?? .steps
+    }
 
     var body: some View {
         ZStack {
             content
         }
-        .accessibilityIdentifier("training_plans_screen")
+        .uiTestMarker(A11yID.TrainingPlans.marker)
+        .accessibilityIdentifier(A11yID.TrainingPlans.marker)
         .navigationTitle(String(localized: "Training Plans", comment: "Training plans navigation title"))
         .toolbar {
             if aiService.availability.isAvailable {
@@ -29,6 +33,8 @@ struct TrainingPlansView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
+                    .accessibilityLabel(String(localized: "Create Plan", comment: "Accessibility label for create plan button"))
                 }
             }
         }
@@ -50,46 +56,50 @@ struct TrainingPlansView: View {
     }
 
     private func unavailableView(reason: AIUnavailabilityReason) -> some View {
-        ContentUnavailableView {
-            Label(String(localized: "AI Features Unavailable", comment: "AI unavailable title"), systemImage: "exclamationmark.triangle")
-        } description: {
-            Text(reason.userFacingMessage)
-        } actions: {
-            if reason.hasAction {
-                Button(reason.actionTitle) {
-                    guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
-                    openURL(settingsURL)
-                }
-                .buttonStyle(.borderedProminent)
-            }
+        VStack(spacing: DesignTokens.Spacing.lg) {
+            AIUnavailableStateView(reason: reason)
+            AIDisclaimerText()
+                .padding(.horizontal, DesignTokens.Spacing.md)
         }
+        .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
     private var emptyStateView: some View {
-        ContentUnavailableView {
-            Label(String(localized: "No Training Plans", comment: "Empty state title for training plans"), systemImage: "figure.walk.motion")
-        } description: {
-            Text(String(localized: "Create your first AI-powered training plan to start your fitness journey.", comment: "Empty state description for training plans"))
-        } actions: {
-            Button {
-                showingCreateSheet = true
-            } label: {
-                Text(String(localized: "Create Plan", comment: "Empty state button to create plan"))
+        VStack(spacing: DesignTokens.Spacing.md) {
+            ContentUnavailableView {
+                Label(String(localized: "No Training Plans", comment: "Empty state title for training plans"), systemImage: "figure.walk.motion")
+            } description: {
+                Text(String(localized: "Create your first AI-powered training plan to start your fitness journey.", comment: "Empty state description for training plans"))
+            } actions: {
+                Button {
+                    showingCreateSheet = true
+                } label: {
+                    Text(String(localized: "Create Plan", comment: "Empty state button to create plan"))
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
             }
-            .buttonStyle(.borderedProminent)
+
+            AIDisclaimerText()
+                .padding(.horizontal, DesignTokens.Spacing.md)
         }
     }
 
     private var plansList: some View {
         List {
-            ForEach(plans) { plan in
-                NavigationLink {
-                    PlanDetailView(plan: plan)
-                } label: {
-                    PlanRowView(plan: plan)
+            Section {
+                ForEach(plans) { plan in
+                    NavigationLink {
+                        PlanDetailView(plan: plan, unitName: activityMode.unitName)
+                    } label: {
+                        PlanRowView(plan: plan, unitName: activityMode.unitName)
+                    }
                 }
+                .onDelete(perform: deletePlans)
+            } footer: {
+                AIDisclaimerText()
+                    .padding(.vertical, DesignTokens.Spacing.xs)
             }
-            .onDelete(perform: deletePlans)
         }
     }
 
@@ -102,12 +112,13 @@ struct TrainingPlansView: View {
 
 struct PlanRowView: View {
     let plan: TrainingPlanRecord
+    let unitName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             HStack {
                 Text(plan.name)
-                    .font(.headline)
+                    .font(DesignTokens.Typography.headline)
 
                 Spacer()
 
@@ -115,8 +126,8 @@ struct PlanRowView: View {
             }
 
             Text(plan.planDescription)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
                 .lineLimit(2)
 
             HStack(spacing: DesignTokens.Spacing.md) {
@@ -132,23 +143,24 @@ struct PlanRowView: View {
                 if let target = plan.currentWeekTarget {
                     Label(
                         Localization.format(
-                            "%@ steps/day",
-                            comment: "Training plan daily target label",
-                            target.dailyStepTarget.formatted()
+                            "%@ %@ per day",
+                            comment: "Training plan daily target label with unit",
+                            target.dailyStepTarget.formatted(),
+                            unitName
                         ),
                         systemImage: "figure.walk"
                     )
                 }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .font(DesignTokens.Typography.caption)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .padding(.vertical, DesignTokens.Spacing.xs)
     }
 
     private var statusBadge: some View {
                 Text(plan.planStatus.localizedName)
-                    .font(.caption.weight(.medium))
+                    .font(DesignTokens.Typography.caption.weight(.medium))
                     .padding(.horizontal, DesignTokens.Spacing.sm)
                     .padding(.vertical, DesignTokens.Spacing.xxs)
                     .background(statusColor.opacity(0.2), in: Capsule())
@@ -157,9 +169,9 @@ struct PlanRowView: View {
 
     private var statusColor: Color {
         switch plan.planStatus {
-        case .active: .green
-        case .completed: .blue
-        case .paused: .orange
+        case .active: DesignTokens.Colors.success
+        case .completed: DesignTokens.Colors.accent
+        case .paused: DesignTokens.Colors.warning
         case .abandoned: .gray
         }
     }
@@ -170,16 +182,17 @@ struct PlanDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     let plan: TrainingPlanRecord
+    let unitName: String
 
     var body: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                     Text(plan.planDescription)
-                        .font(.subheadline)
+                        .font(DesignTokens.Typography.subheadline)
 
-                    ProgressView(value: plan.progressPercentage)
-                        .tint(.blue)
+                ProgressView(value: plan.progressPercentage)
+                        .tint(DesignTokens.Colors.accent)
 
                     HStack {
                         Text(
@@ -199,8 +212,8 @@ struct PlanDetailView: View {
                             )
                         )
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
 
@@ -209,7 +222,8 @@ struct PlanDetailView: View {
                     WeeklyTargetRow(
                         week: index + 1,
                         target: target,
-                        isCurrent: index + 1 == plan.currentWeek
+                        isCurrent: index + 1 == plan.currentWeek,
+                        unitName: unitName
                     )
                 }
             }
@@ -219,24 +233,28 @@ struct PlanDetailView: View {
                     Button(String(localized: "Pause Plan", comment: "Training plan pause button")) {
                         planService.pausePlan(plan)
                     }
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(DesignTokens.Colors.warning)
 
                     Button(String(localized: "Complete Plan", comment: "Training plan complete button")) {
                         planService.completePlan(plan)
                         dismiss()
                     }
-                    .foregroundStyle(.green)
+                    .foregroundStyle(DesignTokens.Colors.success)
                 } else if plan.planStatus == .paused {
                     Button(String(localized: "Resume Plan", comment: "Training plan resume button")) {
                         planService.resumePlan(plan)
                     }
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(DesignTokens.Colors.accent)
                 }
 
                 Button(String(localized: "Delete Plan", comment: "Training plan delete button"), role: .destructive) {
                     planService.deletePlan(plan)
                     dismiss()
                 }
+            }
+
+            Section {
+                AIDisclaimerText()
             }
         }
         .navigationTitle(plan.name)
@@ -248,6 +266,7 @@ struct WeeklyTargetRow: View {
     let week: Int
     let target: WeeklyTarget
     let isCurrent: Bool
+    let unitName: String
 
     var body: some View {
         HStack {
@@ -260,35 +279,41 @@ struct WeeklyTargetRow: View {
                             Int64(week)
                         )
                     )
-                        .font(.subheadline.weight(.medium))
+                        .font(DesignTokens.Typography.subheadline.weight(.medium))
 
                     if isCurrent {
                         Text(String(localized: "CURRENT", comment: "Current week badge"))
-                            .font(.caption2.weight(.bold))
+                            .font(DesignTokens.Typography.caption2.weight(.bold))
                             .padding(.horizontal, DesignTokens.Spacing.xs)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.2), in: Capsule())
-                            .foregroundStyle(.blue)
+                            .padding(.vertical, DesignTokens.Spacing.xxs)
+                            .background(DesignTokens.Colors.accentMuted, in: Capsule())
+                            .foregroundStyle(DesignTokens.Colors.accent)
                     }
                 }
 
                 Text(target.focusTip)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
 
             Spacer()
 
             VStack(alignment: .trailing) {
                 Text("\(target.dailyStepTarget.formatted())")
-                    .font(.headline.monospacedDigit())
-                Text(String(localized: "steps/day", comment: "Weekly target steps per day unit"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.headline.monospacedDigit())
+                Text(
+                    Localization.format(
+                        "%@ per day",
+                        comment: "Weekly target unit per day label",
+                        unitName
+                    )
+                )
+                    .font(DesignTokens.Typography.caption2)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
         .padding(.vertical, DesignTokens.Spacing.xs)
-        .listRowBackground(isCurrent ? Color.blue.opacity(0.1) : nil)
+        .listRowBackground(isCurrent ? DesignTokens.Colors.accentSoft : nil)
     }
 }
 
@@ -311,8 +336,8 @@ struct CreatePlanSheet: View {
                             VStack(alignment: .leading) {
                                 Text(goal.displayName)
                                 Text(goal.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .font(DesignTokens.Typography.caption)
+                                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                             }
                             .tag(goal)
                         }
@@ -331,8 +356,8 @@ struct CreatePlanSheet: View {
                     .pickerStyle(.segmented)
 
                     Text(selectedLevel.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.caption)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 } header: {
                     Text(String(localized: "Your fitness level", comment: "Training plan fitness level section header"))
                 }
@@ -354,9 +379,13 @@ struct CreatePlanSheet: View {
                 if let error {
                     Section {
                         Text(error.localizedDescription)
-                            .foregroundStyle(.red)
-                            .font(.subheadline)
+                            .foregroundStyle(DesignTokens.Colors.red)
+                            .font(DesignTokens.Typography.subheadline)
                     }
+                }
+
+                Section {
+                    AIDisclaimerText()
                 }
             }
             .navigationTitle(String(localized: "Create Plan", comment: "Create plan navigation title"))
@@ -376,14 +405,14 @@ struct CreatePlanSheet: View {
             .overlay {
                 if isGenerating {
                     ZStack {
-                        Color.black.opacity(0.3)
+                        DesignTokens.Colors.overlayDim
                             .ignoresSafeArea()
 
                         VStack(spacing: DesignTokens.Spacing.md) {
                             ProgressView()
                                 .controlSize(.large)
                             Text(String(localized: "Creating your personalized plan...", comment: "Training plan creation loading text"))
-                                .font(.subheadline)
+                                .font(DesignTokens.Typography.subheadline)
                         }
                         .padding(DesignTokens.Spacing.lg)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg))

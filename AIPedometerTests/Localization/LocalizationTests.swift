@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import AIPedometer
 
@@ -144,12 +145,29 @@ struct LocalizationTests {
             "HealthKit Sync is Off",
             "Enable HealthKit Sync in Settings to see your activity history.",
             "Night",
-            "AI generation failed. Please try again."
+            "AI generation failed. Please try again.",
+            "The response was interrupted and may be incomplete. Try again to continue.",
+            "The response hit the conversation limit and may be incomplete. Start a new conversation to continue."
         ]
 
         for key in keys {
             let localized = String(localized: String.LocalizationValue(key))
             #expect(!localized.isEmpty, "Localization key '\(key)' should exist in string catalog")
+        }
+    }
+
+    @Test("Partial response notices are translated in pt-BR")
+    func partialResponseNoticesAreTranslatedInPortugueseBrazil() {
+        let keys = [
+            "The response was interrupted and may be incomplete. Try again to continue.",
+            "The response hit the conversation limit and may be incomplete. Start a new conversation to continue."
+        ]
+        let locale = Locale(identifier: "pt-BR")
+
+        for key in keys {
+            let localized = String(localized: String.LocalizationValue(key), locale: locale)
+            #expect(!localized.isEmpty, "Localization key '\(key)' should resolve for pt-BR")
+            #expect(localized != key, "Localization key '\(key)' should have explicit pt-BR translation")
         }
     }
 

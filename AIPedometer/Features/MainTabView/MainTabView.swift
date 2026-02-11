@@ -38,9 +38,6 @@ struct MainTabView: View {
         }
 
         var isPhoneTab: Bool {
-            if LaunchConfiguration.isUITesting() {
-                return true
-            }
             switch self {
             case .dashboard, .history, .workouts, .aiCoach, .more:
                 return true
@@ -62,42 +59,25 @@ struct MainTabView: View {
                 iPhoneLayout
             }
         }
-        .overlay(alignment: .topLeading) {
-            if LaunchConfiguration.isUITesting() {
-                VStack {
-                    Button("UI Test Settings") {
-                        selectedTab = .settings
-                    }
-                    .accessibilityIdentifier("ui_test_open_settings")
-
-                    Button("UI Test Badges") {
-                        selectedTab = .badges
-                    }
-                    .accessibilityIdentifier("ui_test_open_badges")
-                }
-                .opacity(0.01)
-                .accessibilityElement(children: .contain)
-            }
-        }
     }
 
     private var iPhoneLayout: some View {
         TabView(selection: $selectedTab) {
             ForEach(Tab.allCases.filter(\.isPhoneTab), id: \.self) { tab in
-                tabRoot(for: tab)
-                    .tabItem {
-                        Label(tab.title, systemImage: tab.icon)
-                            .accessibilityIdentifier("tab_\(tab.rawValue)")
-                    }
-                    .tag(tab)
+                SwiftUI.Tab(value: tab) {
+                    tabRoot(for: tab)
+                } label: {
+                    Label(tab.title, systemImage: tab.icon)
+                        .accessibilityIdentifier(A11yID.tab(tab.rawValue))
+                }
             }
         }
-        .tint(.blue)
+        .tint(DesignTokens.Colors.accent)
         #if os(iOS)
         .toolbarBackground(.ultraThickMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         #endif
-        .accessibilityIdentifier("main_tab_bar")
+        .accessibilityIdentifier(A11yID.mainTabBar)
     }
 
     private var iPadLayout: some View {
@@ -110,21 +90,22 @@ struct MainTabView: View {
                         Label(tab.title, systemImage: tab.icon)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier(A11yID.tab(tab.rawValue))
                     .listRowBackground(
                         selectedTab == tab
-                            ? Color.accentColor.opacity(0.2)
+                            ? DesignTokens.Colors.accentMuted
                             : Color.clear
                     )
                 }
             }
-            .navigationTitle("AI Pedometer")
+            .navigationTitle(String(localized: "AI Pedometer", comment: "Sidebar title for main navigation"))
             .listStyle(.sidebar)
         } detail: {
             NavigationStack {
                 tabContent(for: selectedTab)
             }
         }
-        .accessibilityIdentifier("main_split_view")
+        .accessibilityIdentifier(A11yID.mainSplitView)
     }
 
     private func tabRoot(for tab: Tab) -> some View {

@@ -35,6 +35,11 @@ final class WatchSyncClient: NSObject, WCSessionDelegate {
               let decoded = WatchPayload.decode(from: data) else { return }
         Task { @MainActor in
             payload = decoded
+            Loggers.sync.info("watch.payload_received", metadata: [
+                "steps": "\(decoded.todaySteps)",
+                "goal": "\(decoded.goalSteps)",
+                "streak": "\(decoded.currentStreak)"
+            ])
         }
     }
 }

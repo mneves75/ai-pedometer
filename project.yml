@@ -6,6 +6,7 @@ options:
     watchOS: 26.0
   createIntermediateGroups: true
   xcodeVersion: "26.0"
+  postGenCommand: bash Scripts/restore-entitlements.sh
 configFiles:
   Debug: Config/Debug.xcconfig
   Release: Config/Release.xcconfig
@@ -22,8 +23,8 @@ settings:
     ENABLE_SWIFT_TESTING: YES
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     PRODUCT_BUNDLE_IDENTIFIER: com.mneves.aipedometer
-    MARKETING_VERSION: 0.3
-    CURRENT_PROJECT_VERSION: 3
+    MARKETING_VERSION: 0.4.20
+    CURRENT_PROJECT_VERSION: 23
     INFOPLIST_FILE: AIPedometer/Resources/Info.plist
     INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
     INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -58,7 +59,33 @@ settings:
     GCC_TREAT_WARNINGS_AS_ERRORS: YES
     CLANG_TREAT_WARNINGS_AS_ERRORS: YES
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
-packages: {}
+packages:
+  SwiftFastMarkdown:
+    url: https://github.com/mneves75/swift-fast-markdown
+    revision: e1df16c8c8fddb316940b0e61aa3e2acf4fe906b
+schemes:
+  AIPedometer:
+    shared: true
+    build:
+      targets:
+        AIPedometer:
+          - run
+          - test
+          - profile
+          - analyze
+          - archive
+        AIPedometerTests:
+          - test
+        AIPedometerUITests:
+          - test
+    run:
+      config: Debug
+      storeKitConfiguration: StoreKit/TipJar.storekit
+    test:
+      config: Debug
+      targets:
+        - AIPedometerTests
+        - AIPedometerUITests
 targets:
   AIPedometer:
     type: application
@@ -68,6 +95,8 @@ targets:
         excludes:
           - .osgrep/**
       - path: Shared
+      - path: StoreKit
+        buildPhase: none
     resources:
       - path: AIPedometer/Resources
       - path: Shared/Resources
@@ -81,7 +110,11 @@ targets:
         INFOPLIST_FILE: AIPedometer/Resources/Info.plist
         ENABLE_BACKGROUND_MODES: YES
         INFOPLIST_KEY_UIBackgroundModes: fetch processing health-updates
-    dependencies: []
+    dependencies:
+      - target: AIPedometerWidgets
+        embed: true
+      - package: SwiftFastMarkdown
+        product: SwiftFastMarkdown
   AIPedometerWidgets:
     type: app-extension
     platform: iOS
@@ -126,6 +159,8 @@ targets:
       - path: AIPedometerTests
     dependencies:
       - target: AIPedometer
+      - package: SwiftFastMarkdown
+        product: SwiftFastMarkdown
   AIPedometerUITests:
     type: bundle.ui-testing
     platform: iOS

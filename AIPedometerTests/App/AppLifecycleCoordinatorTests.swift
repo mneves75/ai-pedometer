@@ -17,7 +17,7 @@ struct AppLifecycleCoordinatorTests {
         var foregroundRefreshes = 0
 
         let coordinator = AppLifecycleCoordinator(
-            isUITesting: { false },
+            isTesting: { false },
             isOnboardingCompleted: { true },
             refreshHealthAuthorization: { healthAuthRefreshes += 1 },
             refreshMotionAuthorization: { motionAuthRefreshes += 1 },
@@ -69,7 +69,7 @@ struct AppLifecycleCoordinatorTests {
         var calls = 0
 
         let coordinator = AppLifecycleCoordinator(
-            isUITesting: { false },
+            isTesting: { false },
             isOnboardingCompleted: { false },
             refreshHealthAuthorization: { calls += 1 },
             refreshMotionAuthorization: { calls += 1 },
@@ -91,7 +91,7 @@ struct AppLifecycleCoordinatorTests {
         var calls = 0
 
         let coordinator = AppLifecycleCoordinator(
-            isUITesting: { true },
+            isTesting: { true },
             isOnboardingCompleted: { true },
             refreshHealthAuthorization: { calls += 1 },
             refreshMotionAuthorization: { calls += 1 },

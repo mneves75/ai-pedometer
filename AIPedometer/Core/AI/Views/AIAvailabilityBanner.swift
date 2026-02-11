@@ -11,19 +11,19 @@ struct AIAvailabilityBanner: View {
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             Image(systemName: iconName)
-                .font(.title2)
+                .font(DesignTokens.Typography.title2)
                 .foregroundStyle(iconColor)
                 .frame(width: 32)
             
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text(reason.userFacingMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
                 
                 if reason.hasAction {
                     Button(action: openSettings) {
                         Text(reason.actionTitle)
-                            .font(.subheadline.weight(.medium))
+                            .font(DesignTokens.Typography.subheadline.weight(.medium))
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
@@ -35,9 +35,10 @@ struct AIAvailabilityBanner: View {
             if let onDismiss {
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.title3)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
+                .frame(width: 44, height: 44)
                 .buttonStyle(.plain)
             }
         }
@@ -65,39 +66,39 @@ struct AIAvailabilityBanner: View {
     private var iconColor: Color {
         switch reason {
         case .deviceNotEligible:
-            .gray
+            DesignTokens.Colors.textSecondary
         case .appleIntelligenceNotEnabled:
-            .orange
+            DesignTokens.Colors.accent
         case .modelNotReady:
-            .blue
+            DesignTokens.Colors.accent
         case .unknown:
-            .yellow
+            DesignTokens.Colors.warning
         }
     }
     
     private var backgroundColor: Color {
         switch reason {
         case .deviceNotEligible:
-            Color(.systemGray6)
+            DesignTokens.Colors.surfaceElevated
         case .appleIntelligenceNotEnabled:
-            Color.orange.opacity(0.1)
+            DesignTokens.Colors.accentSoft
         case .modelNotReady:
-            Color.blue.opacity(0.1)
+            DesignTokens.Colors.accentSoft
         case .unknown:
-            Color.yellow.opacity(0.1)
+            DesignTokens.Colors.warning.opacity(0.12)
         }
     }
     
     private var borderColor: Color {
         switch reason {
         case .deviceNotEligible:
-            Color(.systemGray4)
+            DesignTokens.Colors.borderMuted
         case .appleIntelligenceNotEnabled:
-            Color.orange.opacity(0.3)
+            DesignTokens.Colors.accentMuted
         case .modelNotReady:
-            Color.blue.opacity(0.3)
+            DesignTokens.Colors.accentMuted
         case .unknown:
-            Color.yellow.opacity(0.3)
+            DesignTokens.Colors.warning.opacity(0.3)
         }
     }
     
@@ -114,12 +115,51 @@ struct AIAvailabilityInlineBanner: View {
     var body: some View {
         Label {
             Text(reason.userFacingMessage)
-                .font(.caption)
+                .font(DesignTokens.Typography.caption)
         } icon: {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.yellow)
+                .foregroundStyle(DesignTokens.Colors.warning)
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(DesignTokens.Colors.textSecondary)
+    }
+}
+
+/// Full-screen AI unavailable state with a friendly explanation and optional action
+struct AIUnavailableStateView: View {
+    let reason: AIUnavailabilityReason
+
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(spacing: DesignTokens.Spacing.lg) {
+            Image(systemName: "sparkles.slash")
+                .font(.system(size: DesignTokens.FontSize.md, weight: .semibold))
+                .foregroundStyle(DesignTokens.Colors.accent)
+
+            VStack(spacing: DesignTokens.Spacing.xs) {
+                Text(String(localized: "AI Features Unavailable", comment: "Title for AI unavailable state"))
+                    .font(DesignTokens.Typography.title3.bold())
+
+                Text(reason.userFacingMessage)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if reason.hasAction {
+                Button(reason.actionTitle) {
+                    openSettings()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(DesignTokens.Spacing.md)
+    }
+
+    private func openSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(settingsURL)
     }
 }
 
@@ -137,8 +177,8 @@ struct AILoadingView: View {
                 .controlSize(.small)
             
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .padding(DesignTokens.Spacing.md)
     }
@@ -150,7 +190,7 @@ struct AIAvailabilityModifier: ViewModifier {
     @State private var isDismissed = false
     
     func body(content: Content) -> some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             if case .unavailable(let reason) = availability, !isDismissed {
                 AIAvailabilityBanner(reason: reason) {
                     withAnimation(DesignTokens.Animation.smooth) {
@@ -177,30 +217,30 @@ extension View {
 
 #Preview("Device Not Eligible") {
     AIAvailabilityBanner(reason: .deviceNotEligible)
-        .padding()
+        .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Not Enabled") {
     AIAvailabilityBanner(reason: .appleIntelligenceNotEnabled)
-        .padding()
+        .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Model Not Ready") {
     AIAvailabilityBanner(reason: .modelNotReady)
-        .padding()
+        .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Dismissible") {
     AIAvailabilityBanner(reason: .appleIntelligenceNotEnabled) { }
-    .padding()
+    .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Inline") {
     AIAvailabilityInlineBanner(reason: .modelNotReady)
-        .padding()
+        .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Loading") {
     AILoadingView("Generating insight...")
-        .padding()
+        .padding(DesignTokens.Spacing.md)
 }

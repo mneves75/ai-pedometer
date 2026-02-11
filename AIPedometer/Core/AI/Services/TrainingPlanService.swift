@@ -302,7 +302,12 @@ private extension TrainingPlanService {
         2. Gradually increases intensity (5-10% per week)
         3. Includes specific daily step targets for each week
         4. Has clear milestones and checkpoints
-        
+
+        Safety constraints:
+        - Do not provide medical advice or discuss injuries/conditions
+        - Avoid weight-loss promises or numbers; keep weight-management guidance general
+        - Keep the tone encouraging and non-judgmental
+
         Keep the plan realistic and motivating.
         """
     }
@@ -334,7 +339,12 @@ private extension TrainingPlanService {
         - Opportunity to push if activity has been low
         - Best time of day based on patterns
         - Appropriate difficulty level
-        
+
+        Safety constraints:
+        - Do not provide medical advice
+        - Avoid weight-loss promises or numbers
+        - Keep the recommendation realistic and encouraging
+
         Provide a single, actionable workout recommendation.
         """
     }

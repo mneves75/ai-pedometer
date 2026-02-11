@@ -7,6 +7,7 @@
 ## CLI Build and Test
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' build`
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' test`
+- Full simulator E2E (iOS tests + widget build + watch build + screenshots): `bash Scripts/e2e-simulator.sh`
 
 ## Utilities
 - `swift Scripts/generate-app-icon.swift`: regenerate app icons (writes into each target's `AppIcon.appiconset`).

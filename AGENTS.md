@@ -6,6 +6,10 @@ AIPedometer is a Swift 6.2 SwiftUI iOS pedometer app with AI-powered insights, p
 ## Agent Notes
 Run notes are stored at `agent_planning/ultrawork-notes.txt` (append each run with what worked, what didn’t, and missing context; reuse between sessions). Link: [agent_planning/ultrawork-notes.txt](agent_planning/ultrawork-notes.txt).
 
+## Design Context
+For UI work, read: `DESIGN_SYSTEM.md`, `FRONTEND_GUIDELINES.md`, `APP_FLOW.md`, `PRD.md`, `TECH_STACK.md`, `LESSONS.md`, `progress.txt`.
+Use design tokens for color, spacing, and typography (no hardcoded values).
+
 ## Package Manager
 This project does not use npm; it relies on Xcode/XcodeGen tooling.
 
@@ -35,8 +39,64 @@ Essentials (apply to every task):
 - If instructions conflict, security rules take precedence.
 - Use `INDEX.md` or `GUIDELINES_INDEX.json` to locate task-specific guidance.
 - Do not create new markdown docs unless required by a behavior/API change or explicitly requested.
+- Run notes: write per-run notes to `notes/run-YYYY-MM-DD*.txt` and reuse them between sessions.
 - Treat this as a private repo: no public disclosure, use `SECURITY.md` for vulnerability reporting.
 - Follow `.github/pull_request_template.md` and keep review routing aligned with `OWNERS.md`/`.github/CODEOWNERS`.
+
+Common commands:
+- `bun --bun tools/kb-check-all.ts`
+- `bun --bun tools/kb-check-references.ts`
+- `bun --bun tools/kb-check-index.ts`
+- `bun --bun tools/kb-check-staleness.ts`
+- `bun --bun tools/readiness-check.ts --format=html --output=report.html`
+
+Additional kb-tools commands:
+- `bun --bun tools/kb-check-anchors.ts`
+- `bun --bun tools/kb-check-consistency.ts`
+- `bun --bun tools/kb-check-baselines.ts`
+- `bun --bun tools/kb-check-schemas.ts`
+- `bun --bun tools/kb-check-tldr.ts`
+- `bun --bun tools/kb-check-tldr-quality.ts`
+- `bun --bun tools/kb-check-deprecated.ts`
+- `bun --bun tools/kb-context-filter.ts [--project <path>] [--json]`
+- `bun --bun tools/kb-verify.ts <path>#Section`
+- `bun --bun tools/kb-proof-citations.ts --git`
+- `bun --bun tools/kb-bundle.ts`
+- `bun --bun tools/kb-backup.ts`
+- `bun --bun tools/kb-audit-log.ts`
+- `bun --bun tools/kb-audit-report.ts`
+- `bun --bun tools/kb-feedback-report.ts`
+- `bun tools/kb-update-baselines.ts [--apply|--major|--force]`
+
+Collaboration defaults (apply unless overridden by repo-specific docs):
+- Always read `AGENTS.md`, `CLAUDE.md`, `README.md`, and any `DOCS/GUIDELINES-REF/*` before making changes.
+- If guidelines conflict, call it out and ask which version to follow.
+- Prefer elegant, maintainable, production-grade solutions over quick fixes.
+- Complete the full requested scope; do not stop mid-plan.
+- Do not weaken tests to make them pass; fix the implementation instead.
+- Keep responses concise with a short change summary and next steps.
+- Use labeled assumptions instead of many clarifying questions; ask only when critical info is missing.
+- If you could not run a command or test, say so clearly.
+- When unsure, research using docs or the web instead of asking the user to look it up; prefer the latest available sources.
+- When the repo has tests, add or update tests for each fix or feature.
+- Run the most relevant tests and provide a brief verification checklist.
+- User-facing copy is typically `pt-BR`; follow the existing style.
+- If the feature renders Markdown from an LLM, keep output in Markdown format.
+- Use commits as checkpoints, especially after phases or milestones.
+- Update changelog or docs when the change affects behavior or usage.
+- Add secrets or generated files to `.gitignore` rather than committing them.
+
+"Figure It Out" Directive:
+You have unrestricted internet access, browser automation, and shell execution.
+
+When given a task:
+1. "I can't" is not in your vocabulary. If you don't know how, search for it. Read docs. Find tutorials. Reverse engineer it.
+2. "I don't know how" means "I haven't learned yet." So learn. Now. Web search, fetch documentation, inspect APIs, read source code.
+3. Before saying something is impossible, you must search for at least 3 different approaches, try at least 2 of them, and document why each failed with specific errors.
+4. Your job is to deliver results, not excuses. If Plan A fails, try B through Z. Then invent Plan AA.
+5. Assume everything is figureoutable. Someone on the internet has done it before. Find them. Learn from them. Adapt it.
+
+You are not a helpdesk. You are an operator. Operators ship.
 
 More detailed guidance (progressive disclosure):
 - Mission & mindset: `docs/agents/mission-mindset.md`

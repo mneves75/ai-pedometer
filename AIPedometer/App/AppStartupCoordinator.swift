@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 final class AppStartupCoordinator {
-    private let isUITesting: () -> Bool
+    private let isTesting: () -> Bool
     private let refreshHealthAuthorization: () -> Void
     private let refreshMotionAuthorization: () -> Void
     private let registerBackgroundTasks: () -> Void
@@ -14,7 +14,7 @@ final class AppStartupCoordinator {
     private var didStart = false
 
     init(
-        isUITesting: @escaping () -> Bool,
+        isTesting: @escaping () -> Bool,
         refreshHealthAuthorization: @escaping () -> Void,
         refreshMotionAuthorization: @escaping () -> Void,
         registerBackgroundTasks: @escaping () -> Void,
@@ -23,7 +23,7 @@ final class AppStartupCoordinator {
         startStepTracking: @escaping () async -> Void,
         performInitialSync: @escaping () async -> Void
     ) {
-        self.isUITesting = isUITesting
+        self.isTesting = isTesting
         self.refreshHealthAuthorization = refreshHealthAuthorization
         self.refreshMotionAuthorization = refreshMotionAuthorization
         self.registerBackgroundTasks = registerBackgroundTasks
@@ -35,7 +35,7 @@ final class AppStartupCoordinator {
 
     func startIfNeeded(onboardingCompleted: Bool) async {
         guard onboardingCompleted else { return }
-        guard !isUITesting() else { return }
+        guard !isTesting() else { return }
         guard !didStart else { return }
         didStart = true
 

@@ -5,13 +5,17 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
     private let calendar: Calendar
     private let now: () -> Date
     private let weekdayMultipliers: [Double] = [0.65, 0.8, 0.95, 1.1, 1.25, 1.05, 0.75]
+    private let isDeterministic: Bool
+    private let deterministicSteps: Int = 8_000
 
     init(
         calendar: Calendar = .autoupdatingCurrent,
-        now: @escaping () -> Date = { .now }
+        now: @escaping () -> Date = { .now },
+        isDeterministic: Bool = LaunchConfiguration.isDeterministicDemoDataEnabled()
     ) {
         self.calendar = calendar
         self.now = now
+        self.isDeterministic = isDeterministic
     }
 
     func requestAuthorization() async throws {
@@ -129,6 +133,10 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
     }
 
     private func steps(for date: Date, dailyGoal: Int) -> Int {
+        if isDeterministic {
+            // Deterministic demo data for tests/CI: stable across weekdays and time zones.
+            return deterministicSteps
+        }
         let weekdayIndex = max(calendar.component(.weekday, from: date) - 1, 0)
         let multiplier = weekdayMultipliers[weekdayIndex % weekdayMultipliers.count]
         let steps = Int((Double(dailyGoal) * multiplier).rounded())

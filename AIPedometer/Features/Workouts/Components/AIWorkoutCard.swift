@@ -5,6 +5,7 @@ struct AIWorkoutCard: View {
     let isLoading: Bool
     let error: AIServiceError?
     var onRefresh: () -> Void
+    let unitName: String
     var onStartWorkout: (AIWorkoutRecommendation) -> Void
     
     var body: some View {
@@ -20,9 +21,12 @@ struct AIWorkoutCard: View {
             } else {
                 emptyContent
             }
+
+            AIDisclaimerText()
+                .padding(.top, DesignTokens.Spacing.xs)
         }
         .padding(DesignTokens.Spacing.md)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg))
+        .glassCard()
         .animation(DesignTokens.Animation.smooth, value: isLoading)
     }
     
@@ -30,10 +34,10 @@ struct AIWorkoutCard: View {
         HStack {
             Label {
                 Text(String(localized: "Today's Plan", comment: "AI workout card header"))
-                    .font(.headline)
+                    .font(DesignTokens.Typography.headline)
             } icon: {
                 Image(systemName: "sparkles")
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(DesignTokens.Colors.accent)
             }
             
             Spacer()
@@ -41,9 +45,10 @@ struct AIWorkoutCard: View {
             if recommendation != nil && !isLoading {
                 Button(action: onRefresh) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
+                .frame(width: 44, height: 44)
                 .buttonStyle(.plain)
             }
         }
@@ -55,8 +60,8 @@ struct AIWorkoutCard: View {
                 .controlSize(.small)
             
             Text(String(localized: "Generating plan...", comment: "AI workout loading state"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, DesignTokens.Spacing.sm)
@@ -66,20 +71,20 @@ struct AIWorkoutCard: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Label {
                 Text(error.localizedDescription)
-                    .font(.subheadline)
+                    .font(DesignTokens.Typography.subheadline)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(DesignTokens.Colors.orange)
             }
             
             Button(action: onRefresh) {
                 Text(String(localized: "Try Again", comment: "Retry button"))
-                    .font(.subheadline.weight(.medium))
+                    .font(DesignTokens.Typography.subheadline.weight(.medium))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(DesignTokens.Colors.textSecondary)
     }
     
     private func recommendationContent(_ recommendation: AIWorkoutRecommendation) -> some View {
@@ -87,8 +92,8 @@ struct AIWorkoutCard: View {
             intentBadge(recommendation.intent)
             
             Text(recommendation.rationale)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
             
             statsRow(recommendation)
             
@@ -100,27 +105,27 @@ struct AIWorkoutCard: View {
                     Image(systemName: "figure.walk")
                     Text(String(localized: "Start This Workout", comment: "Start workout button"))
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(DesignTokens.Typography.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(DesignTokens.Spacing.sm)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.purple)
+            .tint(DesignTokens.Colors.accent)
         }
     }
     
     private func intentBadge(_ intent: WorkoutIntent) -> some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: intentIcon(intent))
-                .font(.title3)
+                .font(DesignTokens.Typography.title3)
                 .foregroundStyle(intentColor(intent))
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(intent.localizedTitle)
-                    .font(.subheadline.weight(.semibold))
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
                 Text(intent.localizedDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
     }
@@ -130,7 +135,7 @@ struct AIWorkoutCard: View {
             statItem(
                 icon: "figure.walk",
                 value: recommendation.targetSteps.formatted(),
-                label: String(localized: "steps", comment: "Steps unit")
+                label: unitName
             )
             
             statItem(
@@ -148,27 +153,32 @@ struct AIWorkoutCard: View {
             Spacer()
         }
         .padding(DesignTokens.Spacing.sm)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+        .background(DesignTokens.Colors.surfaceQuaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
     }
     
     private func statItem(icon: String, value: String, label: String) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: DesignTokens.Spacing.xxs) {
             Image(systemName: icon)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
             Text(value)
-                .font(.caption.weight(.semibold))
+                .font(DesignTokens.Typography.caption.weight(.semibold))
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(DesignTokens.Typography.caption2)
+                .foregroundStyle(DesignTokens.Colors.textTertiary)
         }
     }
     
     private var emptyContent: some View {
-        Text(String(localized: "No workout plan available", comment: "Empty state"))
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Label {
+            Text(String(localized: "No workout plan available", comment: "Empty state"))
+                .font(DesignTokens.Typography.subheadline)
+        } icon: {
+            Image(systemName: "sparkles")
+                .foregroundStyle(DesignTokens.Colors.accent)
+        }
+        .foregroundStyle(DesignTokens.Colors.textSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private func intentIcon(_ intent: WorkoutIntent) -> String {
@@ -182,9 +192,9 @@ struct AIWorkoutCard: View {
     
     private func intentColor(_ intent: WorkoutIntent) -> Color {
         switch intent {
-        case .maintain: return .blue
-        case .build: return .orange
-        case .explore: return .green
+        case .maintain: return DesignTokens.Colors.accent
+        case .build: return DesignTokens.Colors.orange
+        case .explore: return DesignTokens.Colors.green
         case .recover: return .pink
         }
     }
@@ -212,9 +222,10 @@ struct AIWorkoutCard: View {
         isLoading: false,
         error: nil,
         onRefresh: {},
+        unitName: ActivityTrackingMode.steps.unitName,
         onStartWorkout: { _ in }
     )
-    .padding()
+    .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Loading") {
@@ -223,9 +234,10 @@ struct AIWorkoutCard: View {
         isLoading: true,
         error: nil,
         onRefresh: {},
+        unitName: ActivityTrackingMode.steps.unitName,
         onStartWorkout: { _ in }
     )
-    .padding()
+    .padding(DesignTokens.Spacing.md)
 }
 
 #Preview("Error") {
@@ -234,7 +246,8 @@ struct AIWorkoutCard: View {
         isLoading: false,
         error: .sessionNotConfigured,
         onRefresh: {},
+        unitName: ActivityTrackingMode.steps.unitName,
         onStartWorkout: { _ in }
     )
-    .padding()
+    .padding(DesignTokens.Spacing.md)
 }

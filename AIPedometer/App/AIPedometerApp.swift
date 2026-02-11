@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import HealthKit
 import UIKit
 
 @main
@@ -20,6 +21,7 @@ struct AIPedometerApp: App {
     @State private var workoutSessionController: WorkoutSessionController
     @State private var notificationService: NotificationService
     @State private var smartNotificationService: SmartNotificationService
+    @State private var tipJarStore: TipJarStore
     @State private var startupCoordinator: AppStartupCoordinator
     @State private var lifecycleCoordinator: AppLifecycleCoordinator
     private let persistence = PersistenceController.shared
@@ -28,14 +30,30 @@ struct AIPedometerApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        if LaunchConfiguration.isUITesting() && LaunchConfiguration.shouldResetState() {
+        if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldResetState() {
             Self.resetStateForUITesting()
         }
-        if LaunchConfiguration.isUITesting() {
+        if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldSkipOnboarding() {
+            onboardingCompleted = true
+            UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
+        }
+        if LaunchConfiguration.isTesting(), let forced = LaunchConfiguration.forcedHealthKitSyncEnabled() {
+            // Keep UI tests deterministic: allow forcing the sync setting without relying on flakey toggle interactions.
+            UserDefaults.standard.set(forced, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+            if let suiteDefaults = UserDefaults(suiteName: AppConstants.appGroupID) {
+                suiteDefaults.set(forced, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+            }
+        }
+        if LaunchConfiguration.isTesting() {
+            Loggers.app.info(
+                "ui_testing.arguments",
+                metadata: ["args": ProcessInfo.processInfo.arguments.joined(separator: " ")]
+            )
             UIView.setAnimationsEnabled(false)
         }
         // Create shared dependencies once - single source of truth
-        let healthAuth = HealthKitAuthorization()
+        let sharedHealthStore = HKHealthStore()
+        let healthAuth = HealthKitAuthorization(healthStore: sharedHealthStore)
         let motionAuth = MotionAuthorization()
         let motionService = MotionService()
         let dataStore = SharedDataStore()
@@ -44,7 +62,14 @@ struct AIPedometerApp: App {
         let fmService = FoundationModelsService()
         let modelContext = PersistenceController.shared.container.mainContext
         let demoStore = DemoModeStore()
-        let healthKitService = HealthKitServiceFallback(demoModeStore: demoStore)
+        let primaryHealthKitService = HealthKitService(
+            healthStore: sharedHealthStore,
+            authorization: healthAuth
+        )
+        let healthKitService = HealthKitServiceFallback(
+            primary: primaryHealthKitService,
+            demoModeStore: demoStore
+        )
         let workoutMetricsSource: any WorkoutLiveMetricsSource
         let liveActivityManager: any LiveActivityManaging
         if LaunchConfiguration.isUITesting() {
@@ -62,6 +87,7 @@ struct AIPedometerApp: App {
         let trackingService = StepTrackingService(
             healthKitService: healthKitService,
             motionService: motionService,
+            healthAuthorization: healthAuth,
             goalService: goalService,
             badgeService: badges,
             dataStore: dataStore,
@@ -114,6 +140,7 @@ struct AIPedometerApp: App {
             healthKitService: healthKitService,
             goalService: goalService
         ))
+        _tipJarStore = State(initialValue: TipJarStore())
 
         _badgeService = State(initialValue: badges)
 
@@ -121,8 +148,8 @@ struct AIPedometerApp: App {
         backgroundService = backgroundTaskService
 
         _startupCoordinator = State(initialValue: AppStartupCoordinator(
-            isUITesting: { LaunchConfiguration.isUITesting() },
-            refreshHealthAuthorization: { healthAuth.refreshStatus() },
+            isTesting: { LaunchConfiguration.isTesting() },
+            refreshHealthAuthorization: { Task { await healthAuth.refreshStatus() } },
             refreshMotionAuthorization: { motionAuth.refreshStatus() },
             registerBackgroundTasks: { backgroundTaskService.registerTasks() },
             scheduleAppRefresh: { backgroundTaskService.scheduleAppRefresh() },
@@ -142,11 +169,11 @@ struct AIPedometerApp: App {
         ))
 
         _lifecycleCoordinator = State(initialValue: AppLifecycleCoordinator(
-            isUITesting: { LaunchConfiguration.isUITesting() },
+            isTesting: { LaunchConfiguration.isTesting() },
             isOnboardingCompleted: {
                 UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
             },
-            refreshHealthAuthorization: { healthAuth.refreshStatus() },
+            refreshHealthAuthorization: { Task { await healthAuth.refreshStatus() } },
             refreshMotionAuthorization: { motionAuth.refreshStatus() },
             refreshAIAvailability: { fmService.refreshAvailability() },
             refreshCoachSession: { coachService.refreshSession() },
@@ -194,6 +221,7 @@ struct AIPedometerApp: App {
                 .environment(demoModeStore)
                 .environment(notificationService)
                 .environment(smartNotificationService)
+                .environment(tipJarStore)
                 .modelContainer(persistence.container)
                 .task {
                     await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)

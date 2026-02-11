@@ -15,6 +15,14 @@ enum Formatters {
         return formatter
     }()
 
+    private static let stepLengthFormatter: MeasurementFormatter = {
+        let formatter = MeasurementFormatter()
+        formatter.unitStyle = .short
+        formatter.unitOptions = .providedUnit
+        formatter.numberFormatter.maximumFractionDigits = 2
+        return formatter
+    }()
+
     private static let caloriesFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -46,6 +54,11 @@ enum Formatters {
 
     static func durationString(seconds: TimeInterval) -> String {
         durationFormatter.string(from: max(seconds, 0)) ?? "0m"
+    }
+
+    static func stepLengthString(meters: Double) -> String {
+        let measurement = Measurement(value: meters, unit: UnitLength.meters)
+        return stepLengthFormatter.string(from: measurement)
     }
 }
 

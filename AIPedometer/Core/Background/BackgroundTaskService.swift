@@ -38,7 +38,8 @@ extension BGAppRefreshTask: AppRefreshTaskProtocol {}
 extension BGProcessingTask: ProcessingTaskProtocol {}
 
 /// BGTask types are reference-based and thread-safe for completion/expiration callbacks.
-/// Wrapping them avoids Sendable diagnostics when hopping to the MainActor.
+/// Safety invariant: the boxed task reference is only used on the MainActor after registration.
+/// TODO: Remove @unchecked Sendable when BackgroundTasks adopts Sendable or when isolation can avoid crossings.
 private struct BackgroundTaskBox<TaskType: BackgroundTaskProtocol>: @unchecked Sendable {
     let task: TaskType
 }

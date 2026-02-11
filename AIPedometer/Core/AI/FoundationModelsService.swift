@@ -37,6 +37,11 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     
     init(instructions: String = FoundationModelsService.defaultInstructions()) {
         self.instructions = instructions
+        if LaunchConfiguration.isUITesting() {
+            self.availability = .unavailable(reason: .deviceNotEligible)
+            self.session = nil
+            return
+        }
         self.availability = checkAvailability()
         if availability == .available {
             configureSession()
@@ -44,6 +49,11 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
 
     func refreshAvailability() {
+        if LaunchConfiguration.isUITesting() {
+            availability = .unavailable(reason: .deviceNotEligible)
+            session = nil
+            return
+        }
         let updatedAvailability = checkAvailability()
         if updatedAvailability != availability {
             availability = updatedAvailability
@@ -56,6 +66,9 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
     
     func checkAvailability() -> AIModelAvailability {
+        if LaunchConfiguration.isUITesting() {
+            return .unavailable(reason: .deviceNotEligible)
+        }
         let model = SystemLanguageModel.default
         switch model.availability {
         case .available:
@@ -193,6 +206,8 @@ extension FoundationModelsService {
         - Keep responses under 100 words unless detailed information is requested
         - Suggest achievable, incremental improvements
         - Never provide medical advice - recommend consulting a doctor for health concerns
+        - Avoid weight-loss promises or numbers; keep weight-management guidance general
+        - Do not claim specific health outcomes or diagnose conditions
         - Focus on walking, running, step counting, and general fitness
         - Use metric units (kilometers, meters) unless the user specifies otherwise
         """

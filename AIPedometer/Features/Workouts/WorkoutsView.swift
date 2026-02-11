@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct WorkoutsView: View {
+    @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(WorkoutSessionController.self) private var workoutController
@@ -16,6 +17,10 @@ struct WorkoutsView: View {
     @State private var workoutRecommendation: AIWorkoutRecommendation?
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
+    
+    private var activityMode: ActivityTrackingMode {
+        ActivityTrackingMode(rawValue: activityModeRaw) ?? .steps
+    }
 
     private struct RecommendationTrigger: Hashable {
         let aiAvailable: Bool
@@ -36,9 +41,9 @@ struct WorkoutsView: View {
             }
             .padding(.bottom, DesignTokens.Spacing.lg)
         }
-        .accessibilityIdentifier("workouts_scroll")
+        .accessibilityIdentifier(A11yID.Workouts.scroll)
         .toolbar(.hidden, for: .navigationBar)
-        .background(Color(.systemGroupedBackground))
+        .background(DesignTokens.Colors.surfaceGrouped)
         .sheet(isPresented: $workoutController.isPresenting) {
             ActiveWorkoutView()
                 .presentationDetents([.large])
@@ -57,6 +62,7 @@ struct WorkoutsView: View {
                 isLoading: isLoadingRecommendation,
                 error: recommendationError,
                 onRefresh: { Task { await loadWorkoutRecommendation(forceRefresh: true) } },
+                unitName: activityMode.unitName,
                 onStartWorkout: { recommendation in
                     startWorkout(targetSteps: recommendation.targetSteps)
                 }
@@ -83,7 +89,7 @@ struct WorkoutsView: View {
     private var headerSection: some View {
         HStack {
             Text(String(localized: "Workouts", comment: "Workouts screen title"))
-                .font(.largeTitle.bold())
+                .font(DesignTokens.Typography.largeTitle.bold())
             Spacer()
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
@@ -97,30 +103,31 @@ struct WorkoutsView: View {
         } label: {
             HStack(spacing: DesignTokens.Spacing.md) {
                 Image(systemName: "figure.walk.motion")
-                    .font(.title2)
-                    .foregroundStyle(.green)
+                    .font(DesignTokens.Typography.title2)
+                    .foregroundStyle(DesignTokens.Colors.success)
                     .frame(width: 44, height: 44)
-                    .background(.green.opacity(0.15), in: Circle())
+                    .background(DesignTokens.Colors.success.opacity(0.15), in: Circle())
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(String(localized: "Active Workout", comment: "Banner title for an active workout"))
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                        .font(DesignTokens.Typography.headline)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
                     Text(String(localized: "Tap to resume", comment: "Banner subtitle for resuming an active workout"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.up")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
             }
             .padding(DesignTokens.Spacing.md)
             .glassCard(interactive: true)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(A11yID.Workouts.activeWorkoutBanner)
         .padding(.horizontal, DesignTokens.Spacing.md)
         .accessibleCard(
             label: String(localized: "Active Workout", comment: "Accessibility label for active workout banner"),
@@ -131,25 +138,26 @@ struct WorkoutsView: View {
     private var startWorkoutSection: some View {
         VStack(spacing: DesignTokens.Spacing.lg) {
             Image(systemName: "figure.run.circle.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.blue.gradient)
+                .font(.system(size: DesignTokens.FontSize.xxl))
+                .foregroundStyle(DesignTokens.Colors.accent.gradient)
                 .applyIfNotUITesting { view in
                     view.symbolEffect(.breathe.pulse.byLayer)
                 }
 
             Text(String(localized: "Ready to start?", comment: "Workouts view prompt"))
-                .font(.title2.bold())
+                .font(DesignTokens.Typography.title2.bold())
 
             Button {
                 HapticService.shared.confirm()
                 startWorkout(targetSteps: nil)
             } label: {
                 Text(String(localized: "Start Workout", comment: "Button to begin a workout"))
-                    .font(.title3.bold())
+                    .font(DesignTokens.Typography.title3.bold())
                     .frame(maxWidth: .infinity)
                     .padding(DesignTokens.Spacing.md)
             }
             .glassButton()
+            .accessibilityIdentifier(A11yID.Workouts.startWorkoutButton)
             .padding(.horizontal, DesignTokens.Spacing.xl)
             .accessibleButton(
                 label: String(localized: "Start Workout", comment: "Button to begin a workout"),
@@ -164,7 +172,7 @@ struct WorkoutsView: View {
     private var trainingPlansSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(String(localized: "Training Plans", comment: "Section header for training plans"))
-                .font(.headline)
+                .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
             NavigationLink {
@@ -172,33 +180,33 @@ struct WorkoutsView: View {
             } label: {
                 HStack(spacing: DesignTokens.Spacing.md) {
                     Image(systemName: "calendar.badge.plus")
-                        .font(.title2)
-                        .foregroundStyle(.purple)
+                        .font(DesignTokens.Typography.title2)
+                        .foregroundStyle(DesignTokens.Colors.accent)
                         .frame(width: 44, height: 44)
-                        .background(.purple.opacity(0.15), in: Circle())
+                        .background(DesignTokens.Colors.accentSoft, in: Circle())
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                         Text(String(localized: "AI Training Plans", comment: "Training plans card title"))
-                            .font(.headline)
-                            .foregroundStyle(.primary)
+                            .font(DesignTokens.Typography.headline)
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
 
                         Text(String(localized: "Get personalized plans powered by AI", comment: "Training plans card subtitle"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(DesignTokens.Typography.subheadline)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
                 }
                 .padding(DesignTokens.Spacing.md)
                 .glassCard(interactive: true)
             }
             .buttonStyle(.plain)
             .padding(.horizontal, DesignTokens.Spacing.md)
-            .accessibilityIdentifier("training_plans_card")
+            .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
             .accessibleCard(
                 label: String(localized: "AI Training Plans", comment: "Training plans card title"),
                 hint: String(localized: "Opens AI-powered training plan creation", comment: "Accessibility hint")
@@ -211,7 +219,7 @@ struct WorkoutsView: View {
     private var recentWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(String(localized: "Recent Workouts", comment: "Workouts view section header"))
-                .font(.headline)
+                .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
             if recentWorkouts.isEmpty {
@@ -225,16 +233,16 @@ struct WorkoutsView: View {
     private var emptyWorkoutsView: some View {
         VStack(spacing: DesignTokens.Spacing.md) {
             Image(systemName: "figure.walk")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
+                .font(.system(size: DesignTokens.FontSize.xs))
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
 
             Text(String(localized: "No workouts yet", comment: "Empty state title"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
 
             Text(String(localized: "Start your first workout to see it here", comment: "Empty state description"))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -305,8 +313,8 @@ struct WorkoutCard: View {
     private var iconBadge: some View {
         HStack {
             Image(systemName: workout.type.icon)
-                .font(.title2)
-                .foregroundStyle(.white)
+                .font(DesignTokens.Typography.title2)
+                .foregroundStyle(DesignTokens.Colors.inverseText)
                 .padding(DesignTokens.Spacing.sm)
                 .background(workout.type.color.gradient, in: Circle())
             Spacer()
@@ -316,12 +324,12 @@ struct WorkoutCard: View {
     private var workoutInfo: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
             Text(workout.type.displayName)
-                .font(.headline)
+                .font(DesignTokens.Typography.headline)
             Text(formattedDuration)
-                .font(.subheadline.bold())
+                .font(DesignTokens.Typography.subheadline.bold())
             Text(formattedDate)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
     }
 
@@ -350,9 +358,9 @@ struct WorkoutCard: View {
 extension WorkoutType {
     var color: Color {
         switch self {
-        case .outdoorWalk, .indoorWalk: return .blue
-        case .outdoorRun, .indoorRun: return .orange
-        case .hike: return .green
+        case .outdoorWalk, .indoorWalk: return DesignTokens.Colors.accent
+        case .outdoorRun, .indoorRun: return DesignTokens.Colors.orange
+        case .hike: return DesignTokens.Colors.green
         }
     }
 }

@@ -34,7 +34,28 @@ xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 
 
 If XcodeBuildMCP is available, prefer MCP tools (`build_run_sim`, `run_tests`).
 
+## StoreKit Tip Jar
+
+- Product ID: `com.mneves.aipedometer.coffee`
+- StoreKit config for local testing: `StoreKit/TipJar.storekit` (referenced in the shared scheme)
+- The `StoreKit` directory is included in the main target's `sources` with `buildPhase: none` — this is required because xcodegen's `fileGroups` silently skips `.storekit` files
+- StoreKit Configuration only works when launched from Xcode (Cmd+R) — installing via `devicectl` does NOT activate the test config
+
 **CI pipeline** (`.github/workflows/ci.yml`): xcodegen generate → restore entitlements → build (DEBUG, no signing) → unit tests → UI tests. Runs on `macos-15` with Xcode 26.
+
+## Design Docs (UI Work Only)
+
+For any UI/UX changes, read these first:
+
+- `DESIGN_SYSTEM.md`
+- `FRONTEND_GUIDELINES.md`
+- `APP_FLOW.md`
+- `PRD.md`
+- `TECH_STACK.md`
+- `LESSONS.md`
+- `progress.txt`
+
+Use design tokens for all colors, spacing, and type (no hardcoded values).
 
 ## Architecture
 

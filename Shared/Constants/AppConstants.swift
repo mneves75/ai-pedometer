@@ -75,6 +75,10 @@ enum AppConstants {
         static let manualStepLengthMeters: Double = 0.762
     }
 
+    enum TipJar {
+        static let productID = "com.mneves.aipedometer.coffee"
+    }
+
     enum BackgroundTaskIdentifiers {
         static let refresh = "com.mneves.aipedometer.refresh"
         static let processing = "com.mneves.aipedometer.processing"

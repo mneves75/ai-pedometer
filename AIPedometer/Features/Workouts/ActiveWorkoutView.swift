@@ -20,8 +20,9 @@ struct ActiveWorkoutView: View {
 
             actionButtons
         }
+        .accessibilityIdentifier(A11yID.ActiveWorkout.view)
         .padding(DesignTokens.Spacing.md)
-        .background(Color(.systemGroupedBackground))
+        .background(DesignTokens.Colors.surfaceGrouped)
         .navigationTitle(statusTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -68,11 +69,8 @@ struct ActiveWorkoutView: View {
     private var statusHeader: some View {
         HStack {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(statusSubtitle)
-                    .font(.headline)
-                    .foregroundStyle(statusTint)
                 Text(workoutTypeTitle)
-                    .font(.title2.bold())
+                    .font(DesignTokens.Typography.title2.bold())
             }
 
             Spacer()
@@ -90,25 +88,25 @@ struct ActiveWorkoutView: View {
                 title: String(localized: "Steps", comment: "Workout metric title"),
                 value: metrics?.steps.formattedSteps ?? "0",
                 icon: "figure.walk",
-                tint: .green
+                tint: DesignTokens.Colors.green
             )
             metricCard(
                 title: String(localized: "Distance", comment: "Workout metric title"),
                 value: metrics?.distance.formattedDistance() ?? 0.formattedDistance(),
                 icon: "map",
-                tint: .blue
+                tint: DesignTokens.Colors.blue
             )
             metricCard(
                 title: String(localized: "Calories", comment: "Workout metric title"),
                 value: metrics?.calories.formattedCalories() ?? "0",
                 icon: "flame",
-                tint: .orange
+                tint: DesignTokens.Colors.orange
             )
             metricCard(
                 title: String(localized: "Elapsed", comment: "Workout metric title"),
                 value: elapsedText,
                 icon: "clock",
-                tint: .purple
+                tint: DesignTokens.Colors.purple
             )
         }
     }
@@ -120,14 +118,14 @@ struct ActiveWorkoutView: View {
         return VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack {
                 Text(String(localized: "Target", comment: "Workout target label"))
-                    .font(.headline)
+                    .font(DesignTokens.Typography.headline)
                 Spacer()
                 Text("\(currentSteps.formattedSteps)/\(targetSteps.formattedSteps)")
-                    .font(.subheadline.weight(.semibold))
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
             }
 
             ProgressView(value: progress)
-                .tint(.purple)
+                .tint(DesignTokens.Colors.accent)
                 .accessibleProgress(
                     label: String(localized: "Target progress", comment: "Accessibility label for target progress"),
                     value: progress
@@ -152,20 +150,22 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier(A11yID.ActiveWorkout.endButton)
         }
         .controlSize(.large)
+        .tint(DesignTokens.Colors.accent)
     }
 
     private func metricCard(title: String, value: String, icon: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
                 .foregroundStyle(tint)
-                .font(.title3)
+                .font(DesignTokens.Typography.title3)
             Text(value)
-                .font(.title3.bold())
+                .font(DesignTokens.Typography.title3.bold())
             Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DesignTokens.Spacing.md)
@@ -205,15 +205,15 @@ struct ActiveWorkoutView: View {
     private var statusTint: Color {
         switch workoutController.state {
         case .paused:
-            return .orange
+            return DesignTokens.Colors.warning
         default:
-            return .green
+            return DesignTokens.Colors.success
         }
     }
 
     private var statusBadge: some View {
         Text(statusSubtitle.uppercased())
-            .font(.caption.weight(.bold))
+            .font(DesignTokens.Typography.caption.weight(.bold))
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xxs)
             .background(statusTint.opacity(0.15), in: Capsule())

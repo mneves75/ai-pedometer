@@ -3,7 +3,11 @@ import Observation
 
 enum LaunchConfiguration {
     private static let uiTestingArgument = "-ui-testing"
+    private static let skipOnboardingArgument = "-skip-onboarding"
+    private static let forceHealthKitSyncOffArgument = "-force-healthkit-sync-off"
+    private static let forceHealthKitSyncOnArgument = "-force-healthkit-sync-on"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
+    private static let demoDeterministicEnvironmentKey = "DEMO_DETERMINISTIC"
 
     static func isUITesting(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
         isUITesting(
@@ -26,8 +30,30 @@ enum LaunchConfiguration {
         return false
     }
 
+    static func isRunningXCTest(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        // XCTest sets at least one of these when running unit tests.
+        if environment["XCTestConfigurationFilePath"] != nil { return true }
+        if environment["XCTestBundlePath"] != nil { return true }
+        if environment["XCTestSessionIdentifier"] != nil { return true }
+        return false
+    }
+
+    static func isTesting(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        isUITesting(arguments: arguments) || isRunningXCTest()
+    }
+
     static func shouldResetState(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
         arguments.contains("-reset-state")
+    }
+
+    static func shouldSkipOnboarding(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        arguments.contains(skipOnboardingArgument)
+    }
+
+    static func forcedHealthKitSyncEnabled(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
+        if arguments.contains(forceHealthKitSyncOffArgument) { return false }
+        if arguments.contains(forceHealthKitSyncOnArgument) { return true }
+        return nil
     }
 
     static var isDemoModeSupported: Bool {
@@ -36,6 +62,17 @@ enum LaunchConfiguration {
         #else
         false
         #endif
+    }
+
+    static func isDeterministicDemoDataEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        // Deterministic demo data is primarily for UI tests/snapshots, not unit tests.
+        // It can be forced on/off via env for debugging.
+        if let value = environment[demoDeterministicEnvironmentKey] {
+            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if normalized == "0" || normalized == "false" { return false }
+            if normalized == "1" || normalized == "true" { return true }
+        }
+        return isUITesting()
     }
 }
 
@@ -74,7 +111,7 @@ final class DemoModeStore {
     }
 
     /// Convenience property: true when demo mode should use synthetic data.
-    /// This is true when explicitly enabled OR during UI testing.
+    /// This is true when explicitly enabled OR during UI tests.
     var shouldUseFakeData: Bool {
         storedUseFakeData || LaunchConfiguration.isUITesting()
     }

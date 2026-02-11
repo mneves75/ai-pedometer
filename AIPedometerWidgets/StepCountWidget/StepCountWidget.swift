@@ -41,31 +41,31 @@ struct StepCountContentView: View {
                 ContainerRelativeShape()
                     .fill(.ultraThinMaterial)
 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
                     HStack {
                         Label(String(localized: "Steps", comment: "Widget label for steps"), systemImage: "figure.walk")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .font(DesignTokens.Typography.caption.weight(.semibold))
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
 
                         Spacer()
 
                         Text("\(ProgressClamp.percent(data.goalProgress))%")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.mint)
+                            .font(DesignTokens.Typography.caption.weight(.semibold))
+                            .foregroundStyle(DesignTokens.Colors.mint)
                     }
 
-                    Text("\(data.todaySteps)")
-                        .font(.system(size: geometry.size.height > 140 ? 36 : 30, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.primary)
+                    Text(data.todaySteps.formattedSteps)
+                        .font(.system(size: geometry.size.height > 140 ? DesignTokens.FontSize.widgetLg : DesignTokens.FontSize.widgetSm, weight: .heavy, design: .rounded))
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
                         .monospacedDigit()
 
                     ProgressView(value: clampedProgress)
-                        .tint(.mint)
+                        .tint(DesignTokens.Colors.mint)
 
                     HStack {
                         Label(String(localized: "Streak", comment: "Widget label for streak"), systemImage: "flame.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(DesignTokens.Typography.caption2)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
 
                         Text(
                             Localization.format(
@@ -74,8 +74,8 @@ struct StepCountContentView: View {
                                 Int64(data.currentStreak)
                             )
                         )
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .font(DesignTokens.Typography.caption2.weight(.semibold))
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
 
                         Spacer()
 
@@ -86,11 +86,11 @@ struct StepCountContentView: View {
                                 Int64(data.goalSteps)
                             )
                         )
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(DesignTokens.Typography.caption2)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
                 }
-                .padding()
+                .padding(DesignTokens.Spacing.md)
             }
         }
     }
@@ -102,16 +102,16 @@ struct StepCountPlaceholderView: View {
         ZStack {
             ContainerRelativeShape()
                 .fill(.ultraThinMaterial)
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
                 Text(String(localized: "Steps", comment: "Widget placeholder label for steps"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-                Text("8,888")
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                Text(8888.formattedSteps)
+                    .font(.system(size: DesignTokens.FontSize.widgetMd, weight: .heavy, design: .rounded))
 
                 ProgressView(value: 0.6)
-                    .tint(.mint)
+                    .tint(DesignTokens.Colors.mint)
 
                 Text(
                     Localization.format(
@@ -120,10 +120,10 @@ struct StepCountPlaceholderView: View {
                         Int64(10_000)
                     )
                 )
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption2)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
-            .padding()
+            .padding(DesignTokens.Spacing.md)
             .redacted(reason: .placeholder)
         }
     }

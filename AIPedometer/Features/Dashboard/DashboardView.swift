@@ -2,13 +2,19 @@ import SwiftUI
 
 struct DashboardView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
+    @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitSyncEnabled = true
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
+    @Environment(HealthKitAuthorization.self) private var healthAuthorization
 
     @State private var animateProgress = false
     @State private var dailyInsight: DailyInsight?
     @State private var insightError: AIServiceError?
+    @State private var showHealthHelp = false
+
+    private let progressRingSize: CGFloat = DesignTokens.Sizing.progressRing
+    private let progressRingLineWidth: CGFloat = DesignTokens.Sizing.progressRingLineWidth
 
     private struct LoadTrigger: Hashable {
         let activityModeRaw: String
@@ -32,19 +38,24 @@ struct DashboardView: View {
         ScrollView {
             VStack(spacing: DesignTokens.Spacing.lg) {
                 headerSection
+                healthPermissionBanner
                 aiInsightSection
                 progressRingSection
                 statsGridSection
             }
             .padding(.bottom, DesignTokens.Spacing.lg)
         }
-        .background(Color(.systemGroupedBackground))
+        .accessibilityIdentifier(A11yID.Dashboard.view)
+        .background(DesignTokens.Colors.surfaceGrouped)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(DesignTokens.Animation.smooth.delay(0.2)) {
                 animateProgress = true
             }
+        }
+        .sheet(isPresented: $showHealthHelp) {
+            HealthAccessHelpSheet()
         }
         .task(id: LoadTrigger(activityModeRaw: activityModeRaw)) {
             await trackingService.refreshTodayData()
@@ -55,6 +66,64 @@ struct DashboardView: View {
         )) {
             await loadDailyInsight()
         }
+    }
+
+    @ViewBuilder
+    private var healthPermissionBanner: some View {
+        if healthKitSyncEnabled && (healthAuthorization.status == .shouldRequest || trackingService.isUsingMotionFallback) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    Image(systemName: "heart.slash")
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    Text(String(localized: "Health Access Needed", comment: "Dashboard banner title when HealthKit is not authorized"))
+                        .font(DesignTokens.Typography.headline)
+                    Spacer()
+                }
+
+                Text(bannerDescription)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    if healthAuthorization.status == .shouldRequest {
+                        Button(String(localized: "Grant Access", comment: "Button to request Health access")) {
+                            Task {
+                                do {
+                                    try await healthAuthorization.requestAuthorization()
+                                } catch {
+                                    Loggers.health.warning("dashboard.healthkit_request_failed", metadata: [
+                                        "error": error.localizedDescription
+                                    ])
+                                }
+                                await healthAuthorization.refreshStatus()
+                                await trackingService.refreshTodayData()
+                            }
+                        }
+                        .glassButton()
+                    } else {
+                        Button(String(localized: "How to enable", comment: "Button to open Health access instructions")) {
+                            showHealthHelp = true
+                        }
+                        .glassButton()
+                    }
+
+                    Spacer()
+                }
+            }
+            .padding(DesignTokens.Spacing.md)
+            .glassCard(cornerRadius: DesignTokens.CornerRadius.xl, interactive: false)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        }
+    }
+
+    private var bannerDescription: String {
+        if trackingService.isUsingMotionFallback {
+            return String(
+                localized: "We're using Motion & Fitness data. Enable Health access to include Apple Watch steps and improve history.",
+                comment: "Dashboard banner description when falling back to Motion due to missing HealthKit read access"
+            )
+        }
+        return String(localized: "Enable Health access to improve history and insights.", comment: "Dashboard banner description when HealthKit not authorized")
     }
 
     // MARK: - AI Insight
@@ -93,10 +162,10 @@ struct DashboardView: View {
         HStack {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(String(localized: "Today", comment: "Dashboard header label for current day"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                 Text(String(localized: "Dashboard", comment: "Dashboard screen title"))
-                    .font(.largeTitle.bold())
+                    .font(DesignTokens.Typography.largeTitle.bold())
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "Today's Dashboard", comment: "Accessibility label for dashboard header"))
@@ -113,10 +182,12 @@ struct DashboardView: View {
             SettingsView()
         } label: {
             Image(systemName: "person.circle.fill")
-                .font(.title)
+                .font(DesignTokens.Typography.title)
                 .symbolRenderingMode(.hierarchical)
+                .frame(width: 44, height: 44)
         }
         .glassCard(cornerRadius: DesignTokens.CornerRadius.xxl, interactive: true)
+        .accessibilityIdentifier("profile_button")
         .accessibleButton(label: String(localized: "Profile", comment: "Accessibility label for profile button"), hint: String(localized: "Opens your profile settings", comment: "Accessibility hint for profile button"))
     }
 
@@ -128,7 +199,7 @@ struct DashboardView: View {
             progressRingForeground
             progressRingContent
         }
-        .frame(width: 250, height: 250)
+        .frame(width: progressRingSize, height: progressRingSize)
         .padding(.vertical, DesignTokens.Spacing.md)
         .accessibleProgress(
             label: Localization.format(
@@ -138,12 +209,14 @@ struct DashboardView: View {
             ),
             value: progress
         )
+        .uiTestMarker(A11yID.Dashboard.steps(trackingService.todaySteps))
+        .uiTestMarker(A11yID.Dashboard.goal(trackingService.currentGoal))
     }
 
     private var progressRingBackground: some View {
         Circle()
-            .stroke(lineWidth: 20)
-            .foregroundStyle(.quaternary)
+            .stroke(lineWidth: progressRingLineWidth)
+            .foregroundStyle(DesignTokens.Colors.textQuaternary)
     }
 
     private var progressRingForeground: some View {
@@ -151,21 +224,25 @@ struct DashboardView: View {
             .trim(from: 0, to: animateProgress ? progress : 0)
             .stroke(
                 AngularGradient(
-                    colors: [.blue, .purple, .blue],
+                    colors: [
+                        DesignTokens.Colors.accent,
+                        DesignTokens.Colors.accentMuted,
+                        DesignTokens.Colors.accent
+                    ],
                     center: .center,
                     startAngle: .degrees(-90),
                     endAngle: .degrees(270)
                 ),
-                style: StrokeStyle(lineWidth: 20, lineCap: .round)
+                style: StrokeStyle(lineWidth: progressRingLineWidth, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
-            .shadow(color: .blue.opacity(0.3), radius: 10)
+            .shadow(color: DesignTokens.Colors.accent.opacity(0.3), radius: 10)
     }
 
     private var progressRingContent: some View {
         VStack(spacing: DesignTokens.Spacing.xxs) {
-            Text("\(trackingService.todaySteps)")
-                .font(.system(size: 48, weight: .bold, design: .rounded))
+            Text(trackingService.todaySteps.formattedSteps)
+                .font(.system(size: DesignTokens.FontSize.md, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .contentTransition(.numericText())
             Text(
@@ -176,8 +253,8 @@ struct DashboardView: View {
                     activityMode.unitName
                 )
             )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .accessibilityHidden(true)
     }
@@ -209,19 +286,19 @@ struct DashboardView: View {
                 icon: activityMode.iconName,
                 title: String(localized: "Distance"),
                 value: trackingService.todayDistance.formattedDistance(),
-                color: .blue
+                color: DesignTokens.Colors.accent
             )
             StatCard(
                 icon: "flame.fill",
                 title: String(localized: "Calories", comment: "Dashboard stat card title"),
                 value: "\(trackingService.todayCalories.formattedCalories()) \(String(localized: "kcal", comment: "Calories unit"))",
-                color: .orange
+                color: DesignTokens.Colors.orange
             )
             StatCard(
                 icon: "figure.stairs",
                 title: String(localized: "Floors", comment: "Dashboard stat card title"),
                 value: "\(trackingService.todayFloors)",
-                color: .green
+                color: DesignTokens.Colors.green
             )
             StatCard(
                 icon: "flame.circle",
@@ -231,7 +308,7 @@ struct DashboardView: View {
                     comment: "The value of the stat card for the current streak.",
                     Int64(trackingService.currentStreak)
                 ),
-                color: .purple
+                color: DesignTokens.Colors.accent
             )
         }
     }
@@ -249,7 +326,7 @@ struct StatCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
-                .font(.title2)
+                .font(DesignTokens.Typography.title2)
                 .foregroundStyle(color)
                 .applyIfNotUITesting { view in
                     view.symbolEffect(.pulse, options: .repeating.speed(0.5))
@@ -257,11 +334,11 @@ struct StatCard: View {
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(value)
-                    .font(.title3.bold())
+                    .font(DesignTokens.Typography.title3.bold())
                     .monospacedDigit()
                 Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -275,6 +352,7 @@ struct StatCard: View {
     @MainActor in
     let demoModeStore = DemoModeStore()
     let healthKitService = HealthKitServiceFallback(demoModeStore: demoModeStore)
+    let healthAuthorization = HealthKitAuthorization()
     let fmService = FoundationModelsService()
     let persistence = PersistenceController.shared
     let goalService = GoalService(persistence: persistence)
@@ -284,11 +362,13 @@ struct StatCard: View {
         .environment(StepTrackingService(
             healthKitService: healthKitService,
             motionService: MotionService(),
+            healthAuthorization: healthAuthorization,
             goalService: goalService,
             badgeService: badgeService,
             dataStore: SharedDataStore(),
             streakCalculator: streakCalculator
         ))
+        .environment(healthAuthorization)
         .environment(fmService)
         .environment(InsightService(
             foundationModelsService: fmService,

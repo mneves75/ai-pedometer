@@ -23,6 +23,11 @@ struct StreakDataToolTests {
         let tool = StreakDataTool(suiteName: suiteName)
         let response = try await tool.call(arguments: StreakDataTool.Arguments())
 
-        #expect(response == "Current streak: 9 days")
+        let expected = Localization.format(
+            "Current streak: %lld days",
+            comment: "AI tool response for current streak",
+            Int64(9)
+        )
+        #expect(response == expected)
     }
 }

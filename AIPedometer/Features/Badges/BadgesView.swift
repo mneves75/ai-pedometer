@@ -3,6 +3,7 @@ import SwiftUI
 struct BadgesView: View {
     @Environment(BadgeService.self) private var badgeService
     @Environment(\.presentationMode) private var presentationMode
+    @State private var activeSheet: BadgeSheet?
     
     private let columns = [
         GridItem(.adaptive(minimum: 150), spacing: DesignTokens.Spacing.md)
@@ -35,7 +36,8 @@ struct BadgesView: View {
             earnedBadges: earnedBadges,
             lockedBadges: lockedBadges
         )
-            .background(Color(.systemGroupedBackground))
+        .uiTestMarker(A11yID.Badges.marker)
+        .background(DesignTokens.Colors.surfaceGrouped)
             .navigationTitle(String(localized: "Badges", comment: "Navigation title for badges"))
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(showsCustomBackButton)
@@ -51,16 +53,33 @@ struct BadgesView: View {
                     }
                 }
             }
-            .sheet(item: Binding(
-                get: { badgeService.celebratingBadge.map { CelebratingBadgeWrapper(type: $0) } },
-                set: { _ in badgeService.dismissCelebration() }
-            )) { wrapper in
-                if let celebration = badgeService.pendingCelebration {
+            .task {
+                updateCelebrationSheet()
+            }
+            .onChange(of: badgeService.pendingCelebration != nil) { _, _ in
+                updateCelebrationSheet()
+            }
+            .onChange(of: badgeService.celebratingBadge) { _, newValue in
+                if newValue == nil, case .celebration = activeSheet {
+                    activeSheet = nil
+                }
+                updateCelebrationSheet()
+            }
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .celebration(let badgeType, let celebration):
                     BadgeCelebrationSheet(
-                        badgeType: wrapper.type,
+                        badgeType: badgeType,
                         celebration: celebration,
-                        onDismiss: { badgeService.dismissCelebration() }
+                        onDismiss: {
+                            badgeService.dismissCelebration()
+                            activeSheet = nil
+                        }
                     )
+                case .details(let badge):
+                    BadgeDetailSheet(badge: badge) {
+                        activeSheet = nil
+                    }
                 }
             }
     }
@@ -94,7 +113,7 @@ struct BadgesView: View {
     private func headerSection(earnedCount: Int, totalCount: Int) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             Text(String(localized: "Badges", comment: "Badges screen title"))
-                .font(.largeTitle.bold())
+                .font(DesignTokens.Typography.largeTitle.bold())
             
             Text(
                 Localization.format(
@@ -104,8 +123,8 @@ struct BadgesView: View {
                     Int64(totalCount)
                 )
             )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
         .padding(.top, DesignTokens.Spacing.md)
@@ -117,7 +136,7 @@ struct BadgesView: View {
         if !earnedBadges.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 Text(String(localized: "Earned", comment: "Section header for earned badges"))
-                    .font(.headline)
+                    .font(DesignTokens.Typography.headline)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                 
                 badgesGrid(badges: earnedBadges)
@@ -131,7 +150,7 @@ struct BadgesView: View {
         if !lockedBadges.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 Text(String(localized: "Locked", comment: "Section header for locked badges"))
-                    .font(.headline)
+                    .font(DesignTokens.Typography.headline)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                 
                 badgesGrid(badges: lockedBadges)
@@ -158,9 +177,19 @@ struct BadgesView: View {
     private func badgesGridContent(badges: [BadgeDisplayItem]) -> some View {
         LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.md) {
             ForEach(badges) { badge in
-                BadgeCard(badge: badge)
+                BadgeCard(badge: badge) { selected in
+                    if badgeService.celebratingBadge == nil {
+                        activeSheet = .details(selected)
+                    }
+                }
             }
         }
+    }
+
+    private func updateCelebrationSheet() {
+        guard let badgeType = badgeService.celebratingBadge,
+              let celebration = badgeService.pendingCelebration else { return }
+        activeSheet = .celebration(badgeType, celebration)
     }
 }
 
@@ -184,15 +213,25 @@ struct BadgeDisplayItem: Identifiable {
     var icon: String { type.iconName }
 }
 
-private struct CelebratingBadgeWrapper: Identifiable {
-    let type: BadgeType
-    var id: String { type.rawValue }
+private enum BadgeSheet: Identifiable {
+    case celebration(BadgeType, AchievementCelebration)
+    case details(BadgeDisplayItem)
+
+    var id: String {
+        switch self {
+        case .celebration(let type, _):
+            return "celebration-\(type.rawValue)"
+        case .details(let badge):
+            return "details-\(badge.id)"
+        }
+    }
 }
 
 // MARK: - Badge Card
 
 struct BadgeCard: View {
     let badge: BadgeDisplayItem
+    let onSelect: (BadgeDisplayItem) -> Void
 
     var body: some View {
         Button {
@@ -201,6 +240,7 @@ struct BadgeCard: View {
             } else {
                 HapticService.shared.tap()
             }
+            onSelect(badge)
         } label: {
             VStack(spacing: DesignTokens.Spacing.sm) {
                 badgeIcon
@@ -210,8 +250,20 @@ struct BadgeCard: View {
             .frame(maxWidth: .infinity)
             .frame(height: 180)
             .glassCard(interactive: badge.isEarned)
-            .opacity(badge.isEarned ? 1.0 : 0.6)
-            .saturation(badge.isEarned ? 1.0 : 0.0)
+            .opacity(badge.isEarned ? 1.0 : 0.45)
+            .saturation(badge.isEarned ? 1.0 : 0.1)
+            .overlay(alignment: .topTrailing) {
+                if !badge.isEarned {
+                    Image(systemName: "lock.fill")
+                        .font(DesignTokens.Typography.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .padding(.horizontal, DesignTokens.Spacing.sm)
+                        .padding(.vertical, DesignTokens.Spacing.xxs)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(DesignTokens.Spacing.sm)
+                        .accessibilityHidden(true)
+                }
+            }
         }
         .buttonStyle(.plain)
         .accessibleCard(
@@ -232,8 +284,8 @@ struct BadgeCard: View {
 
     private var badgeIcon: some View {
         Image(systemName: badge.icon)
-            .font(.system(size: 40))
-            .foregroundStyle(badge.isEarned ? AnyShapeStyle(.yellow.gradient) : AnyShapeStyle(.secondary))
+            .font(.system(size: DesignTokens.FontSize.xs))
+            .foregroundStyle(badge.isEarned ? AnyShapeStyle(DesignTokens.Colors.yellow.gradient) : AnyShapeStyle(DesignTokens.Colors.textSecondary))
             .applyIfNotUITesting { view in
                 view.symbolEffect(.bounce, value: badge.isEarned)
             }
@@ -242,21 +294,78 @@ struct BadgeCard: View {
     private var badgeText: some View {
         VStack(spacing: DesignTokens.Spacing.xxs) {
             Text(badge.name)
-                .font(.headline)
+                .font(DesignTokens.Typography.headline)
                 .multilineTextAlignment(.center)
 
             Text(badge.description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
             
             if badge.isEarned, let earnedAt = badge.earnedAt {
                 Text(earnedAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(DesignTokens.Typography.caption2)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
             }
         }
+    }
+}
+
+// MARK: - Badge Detail Sheet
+
+struct BadgeDetailSheet: View {
+    let badge: BadgeDisplayItem
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: DesignTokens.Spacing.lg) {
+            Spacer()
+
+            Image(systemName: badge.icon)
+                .font(.system(size: DesignTokens.FontSize.xl))
+                .foregroundStyle(badge.isEarned ? AnyShapeStyle(DesignTokens.Colors.yellow.gradient) : AnyShapeStyle(DesignTokens.Colors.textSecondary))
+
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                Text(String(localized: "Badge Details", comment: "Badge detail sheet title"))
+                    .font(DesignTokens.Typography.title3.bold())
+
+                Text(badge.name)
+                    .font(DesignTokens.Typography.headline)
+
+                Text(badge.description)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, DesignTokens.Spacing.lg)
+
+            if badge.isEarned, let earnedAt = badge.earnedAt {
+                Text(
+                    Localization.format(
+                        "Earned on %@",
+                        comment: "Badge detail earned date",
+                        earnedAt.formatted(date: .abbreviated, time: .omitted)
+                    )
+                )
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textTertiary)
+            } else {
+                Text(String(localized: "Not earned yet", comment: "Badge detail locked message"))
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+            }
+
+            Button(String(localized: "Close", comment: "Badge detail close button")) {
+                HapticService.shared.tap()
+                onDismiss()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.bottom, DesignTokens.Spacing.xl)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -272,25 +381,25 @@ struct BadgeCelebrationSheet: View {
             Spacer()
             
             Image(systemName: badgeType.iconName)
-                .font(.system(size: 80))
-                .foregroundStyle(.yellow.gradient)
+                .font(.system(size: DesignTokens.FontSize.xxl))
+                .foregroundStyle(DesignTokens.Colors.yellow.gradient)
                 .applyIfNotUITesting { view in
                     view.symbolEffect(.bounce.up.byLayer, options: .repeating.speed(0.5))
                 }
             
             VStack(spacing: DesignTokens.Spacing.md) {
                 Text(badgeType.localizedTitle)
-                    .font(.title.bold())
+                    .font(DesignTokens.Typography.title.bold())
                 
                 Text(celebration.congratulation)
-                    .font(.body)
+                    .font(DesignTokens.Typography.body)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                 
                 Text(celebration.significance)
-                    .font(.subheadline)
+                    .font(DesignTokens.Typography.subheadline)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)
             
@@ -298,11 +407,11 @@ struct BadgeCelebrationSheet: View {
             
             VStack(spacing: DesignTokens.Spacing.sm) {
                 Text(String(localized: "Next Challenge", comment: "Badge celebration next challenge header"))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
                 
                 Text(celebration.nextChallenge)
-                    .font(.subheadline.weight(.medium))
+                    .font(DesignTokens.Typography.subheadline.weight(.medium))
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)

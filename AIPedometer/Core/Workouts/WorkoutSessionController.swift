@@ -121,6 +121,7 @@ final class WorkoutSessionController {
         accumulatedSteps = 0
         accumulatedDistance = 0
         transition(.start)
+        isPresenting = true
 
         do {
             try await healthKitService.requestAuthorization()
@@ -138,7 +139,6 @@ final class WorkoutSessionController {
         }
 
         transition(.prepared)
-        isPresenting = true
         liveActivityManager.start(type: type)
         startMetricsLoop()
         await refreshMetrics()

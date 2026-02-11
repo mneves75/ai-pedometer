@@ -39,12 +39,13 @@ struct HealthKitToolTests {
         let response = try await tool.call(arguments: .init(days: 7))
 
         let unitName = ActivityTrackingMode.wheelchairPushes.unitName
+        let goalPrefix = localizedPrefix(for: "Goal: %@ %@")
 
         #expect(healthKit.lastFetchDailySummariesArgs?.activityMode == .wheelchairPushes)
         #expect(healthKit.lastFetchDailySummariesArgs?.days == 7)
         #expect(response.contains("\(unitName.capitalized):"))
-        #expect(extractNumber(after: "Goal:", in: response) == 7_500)
-        #expect(line(after: "Goal:", in: response)?.contains(unitName) ?? false)
+        #expect(extractNumber(after: goalPrefix, in: response) == 7_500)
+        #expect(line(after: goalPrefix, in: response)?.contains(unitName) ?? false)
     }
 
     @Test("HealthKit data tool skips when sync disabled")
@@ -102,8 +103,9 @@ struct HealthKitToolTests {
         let response = try await tool.call(arguments: .init())
 
         let unitName = ActivityTrackingMode.wheelchairPushes.unitName
+        let goalPrefix = localizedPrefix(for: "Current daily goal: %@ %@")
 
-        #expect(extractNumber(after: "Current daily goal:", in: response) == 3_000)
+        #expect(extractNumber(after: goalPrefix, in: response) == 3_000)
         #expect(response.contains(unitName))
     }
 }
@@ -116,4 +118,12 @@ private func extractNumber(after prefix: String, in response: String) -> Int? {
     guard let line = line(after: prefix, in: response) else { return nil }
     let digits = line.filter(\.isNumber)
     return Int(digits)
+}
+
+private func localizedPrefix(for key: String.LocalizationValue) -> String {
+    let format = String(localized: key, comment: "Localization key for tests")
+    if let range = format.range(of: "%") {
+        return format[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
+    }
+    return format.trimmingCharacters(in: .whitespaces)
 }

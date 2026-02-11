@@ -203,6 +203,7 @@ private func makeService(
     let service = StepTrackingService(
         healthKitService: healthKit,
         motionService: motion,
+        healthAuthorization: HealthKitAuthorization(),
         goalService: goalService,
         badgeService: badgeService,
         dataStore: dataStore,
@@ -226,6 +227,7 @@ private func makeServiceWithStreakCalculator(
     let service = StepTrackingService(
         healthKitService: healthKit,
         motionService: motion,
+        healthAuthorization: HealthKitAuthorization(),
         goalService: goalService,
         badgeService: badgeService,
         dataStore: dataStore,
@@ -298,6 +300,32 @@ struct StepTrackingServiceTests {
         #expect(service.todayCalories == Double(8765) * AppConstants.Metrics.caloriesPerStep)
     }
 
+    @Test("Refresh today uses motion when HealthKit returns 0 but Motion has steps")
+    @MainActor
+    func refreshTodayUsesMotionWhenHealthKitReturnsZeroButMotionHasSteps() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.stepsToReturn = 0
+        mockMotion.snapshotToReturn = PedometerSnapshot(steps: 4321, distance: 1500.5, floorsAscended: 3)
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(mockHealthKit.fetchStepsCallCount == 1)
+        #expect(mockMotion.queryCallCount == 1)
+        #expect(service.isUsingMotionFallback == true)
+        #expect(service.todaySteps == 4321)
+        #expect(service.todayDistance == 1500.5)
+        #expect(service.todayFloors == 3)
+    }
+
     @Test("Refresh today unlocks step badges")
     @MainActor
     func refreshTodayUnlocksStepBadges() async {
@@ -312,6 +340,7 @@ struct StepTrackingServiceTests {
         let service = StepTrackingService(
             healthKitService: mockHealthKit,
             motionService: mockMotion,
+            healthAuthorization: HealthKitAuthorization(),
             goalService: GoalService(persistence: persistence),
             badgeService: badgeService,
             dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
@@ -343,6 +372,7 @@ struct StepTrackingServiceTests {
         let service = StepTrackingService(
             healthKitService: mockHealthKit,
             motionService: mockMotion,
+            healthAuthorization: HealthKitAuthorization(),
             goalService: GoalService(persistence: persistence),
             badgeService: badgeService,
             dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
@@ -1097,6 +1127,7 @@ struct DependencyInjectionTests {
         let service = StepTrackingService(
             healthKitService: mockHealthKit,
             motionService: mockMotion,
+            healthAuthorization: HealthKitAuthorization(),
             goalService: GoalService(persistence: persistence),
             badgeService: badgeService,
             dataStore: dataStore,
@@ -1127,6 +1158,7 @@ struct DependencyInjectionTests {
         let service1 = StepTrackingService(
             healthKitService: sharedHealthKit,
             motionService: mockMotion,
+            healthAuthorization: HealthKitAuthorization(),
             goalService: goalService,
             badgeService: badgeService,
             dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
@@ -1137,6 +1169,7 @@ struct DependencyInjectionTests {
         let service2 = StepTrackingService(
             healthKitService: sharedHealthKit,
             motionService: mockMotion,
+            healthAuthorization: HealthKitAuthorization(),
             goalService: goalService,
             badgeService: badgeService,
             dataStore: SharedDataStore(userDefaults: testDefaults.defaults),

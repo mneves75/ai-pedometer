@@ -12,46 +12,46 @@ struct StepSummaryWatchView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DesignTokens.Spacing.smPlus) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.15), lineWidth: 10)
+                    .stroke(DesignTokens.Colors.inverseStroke, lineWidth: 10)
 
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        AngularGradient(colors: [.mint, .cyan], center: .center),
+                        AngularGradient(colors: [DesignTokens.Colors.mint, DesignTokens.Colors.cyan], center: .center),
                         style: StrokeStyle(lineWidth: 10, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
 
-                VStack(spacing: 2) {
-                    Text("\(steps)")
-                        .font(.system(.title2, design: .rounded))
+                VStack(spacing: DesignTokens.Spacing.xxs) {
+                    Text(steps.formattedSteps)
+                        .font(DesignTokens.Typography.title2Rounded)
                         .fontWeight(.bold)
                         .monospacedDigit()
                     Text(String(localized: "steps", comment: "Watch steps unit"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.caption2)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
             .frame(height: 110)
 
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Label(String(localized: "Distance", comment: "Watch distance label"), systemImage: "figure.walk")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.caption2)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                     Text(distanceText)
-                        .font(.caption.weight(.semibold))
+                        .font(DesignTokens.Typography.caption.weight(.semibold))
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: DesignTokens.Spacing.xxs) {
                     Label(String(localized: "Streak", comment: "Watch streak label"), systemImage: "flame.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.caption2)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                     Text(
                         Localization.format(
                             "%lld days",
@@ -59,11 +59,11 @@ struct StepSummaryWatchView: View {
                             Int64(streak)
                         )
                     )
-                        .font(.caption.weight(.semibold))
+                        .font(DesignTokens.Typography.caption.weight(.semibold))
                 }
             }
         }
-        .padding()
+        .padding(DesignTokens.Spacing.md)
     }
 }
 

@@ -38,7 +38,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             if enableFakeDataFallback(reason: "healthkit_unavailable") { return }
             healthKitUnavailable = true
             Loggers.health.info("healthkit.unavailable_graceful", metadata: ["action": "will_return_empty_data"])
-            return
+            throw HealthKitError.notAvailable
         }
 
         do {
@@ -49,6 +49,10 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             if enableFakeDataFallback(reason: "authorization_failed", error: error) { return }
             healthKitUnavailable = true
             Loggers.health.info("healthkit.authorization_denied_graceful", metadata: ["action": "will_return_empty_data"])
+            if let typed = error as? HealthKitError {
+                throw typed
+            }
+            throw HealthKitError.authorizationFailed
         }
     }
 

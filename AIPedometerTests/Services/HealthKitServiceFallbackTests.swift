@@ -55,7 +55,9 @@ struct HealthKitServiceFallbackTests {
             userDefaults: defaults
         )
 
-        try await service.requestAuthorization()
+        await #expect(throws: HealthKitError.self) {
+            try await service.requestAuthorization()
+        }
         
         let steps = try await service.fetchTodaySteps()
         #expect(steps == 0)

@@ -26,7 +26,7 @@ final class DynamicTypeTests: XCTestCase {
 
     func testBadgeCardViewInstantiatesWithoutCrash() {
         let badge = BadgeDisplayItem(type: .steps5K, isEarned: true)
-        let card = BadgeCard(badge: badge)
+        let card = BadgeCard(badge: badge, onSelect: { _ in })
         XCTAssertNotNil(card)
     }
 
@@ -49,7 +49,7 @@ final class DynamicTypeTests: XCTestCase {
     }
 
     func testGoalEditorSheetInstantiatesWithoutCrash() {
-        let sheet = GoalEditorSheet(initialGoal: 10000) { _ in }
+        let sheet = GoalEditorSheet(initialGoal: 10000, unitName: ActivityTrackingMode.steps.unitName) { _ in }
         XCTAssertNotNil(sheet)
     }
 }

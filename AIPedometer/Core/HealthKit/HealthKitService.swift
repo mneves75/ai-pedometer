@@ -18,14 +18,19 @@ protocol HealthKitServiceProtocol: Sendable {
 final class HealthKitService: HealthKitServiceProtocol, Sendable {
     private let healthStore: HKHealthStore
     private let calendar: Calendar
+    private let authorization: HealthKitAuthorization
 
-    init(healthStore: HKHealthStore = HKHealthStore(), calendar: Calendar = .autoupdatingCurrent) {
+    init(
+        healthStore: HKHealthStore = HKHealthStore(),
+        calendar: Calendar = .autoupdatingCurrent,
+        authorization: HealthKitAuthorization? = nil
+    ) {
         self.healthStore = healthStore
         self.calendar = calendar
+        self.authorization = authorization ?? HealthKitAuthorization(healthStore: healthStore)
     }
 
     func requestAuthorization() async throws {
-        let authorization = HealthKitAuthorization()
         try await authorization.requestAuthorization()
     }
 
@@ -35,49 +40,39 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     }
 
     func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int {
-        try await fetchCumulativeCount(type: .stepCount, from: startDate, to: endDate)
+        Int(try await fetchSum(type: .stepCount, unit: .count(), from: startDate, to: endDate))
     }
 
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int {
-        try await fetchCumulativeCount(type: .pushCount, from: startDate, to: endDate)
+        Int(try await fetchSum(type: .pushCount, unit: .count(), from: startDate, to: endDate))
     }
 
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double {
-        try await fetchMergedSum(
-            type: .distanceWalkingRunning,
-            unit: .meter(),
-            from: startDate,
-            to: endDate,
-            errorLogEvent: "healthkit.distance_query_failed"
-        )
+        try await fetchSum(type: .distanceWalkingRunning, unit: .meter(), from: startDate, to: endDate)
     }
 
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
-        let floors = try await fetchMergedSum(
-            type: .flightsClimbed,
-            unit: .count(),
-            from: startDate,
-            to: endDate,
-            errorLogEvent: "healthkit.floors_query_failed"
-        )
-        return Int(floors)
-    }
-
-    private func fetchCumulativeCount(type: HKQuantityTypeIdentifier, from startDate: Date, to endDate: Date) async throws -> Int {
-        let total = try await fetchMergedSum(
-            type: type,
-            unit: .count(),
-            from: startDate,
-            to: endDate,
-            errorLogEvent: "healthkit.query_failed"
-        )
-        return Int(total)
+        Int(try await fetchSum(type: .flightsClimbed, unit: .count(), from: startDate, to: endDate))
     }
 
     nonisolated static func isNoDataError(_ error: any Error) -> Bool {
         let nsError = error as NSError
         return nsError.domain == HKErrorDomain
             && nsError.code == HKError.Code.errorNoData.rawValue
+    }
+
+    nonisolated static func mapQueryError(_ error: any Error) -> HealthKitError {
+        let nsError = error as NSError
+        guard nsError.domain == HKErrorDomain else { return .queryFailed }
+
+        switch nsError.code {
+        case HKError.Code.errorAuthorizationDenied.rawValue:
+            return .authorizationFailed
+        case HKError.Code.errorNoData.rawValue:
+            return .noData
+        default:
+            return .queryFailed
+        }
     }
 
     func fetchDailySummaries(
@@ -115,72 +110,40 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         let endDay = calendar.startOfDay(for: endDate)
 
         let activityType: HKQuantityTypeIdentifier = activityMode == .steps ? .stepCount : .pushCount
-        let activityTotals = try await fetchDailyTotals(
-            typeIdentifier: activityType,
-            unit: .count(),
-            from: startDay,
-            to: endDate
-        )
 
-        let distanceTotals: [Date: Double]
-        var distanceUnavailable = false
-        do {
-            distanceTotals = try await fetchDailyTotals(
-                typeIdentifier: .distanceWalkingRunning,
-                unit: .meter(),
-                from: startDay,
-                to: endDate
-            )
-        } catch {
-            distanceUnavailable = true
-            Loggers.health.warning("healthkit.distance_unavailable", metadata: [
-                "error": error.localizedDescription
-            ])
-            distanceTotals = [:]
-        }
+        async let activityTotals = fetchDailyTotals(type: activityType, unit: .count(), from: startDay, to: endDate)
+        async let distanceTotals = fetchDailyTotalsOrNil(type: .distanceWalkingRunning, unit: .meter(), from: startDay, to: endDate)
+        async let floorsTotals = fetchDailyTotalsOrNil(type: .flightsClimbed, unit: .count(), from: startDay, to: endDate)
 
-        let floorsTotals: [Date: Double]
-        var floorsUnavailable = false
-        do {
-            floorsTotals = try await fetchDailyTotals(
-                typeIdentifier: .flightsClimbed,
-                unit: .count(),
-                from: startDay,
-                to: endDate
-            )
-        } catch {
-            floorsUnavailable = true
-            Loggers.health.warning("healthkit.floors_unavailable", metadata: [
-                "error": error.localizedDescription
-            ])
-            floorsTotals = [:]
-        }
+        let activity = try await activityTotals
+        let distance = await distanceTotals
+        let floors = await floorsTotals
 
         var summaries: [DailyStepSummary] = []
         var current = startDay
         while current <= endDay {
-            let activityCount = Int(activityTotals[current] ?? 0)
+            let activityCount = Int(activity[current] ?? 0)
 
-            let distance: Double
+            let dayDistance: Double
             switch distanceMode {
             case .manual:
-                distance = Double(activityCount) * manualStepLength
+                dayDistance = Double(activityCount) * manualStepLength
             case .automatic:
-                if distanceUnavailable {
-                    distance = Double(activityCount) * manualStepLength
+                if let distance {
+                    dayDistance = distance[current] ?? 0
                 } else {
-                    distance = distanceTotals[current] ?? 0
+                    dayDistance = Double(activityCount) * manualStepLength
                 }
             }
 
-            let floors = floorsUnavailable ? 0 : Int(floorsTotals[current] ?? 0)
+            let dayFloors = floors.map { Int($0[current] ?? 0) } ?? 0
 
             summaries.append(
                 DailyStepSummary(
                     date: current,
                     steps: activityCount,
-                    distance: distance,
-                    floors: floors,
+                    distance: dayDistance,
+                    floors: dayFloors,
                     calories: Double(activityCount) * AppConstants.Metrics.caloriesPerStep,
                     goal: dailyGoal
                 )
@@ -230,131 +193,99 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         }
     }
 
+    private func fetchSum(
+        type: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> Double {
+        try await fetchStatisticsSum(type: type, unit: unit, from: startDate, to: endDate)
+    }
+
     private func fetchDailyTotals(
-        typeIdentifier: HKQuantityTypeIdentifier,
+        type: HKQuantityTypeIdentifier,
         unit: HKUnit,
         from startDate: Date,
         to endDate: Date
     ) async throws -> [Date: Double] {
-        let samples = try await fetchQuantitySamples(
-            type: typeIdentifier,
-            from: startDate,
-            to: endDate,
-            errorLogEvent: "healthkit.daily_sample_query_failed"
-        )
-        if samples.isEmpty { return [:] }
-
-        let values = samples.map { sample in
-            HealthKitSampleValue(
-                start: sample.startDate,
-                end: sample.endDate,
-                value: sample.quantity.doubleValue(for: unit),
-                sourceBundleIdentifier: sample.sourceRevision.source.bundleIdentifier,
-                productType: sample.sourceRevision.productType,
-                deviceModel: sample.device?.model,
-                deviceName: sample.device?.name
-            )
-        }
-
-        let calendar = calendar
-        let result = await Task.detached {
-            HealthKitSampleMerger.mergeDailyTotals(
-                samples: values,
-                calendar: calendar,
-                from: startDate,
-                to: endDate
-            )
-        }.value
-
-        if result.daysWithMultipleSources > 0 {
-            Loggers.health.info("healthkit.source_merge_applied_daily", metadata: [
-                "type": typeIdentifier.rawValue,
-                "days_with_multiple_sources": "\(result.daysWithMultipleSources)",
-                "days_with_overlap": "\(result.daysWithOverlap)",
-                "total_days": "\(result.totalDays)",
-                "segments": "\(result.segmentCount)"
-            ])
-        }
-
-        return result.totals
+        try await fetchDailyTotalsCollection(type: type, unit: unit, from: startDate, to: endDate)
     }
 
-    private func fetchMergedSum(
+    private func fetchDailyTotalsOrNil(
         type: HKQuantityTypeIdentifier,
         unit: HKUnit,
         from startDate: Date,
-        to endDate: Date,
-        errorLogEvent: String
-    ) async throws -> Double {
-        let samples = try await fetchQuantitySamples(
-            type: type,
-            from: startDate,
-            to: endDate,
-            errorLogEvent: errorLogEvent
-        )
-        if samples.isEmpty { return 0 }
-
-        let values = samples.map { sample in
-            HealthKitSampleValue(
-                start: sample.startDate,
-                end: sample.endDate,
-                value: sample.quantity.doubleValue(for: unit),
-                sourceBundleIdentifier: sample.sourceRevision.source.bundleIdentifier,
-                productType: sample.sourceRevision.productType,
-                deviceModel: sample.device?.model,
-                deviceName: sample.device?.name
-            )
-        }
-
-        let result = await Task.detached {
-            HealthKitSampleMerger.mergeTotal(samples: values)
-        }.value
-
-        if result.mergedSources {
-            Loggers.health.info("healthkit.source_merge_applied", metadata: [
-                "type": type.rawValue,
-                "source_count": "\(result.prioritiesPresent.count)",
-                "overlap_seconds": "\(result.overlapSeconds)",
-                "segments": "\(result.segmentCount)"
+        to endDate: Date
+    ) async -> [Date: Double]? {
+        do {
+            return try await fetchDailyTotals(type: type, unit: unit, from: startDate, to: endDate)
+        } catch {
+            Loggers.health.warning("healthkit.daily_totals_unavailable", metadata: [
+                "type": type.rawValue, "error": error.localizedDescription
             ])
+            return nil
         }
-
-        return result.total
     }
 
-    private func fetchQuantitySamples(
+    private func fetchStatisticsSum(
         type: HKQuantityTypeIdentifier,
+        unit: HKUnit,
         from startDate: Date,
-        to endDate: Date,
-        errorLogEvent: String
-    ) async throws -> [HKQuantitySample] {
+        to endDate: Date
+    ) async throws -> Double {
+        guard startDate < endDate else { return 0 }
+
         let quantityType = HKQuantityType(type)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
-        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: quantityType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sort]
-            ) { _, samples, error in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double, any Error>) in
+            let query = HKStatisticsQuery(
+                quantityType: quantityType,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, statistics, error in
                 if let error {
-                    if Self.isNoDataError(error) {
-                        continuation.resume(returning: [])
-                        return
-                    }
-                    Loggers.health.error(errorLogEvent, metadata: [
+                    Loggers.health.error("healthkit.sum_failed", metadata: [
+                        "type": type.rawValue,
                         "error": String(describing: error),
-                        "type": type.rawValue
                     ])
-                    continuation.resume(throwing: HealthKitError.queryFailed)
+                    continuation.resume(throwing: Self.mapQueryError(error))
                     return
                 }
-                let quantitySamples = samples as? [HKQuantitySample] ?? []
-                continuation.resume(returning: quantitySamples)
+
+                let value = statistics?.sumQuantity()?.doubleValue(for: unit) ?? 0
+                continuation.resume(returning: value)
             }
-            healthStore.execute(query)
+
+            self.healthStore.execute(query)
         }
+    }
+
+    private func fetchDailyTotalsCollection(
+        type: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [Date: Double] {
+        guard startDate < endDate else { return [:] }
+
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
+        let anchorDate = calendar.startOfDay(for: startDate)
+        let interval = DateComponents(day: 1)
+
+        let descriptor = HKStatisticsCollectionQueryDescriptor(
+            predicate: .quantitySample(type: HKQuantityType(type), predicate: predicate),
+            options: [.cumulativeSum],
+            anchorDate: anchorDate,
+            intervalComponents: interval
+        )
+        let collection = try await descriptor.result(for: healthStore)
+
+        var totals: [Date: Double] = [:]
+        collection.enumerateStatistics(from: startDate, to: endDate) { statistics, _ in
+            let day = self.calendar.startOfDay(for: statistics.startDate)
+            totals[day] = statistics.sumQuantity()?.doubleValue(for: unit) ?? 0
+        }
+        return totals
     }
 }

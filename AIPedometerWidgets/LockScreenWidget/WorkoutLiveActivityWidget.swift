@@ -7,47 +7,47 @@ struct WorkoutLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
             LockScreenWorkoutView(state: context.state, workoutType: context.attributes.workoutType)
-                .activityBackgroundTint(Color.black.opacity(0.4))
-                .activitySystemActionForegroundColor(.white)
+                .activityBackgroundTint(DesignTokens.Colors.overlayDark)
+                .activitySystemActionForegroundColor(DesignTokens.Colors.inverseText)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label(context.attributes.workoutType, systemImage: "figure.run")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.caption2.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(distanceText(context.state.distance))
-                        .font(.callout.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.cyan)
+                        .font(DesignTokens.Typography.callout.monospacedDigit().weight(.bold))
+                        .foregroundStyle(DesignTokens.Colors.cyan)
                 }
 
                 DynamicIslandExpandedRegion(.center) {
-                    Text("\(context.state.steps)")
-                        .font(.title2.monospacedDigit().weight(.heavy))
-                        .foregroundStyle(.white)
+                    Text(context.state.steps.formattedSteps)
+                        .font(DesignTokens.Typography.title2.monospacedDigit().weight(.heavy))
+                        .foregroundStyle(DesignTokens.Colors.inverseText)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack(spacing: 24) {
-                        LiveStatView(value: "\(Int(context.state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: .orange)
-                        LiveStatView(value: distanceText(context.state.distance), label: LiveActivityUnits.distance, icon: "figure.walk", tint: .mint)
+                    HStack(spacing: DesignTokens.Spacing.lg) {
+                        LiveStatView(value: "\(Int(context.state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
+                        LiveStatView(value: distanceText(context.state.distance), label: LiveActivityUnits.distance, icon: "figure.walk", tint: DesignTokens.Colors.mint)
                     }
-                    .padding(.top, 8)
+                    .padding(.top, DesignTokens.Spacing.sm)
                 }
             } compactLeading: {
                 Image(systemName: "figure.run")
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(DesignTokens.Colors.cyan)
             } compactTrailing: {
-                Text("\(context.state.steps)")
-                    .font(.caption.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.white)
+                Text(context.state.steps.formattedSteps)
+                    .font(DesignTokens.Typography.caption.monospacedDigit().weight(.bold))
+                    .foregroundStyle(DesignTokens.Colors.inverseText)
             } minimal: {
                 Image(systemName: "shoe.fill")
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(DesignTokens.Colors.cyan)
             }
-            .keylineTint(.cyan)
+            .keylineTint(DesignTokens.Colors.cyan)
         }
     }
 
@@ -61,30 +61,30 @@ struct LockScreenWorkoutView: View {
     let workoutType: String
 
     var body: some View {
-        HStack(spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: DesignTokens.Spacing.mdPlus) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text(workoutType.uppercased())
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption.weight(.bold))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-                Text("\(state.steps)")
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                Text(state.steps.formattedSteps)
+                    .font(.system(size: DesignTokens.FontSize.xs, weight: .heavy, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DesignTokens.Colors.inverseText)
 
                 Text(LiveActivityUnits.steps)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.cyan)
+                    .font(DesignTokens.Typography.caption2.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.cyan)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 8) {
-                LiveStatView(value: distanceText(state.distance), label: LiveActivityUnits.distance, icon: "map.fill", tint: .mint)
-                LiveStatView(value: "\(Int(state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: .orange)
+            VStack(alignment: .trailing, spacing: DesignTokens.Spacing.sm) {
+                LiveStatView(value: distanceText(state.distance), label: LiveActivityUnits.distance, icon: "map.fill", tint: DesignTokens.Colors.mint)
+                LiveStatView(value: "\(Int(state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
             }
         }
-        .padding(20)
+        .padding(DesignTokens.Spacing.lg)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -115,21 +115,21 @@ struct LiveStatView: View {
     let tint: Color
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
-                .font(.caption)
+                .font(DesignTokens.Typography.caption)
                 .foregroundStyle(tint)
                 .frame(width: 24, height: 24)
                 .background(tint.opacity(0.15))
                 .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(value)
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.white)
+                    .font(DesignTokens.Typography.headline.monospacedDigit())
+                    .foregroundStyle(DesignTokens.Colors.inverseText)
                 Text(label)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption2.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
     }

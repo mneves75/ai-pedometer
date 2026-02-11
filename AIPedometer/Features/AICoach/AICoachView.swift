@@ -4,45 +4,53 @@ struct AICoachView: View {
     @Environment(CoachService.self) private var coachService
     @Environment(FoundationModelsService.self) private var aiService
 
+    private let autoScrollMinInterval: TimeInterval = DesignTokens.Animation.defaultDuration
     @State private var inputText = ""
+    @State private var isPinnedToBottom = true
+    @State private var lastAutoScrollTime = Date.distantPast
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
         coachContent
             .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("ai_coach_view")
-            .background(Color(.systemGroupedBackground))
+            .accessibilityIdentifier(A11yID.AICoach.view)
+            .background(DesignTokens.Colors.surfaceGrouped)
             .navigationTitle(String(localized: "AI Coach", comment: "AI Coach navigation title"))
             .navigationBarTitleDisplayMode(.inline)
+            // Harden model-generated links: allow only http(s).
+            .environment(\.openURL, OpenURLAction { url in
+                guard AIChatLinkPolicy.isAllowed(url) else { return .discarded }
+                return .systemAction(url)
+            })
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if !coachService.messages.isEmpty {
                         Button(String(localized: "Clear", comment: "Clear conversation button")) {
                             coachService.clearConversation()
                         }
-                        .font(.subheadline)
+                        .font(DesignTokens.Typography.subheadline)
                     }
                 }
             }
     }
 
     private var coachContent: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             if LaunchConfiguration.isUITesting() {
                 // Stable UI test marker when AI availability hides the welcome copy.
-                Text("AI Coach Screen")
-                    .font(.caption2)
+                Text(String(localized: "AI Coach Screen", comment: "Hidden UI test marker for AI Coach screen"))
+                    .font(DesignTokens.Typography.caption2)
                     .opacity(0.01)
-                    .accessibilityIdentifier("ai_coach_marker")
+                    .accessibilityIdentifier(A11yID.AICoach.marker)
             }
             if case .unavailable(let reason) = aiService.availability {
-                AIAvailabilityBanner(reason: reason)
-                    .padding(DesignTokens.Spacing.md)
-            }
-
-            messagesScrollView
-
-            if aiService.availability.isAvailable {
+                AIUnavailableStateView(reason: reason)
+                    .padding(.horizontal, DesignTokens.Spacing.md)
+                    .padding(.top, DesignTokens.Spacing.xl)
+                Spacer(minLength: DesignTokens.Spacing.xl)
+            } else {
+                messagesScrollView
+                disclaimerText
                 inputSection
             }
         }
@@ -65,14 +73,25 @@ struct AICoachView: View {
                         streamingMessageView
                             .id("streaming")
                     }
+
+                    if let error = coachService.lastError, shouldShowErrorBanner(for: error) {
+                        errorBanner(error)
+                    }
                 }
                 .padding(DesignTokens.Spacing.md)
             }
+            .simultaneousGesture(
+                DragGesture().onChanged { _ in
+                    isPinnedToBottom = false
+                }
+            )
             .onChange(of: coachService.messages.count) { _, _ in
+                guard isPinnedToBottom else { return }
                 scrollToBottom(proxy: proxy, animated: true)
             }
             .onChange(of: coachService.currentStreamedContent) { _, _ in
-                scrollToBottom(proxy: proxy, animated: false)
+                guard isPinnedToBottom else { return }
+                scrollToBottomThrottled(proxy: proxy)
             }
         }
     }
@@ -80,19 +99,19 @@ struct AICoachView: View {
     private var welcomeSection: some View {
         VStack(spacing: DesignTokens.Spacing.lg) {
             Image(systemName: "sparkles")
-                .font(.system(size: 48))
-                .foregroundStyle(.purple)
+                .font(.system(size: DesignTokens.FontSize.md))
+                .foregroundStyle(DesignTokens.Colors.accent)
                 .applyIfNotUITesting { view in
                     view.symbolEffect(.pulse, options: .repeating.speed(0.5))
                 }
 
             VStack(spacing: DesignTokens.Spacing.sm) {
                 Text(String(localized: "Hi, I'm your AI Coach!", comment: "AI Coach welcome greeting"))
-                    .font(.title2.bold())
+                    .font(DesignTokens.Typography.title2.bold())
 
                 Text(String(localized: "Ask me anything about your fitness progress, goals, or get personalized recommendations.", comment: "AI Coach welcome description"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
@@ -104,8 +123,8 @@ struct AICoachView: View {
     private var suggestedQuestionsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(String(localized: "Try asking:", comment: "Label for suggested questions"))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.subheadline.weight(.medium))
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
 
             FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(coachService.suggestedQuestions, id: \.self) { question in
@@ -113,7 +132,7 @@ struct AICoachView: View {
                         Task { await coachService.send(message: question) }
                     } label: {
                         Text(question)
-                            .font(.subheadline)
+                            .font(DesignTokens.Typography.subheadline)
                             .padding(.horizontal, DesignTokens.Spacing.md)
                             .padding(.vertical, DesignTokens.Spacing.sm)
                             .background(.ultraThinMaterial, in: Capsule())
@@ -128,8 +147,8 @@ struct AICoachView: View {
     private var streamingMessageView: some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: "sparkles")
-                .font(.caption)
-                .foregroundStyle(.purple)
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.accent)
                 .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
@@ -138,12 +157,17 @@ struct AICoachView: View {
                         ProgressView()
                             .controlSize(.small)
                         Text(String(localized: "Thinking...", comment: "AI Coach thinking state"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(DesignTokens.Typography.subheadline)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
                 } else {
-                    Text(coachService.currentStreamedContent)
-                        .font(.subheadline)
+                    if coachService.currentStreamedContent.count <= CoachService.maxLiveMarkdownChars {
+                        Text(coachService.currentStreamedRenderedContent)
+                    } else {
+                        Text(coachService.currentStreamedContent)
+                            .font(DesignTokens.Typography.subheadline)
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    }
                 }
             }
 
@@ -155,7 +179,7 @@ struct AICoachView: View {
     }
 
     private var inputSection: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             Divider()
 
             HStack(spacing: DesignTokens.Spacing.sm) {
@@ -165,33 +189,87 @@ struct AICoachView: View {
                     .focused($isInputFocused)
                     .submitLabel(.send)
                     .onSubmit(sendMessage)
+                    .accessibilityLabel(String(localized: "Message", comment: "AI Coach message input label"))
 
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(canSend ? .blue : .gray)
+                        .font(DesignTokens.Typography.title2)
+                        .foregroundStyle(canSend ? DesignTokens.Colors.accent : .gray)
                 }
+                .frame(width: 44, height: 44)
                 .disabled(!canSend)
+                .accessibilityLabel(String(localized: "Send Message", comment: "AI Coach send button accessibility label"))
+                .accessibilityIdentifier("ai_coach_send_button")
             }
             .padding(DesignTokens.Spacing.md)
             .background(.bar)
         }
     }
 
+    private var disclaimerText: some View {
+        AIDisclaimerText()
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.top, DesignTokens.Spacing.sm)
+    }
+
     private var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !coachService.isGenerating
+    }
+
+    private var canRetryLastMessage: Bool {
+        coachService.messages.contains { $0.role == .user }
+    }
+
+    private func shouldShowErrorBanner(for error: AIServiceError) -> Bool {
+        AICoachErrorPresentationPolicy.shouldShowGlobalErrorBanner(
+            lastError: error,
+            messages: coachService.messages
+        )
+    }
+
+    private func errorBanner(_ error: AIServiceError) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            Label {
+                Text(error.localizedDescription)
+                    .font(DesignTokens.Typography.subheadline)
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(DesignTokens.Colors.warning)
+            }
+
+            if canRetryLastMessage && !coachService.isGenerating {
+                Button(String(localized: "Try Again", comment: "Retry button")) {
+                    Task { await coachService.retryLastMessage() }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignTokens.Spacing.md)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
     }
 
     private func sendMessage() {
         guard canSend else { return }
         let message = inputText
         inputText = ""
+        isPinnedToBottom = true
+        lastAutoScrollTime = .distantPast
         Task {
             await coachService.send(message: message)
         }
     }
 
+    private func scrollToBottomThrottled(proxy: ScrollViewProxy) {
+        let now = Date()
+        guard now.timeIntervalSince(lastAutoScrollTime) >= autoScrollMinInterval else { return }
+        lastAutoScrollTime = now
+        scrollToBottom(proxy: proxy, animated: false)
+    }
+
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        isPinnedToBottom = true
         if animated {
             withAnimation(DesignTokens.Animation.smooth) {
                 scrollToBottomTarget(proxy: proxy)
@@ -225,27 +303,89 @@ struct ChatMessageView: View {
 
             if !isUser {
                 Image(systemName: "sparkles")
-                    .font(.caption)
-                    .foregroundStyle(.purple)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.accent)
                     .frame(width: 24, height: 24)
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(message.content)
-                    .font(.subheadline)
-                    .foregroundStyle(isUser ? .white : .primary)
-                    .padding(DesignTokens.Spacing.md)
-                    .background(
-                        isUser ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.ultraThinMaterial),
-                        in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
-                    )
+                Group { messageContent }
+                .padding(DesignTokens.Spacing.md)
+                .background(
+                    isUser ? AnyShapeStyle(DesignTokens.Colors.accent) : AnyShapeStyle(.ultraThinMaterial),
+                    in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
+                )
+
+                if let terminalError = message.terminalError, !isUser {
+                    Label {
+                        Text(terminalError.partialResponseNotice)
+                            .font(DesignTokens.Typography.caption)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
+                    .foregroundStyle(DesignTokens.Colors.warning)
+                    .accessibilityIdentifier("ai_coach_partial_message_notice")
+                }
 
                 Text(message.timestamp.formatted(date: .omitted, time: .shortened))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(DesignTokens.Typography.caption2)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
             }
 
             if !isUser { Spacer(minLength: 40) }
+        }
+    }
+
+    @ViewBuilder
+    private var messageContent: some View {
+        if isUser {
+            Text(message.content)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.inverseText)
+        } else if let rendered = message.renderedContent {
+            // Keep assistant styles embedded in AttributedString (links/code spans).
+            Text(rendered)
+        } else {
+            // Fallback if rendering failed or message was produced by an older build.
+            Text(message.content)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
+        }
+    }
+}
+
+enum AICoachErrorPresentationPolicy {
+    static func shouldShowGlobalErrorBanner(
+        lastError: AIServiceError,
+        messages: [ChatMessage]
+    ) -> Bool {
+        guard let lastAssistant = messages.last(where: { $0.role == .assistant }) else {
+            return true
+        }
+
+        guard let terminalError = lastAssistant.terminalError else {
+            return true
+        }
+
+        return !isSameErrorKind(terminalError, lastError)
+    }
+
+    static func isSameErrorKind(_ lhs: AIServiceError, _ rhs: AIServiceError) -> Bool {
+        switch (lhs, rhs) {
+        case (.sessionNotConfigured, .sessionNotConfigured):
+            return true
+        case let (.modelUnavailable(leftReason), .modelUnavailable(rightReason)):
+            return leftReason == rightReason
+        case (.generationFailed, .generationFailed):
+            return true
+        case (.tokenLimitExceeded, .tokenLimitExceeded):
+            return true
+        case (.guardrailViolation, .guardrailViolation):
+            return true
+        case (.invalidResponse, .invalidResponse):
+            return true
+        default:
+            return false
         }
     }
 }

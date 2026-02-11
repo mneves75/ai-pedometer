@@ -27,8 +27,8 @@ cd ai-pedometer
 # Install XcodeGen
 brew install xcodegen
 
-# Generate Xcode project
-xcodegen generate
+# Generate Xcode project (always restore entitlements after — xcodegen resets them)
+xcodegen generate && Scripts/restore-entitlements.sh
 
 # Open project
 open AIPedometer.xcodeproj

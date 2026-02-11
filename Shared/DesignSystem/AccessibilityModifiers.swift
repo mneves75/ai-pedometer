@@ -43,3 +43,14 @@ extension View {
             )
     }
 }
+
+struct AIDisclaimerText: View {
+    var body: some View {
+        Text(String(
+            localized: "AI guidance is general fitness information and not medical advice.",
+            comment: "AI disclaimer shown across AI features"
+        ))
+            .font(DesignTokens.Typography.caption2)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
+    }
+}

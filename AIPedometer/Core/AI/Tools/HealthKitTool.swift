@@ -52,27 +52,63 @@ struct HealthKitDataTool: Tool, Sendable {
             manualStepLength: settings.manualStepLength,
             dailyGoal: dailyGoal
         )
-        return formatSummaries(summaries, unitName: settings.activityMode.unitName)
+        return await formatSummaries(summaries, unitName: settings.activityMode.unitName)
     }
     
-    private func formatSummaries(_ summaries: [DailyStepSummary], unitName: String) -> String {
+    private func formatSummaries(_ summaries: [DailyStepSummary], unitName: String) async -> String {
         guard !summaries.isEmpty else {
-            return "No activity data available for the requested period."
+            return String(
+                localized: "No activity data available for the requested period.",
+                comment: "AI tool response when no activity data is available"
+            )
         }
         
-        let lines = summaries.map { summary in
-            let goalStatus = summary.steps >= summary.goal ? "Goal Met" : "Goal Not Met"
-            let distanceKm = summary.distance / 1000
+        let lines = await MainActor.run { summaries.map { summary in
+            let goalStatus = summary.steps >= summary.goal
+                ? String(localized: "Goal Met", comment: "AI tool goal status when met")
+                : String(localized: "Goal Not Met", comment: "AI tool goal status when not met")
+            let distanceText = Formatters.distanceString(meters: summary.distance)
+            let caloriesText = Formatters.caloriesString(summary.calories)
             return """
-            Date: \(summary.date.formatted(date: .abbreviated, time: .omitted))
-            \(unitName.capitalized): \(summary.steps.formatted())
-            Distance: \(String(format: "%.1f", distanceKm)) km
-            Floors: \(summary.floors)
-            Calories: \(Int(summary.calories))
-            Goal: \(summary.goal.formatted()) \(unitName)
-            Status: \(goalStatus)
+            \(Localization.format(
+                "Date: %@",
+                comment: "AI tool summary line for date",
+                summary.date.formatted(date: .abbreviated, time: .omitted)
+            ))
+            \(Localization.format(
+                "%@: %@",
+                comment: "AI tool summary line for activity unit and value",
+                unitName.capitalized,
+                summary.steps.formatted()
+            ))
+            \(Localization.format(
+                "Distance: %@",
+                comment: "AI tool summary line for distance",
+                distanceText
+            ))
+            \(Localization.format(
+                "Floors: %lld",
+                comment: "AI tool summary line for floors climbed",
+                Int64(summary.floors)
+            ))
+            \(Localization.format(
+                "Calories: %@",
+                comment: "AI tool summary line for calories burned",
+                caloriesText
+            ))
+            \(Localization.format(
+                "Goal: %@ %@",
+                comment: "AI tool summary line for daily goal with unit",
+                summary.goal.formatted(),
+                unitName
+            ))
+            \(Localization.format(
+                "Status: %@",
+                comment: "AI tool summary line for goal status",
+                goalStatus
+            ))
             """
-        }
+        } }
         
         return lines.joined(separator: "\n---\n")
     }
@@ -98,7 +134,12 @@ struct GoalDataTool: Tool, Sendable {
         let defaults = userDefaultsSuiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
         let unitName = ActivitySettings.current(userDefaults: defaults).activityMode.unitName
         let currentGoal = await MainActor.run { goalService.currentGoal }
-        return "Current daily goal: \(currentGoal.formatted()) \(unitName)"
+        return Localization.format(
+            "Current daily goal: %@ %@",
+            comment: "AI tool response for current daily goal",
+            currentGoal.formatted(),
+            unitName
+        )
     }
 }
 
@@ -119,6 +160,10 @@ struct StreakDataTool: Tool {
         let currentStreak = await MainActor.run {
             userDefaults.sharedStepData?.currentStreak ?? 0
         }
-        return "Current streak: \(currentStreak) days"
+        return Localization.format(
+            "Current streak: %lld days",
+            comment: "AI tool response for current streak",
+            Int64(currentStreak)
+        )
     }
 }

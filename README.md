@@ -20,6 +20,7 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 - **watchOS App** — Companion app with bidirectional sync
 - **Widgets** — Lock screen and Home Screen widgets
 - **Accessibility** — Wheelchair mode for push tracking, VoiceOver support
+- **Tip Jar** — Optional one-time “Buy me a coffee” support (USD $4.99 in the US)
 
 ## Requirements
 
@@ -37,7 +38,7 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 brew install xcodegen
 
 # Generate Xcode project
-xcodegen generate
+xcodegen generate && Scripts/restore-entitlements.sh
 
 # Open project
 open AIPedometer.xcodeproj
@@ -55,6 +56,7 @@ open AIPedometer.xcodeproj
 ├── AIPedometerTests/      # Unit tests (Swift Testing)
 ├── AIPedometerUITests/    # UI tests
 ├── Shared/                # Cross-target code (Models, DesignSystem, Utilities)
+├── StoreKit/              # StoreKit Configuration for tip jar testing
 ├── Scripts/               # Build and utility scripts
 └── project.yml            # XcodeGen configuration
 ```
@@ -95,6 +97,7 @@ Supports English (en) and Portuguese Brazil (pt-BR) via String Catalogs.
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
 | [AGENTS.md](AGENTS.md) | Agent guidelines and workflows |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
 
 ## Contributing
 
@@ -102,7 +105,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.3
+**Current**: 0.4.20
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

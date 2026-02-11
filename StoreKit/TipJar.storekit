@@ -1,0 +1,32 @@
+{
+  "identifier": "1B56E165",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "C2489079",
+      "localizations": [
+        {
+          "description": "One-time tip to support ongoing development.",
+          "displayName": "Buy me a coffee",
+          "locale": "en_US"
+        },
+        {
+          "description": "Gorjeta \u00fanica para apoiar o desenvolvimento cont\u00ednuo.",
+          "displayName": "Pague um caf\u00e9",
+          "locale": "pt_BR"
+        }
+      ],
+      "productID": "com.mneves.aipedometer.coffee",
+      "referenceName": "Tip Jar",
+      "type": "Consumable"
+    }
+  ],
+  "settings": {},
+  "subscriptionGroups": [],
+  "version": {
+    "major": 2,
+    "minor": 0
+  }
+}

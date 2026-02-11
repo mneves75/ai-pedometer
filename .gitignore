@@ -110,7 +110,15 @@ progress.md
 tests.json
 .osgrep
 output/
+
+# Local temp artifacts
+tmp/
+
+# Local run notes
+notes/run-*.txt
+
+# App Store Connect CLI (asc)
+.asc/
 notes/
 tasks/
 progress.txt
-tmp/

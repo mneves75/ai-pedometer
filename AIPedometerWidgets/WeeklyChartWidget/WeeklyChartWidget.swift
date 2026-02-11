@@ -39,21 +39,21 @@ struct WeeklyChartContent: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             HStack {
                 Text(String(localized: "Weekly Steps", comment: "Widget header for weekly steps summary"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(DesignTokens.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                 Spacer()
-                Text("\(data.todaySteps)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
+                Text(data.todaySteps.formattedSteps)
+                    .font(DesignTokens.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
             }
 
-            HStack(alignment: .bottom, spacing: 6) {
+            HStack(alignment: .bottom, spacing: DesignTokens.Spacing.xsPlus) {
                 ForEach(Array(data.weeklySteps.enumerated()), id: \.offset) { index, value in
                     Capsule()
-                        .fill(index == data.weeklySteps.count - 1 ? Color.mint : Color.mint.opacity(0.4))
+                        .fill(index == data.weeklySteps.count - 1 ? DesignTokens.Colors.mint : DesignTokens.Colors.mint.opacity(0.4))
                         .frame(width: 10, height: max(8, CGFloat(value) / CGFloat(maxSteps) * 70))
                 }
             }
@@ -66,24 +66,24 @@ struct WeeklyChartContent: View {
                     Int64(data.currentStreak)
                 )
             )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption2)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .padding()
+        .padding(DesignTokens.Spacing.md)
     }
 }
 
 struct WeeklyChartPlaceholder: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             Text(String(localized: "Weekly Steps", comment: "Widget header for weekly steps summary"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption.weight(.semibold))
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-            HStack(alignment: .bottom, spacing: 6) {
+            HStack(alignment: .bottom, spacing: DesignTokens.Spacing.xsPlus) {
                 ForEach(0..<7, id: \.self) { _ in
                     Capsule()
-                        .fill(Color.mint.opacity(0.4))
+                        .fill(DesignTokens.Colors.mint.opacity(0.4))
                         .frame(width: 10, height: 40)
                 }
             }
@@ -95,10 +95,10 @@ struct WeeklyChartPlaceholder: View {
                     Int64(10)
                 )
             )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption2)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .padding()
+        .padding(DesignTokens.Spacing.md)
         .redacted(reason: .placeholder)
     }
 }

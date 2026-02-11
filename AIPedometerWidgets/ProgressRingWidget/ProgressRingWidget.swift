@@ -38,25 +38,25 @@ struct ProgressRingContent: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DesignTokens.Spacing.smPlus) {
             ZStack {
                 Circle()
-                    .stroke(.white.opacity(0.15), lineWidth: 10)
+                    .stroke(DesignTokens.Colors.inverseStroke, lineWidth: 10)
 
                 Circle()
                     .trim(from: 0, to: clampedProgress)
                     .stroke(
-                        AngularGradient(colors: [.mint, .cyan], center: .center),
+                        AngularGradient(colors: [DesignTokens.Colors.mint, DesignTokens.Colors.cyan], center: .center),
                         style: StrokeStyle(lineWidth: 10, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
 
-                VStack(spacing: 2) {
-                    Text("\(data.todaySteps)")
-                        .font(.headline.monospacedDigit())
+                VStack(spacing: DesignTokens.Spacing.xxs) {
+                    Text(data.todaySteps.formattedSteps)
+                        .font(DesignTokens.Typography.headline.monospacedDigit())
                     Text(String(localized: "steps", comment: "Widget label for steps unit"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(DesignTokens.Typography.caption2)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
 
@@ -67,18 +67,18 @@ struct ProgressRingContent: View {
                     Int64(data.goalSteps)
                 )
             )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption2)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .padding()
+        .padding(DesignTokens.Spacing.md)
     }
 }
 
 struct ProgressRingPlaceholder: View {
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DesignTokens.Spacing.smPlus) {
             Circle()
-                .stroke(.white.opacity(0.15), lineWidth: 10)
+                .stroke(DesignTokens.Colors.inverseStroke, lineWidth: 10)
                 .frame(width: 80, height: 80)
 
             Text(
@@ -88,10 +88,10 @@ struct ProgressRingPlaceholder: View {
                     Int64(10_000)
                 )
             )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(DesignTokens.Typography.caption2)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .padding()
+        .padding(DesignTokens.Spacing.md)
         .redacted(reason: .placeholder)
     }
 }

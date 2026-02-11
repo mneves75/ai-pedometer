@@ -179,6 +179,8 @@ final class SmartNotificationService {
         - Title should be catchy and under 30 characters
         - Body should be encouraging and under 100 characters
         - Focus on the benefits of staying active or gentle encouragement
+        - Avoid medical advice, diagnoses, or weight-loss promises
+        - Keep the tone positive and non-judgmental
         """
 
         let response: NotificationContent = try await foundationModelsService.respond(
@@ -280,6 +282,7 @@ final class SmartNotificationService {
         - If progress < 50%, encourage getting started
         - If progress 50-90%, encourage finishing strong
         - If progress >= 90%, celebrate being close to the goal
+        - Avoid medical advice or weight-loss promises; keep it supportive
         """
     }
 }

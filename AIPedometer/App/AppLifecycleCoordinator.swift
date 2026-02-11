@@ -2,7 +2,7 @@ import SwiftUI
 
 @MainActor
 final class AppLifecycleCoordinator {
-    private let isUITesting: () -> Bool
+    private let isTesting: () -> Bool
     private let isOnboardingCompleted: () -> Bool
     private let refreshHealthAuthorization: () -> Void
     private let refreshMotionAuthorization: () -> Void
@@ -16,7 +16,7 @@ final class AppLifecycleCoordinator {
     private var lastPhase: ScenePhase?
 
     init(
-        isUITesting: @escaping () -> Bool,
+        isTesting: @escaping () -> Bool,
         isOnboardingCompleted: @escaping () -> Bool,
         refreshHealthAuthorization: @escaping () -> Void,
         refreshMotionAuthorization: @escaping () -> Void,
@@ -27,7 +27,7 @@ final class AppLifecycleCoordinator {
         refreshStreak: @escaping () async -> Void,
         performForegroundRefresh: @escaping () async -> Void
     ) {
-        self.isUITesting = isUITesting
+        self.isTesting = isTesting
         self.isOnboardingCompleted = isOnboardingCompleted
         self.refreshHealthAuthorization = refreshHealthAuthorization
         self.refreshMotionAuthorization = refreshMotionAuthorization
@@ -45,7 +45,7 @@ final class AppLifecycleCoordinator {
 
         guard scenePhase == .active else { return }
         guard isOnboardingCompleted() else { return }
-        guard !isUITesting() else { return }
+        guard !isTesting() else { return }
 
         refreshHealthAuthorization()
         refreshMotionAuthorization()

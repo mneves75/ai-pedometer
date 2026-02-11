@@ -1,6 +1,10 @@
 import Foundation
 import Observation
 
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
+
 @MainActor
 protocol StepTrackingServiceProtocol: AnyObject {
     func refreshTodayData() async
@@ -30,12 +34,15 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private let dataStore: SharedDataStore
     private let streakCalculator: any StreakCalculating
     private let userDefaults: UserDefaults
+    @ObservationIgnored private let healthAuthorization: HealthKitAuthorization
     private let calculator = DailyStepCalculator()
     @ObservationIgnored private var activitySettings: ActivitySettings
     @ObservationIgnored private var liveBaseline: LiveStepBaseline?
     @ObservationIgnored private var pendingBaseline: LiveBaselineSeed?
     @ObservationIgnored private var lastLiveSnapshot: PedometerSnapshot?
     @ObservationIgnored private var liveSnapshotDayStart: Date?
+    @ObservationIgnored private var lastWidgetReloadAt: Date?
+    @ObservationIgnored private var lastWidgetReloadSteps: Int?
 
     private(set) var todaySteps: Int = 0
     private(set) var todayDistance: Double = 0
@@ -45,10 +52,12 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private(set) var currentStreak: Int = 0
     private(set) var lastUpdated: Date = .now
     private(set) var weeklySummaries: [DailyStepSummary] = []
+    private(set) var isUsingMotionFallback: Bool = false
 
     init(
         healthKitService: any HealthKitServiceProtocol,
         motionService: any MotionServiceProtocol,
+        healthAuthorization: HealthKitAuthorization,
         goalService: GoalService,
         badgeService: BadgeService,
         dataStore: SharedDataStore,
@@ -57,6 +66,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     ) {
         self.healthKitService = healthKitService
         self.motionService = motionService
+        self.healthAuthorization = healthAuthorization
         self.goalService = goalService
         self.badgeService = badgeService
         self.dataStore = dataStore
@@ -69,11 +79,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     func start() async {
         refreshActivitySettings()
         if HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) {
-            do {
-                try await healthKitService.requestAuthorization()
-            } catch {
-                Loggers.health.warning("healthkit.authorization_failed", metadata: ["error": String(describing: error)])
-            }
+            _ = await ensureHealthAuthorizationIfNeeded()
         } else {
             Loggers.sync.info("healthkit.authorization_skipped", metadata: ["reason": "sync_disabled"])
         }
@@ -103,33 +109,89 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         refreshActivitySettings()
         let startOfDay = calculator.startOfDay(for: .now)
         guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else {
+            isUsingMotionFallback = true
             await refreshTodayDataFromMotion(startOfDay: startOfDay)
             return
         }
+
+        // HealthKit read access cannot be inferred reliably; always attempt queries.
+        // If HealthKit is unavailable, fall back to Motion for steps.
+        let healthAvailable = await ensureHealthAuthorizationIfNeeded()
+        if !healthAvailable {
+            isUsingMotionFallback = true
+            if activitySettings.activityMode == .steps {
+                await refreshTodayDataFromMotion(startOfDay: startOfDay)
+            } else {
+                todaySteps = 0
+                todayDistance = 0
+                todayFloors = 0
+                todayCalories = 0
+                lastUpdated = .now
+                updateSharedData()
+            }
+            return
+        }
+
         do {
-            let steps = try await fetchTodayActivityCount(from: startOfDay)
-            let distance = await resolveDistance(steps: steps, start: startOfDay, end: .now)
-            let floors = await resolveFloors(start: startOfDay, end: .now)
-            todaySteps = steps
-            todayDistance = distance
-            todayFloors = floors
-            todayCalories = Double(steps) * AppConstants.Metrics.caloriesPerStep
-            lastUpdated = .now
-            seedLiveBaseline(
-                startOfDay: startOfDay,
-                healthKitSteps: steps,
-                healthKitDistance: distance,
-                healthKitFloors: floors
-            )
-            updateSharedData()
-            evaluateBadges(steps: steps, streak: nil)
-            Loggers.tracking.info("steps.refresh_today", metadata: ["steps": "\(steps)"])
+            switch activitySettings.activityMode {
+            case .steps:
+                let hkSteps = try await healthKitService.fetchSteps(from: startOfDay, to: .now)
+
+                // If HealthKit returns 0, attempt Motion as a heuristic: if Motion has steps,
+                // HealthKit is likely missing read access and would otherwise show "0".
+                if hkSteps == 0 {
+                    if let motionSnapshot = try? await motionService.query(from: startOfDay, to: .now),
+                       motionSnapshot.steps > 0 {
+                        Loggers.health.info("healthkit.steps_zero_using_motion", metadata: [
+                            "motionSteps": "\(motionSnapshot.steps)"
+                        ])
+                        isUsingMotionFallback = true
+                        applyMotionSnapshot(motionSnapshot, startOfDay: startOfDay)
+                        return
+                    }
+                }
+
+                isUsingMotionFallback = false
+                let distance = await resolveDistance(steps: hkSteps, start: startOfDay, end: .now)
+                let floors = await resolveFloors(start: startOfDay, end: .now)
+                todaySteps = hkSteps
+                todayDistance = distance
+                todayFloors = floors
+                todayCalories = Double(hkSteps) * AppConstants.Metrics.caloriesPerStep
+                lastUpdated = .now
+                seedLiveBaseline(
+                    startOfDay: startOfDay,
+                    healthKitSteps: hkSteps,
+                    healthKitDistance: distance,
+                    healthKitFloors: floors
+                )
+                updateSharedData()
+                evaluateBadges(steps: hkSteps, streak: nil)
+                Loggers.tracking.info("steps.refresh_today", metadata: ["steps": "\(hkSteps)"])
+
+            case .wheelchairPushes:
+                isUsingMotionFallback = false
+                let pushes = try await healthKitService.fetchWheelchairPushes(from: startOfDay, to: .now)
+                let distance = await resolveDistance(steps: pushes, start: startOfDay, end: .now)
+                let floors = await resolveFloors(start: startOfDay, end: .now)
+                todaySteps = pushes
+                todayDistance = distance
+                todayFloors = floors
+                todayCalories = Double(pushes) * AppConstants.Metrics.caloriesPerStep
+                lastUpdated = .now
+                liveBaseline = nil
+                pendingBaseline = nil
+                updateSharedData()
+                evaluateBadges(steps: pushes, streak: nil)
+                Loggers.tracking.info("pushes.refresh_today", metadata: ["pushes": "\(pushes)"])
+            }
         } catch {
             Loggers.tracking.error("steps.refresh_failed", metadata: ["error": String(describing: error)])
             if activitySettings.activityMode == .steps {
                 Loggers.motion.info("motion.refresh_fallback", metadata: [
                     "reason": "healthkit_error"
                 ])
+                isUsingMotionFallback = true
                 await refreshTodayDataFromMotion(startOfDay: startOfDay)
             }
         }
@@ -154,12 +216,16 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             Loggers.sync.info("weekly.refresh_skipped", metadata: ["reason": "sync_disabled"])
             return .success(())
         }
-        // Ensure HealthKit authorization before fetching
-        do {
-            try await healthKitService.requestAuthorization()
-        } catch {
-            Loggers.health.warning("healthkit.authorization_failed_for_history", metadata: ["error": String(describing: error)])
-            // Continue anyway - user might have partial permissions
+        if !LaunchConfiguration.isUITesting() {
+            let healthAvailable = await ensureHealthAuthorizationIfNeeded()
+            guard healthAvailable else {
+                weeklySummaries = []
+                updateSharedData()
+                Loggers.health.info("weekly.refresh_skipped", metadata: [
+                    "reason": "healthkit_unavailable"
+                ])
+                return .failure(HealthKitError.notAvailable)
+            }
         }
 
         let settings = ActivitySettings.current(userDefaults: userDefaults)
@@ -210,6 +276,48 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         updateGoal(goal)
         await refreshStreak()
         _ = await refreshWeeklySummaries()
+    }
+
+    /// Triggers the system prompt for Motion & Fitness permissions (if needed).
+    /// This is used from onboarding/settings flows.
+    func requestMotionAccessProbe() async {
+        refreshActivitySettings()
+        let startOfDay = calculator.startOfDay(for: .now)
+        await refreshTodayDataFromMotion(startOfDay: startOfDay)
+    }
+
+    private func ensureHealthAuthorizationIfNeeded() async -> Bool {
+        // Unit/UI tests use mock HealthKit services; avoid querying real authorization state,
+        // but still exercise the "requestAuthorization" call so tests can verify integration.
+        if LaunchConfiguration.isTesting() {
+            do {
+                try await healthKitService.requestAuthorization()
+            } catch {
+                Loggers.health.warning("healthkit.authorization_request_failed_in_tests", metadata: [
+                    "error": error.localizedDescription
+                ])
+            }
+            return true
+        }
+
+        await healthAuthorization.refreshStatus()
+        switch healthAuthorization.status {
+        case .unavailable:
+            return false
+        case .requested:
+            return true
+        case .shouldRequest:
+            do {
+                try await healthKitService.requestAuthorization()
+            } catch {
+                Loggers.health.warning("healthkit.authorization_request_failed", metadata: [
+                    "error": error.localizedDescription
+                ])
+            }
+            await healthAuthorization.refreshStatus()
+            // Even if the user denies, HealthKit will not necessarily throw. Keep attempting queries.
+            return healthAuthorization.status != .unavailable
+        }
     }
 
     private func updateLiveData(from snapshot: PedometerSnapshot) {
@@ -341,19 +449,23 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
         do {
             let snapshot = try await motionService.query(from: startOfDay, to: .now)
-            let distance = resolveMotionDistance(snapshot: snapshot)
-            todaySteps = snapshot.steps
-            todayDistance = distance
-            todayFloors = snapshot.floorsAscended
-            todayCalories = Double(snapshot.steps) * AppConstants.Metrics.caloriesPerStep
-            lastUpdated = .now
-            seedMotionBaseline(snapshot: snapshot, startOfDay: startOfDay)
-            updateSharedData()
-            evaluateBadges(steps: snapshot.steps, streak: nil)
-            Loggers.tracking.info("steps.refresh_today_motion", metadata: ["steps": "\(snapshot.steps)"])
+            applyMotionSnapshot(snapshot, startOfDay: startOfDay)
         } catch {
             Loggers.motion.warning("motion.refresh_failed", metadata: ["error": String(describing: error)])
         }
+    }
+
+    private func applyMotionSnapshot(_ snapshot: PedometerSnapshot, startOfDay: Date) {
+        let distance = resolveMotionDistance(snapshot: snapshot)
+        todaySteps = snapshot.steps
+        todayDistance = distance
+        todayFloors = snapshot.floorsAscended
+        todayCalories = Double(snapshot.steps) * AppConstants.Metrics.caloriesPerStep
+        lastUpdated = .now
+        seedMotionBaseline(snapshot: snapshot, startOfDay: startOfDay)
+        updateSharedData()
+        evaluateBadges(steps: snapshot.steps, streak: nil)
+        Loggers.tracking.info("steps.refresh_today_motion", metadata: ["steps": "\(snapshot.steps)"])
     }
 
     private func resolveMotionDistance(snapshot: PedometerSnapshot) -> Double {
@@ -391,6 +503,32 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         )
         dataStore.update(shared)
         WatchSyncService.shared.send(stepData: shared)
+
+        // Widgets should reflect new data, but StepTrackingService can update very frequently.
+        // Throttle reloads to avoid spamming WidgetKit (and to reduce battery impact).
+        reloadWidgetsIfNeeded(steps: todaySteps)
+    }
+
+    private func reloadWidgetsIfNeeded(steps: Int) {
+        #if canImport(WidgetKit)
+        let now = Date.now
+        let minInterval: TimeInterval = 5 * 60
+        let minDeltaSteps = 200
+
+        if let last = lastWidgetReloadAt, now.timeIntervalSince(last) < minInterval {
+            return
+        }
+        if let lastSteps = lastWidgetReloadSteps, abs(steps - lastSteps) < minDeltaSteps {
+            return
+        }
+
+        lastWidgetReloadAt = now
+        lastWidgetReloadSteps = steps
+
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.stepCount)
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.progressRing)
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.weeklyChart)
+        #endif
     }
 
     private func currentBaseline() -> LiveStepBaseline? {

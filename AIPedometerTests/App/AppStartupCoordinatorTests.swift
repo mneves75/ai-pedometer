@@ -20,7 +20,7 @@ struct AppStartupCoordinatorTests {
     func doesNotStartWhenOnboardingIncomplete() async {
         let counter = StartupCounter()
         let coordinator = AppStartupCoordinator(
-            isUITesting: { false },
+            isTesting: { false },
             refreshHealthAuthorization: { counter.healthRefresh += 1 },
             refreshMotionAuthorization: { counter.motionRefresh += 1 },
             registerBackgroundTasks: { counter.registerBackground += 1 },
@@ -45,7 +45,7 @@ struct AppStartupCoordinatorTests {
     func doesNotStartDuringUITesting() async {
         let counter = StartupCounter()
         let coordinator = AppStartupCoordinator(
-            isUITesting: { true },
+            isTesting: { true },
             refreshHealthAuthorization: { counter.healthRefresh += 1 },
             refreshMotionAuthorization: { counter.motionRefresh += 1 },
             registerBackgroundTasks: { counter.registerBackground += 1 },
@@ -70,7 +70,7 @@ struct AppStartupCoordinatorTests {
     func startsOnlyOnce() async {
         let counter = StartupCounter()
         let coordinator = AppStartupCoordinator(
-            isUITesting: { false },
+            isTesting: { false },
             refreshHealthAuthorization: { counter.healthRefresh += 1 },
             refreshMotionAuthorization: { counter.motionRefresh += 1 },
             registerBackgroundTasks: { counter.registerBackground += 1 },
