@@ -119,6 +119,7 @@ Supports English (en) and Portuguese Brazil (pt-BR) via String Catalogs.
 | [SECURITY.md](SECURITY.md) | Security policy and private vulnerability reporting |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
+| `docs/appstore/` | Publicação App Store (playbook, metadata e StoreKit) |
 
 ## Contributing
 
@@ -126,7 +127,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.7
+**Current**: 0.71
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
