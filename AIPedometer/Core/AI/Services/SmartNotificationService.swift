@@ -273,7 +273,7 @@ final class SmartNotificationService {
         - \(unitLabelCapitalized) today: \(progress.steps.formatted())
         - Daily goal: \(progress.goal.formatted()) \(unitLabel)
         - Progress: \(progress.progressPercentage)%
-        - Distance: \(String(format: "%.1f", progress.distanceKm)) km
+        - Distance: \(progress.distanceKm.formatted(.number.precision(.fractionLength(1)))) km
         - Time of day: \(progress.timeOfDay)
 
         Requirements:

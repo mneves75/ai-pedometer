@@ -126,7 +126,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.6
+**Current**: 0.7
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
