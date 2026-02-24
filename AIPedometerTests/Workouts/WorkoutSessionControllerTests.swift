@@ -147,6 +147,73 @@ struct WorkoutSessionControllerTests {
     }
 
     @Test
+    func discardWhilePreparingAbortsPendingStartWithoutLiveActivityLeak() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        let liveActivity = MockLiveActivityManager()
+        let healthKit = BlockingWorkoutSessionHealthKitStub()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        let startTask = Task {
+            await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        }
+
+        await healthKit.waitUntilAuthorizationRequested()
+        controller.discardWorkout()
+        healthKit.unblockAuthorization()
+        await startTask.value
+
+        #expect(controller.state == .idle)
+        #expect(!controller.isActive)
+        #expect(!controller.isPresenting)
+        #expect(metricsSource.startCount == 0)
+        #expect(liveActivity.startCount == 0)
+
+        let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.deletedAt != nil)
+    }
+
+    @Test
+    func finishWhilePreparingDoesNotLeaveControllerInPreparingState() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        let liveActivity = MockLiveActivityManager()
+        let healthKit = BlockingWorkoutSessionHealthKitStub()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        let startTask = Task {
+            await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        }
+
+        await healthKit.waitUntilAuthorizationRequested()
+        await controller.finishWorkout()
+        healthKit.unblockAuthorization()
+        await startTask.value
+
+        #expect(!controller.isActive)
+        #expect(!controller.isPresenting)
+        #expect(metricsSource.startCount == 0)
+        #expect(liveActivity.startCount == 0)
+        #expect(healthKit.saveCount == 1)
+        if case .completed = controller.state {
+            // expected
+        } else {
+            Issue.record("Expected completed state after finishing while preparing")
+        }
+    }
+
+    @Test
     func demoLiveMetricsSourceReturnsZeroSnapshot() async throws {
         let source = DemoLiveMetricsSource()
         try source.start(from: Date())
@@ -212,6 +279,65 @@ final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
 
     func requestAuthorization() async throws {
         requestCount += 1
+    }
+
+    func fetchTodaySteps() async throws -> Int { 0 }
+    func fetchSteps(from _: Date, to _: Date) async throws -> Int { 0 }
+    func fetchWheelchairPushes(from _: Date, to _: Date) async throws -> Int { 0 }
+    func fetchDistance(from _: Date, to _: Date) async throws -> Double { 0 }
+    func fetchFloors(from _: Date, to _: Date) async throws -> Int { 0 }
+    func fetchDailySummaries(
+        days _: Int,
+        activityMode _: ActivityTrackingMode,
+        distanceMode _: DistanceEstimationMode,
+        manualStepLength _: Double,
+        dailyGoal _: Int
+    ) async throws -> [DailyStepSummary] { [] }
+    func fetchDailySummaries(
+        from _: Date,
+        to _: Date,
+        activityMode _: ActivityTrackingMode,
+        distanceMode _: DistanceEstimationMode,
+        manualStepLength _: Double,
+        dailyGoal _: Int
+    ) async throws -> [DailyStepSummary] { [] }
+
+    func saveWorkout(_ session: WorkoutSession) async throws {
+        _ = session
+        saveCount += 1
+    }
+}
+
+@MainActor
+final class BlockingWorkoutSessionHealthKitStub: HealthKitServiceProtocol {
+    var saveCount = 0
+    var requestCount = 0
+
+    private var requestContinuation: CheckedContinuation<Void, Never>?
+    private var unblockContinuation: CheckedContinuation<Void, Never>?
+    private var isUnblocked = false
+
+    func waitUntilAuthorizationRequested() async {
+        if requestCount > 0 { return }
+        await withCheckedContinuation { continuation in
+            requestContinuation = continuation
+        }
+    }
+
+    func unblockAuthorization() {
+        isUnblocked = true
+        unblockContinuation?.resume()
+        unblockContinuation = nil
+    }
+
+    func requestAuthorization() async throws {
+        requestCount += 1
+        requestContinuation?.resume()
+        requestContinuation = nil
+        if isUnblocked { return }
+        await withCheckedContinuation { continuation in
+            unblockContinuation = continuation
+        }
     }
 
     func fetchTodaySteps() async throws -> Int { 0 }

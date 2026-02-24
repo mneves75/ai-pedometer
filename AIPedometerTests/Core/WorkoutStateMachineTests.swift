@@ -85,6 +85,35 @@ struct WorkoutStateMachineTests {
     }
 
     @Test
+    func discardFromPreparingTransitionsToIdle() {
+        let machine = WorkoutStateMachine()
+        machine.send(.start)
+        machine.send(.discard)
+        #expect(machine.state == .idle)
+    }
+
+    @Test
+    func finishFromPreparingTransitionsToCompleted() {
+        let machine = WorkoutStateMachine()
+        machine.send(.start)
+
+        let summary = WorkoutSummary(
+            type: .outdoorWalk,
+            startTime: .now,
+            endTime: .now,
+            steps: 0,
+            distance: 0,
+            activeCalories: 0
+        )
+        machine.send(.finish(summary: summary))
+
+        guard case .completed = machine.state else {
+            Issue.record("Expected completed state from preparing finish")
+            return
+        }
+    }
+
+    @Test
     func errorFromPreparingTransitionsToFailed() {
         let machine = WorkoutStateMachine()
         machine.send(.start)

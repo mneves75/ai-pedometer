@@ -9,6 +9,12 @@
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' test`
 - Full simulator E2E (iOS tests + widget build + watch build + screenshots): `bash Scripts/e2e-simulator.sh`
 - Build/install on physical device by name (no hardcoded UDID): `bash Scripts/install-on-device.sh --device-name <DeviceName>`
+- Build/install on iPhone + explicit install/verify on paired Watch: `bash Scripts/install-on-device.sh --device-name <DeviceName> --watch-name "<Apple Watch Name>" --launch`
+- Retry/timeout knobs for flaky device/watch connectivity:
+  - `--build-retries <n>`
+  - `--install-retries <n>`
+  - `--retry-delay <seg>`
+  - `--destination-timeout <s>`
 
 ## Utilities
 - `swift Scripts/generate-app-icon.swift`: regenerate app icons (writes into each target's `AppIcon.appiconset`).

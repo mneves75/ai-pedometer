@@ -42,6 +42,19 @@ bash Scripts/install-on-device.sh --device-name "My iPhone"
 
 # Build + install + launch on physical device
 bash Scripts/install-on-device.sh --device-name "My iPhone" --launch
+
+# Build + install + launch on iPhone and explicit install/verify on paired Watch
+bash Scripts/install-on-device.sh --device-name "My iPhone" --watch-name "My Apple Watch" --launch
+
+# Build + install with stronger retries/timeouts for unstable device/watch tunnels
+bash Scripts/install-on-device.sh \
+  --device-name "My iPhone" \
+  --watch-name "My Apple Watch" \
+  --launch \
+  --build-retries 3 \
+  --install-retries 4 \
+  --retry-delay 4 \
+  --destination-timeout 180
 ```
 
 If XcodeBuildMCP is available, prefer MCP tools (`build_run_sim`, `run_tests`).

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Workouts: fixed a race condition during `preparing` state where discarding or finishing a workout before authorization completed could leave inconsistent in-memory state and continue parts of the startup pipeline.
+
+### Improved
+
+- Physical-device install workflow (`Scripts/install-on-device.sh`) now supports explicit paired Apple Watch install/verification by name.
+- Physical-device install workflow now includes retry controls for build/install/verify and destination timeout tuning.
+- Device install flow now auto-falls back from Xcode beta to stable Xcode when beta fails with embedded watch runtime mismatch.
+- Device install flow now verifies iOS and watch bundle installation via `devicectl device info apps` after install.
+
+### Tests
+
+- Added workout regression tests for discard/finish during `preparing` to prevent startup-state leaks and stale transitions.
+- Expanded state machine tests to cover `preparing -> discard` and `preparing -> finish` transitions.
+- Updated install-script shell tests to validate iOS + watch install/verify paths and retry-aware behavior.
+
 ## [0.5] - 2026-02-24
 
 ### Improved

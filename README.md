@@ -44,6 +44,13 @@ xcodegen generate && Scripts/restore-entitlements.sh
 open AIPedometer.xcodeproj
 ```
 
+Local signing override (recommended for physical-device builds):
+
+```bash
+cp Config/Local.xcconfig.example Config/Local.xcconfig
+# then set DEVELOPMENT_TEAM in Config/Local.xcconfig
+```
+
 ## Project Structure
 
 ```
@@ -75,6 +82,19 @@ xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 
 # Run specific test file
 xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
   test -only-testing:AIPedometerTests/DailyStepCalculatorTests
+
+# Install on physical iPhone (by name)
+bash Scripts/install-on-device.sh --device-name "My iPhone" --launch
+
+# Install on iPhone + paired Apple Watch with retries
+bash Scripts/install-on-device.sh \
+  --device-name "My iPhone" \
+  --watch-name "My Apple Watch" \
+  --launch \
+  --build-retries 3 \
+  --install-retries 4 \
+  --retry-delay 4 \
+  --destination-timeout 180
 ```
 
 ### Configuration

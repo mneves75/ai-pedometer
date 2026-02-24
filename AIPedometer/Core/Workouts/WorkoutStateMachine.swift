@@ -46,6 +46,10 @@ final class WorkoutStateMachine {
             return .active
         case (.preparing, .error(let error)):
             return .failed(error: error)
+        case (.preparing, .discard):
+            return .idle
+        case (.preparing, .finish(let summary)):
+            return .completed(summary: summary)
         case (.active, .pause):
             return .paused
         case (.paused, .resume):
