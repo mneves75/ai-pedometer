@@ -315,8 +315,8 @@ struct HistoryView: View {
                 aiTrendCard
                 historyRows
             }
-            .padding(.bottom, DesignTokens.Spacing.lg)
         }
+        .tabBarAwareScrollContentBottomInset()
     }
 
     @ViewBuilder

@@ -357,6 +357,7 @@ struct InsightServiceTests {
         let prompt = foundationModels.lastPrompt ?? ""
 
         #expect(prompt.contains("Goals achieved: 2/7"))
+        #expect(prompt.contains(AppLanguage.promptInstruction()))
     }
 
     @Test("Workout recommendation uses cache when steps and goal are unchanged")

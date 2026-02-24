@@ -673,6 +673,7 @@ private extension InsightService {
     func buildDailyInsightPrompt(data: ActivityData) -> String {
         let unitLabel = data.unitName
         let unitLabelCapitalized = unitLabel.capitalized
+        let languageInstruction = AppLanguage.promptInstruction()
 
         // Determine progress tier for context-appropriate messaging
         let progressTier: String
@@ -706,6 +707,9 @@ private extension InsightService {
         return """
         Generate a daily fitness insight for this user:
 
+        Language:
+        - \(languageInstruction)
+
         Today's Activity:
         - \(unitLabelCapitalized): \(data.steps.formatted()) (Goal: \(data.goal.formatted()))
         - Progress: \(data.percentOfGoal)% of daily goal
@@ -727,6 +731,7 @@ private extension InsightService {
     
     func buildWeeklyAnalysisPrompt(data: WeekActivityData) -> String {
         let unitLabel = data.unitName
+        let languageInstruction = AppLanguage.promptInstruction()
         let dailyBreakdown: String
         if data.summaries.isEmpty {
             dailyBreakdown = "No daily activity data available."
@@ -752,6 +757,9 @@ private extension InsightService {
         
         return """
         Analyze this week's fitness activity:
+
+        Language:
+        - \(languageInstruction)
         
         Weekly Summary:
         - Total \(unitLabel): \(data.totalSteps.formatted())
@@ -782,6 +790,7 @@ private extension InsightService {
         unitName: String
     ) -> String {
         let unitLabel = unitName
+        let languageInstruction = AppLanguage.promptInstruction()
         let averageSteps = data.isEmpty ? 0 : data.reduce(0) { $0 + $1.steps } / data.count
         let goalMetCount = data.filter { $0.steps >= $0.goal }.count
         let goalMetPercentage = data.isEmpty ? 0 : (goalMetCount * 100) / data.count
@@ -795,6 +804,9 @@ private extension InsightService {
         
         return """
         Recommend a daily step goal adjustment:
+
+        Language:
+        - \(languageInstruction)
         
         Current Status:
         - Current goal: \(currentGoal.formatted()) \(unitLabel)
@@ -809,6 +821,7 @@ private extension InsightService {
     
     func buildWorkoutRecommendationPrompt(weekData: WeekActivityData, todayData: ActivityData, currentGoal: Int) -> String {
         let unitLabel = todayData.unitName
+        let languageInstruction = AppLanguage.promptInstruction()
         let currentHour = Calendar.current.component(.hour, from: Date())
         let timeContext: String
         if currentHour < 12 {
@@ -836,6 +849,9 @@ private extension InsightService {
 
         return """
         Recommend a workout for today based on this user's activity data:
+
+        Language:
+        - \(languageInstruction)
         
         Today's Progress:
         - \(unitLabel.capitalized) so far: \(todayData.steps.formatted())

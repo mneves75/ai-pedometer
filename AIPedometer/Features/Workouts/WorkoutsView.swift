@@ -39,8 +39,8 @@ struct WorkoutsView: View {
                 trainingPlansSection
                 recentWorkoutsSection
             }
-            .padding(.bottom, DesignTokens.Spacing.lg)
         }
+        .tabBarAwareScrollContentBottomInset()
         .accessibilityIdentifier(A11yID.Workouts.scroll)
         .toolbar(.hidden, for: .navigationBar)
         .background(DesignTokens.Colors.surfaceGrouped)

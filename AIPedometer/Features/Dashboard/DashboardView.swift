@@ -43,8 +43,8 @@ struct DashboardView: View {
                 progressRingSection
                 statsGridSection
             }
-            .padding(.bottom, DesignTokens.Spacing.lg)
         }
+        .tabBarAwareScrollContentBottomInset()
         .accessibilityIdentifier(A11yID.Dashboard.view)
         .background(DesignTokens.Colors.surfaceGrouped)
         .navigationBarTitleDisplayMode(.inline)

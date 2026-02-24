@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6] - 2026-02-24
+
 ### Fixed
 
 - Workouts: fixed a race condition during `preparing` state where discarding or finishing a workout before authorization completed could leave inconsistent in-memory state and continue parts of the startup pipeline.
+- Workouts: replaced fragile fixed bottom spacing in scroll content with safe-area-aware bottom inset behavior so the primary CTA is not obscured by the tab bar.
+- AI prompts: workout recommendation output now receives explicit app-language instruction to avoid mixed-language responses in localized UI.
 
 ### Improved
 
@@ -17,12 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Physical-device install workflow now includes retry controls for build/install/verify and destination timeout tuning.
 - Device install flow now auto-falls back from Xcode beta to stable Xcode when beta fails with embedded watch runtime mismatch.
 - Device install flow now verifies iOS and watch bundle installation via `devicectl device info apps` after install.
+- Dashboard/History/Workouts now share the same tab-bar-aware scroll inset modifier for consistent bottom-safe content layout.
 
 ### Tests
 
 - Added workout regression tests for discard/finish during `preparing` to prevent startup-state leaks and stale transitions.
 - Expanded state machine tests to cover `preparing -> discard` and `preparing -> finish` transitions.
 - Updated install-script shell tests to validate iOS + watch install/verify paths and retry-aware behavior.
+- Added prompt coverage ensuring workout recommendation prompt includes app-language directive.
+- Strengthened workouts UI assertions to enforce tappable `Start Workout` button and frame separation from tab bar.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.6 (25)`.
+- Documentation sync: aligned release references across project docs.
 
 ## [0.5] - 2026-02-24
 
