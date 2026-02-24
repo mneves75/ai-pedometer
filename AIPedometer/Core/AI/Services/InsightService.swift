@@ -96,7 +96,7 @@ final class InsightService {
                calendar.isDate(cached.weekStart, equalTo: weekStart, toGranularity: .weekOfYear) {
                 return cached.analysis
             }
-            throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
+            return await fallbackWeeklyAnalysisWhileInFlight(weekStart: weekStart)
         }
         
         isGeneratingWeeklyAnalysis = true
@@ -106,16 +106,41 @@ final class InsightService {
         let signpostState = Signposts.ai.begin("WeeklyAnalysis")
         defer { Signposts.ai.end("WeeklyAnalysis", signpostState) }
 
+        let weekData: WeekActivityData
         do {
-            let weekData = try await fetchWeekActivityData()
-            if weekData.summaries.isEmpty {
-                Loggers.ai.info("ai.weekly_analysis_fallback", metadata: [
-                    "reason": "no_data"
-                ])
-                return fallbackWeeklyAnalysis()
-            }
-            let prompt = buildWeeklyAnalysisPrompt(data: weekData)
+            weekData = try await fetchWeekActivityData()
+        } catch let error as AIServiceError {
+            lastError = error
+            let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
+                "reason": WeeklyFallbackReason.fetchError.rawValue,
+                "error": error.logDescription
+            ])
+            return fallback
+        } catch {
+            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
+            lastError = mappedError
+            let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
+                "reason": WeeklyFallbackReason.fetchError.rawValue,
+                "error": mappedError.logDescription
+            ])
+            return fallback
+        }
 
+        if weekData.summaries.isEmpty {
+            let fallback = fallbackWeeklyAnalysis(reason: .noData)
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.info("ai.weekly_analysis_fallback", metadata: [
+                "reason": WeeklyFallbackReason.noData.rawValue
+            ])
+            return fallback
+        }
+
+        let prompt = buildWeeklyAnalysisPrompt(data: weekData)
+        do {
             let analysis: WeeklyTrendAnalysis = try await foundationModelsService.respond(
                 to: prompt,
                 as: WeeklyTrendAnalysis.self
@@ -124,15 +149,20 @@ final class InsightService {
             cachedWeeklyAnalysis = (weekStart, analysis)
             Loggers.ai.info("ai.weekly_analysis_generated")
             return analysis
-        } catch let error as AIServiceError {
+        } catch let error {
             lastError = error
-            Loggers.ai.error("ai.weekly_analysis_failed", metadata: ["error": error.logDescription])
-            throw error
-        } catch {
-            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
-            lastError = mappedError
-            Loggers.ai.error("ai.weekly_analysis_failed", metadata: ["error": mappedError.logDescription])
-            throw mappedError
+            let reason: WeeklyFallbackReason = if case .guardrailViolation = error {
+                .guardrail
+            } else {
+                .generationFailure
+            }
+            let fallback = fallbackWeeklyAnalysis(from: weekData, reason: reason)
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
+                "reason": reason.rawValue,
+                "error": error.logDescription
+            ])
+            return fallback
         }
     }
     
@@ -264,6 +294,14 @@ private extension InsightService {
     enum DataConfidence {
         case reliable
         case uncertain
+    }
+
+    enum WeeklyFallbackReason: String {
+        case noData
+        case fetchError
+        case guardrail
+        case generationFailure
+        case inFlight
     }
 
     struct ActivityData {
@@ -455,7 +493,7 @@ private extension InsightService {
         return resolveSummaryGoals(summaries, fallbackGoal: goalService.currentGoal)
     }
 
-    func fallbackWeeklyAnalysis() -> WeeklyTrendAnalysis {
+    func fallbackWeeklyAnalysis(reason: WeeklyFallbackReason) -> WeeklyTrendAnalysis {
         WeeklyTrendAnalysis(
             summary: String(
                 localized: "No Activity Data",
@@ -470,6 +508,142 @@ private extension InsightService {
                 localized: "Enable HealthKit Sync in Settings to see your activity history.",
                 comment: "Weekly trend recommendation when no data is available"
             )
+        )
+    }
+
+    func fallbackWeeklyAnalysisWhileInFlight(weekStart: Date) async -> WeeklyTrendAnalysis {
+        do {
+            let weekData = try await fetchWeekActivityData()
+            let fallback: WeeklyTrendAnalysis
+            if weekData.summaries.isEmpty {
+                fallback = fallbackWeeklyAnalysis(reason: .noData)
+            } else {
+                fallback = fallbackWeeklyAnalysis(from: weekData, reason: .inFlight)
+            }
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.info("ai.weekly_analysis_fallback", metadata: [
+                "reason": WeeklyFallbackReason.inFlight.rawValue
+            ])
+            return fallback
+        } catch let error as AIServiceError {
+            lastError = error
+            let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
+                "reason": WeeklyFallbackReason.fetchError.rawValue,
+                "context": WeeklyFallbackReason.inFlight.rawValue,
+                "error": error.logDescription
+            ])
+            return fallback
+        } catch {
+            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
+            lastError = mappedError
+            let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
+            cachedWeeklyAnalysis = (weekStart, fallback)
+            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
+                "reason": WeeklyFallbackReason.fetchError.rawValue,
+                "context": WeeklyFallbackReason.inFlight.rawValue,
+                "error": mappedError.logDescription
+            ])
+            return fallback
+        }
+    }
+
+    func fallbackWeeklyAnalysis(
+        from data: WeekActivityData,
+        reason: WeeklyFallbackReason
+    ) -> WeeklyTrendAnalysis {
+        guard !data.summaries.isEmpty else {
+            return fallbackWeeklyAnalysis(reason: reason)
+        }
+
+        let unitLabel = data.unitName
+        let validDays = max(data.summaries.count, 1)
+        let consistencyPercent = (data.goalMetDays * 100) / validDays
+
+        let trendSummary: String
+        switch data.trend {
+        case .increasing:
+            trendSummary = Localization.format(
+                "You are improving this week with %d%% goal consistency.",
+                comment: "Weekly fallback summary for increasing trend",
+                consistencyPercent
+            )
+        case .decreasing:
+            trendSummary = Localization.format(
+                "Your activity dropped this week, but you still logged %@ %@.",
+                comment: "Weekly fallback summary for decreasing trend",
+                data.totalSteps.formatted(),
+                unitLabel
+            )
+        case .stable:
+            trendSummary = Localization.format(
+                "Your routine stayed stable with an average of %@ %@ per day.",
+                comment: "Weekly fallback summary for stable trend",
+                data.averageSteps.formatted(),
+                unitLabel
+            )
+        }
+
+        let observationPrefix: String
+        switch reason {
+        case .guardrail:
+            observationPrefix = String(
+                localized: "I used a safe summary based on your recorded history this week.",
+                comment: "Weekly fallback prefix when AI content is blocked by guardrails"
+            )
+        case .inFlight:
+            observationPrefix = String(
+                localized: "Your latest AI summary is still processing, so I used your recorded history for now.",
+                comment: "Weekly fallback prefix when another weekly AI generation is in progress"
+            )
+        case .generationFailure, .fetchError, .noData:
+            observationPrefix = String(
+                localized: "Here is a summary based on your latest recorded history.",
+                comment: "Weekly fallback prefix when AI generation is unavailable"
+            )
+        }
+
+        let bestDaySummary: String
+        if let bestDay = data.bestDay {
+            bestDaySummary = Localization.format(
+                "Your strongest day was %@ with %@ %@.",
+                comment: "Weekly fallback best day summary",
+                bestDay.date.formatted(date: .abbreviated, time: .omitted),
+                bestDay.steps.formatted(),
+                unitLabel
+            )
+        } else {
+            bestDaySummary = String(
+                localized: "Your strongest day this week was above your average.",
+                comment: "Weekly fallback best day summary when exact day is unavailable"
+            )
+        }
+
+        let recommendation: String
+        switch data.trend {
+        case .increasing:
+            recommendation = String(
+                localized: "Keep this pace and repeat your best-day routine on one lower-activity day next week.",
+                comment: "Weekly fallback recommendation for increasing trend"
+            )
+        case .decreasing:
+            recommendation = String(
+                localized: "Pick two days next week to match your average and recover consistency gradually.",
+                comment: "Weekly fallback recommendation for decreasing trend"
+            )
+        case .stable:
+            recommendation = String(
+                localized: "Choose one day next week to target about 10% above your current average.",
+                comment: "Weekly fallback recommendation for stable trend"
+            )
+        }
+
+        return WeeklyTrendAnalysis(
+            summary: trendSummary,
+            trend: data.trend,
+            observation: "\(observationPrefix) \(bestDaySummary)",
+            recommendation: recommendation
         )
     }
     
@@ -591,6 +765,12 @@ private extension InsightService {
         \(data.bestDay.map { "Best day: \($0.date.formatted(date: .abbreviated, time: .omitted)) with \($0.steps.formatted()) \(unitLabel)" } ?? "")
         \(data.worstDay.map { "Lowest day: \($0.date.formatted(date: .abbreviated, time: .omitted)) with \($0.steps.formatted()) \(unitLabel)" } ?? "")
         \(dataReliabilityNote)
+
+        NON-MEDICAL SAFETY RULES:
+        - Stay within activity coaching only (consistency, habits, routine planning).
+        - Do not provide diagnosis, treatment, medication, injury, or disease guidance.
+        - Avoid body image or weight-loss claims; keep advice practical and neutral.
+        - If data is limited, acknowledge uncertainty and suggest simple next steps.
 
         Provide a concise weekly analysis with actionable recommendations.
         """

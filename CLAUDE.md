@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Append notes for each run in `agent_planning/ultrawork-notes.txt` (what worked, what didn’t, missing context) and reuse between sessions. Link: [agent_planning/ultrawork-notes.txt](agent_planning/ultrawork-notes.txt).
 
+## Apple Platforms
+
+For Swift / iOS/iPadOS 26 code, look for info in:
+
+`/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+
+If using an unreleased iOS SDK, look in Xcode beta:
+
+`/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+
 ## Build Commands
 
 ```bash
@@ -27,9 +37,11 @@ xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 
 xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
   test -only-testing:AIPedometerTests/DailyStepCalculatorTests/testMergeSteps
 
-# Build and install on physical device ("My iPhone" — iPhone 17 Pro Max)
-# Note: xcodebuild uses native UDID, devicectl uses hashed UDID (same device)
-  ~/Library/Developer/Xcode/DerivedData/AIPedometer-*/Build/Products/Debug-iphoneos/AIPedometer.app
+# Build + install on physical device by name (no hardcoded UDID)
+bash Scripts/install-on-device.sh --device-name "My iPhone"
+
+# Build + install + launch on physical device
+bash Scripts/install-on-device.sh --device-name "My iPhone" --launch
 ```
 
 If XcodeBuildMCP is available, prefer MCP tools (`build_run_sim`, `run_tests`).
@@ -174,7 +186,9 @@ App Group `group.com.mneves.aipedometer` enables data sharing between app, widge
 3. **Protocol existentials**: Swift 6 requires `any` prefix — `any HealthKitServiceProtocol`, not `HealthKitServiceProtocol`.
 4. **Version sync**: Keep `MARKETING_VERSION` in `project.yml` aligned with `CHANGELOG.md`.
 5. **AI zero-step grounding**: When steps=0 with `.reliable` confidence, AI prompts must acknowledge inactivity — never fabricate achievements.
+6. **No hardcoded device IDs**: use device name + `Scripts/install-on-device.sh`; avoid committing raw UDIDs/UUIDs in docs/scripts.
 7. **Simulator name**: CI uses `iPhone 17` — keep local commands consistent to avoid destination mismatches.
+8. **Release tags**: Use `v<MARKETING_VERSION>` (for example `v0.5`) after docs/version sync and tests pass.
 
 ## Further Reading
 

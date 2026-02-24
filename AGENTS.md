@@ -6,6 +6,15 @@ AIPedometer is a Swift 6.2 SwiftUI iOS pedometer app with AI-powered insights, p
 ## Agent Notes
 Run notes are stored at `agent_planning/ultrawork-notes.txt` (append each run with what worked, what didn’t, and missing context; reuse between sessions). Link: [agent_planning/ultrawork-notes.txt](agent_planning/ultrawork-notes.txt).
 
+## Apple Platforms
+For Swift / iOS/iPadOS 26 code, look for info in:
+
+`/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+
+If using an unreleased iOS SDK, look in Xcode beta:
+
+`/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+
 ## Design Context
 For UI work, read: `DESIGN_SYSTEM.md`, `FRONTEND_GUIDELINES.md`, `APP_FLOW.md`, `PRD.md`, `TECH_STACK.md`, `LESSONS.md`, `progress.txt`.
 Use design tokens for color, spacing, and typography (no hardcoded values).
@@ -20,7 +29,7 @@ This project does not use npm; it relies on Xcode/XcodeGen tooling.
 - Bump `project.yml` (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`).
 - Update `CHANGELOG.md` and the version in `README.md`.
 - Validate HealthKit source filtering behavior (Apple sources preferred) and keep tests in sync.
-- Tag the release after tests pass.
+- Tag the release after tests pass (`v<MARKETING_VERSION>`, for example `v0.5`).
 
 ## Detailed Guides
 - [Project structure and configuration](docs/agents/project-structure.md)

@@ -12,18 +12,11 @@ struct HistoryView: View {
     @State private var loadError: String?
     @State private var weeklyAnalysis: WeeklyTrendAnalysis?
     @State private var isLoadingAnalysis = false
-    @State private var analysisError: AIServiceError?
     @State private var showHealthHelp = false
 
     private struct LoadTrigger: Hashable {
         let syncEnabled: Bool
         let activityModeRaw: String
-    }
-
-    private struct AnalysisTrigger: Hashable {
-        let summariesCount: Int
-        let hasLoadError: Bool
-        let aiAvailable: Bool
     }
 
     private var activityMode: ActivityTrackingMode {
@@ -51,21 +44,6 @@ struct HistoryView: View {
         .task(id: LoadTrigger(syncEnabled: healthKitSyncEnabled, activityModeRaw: activityModeRaw)) {
             await loadData()
         }
-        .task(id: AnalysisTrigger(
-            summariesCount: trackingService.weeklySummaries.count,
-            hasLoadError: loadError != nil,
-            aiAvailable: foundationModelsService.availability.isAvailable
-        )) {
-            guard !isLoadingAnalysis, weeklyAnalysis == nil else { return }
-            guard HistoryAnalysisGate.shouldLoadWeeklyAnalysis(
-                syncEnabled: healthKitSyncEnabled,
-                loadError: loadError,
-                summaries: trackingService.weeklySummaries
-            ) else {
-                return
-            }
-            await loadWeeklyAnalysis()
-        }
         .refreshable {
             await loadData()
         }
@@ -90,21 +68,22 @@ struct HistoryView: View {
             loadError: loadError,
             summaries: trackingService.weeklySummaries
         ) {
-            await loadWeeklyAnalysis()
+            await loadWeeklyAnalysis(forceRefresh: true)
         }
     }
 
-    private func loadWeeklyAnalysis() async {
+    private func loadWeeklyAnalysis(forceRefresh: Bool = false) async {
         guard foundationModelsService.availability.isAvailable else { return }
 
         isLoadingAnalysis = true
-        analysisError = nil
 
         do {
-            weeklyAnalysis = try await insightService.generateWeeklyAnalysis()
+            weeklyAnalysis = try await insightService.generateWeeklyAnalysis(forceRefresh: forceRefresh)
         } catch {
-            analysisError = error
-            Loggers.ai.warning("ai.weekly_analysis_load_failed", metadata: ["error": error.logDescription])
+            weeklyAnalysis = weeklyAnalysisEmergencyFallback
+            Loggers.ai.warning("ai.weekly_analysis_history_emergency_fallback", metadata: [
+                "error": error.logDescription
+            ])
         }
 
         isLoadingAnalysis = false
@@ -112,8 +91,25 @@ struct HistoryView: View {
 
     private func resetWeeklyAnalysis() {
         weeklyAnalysis = nil
-        analysisError = nil
         isLoadingAnalysis = false
+    }
+
+    private var weeklyAnalysisEmergencyFallback: WeeklyTrendAnalysis {
+        WeeklyTrendAnalysis(
+            summary: String(
+                localized: "No Activity Data",
+                comment: "Weekly trend summary when no data is available"
+            ),
+            trend: .stable,
+            observation: String(
+                localized: "Start walking to see your activity history here. Make sure Health access is enabled in Settings.",
+                comment: "Weekly trend observation when no data is available"
+            ),
+            recommendation: String(
+                localized: "Enable HealthKit Sync in Settings to see your activity history.",
+                comment: "Weekly trend recommendation when no data is available"
+            )
+        )
     }
 
     @ViewBuilder
@@ -329,9 +325,9 @@ struct HistoryView: View {
             WeeklyTrendCard(
                 analysis: weeklyAnalysis,
                 isLoading: isLoadingAnalysis,
-                error: analysisError,
+                error: nil,
                 onRetry: {
-                    Task { await loadWeeklyAnalysis() }
+                    Task { await loadWeeklyAnalysis(forceRefresh: true) }
                 }
             )
             .padding(.horizontal, DesignTokens.Spacing.md)

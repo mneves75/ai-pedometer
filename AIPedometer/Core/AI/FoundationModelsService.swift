@@ -89,12 +89,13 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
     
     func respond(to prompt: String) async throws(AIServiceError) -> String {
-        guard let session else {
+        guard availability == .available else {
             throw AIServiceError.sessionNotConfigured
         }
-        
+
+        let oneShotSession = LanguageModelSession(instructions: instructions)
         do {
-            let response = try await session.respond(to: prompt)
+            let response = try await oneShotSession.respond(to: prompt)
             Loggers.ai.info("ai.response_generated", metadata: ["prompt_length": "\(prompt.count)"])
             return response.content
         } catch {
@@ -104,12 +105,13 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
     
     func respond<T: Generable>(to prompt: String, as type: T.Type) async throws(AIServiceError) -> T {
-        guard let session else {
+        guard availability == .available else {
             throw AIServiceError.sessionNotConfigured
         }
-        
+
+        let oneShotSession = LanguageModelSession(instructions: instructions)
         do {
-            let response: LanguageModelSession.Response<T> = try await session.respond(
+            let response: LanguageModelSession.Response<T> = try await oneShotSession.respond(
                 to: prompt,
                 generating: type
             )

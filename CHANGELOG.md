@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5] - 2026-02-24
+
+### Improved
+
+- History AI weekly analysis flow is now resilient to concurrent in-flight generation: the History tab returns a deterministic fallback instead of surfacing transient contention failures.
+- History tab analysis loading was consolidated to a single trigger path, reducing duplicate generation attempts and improving refresh consistency.
+- Foundation Models one-shot request paths now use isolated per-call sessions, reducing context bleed across independent AI requests.
+
+### Tests
+
+- Added deterministic concurrent weekly-analysis coverage to ensure one active generation call with fallback behavior for overlapping requests.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.5 (24)`.
+- Documentation sync: aligned release references across project docs.
+
 ## [0.4.20] - 2026-02-11
 
 ### Changed

@@ -10,6 +10,7 @@ final class MockFoundationModelsService: FoundationModelsServiceProtocol {
     var respondStringResult: Result<String, AIServiceError> = .failure(.sessionNotConfigured)
     var respondCallCount = 0
     var lastPrompt: String?
+    var respondDelayNanoseconds: UInt64 = 0
 
     func checkAvailability() -> AIModelAvailability {
         availability
@@ -18,6 +19,9 @@ final class MockFoundationModelsService: FoundationModelsServiceProtocol {
     func respond(to prompt: String) async throws(AIServiceError) -> String {
         respondCallCount += 1
         lastPrompt = prompt
+        if respondDelayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: respondDelayNanoseconds)
+        }
 
         switch respondStringResult {
         case .success(let value):
@@ -30,6 +34,9 @@ final class MockFoundationModelsService: FoundationModelsServiceProtocol {
     func respond<T: Generable>(to prompt: String, as type: T.Type) async throws(AIServiceError) -> T {
         respondCallCount += 1
         lastPrompt = prompt
+        if respondDelayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: respondDelayNanoseconds)
+        }
 
         switch respondResult {
         case .success(let value):

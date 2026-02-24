@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+bash "${ROOT_DIR}/Scripts/verify-device-identifiers.sh"
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERRO: comando ausente: $1"
