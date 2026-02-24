@@ -38,7 +38,7 @@ struct BadgesView: View {
         )
         .uiTestMarker(A11yID.Badges.marker)
         .background(DesignTokens.Colors.surfaceGrouped)
-            .navigationTitle(String(localized: "Badges", comment: "Navigation title for badges"))
+            .navigationTitle(L10n.localized("Badges", comment: "Navigation title for badges"))
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(showsCustomBackButton)
             .toolbar {
@@ -47,7 +47,7 @@ struct BadgesView: View {
                         Button {
                             presentationMode.wrappedValue.dismiss()
                         } label: {
-                            Label(String(localized: "Back", comment: "Back button label"), systemImage: "chevron.backward")
+                            Label(L10n.localized("Back", comment: "Back button label"), systemImage: "chevron.backward")
                         }
                         .accessibilityIdentifier("badges_back_button")
                     }
@@ -86,9 +86,9 @@ struct BadgesView: View {
     
     private var emptyState: some View {
         ContentUnavailableView {
-            Label(String(localized: "No Badges Yet", comment: "Badges empty state title"), systemImage: "medal")
+            Label(L10n.localized("No Badges Yet", comment: "Badges empty state title"), systemImage: "medal")
         } description: {
-            Text(String(localized: "Keep walking to earn your first badge! Badges are awarded for reaching step milestones and maintaining streaks.", comment: "Badges empty state description"))
+            Text(L10n.localized("Keep walking to earn your first badge! Badges are awarded for reaching step milestones and maintaining streaks.", comment: "Badges empty state description"))
         }
     }
     
@@ -112,7 +112,7 @@ struct BadgesView: View {
 
     private func headerSection(earnedCount: Int, totalCount: Int) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-            Text(String(localized: "Badges", comment: "Badges screen title"))
+            Text(L10n.localized("Badges", comment: "Badges screen title"))
                 .font(DesignTokens.Typography.largeTitle.bold())
             
             Text(
@@ -135,7 +135,7 @@ struct BadgesView: View {
         let earnedBadges = badges
         if !earnedBadges.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                Text(String(localized: "Earned", comment: "Section header for earned badges"))
+                Text(L10n.localized("Earned", comment: "Section header for earned badges"))
                     .font(DesignTokens.Typography.headline)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                 
@@ -149,7 +149,7 @@ struct BadgesView: View {
         let lockedBadges = badges
         if !lockedBadges.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                Text(String(localized: "Locked", comment: "Section header for locked badges"))
+                Text(L10n.localized("Locked", comment: "Section header for locked badges"))
                     .font(DesignTokens.Typography.headline)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                 
@@ -327,7 +327,7 @@ struct BadgeDetailSheet: View {
                 .foregroundStyle(badge.isEarned ? AnyShapeStyle(DesignTokens.Colors.yellow.gradient) : AnyShapeStyle(DesignTokens.Colors.textSecondary))
 
             VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(String(localized: "Badge Details", comment: "Badge detail sheet title"))
+                Text(L10n.localized("Badge Details", comment: "Badge detail sheet title"))
                     .font(DesignTokens.Typography.title3.bold())
 
                 Text(badge.name)
@@ -351,12 +351,12 @@ struct BadgeDetailSheet: View {
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
             } else {
-                Text(String(localized: "Not earned yet", comment: "Badge detail locked message"))
+                Text(L10n.localized("Not earned yet", comment: "Badge detail locked message"))
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textTertiary)
             }
 
-            Button(String(localized: "Close", comment: "Badge detail close button")) {
+            Button(L10n.localized("Close", comment: "Badge detail close button")) {
                 HapticService.shared.tap()
                 onDismiss()
             }
@@ -406,7 +406,7 @@ struct BadgeCelebrationSheet: View {
             Spacer()
             
             VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(String(localized: "Next Challenge", comment: "Badge celebration next challenge header"))
+                Text(L10n.localized("Next Challenge", comment: "Badge celebration next challenge header"))
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textTertiary)
                 
@@ -416,7 +416,7 @@ struct BadgeCelebrationSheet: View {
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)
             
-            Button(String(localized: "Continue", comment: "Badge celebration continue button")) {
+            Button(L10n.localized("Continue", comment: "Badge celebration continue button")) {
                 HapticService.shared.confirm()
                 onDismiss()
             }

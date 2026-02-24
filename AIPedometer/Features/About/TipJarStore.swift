@@ -198,7 +198,7 @@ final class TipJarStore {
                     )
                 )
             case .unknown:
-                purchaseState = .failed(String(localized: "Please try again later.", comment: "Generic retry message"))
+                purchaseState = .failed(L10n.localized("Please try again later.", comment: "Generic retry message"))
             }
         } catch let error as TipJarDriverError {
             purchaseState = .failed(error.localizedDescription)

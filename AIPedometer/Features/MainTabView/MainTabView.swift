@@ -15,13 +15,13 @@ struct MainTabView: View {
 
         var title: String {
             switch self {
-            case .dashboard: String(localized: "Dashboard", comment: "Tab title for main dashboard")
-            case .history: String(localized: "History", comment: "Tab title for step history")
-            case .workouts: String(localized: "Workouts", comment: "Tab title for workouts list")
-            case .badges: String(localized: "Badges", comment: "Tab title for achievements/badges")
-            case .aiCoach: String(localized: "AI Coach", comment: "Tab title for AI coach chat")
-            case .settings: String(localized: "Settings", comment: "Tab title for app settings")
-            case .more: String(localized: "More", comment: "Tab title for more options")
+            case .dashboard: L10n.localized("Dashboard", comment: "Tab title for main dashboard")
+            case .history: L10n.localized("History", comment: "Tab title for step history")
+            case .workouts: L10n.localized("Workouts", comment: "Tab title for workouts list")
+            case .badges: L10n.localized("Badges", comment: "Tab title for achievements/badges")
+            case .aiCoach: L10n.localized("AI Coach", comment: "Tab title for AI coach chat")
+            case .settings: L10n.localized("Settings", comment: "Tab title for app settings")
+            case .more: L10n.localized("More", comment: "Tab title for more options")
             }
         }
 
@@ -98,7 +98,7 @@ struct MainTabView: View {
                     )
                 }
             }
-            .navigationTitle(String(localized: "AI Pedometer", comment: "Sidebar title for main navigation"))
+            .navigationTitle(L10n.localized("AI Pedometer", comment: "Sidebar title for main navigation"))
             .listStyle(.sidebar)
         } detail: {
             NavigationStack {

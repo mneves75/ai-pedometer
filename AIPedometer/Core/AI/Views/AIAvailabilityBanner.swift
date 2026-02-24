@@ -137,7 +137,7 @@ struct AIUnavailableStateView: View {
                 .foregroundStyle(DesignTokens.Colors.accent)
 
             VStack(spacing: DesignTokens.Spacing.xs) {
-                Text(String(localized: "AI Features Unavailable", comment: "Title for AI unavailable state"))
+                Text(L10n.localized("AI Features Unavailable", comment: "Title for AI unavailable state"))
                     .font(DesignTokens.Typography.title3.bold())
 
                 Text(reason.userFacingMessage)
@@ -167,7 +167,7 @@ struct AIUnavailableStateView: View {
 struct AILoadingView: View {
     let message: String
     
-    init(_ message: String = String(localized: "Thinking...", comment: "AI loading default message")) {
+    init(_ message: String = L10n.localized("Thinking...", comment: "AI loading default message")) {
         self.message = message
     }
     

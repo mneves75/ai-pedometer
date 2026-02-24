@@ -107,7 +107,9 @@ Swift 6.2 strict concurrency is enforced project-wide:
 
 ### Localization
 
-Supports English (en) and Portuguese Brazil (pt-BR) via String Catalogs.
+Supports English (`en`) and Portuguese Brazil (`pt-BR`) via String Catalogs.
+Language policy is strict: only `pt-BR` devices use Portuguese; all other languages default to English (`en-US`).
+Localization lookup is centralized through `L10n.localized(...)` with explicit locale resolution (no persistent `AppleLanguages` override).
 
 ## Documentation
 

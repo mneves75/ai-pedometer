@@ -21,7 +21,7 @@ struct HealthAccessHelpSheet: View {
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
 
                     if healthAuthorization.status == .shouldRequest {
-                        Button(String(localized: "Grant Access", comment: "Button to request Health access")) {
+                        Button(L10n.localized("Grant Access", comment: "Button to request Health access")) {
                             Task { await requestAccess() }
                         }
                         .glassButton()
@@ -30,7 +30,7 @@ struct HealthAccessHelpSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                        Text(String(localized: "How to enable", comment: "Health access help section title"))
+                        Text(L10n.localized("How to enable", comment: "Health access help section title"))
                             .font(DesignTokens.Typography.headline)
 
                         instructionRow(
@@ -92,10 +92,10 @@ struct HealthAccessHelpSheet: View {
                         .font(DesignTokens.Typography.subheadline)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-                        instructionRow(number: 1, text: String(localized: "Open the Health app.", comment: "Health data sources help step 1"))
-                        instructionRow(number: 2, text: String(localized: "Go to Browse > Activity > Steps.", comment: "Health data sources help step 2"))
-                        instructionRow(number: 3, text: String(localized: "Scroll down to “Data Sources & Access” and tap Edit.", comment: "Health data sources help step 3"))
-                        instructionRow(number: 4, text: String(localized: "Keep the source you want to prioritize at the top (e.g., Apple Watch).", comment: "Health data sources help step 4"))
+                        instructionRow(number: 1, text: L10n.localized("Open the Health app.", comment: "Health data sources help step 1"))
+                        instructionRow(number: 2, text: L10n.localized("Go to Browse > Activity > Steps.", comment: "Health data sources help step 2"))
+                        instructionRow(number: 3, text: L10n.localized("Scroll down to “Data Sources & Access” and tap Edit.", comment: "Health data sources help step 3"))
+                        instructionRow(number: 4, text: L10n.localized("Keep the source you want to prioritize at the top (e.g., Apple Watch).", comment: "Health data sources help step 4"))
 
                         Text(
                             String(
@@ -112,19 +112,19 @@ struct HealthAccessHelpSheet: View {
                 .padding(DesignTokens.Spacing.lg)
             }
             .accessibilityIdentifier(A11yID.HealthAccessHelp.view)
-            .navigationTitle(String(localized: "Health Access", comment: "Title for health access help sheet"))
+            .navigationTitle(L10n.localized("Health Access", comment: "Title for health access help sheet"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Done", comment: "Dismiss health access help sheet button")) {
+                    Button(L10n.localized("Done", comment: "Dismiss health access help sheet button")) {
                         dismiss()
                     }
                     .accessibilityIdentifier(A11yID.HealthAccessHelp.doneButton)
                 }
             }
         }
-        .alert(String(localized: "Health Access", comment: "Alert title for HealthKit access"), isPresented: $showError) {
-            Button(String(localized: "OK", comment: "Dismiss alert button"), role: .cancel) {}
+        .alert(L10n.localized("Health Access", comment: "Alert title for HealthKit access"), isPresented: $showError) {
+            Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) {}
         } message: {
             Text(errorMessage)
         }

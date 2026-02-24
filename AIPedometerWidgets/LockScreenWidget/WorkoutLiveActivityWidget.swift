@@ -96,15 +96,15 @@ struct LockScreenWorkoutView: View {
 
 private enum LiveActivityUnits {
     static var steps: String {
-        String(localized: "steps", comment: "Live Activity steps unit").uppercased()
+        L10n.localized("steps", comment: "Live Activity steps unit").uppercased()
     }
 
     static var distance: String {
-        String(localized: "km", comment: "Live Activity distance unit").uppercased()
+        L10n.localized("km", comment: "Live Activity distance unit").uppercased()
     }
 
     static var calories: String {
-        String(localized: "kcal", comment: "Live Activity calories unit").uppercased()
+        L10n.localized("kcal", comment: "Live Activity calories unit").uppercased()
     }
 }
 

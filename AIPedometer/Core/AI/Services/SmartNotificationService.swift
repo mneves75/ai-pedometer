@@ -253,13 +253,13 @@ final class SmartNotificationService {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
         case 5..<12:
-            return String(localized: "Morning", comment: "Time of day")
+            return L10n.localized("Morning", comment: "Time of day")
         case 12..<17:
-            return String(localized: "Afternoon", comment: "Time of day")
+            return L10n.localized("Afternoon", comment: "Time of day")
         case 17..<21:
-            return String(localized: "Evening", comment: "Time of day")
+            return L10n.localized("Evening", comment: "Time of day")
         default:
-            return String(localized: "Night", comment: "Time of day")
+            return L10n.localized("Night", comment: "Time of day")
         }
     }
 

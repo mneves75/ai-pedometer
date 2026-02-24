@@ -26,7 +26,7 @@ struct AboutView: View {
         }
         .accessibilityIdentifier(A11yID.About.view)
         .background(DesignTokens.Colors.surfaceGrouped)
-        .navigationTitle(String(localized: "About", comment: "Navigation title for About screen"))
+        .navigationTitle(L10n.localized("About", comment: "Navigation title for About screen"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await tipJarStore.loadProduct()
@@ -47,21 +47,21 @@ struct AboutView: View {
             switch alert {
             case .success:
                 return Alert(
-                    title: Text(String(localized: "Thanks for the coffee!", comment: "Tip jar success alert title")),
-                    message: Text(String(localized: "Your support keeps AI Pedometer improving.", comment: "Tip jar success alert message")),
-                    dismissButton: .default(Text(String(localized: "OK", comment: "Dismiss alert button")))
+                    title: Text(L10n.localized("Thanks for the coffee!", comment: "Tip jar success alert title")),
+                    message: Text(L10n.localized("Your support keeps AI Pedometer improving.", comment: "Tip jar success alert message")),
+                    dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
                 )
             case .pending:
                 return Alert(
-                    title: Text(String(localized: "Purchase pending", comment: "Tip jar pending alert title")),
-                    message: Text(String(localized: "Your payment is pending approval.", comment: "Tip jar pending alert message")),
-                    dismissButton: .default(Text(String(localized: "OK", comment: "Dismiss alert button")))
+                    title: Text(L10n.localized("Purchase pending", comment: "Tip jar pending alert title")),
+                    message: Text(L10n.localized("Your payment is pending approval.", comment: "Tip jar pending alert message")),
+                    dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
                 )
             case .failed(let message):
                 return Alert(
-                    title: Text(String(localized: "Purchase failed", comment: "Tip jar error alert title")),
+                    title: Text(L10n.localized("Purchase failed", comment: "Tip jar error alert title")),
                     message: Text(message),
-                    dismissButton: .default(Text(String(localized: "OK", comment: "Dismiss alert button")))
+                    dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
                 )
             }
         }
@@ -86,17 +86,17 @@ struct AboutView: View {
             .shadow(color: DesignTokens.Colors.accent.opacity(0.3), radius: 20, y: 10)
             
             VStack(spacing: DesignTokens.Spacing.xs) {
-                Text(String(localized: "AI Pedometer", comment: "App name"))
+                Text(L10n.localized("AI Pedometer", comment: "App name"))
                     .font(DesignTokens.Typography.title.bold())
                 
-                Text(String(localized: "Your intelligent walking companion", comment: "App tagline"))
+                Text(L10n.localized("Your intelligent walking companion", comment: "App tagline"))
                     .font(DesignTokens.Typography.subheadline)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
         .padding(.top, DesignTokens.Spacing.xl)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(localized: "AI Pedometer - Your intelligent walking companion", comment: "Accessibility label for app name and tagline"))
+        .accessibilityLabel(L10n.localized("AI Pedometer - Your intelligent walking companion", comment: "Accessibility label for app name and tagline"))
     }
     
     // MARK: - Features
@@ -106,29 +106,29 @@ struct AboutView: View {
             FeatureRow(
                 icon: "brain.head.profile",
                 color: DesignTokens.Colors.accent,
-                title: String(localized: "AI-Powered Insights", comment: "Feature title"),
-                subtitle: String(localized: "Personalized coaching powered by Apple Intelligence", comment: "Feature description")
+                title: L10n.localized("AI-Powered Insights", comment: "Feature title"),
+                subtitle: L10n.localized("Personalized coaching powered by Apple Intelligence", comment: "Feature description")
             )
             
             FeatureRow(
                 icon: "heart.fill",
                 color: DesignTokens.Colors.red,
-                title: String(localized: "HealthKit Integration", comment: "Feature title"),
-                subtitle: String(localized: "Seamlessly syncs with Apple Health", comment: "Feature description")
+                title: L10n.localized("HealthKit Integration", comment: "Feature title"),
+                subtitle: L10n.localized("Seamlessly syncs with Apple Health", comment: "Feature description")
             )
             
             FeatureRow(
                 icon: "lock.shield.fill",
                 color: DesignTokens.Colors.green,
-                title: String(localized: "Privacy First", comment: "Feature title"),
-                subtitle: String(localized: "All AI processing happens on-device", comment: "Feature description")
+                title: L10n.localized("Privacy First", comment: "Feature title"),
+                subtitle: L10n.localized("All AI processing happens on-device", comment: "Feature description")
             )
             
             FeatureRow(
                 icon: "applewatch",
                 color: DesignTokens.Colors.orange,
-                title: String(localized: "Apple Watch", comment: "Feature title"),
-                subtitle: String(localized: "Track your steps from your wrist", comment: "Feature description")
+                title: L10n.localized("Apple Watch", comment: "Feature title"),
+                subtitle: L10n.localized("Track your steps from your wrist", comment: "Feature description")
             )
         }
         .padding(DesignTokens.Spacing.md)
@@ -142,21 +142,21 @@ struct AboutView: View {
             LinkRow(
                 icon: "star.fill",
                 color: DesignTokens.Colors.yellow,
-                title: String(localized: "Rate on App Store", comment: "Link title"),
+                title: L10n.localized("Rate on App Store", comment: "Link title"),
                 action: openAppStoreReview
             )
             
             LinkRow(
                 icon: "envelope.fill",
                 color: DesignTokens.Colors.accent,
-                title: String(localized: "Send Feedback", comment: "Link title"),
+                title: L10n.localized("Send Feedback", comment: "Link title"),
                 action: openFeedbackEmail
             )
             
             LinkRow(
                 icon: "doc.text.fill",
                 color: .gray,
-                title: String(localized: "Privacy Policy", comment: "Link title"),
+                title: L10n.localized("Privacy Policy", comment: "Link title"),
                 action: openPrivacyPolicy
             )
         }
@@ -175,15 +175,15 @@ struct AboutView: View {
                     .frame(width: 32, height: 32)
                     .background(.brown.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
 
-                Text(String(localized: "Support AI Pedometer", comment: "Support section title in About screen"))
+                Text(L10n.localized("Support AI Pedometer", comment: "Support section title in About screen"))
                     .font(DesignTokens.Typography.headline)
             }
 
-            Text(String(localized: "One-time tip to support ongoing development.", comment: "Tip jar description in About"))
+            Text(L10n.localized("One-time tip to support ongoing development.", comment: "Tip jar description in About"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-            Text(String(localized: "Tips are optional and do not unlock features.", comment: "Tip jar disclaimer"))
+            Text(L10n.localized("Tips are optional and do not unlock features.", comment: "Tip jar disclaimer"))
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
 
@@ -204,7 +204,7 @@ struct AboutView: View {
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-            Button(String(localized: "Try Again", comment: "Retry button")) {
+            Button(L10n.localized("Try Again", comment: "Retry button")) {
                 Task { await tipJarStore.reloadProduct() }
             }
             .buttonStyle(.bordered)
@@ -224,10 +224,10 @@ struct AboutView: View {
         .accessibilityIdentifier(A11yID.About.tipJarCoffeeButton)
         .disabled(!tipJarStore.canPurchase)
         .accessibleButton(
-            label: String(localized: "Buy me a coffee", comment: "Tip jar button title"),
+            label: L10n.localized("Buy me a coffee", comment: "Tip jar button title"),
             hint: tipJarStore.canPurchase
-                ? String(localized: "Supports ongoing development", comment: "Tip jar accessibility hint")
-                : String(localized: "Tip jar is unavailable", comment: "Tip jar unavailable hint")
+                ? L10n.localized("Supports ongoing development", comment: "Tip jar accessibility hint")
+                : L10n.localized("Tip jar is unavailable", comment: "Tip jar unavailable hint")
         )
     }
 
@@ -238,7 +238,7 @@ struct AboutView: View {
                     ProgressView()
                         .controlSize(.small)
                 }
-                Text(String(localized: "Buy me a coffee", comment: "Tip jar button title"))
+                Text(L10n.localized("Buy me a coffee", comment: "Tip jar button title"))
                     .font(DesignTokens.Typography.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.9)
@@ -256,7 +256,7 @@ struct AboutView: View {
                         ProgressView()
                             .controlSize(.small)
                     }
-                    Text(String(localized: "Buy me a coffee", comment: "Tip jar button title"))
+                    Text(L10n.localized("Buy me a coffee", comment: "Tip jar button title"))
                         .font(DesignTokens.Typography.subheadline.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
@@ -276,9 +276,9 @@ struct AboutView: View {
         case .loaded(let product):
             return product.displayPrice
         case .failed:
-            return String(localized: "Price unavailable", comment: "Tip jar price unavailable")
+            return L10n.localized("Price unavailable", comment: "Tip jar price unavailable")
         case .loading, .idle:
-            return String(localized: "Loading price...", comment: "Tip jar price loading")
+            return L10n.localized("Loading price...", comment: "Tip jar price loading")
         }
     }
     
@@ -297,7 +297,7 @@ struct AboutView: View {
                 .font(DesignTokens.Typography.footnote.monospaced())
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
             
-            Text(String(localized: "Made with care in Brazil", comment: "Footer text"))
+            Text(L10n.localized("Made with care in Brazil", comment: "Footer text"))
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }

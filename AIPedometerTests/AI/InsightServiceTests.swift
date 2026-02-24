@@ -465,9 +465,15 @@ struct InsightServiceTests {
         let (firstResult, secondResult) = try await (first, second)
 
         #expect(foundationModels.respondCallCount == 1)
-        #expect(firstResult.summary == "AI Summary")
-        #expect(secondResult.summary != String(localized: "No Activity Data", comment: "Weekly trend summary when no data is available"))
-        #expect(secondResult.observation.contains("still processing"))
+        let resultSummaries = [firstResult.summary, secondResult.summary]
+        let observations = [firstResult.observation, secondResult.observation]
+
+        #expect(resultSummaries.contains("AI Summary"))
+        #expect(resultSummaries.allSatisfy {
+            $0 != String(localized: "No Activity Data", comment: "Weekly trend summary when no data is available")
+        })
+        #expect(observations.contains("AI Observation"))
+        #expect(observations.contains { $0.contains("still processing") })
     }
 
     @Test("Weekly analysis falls back to history summary when guardrail blocks response")

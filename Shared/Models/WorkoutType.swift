@@ -12,11 +12,11 @@ enum WorkoutType: String, Codable, CaseIterable, Equatable, Sendable {
 
     var displayName: String {
         switch self {
-        case .indoorWalk: String(localized: "Indoor Walk", comment: "Workout type: walking indoors")
-        case .outdoorWalk: String(localized: "Outdoor Walk", comment: "Workout type: walking outdoors")
-        case .indoorRun: String(localized: "Indoor Run", comment: "Workout type: running indoors")
-        case .outdoorRun: String(localized: "Outdoor Run", comment: "Workout type: running outdoors")
-        case .hike: String(localized: "Hike", comment: "Workout type: hiking")
+        case .indoorWalk: L10n.localized("Indoor Walk", comment: "Workout type: walking indoors")
+        case .outdoorWalk: L10n.localized("Outdoor Walk", comment: "Workout type: walking outdoors")
+        case .indoorRun: L10n.localized("Indoor Run", comment: "Workout type: running indoors")
+        case .outdoorRun: L10n.localized("Outdoor Run", comment: "Workout type: running outdoors")
+        case .hike: L10n.localized("Hike", comment: "Workout type: hiking")
         }
     }
 

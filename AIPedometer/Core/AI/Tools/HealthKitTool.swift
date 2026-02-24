@@ -65,8 +65,8 @@ struct HealthKitDataTool: Tool, Sendable {
         
         let lines = await MainActor.run { summaries.map { summary in
             let goalStatus = summary.steps >= summary.goal
-                ? String(localized: "Goal Met", comment: "AI tool goal status when met")
-                : String(localized: "Goal Not Met", comment: "AI tool goal status when not met")
+                ? L10n.localized("Goal Met", comment: "AI tool goal status when met")
+                : L10n.localized("Goal Not Met", comment: "AI tool goal status when not met")
             let distanceText = Formatters.distanceString(meters: summary.distance)
             let caloriesText = Formatters.caloriesString(summary.calories)
             return """

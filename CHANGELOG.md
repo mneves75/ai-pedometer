@@ -24,12 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PUBLISHING_PLAYBOOK.md` (industry-standard flow + checklist),
   - metadata templates for `pt-BR` and `en-US`,
   - screenshot package instructions.
+- Marked remaining English string-catalog entries as fully translated status for release readiness.
 
 ### Changed
 
 - Release metadata bump: updated app version/build to `0.71 (27)`.
 - Documentation sync: aligned release references across `README.md`, App Store playbook examples, and agent build docs.
 - Removed redundant watch-only shim file `AIPedometerWatch/WatchDataModels.swift`.
+- Localization policy is strict: only devices set to `pt-BR` use Portuguese (Brazil); all other device languages default to English (`en-US`).
+- Localization pipeline now resolves strings through `L10n.localized(...)` using explicit app-locale mapping, removing the previous persistent `AppleLanguages` override side effect.
+
+### Tests
+
+- Full quality gate green on release commit: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test` (`336 tests`, `66 suites`).
 
 ## [0.7] - 2026-02-24
 

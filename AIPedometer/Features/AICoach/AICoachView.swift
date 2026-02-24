@@ -15,7 +15,7 @@ struct AICoachView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(A11yID.AICoach.view)
             .background(DesignTokens.Colors.surfaceGrouped)
-            .navigationTitle(String(localized: "AI Coach", comment: "AI Coach navigation title"))
+            .navigationTitle(L10n.localized("AI Coach", comment: "AI Coach navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             // Harden model-generated links: allow only http(s).
             .environment(\.openURL, OpenURLAction { url in
@@ -25,7 +25,7 @@ struct AICoachView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if !coachService.messages.isEmpty {
-                        Button(String(localized: "Clear", comment: "Clear conversation button")) {
+                        Button(L10n.localized("Clear", comment: "Clear conversation button")) {
                             coachService.clearConversation()
                         }
                         .font(DesignTokens.Typography.subheadline)
@@ -38,7 +38,7 @@ struct AICoachView: View {
         VStack(spacing: DesignTokens.Spacing.none) {
             if LaunchConfiguration.isUITesting() {
                 // Stable UI test marker when AI availability hides the welcome copy.
-                Text(String(localized: "AI Coach Screen", comment: "Hidden UI test marker for AI Coach screen"))
+                Text(L10n.localized("AI Coach Screen", comment: "Hidden UI test marker for AI Coach screen"))
                     .font(DesignTokens.Typography.caption2)
                     .opacity(0.01)
                     .accessibilityIdentifier(A11yID.AICoach.marker)
@@ -106,10 +106,10 @@ struct AICoachView: View {
                 }
 
             VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(String(localized: "Hi, I'm your AI Coach!", comment: "AI Coach welcome greeting"))
+                Text(L10n.localized("Hi, I'm your AI Coach!", comment: "AI Coach welcome greeting"))
                     .font(DesignTokens.Typography.title2.bold())
 
-                Text(String(localized: "Ask me anything about your fitness progress, goals, or get personalized recommendations.", comment: "AI Coach welcome description"))
+                Text(L10n.localized("Ask me anything about your fitness progress, goals, or get personalized recommendations.", comment: "AI Coach welcome description"))
                     .font(DesignTokens.Typography.subheadline)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -122,7 +122,7 @@ struct AICoachView: View {
 
     private var suggestedQuestionsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(String(localized: "Try asking:", comment: "Label for suggested questions"))
+            Text(L10n.localized("Try asking:", comment: "Label for suggested questions"))
                 .font(DesignTokens.Typography.subheadline.weight(.medium))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 
@@ -156,7 +156,7 @@ struct AICoachView: View {
                     HStack(spacing: DesignTokens.Spacing.xs) {
                         ProgressView()
                             .controlSize(.small)
-                        Text(String(localized: "Thinking...", comment: "AI Coach thinking state"))
+                        Text(L10n.localized("Thinking...", comment: "AI Coach thinking state"))
                             .font(DesignTokens.Typography.subheadline)
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
@@ -183,13 +183,13 @@ struct AICoachView: View {
             Divider()
 
             HStack(spacing: DesignTokens.Spacing.sm) {
-                TextField(String(localized: "Ask your coach...", comment: "AI Coach input placeholder"), text: $inputText, axis: .vertical)
+                TextField(L10n.localized("Ask your coach...", comment: "AI Coach input placeholder"), text: $inputText, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...4)
                     .focused($isInputFocused)
                     .submitLabel(.send)
                     .onSubmit(sendMessage)
-                    .accessibilityLabel(String(localized: "Message", comment: "AI Coach message input label"))
+                    .accessibilityLabel(L10n.localized("Message", comment: "AI Coach message input label"))
 
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
@@ -198,7 +198,7 @@ struct AICoachView: View {
                 }
                 .frame(width: 44, height: 44)
                 .disabled(!canSend)
-                .accessibilityLabel(String(localized: "Send Message", comment: "AI Coach send button accessibility label"))
+                .accessibilityLabel(L10n.localized("Send Message", comment: "AI Coach send button accessibility label"))
                 .accessibilityIdentifier("ai_coach_send_button")
             }
             .padding(DesignTokens.Spacing.md)
@@ -238,7 +238,7 @@ struct AICoachView: View {
             }
 
             if canRetryLastMessage && !coachService.isGenerating {
-                Button(String(localized: "Try Again", comment: "Retry button")) {
+                Button(L10n.localized("Try Again", comment: "Retry button")) {
                     Task { await coachService.retryLastMessage() }
                 }
                 .buttonStyle(.borderedProminent)

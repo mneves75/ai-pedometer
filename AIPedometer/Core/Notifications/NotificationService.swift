@@ -43,8 +43,8 @@ final class NotificationService: NotificationServiceProtocol {
 
     func scheduleDailyGoalReminder(hour: Int, minute: Int) async throws {
         let content = UNMutableNotificationContent()
-        content.title = String(localized: "Daily Goal", comment: "Notification title for daily goal reminder")
-        content.body = String(localized: "Keep moving to reach your step goal today.", comment: "Notification body for daily goal reminder")
+        content.title = L10n.localized("Daily Goal", comment: "Notification title for daily goal reminder")
+        content.body = L10n.localized("Keep moving to reach your step goal today.", comment: "Notification body for daily goal reminder")
         content.sound = .default
 
         var dateComponents = DateComponents()

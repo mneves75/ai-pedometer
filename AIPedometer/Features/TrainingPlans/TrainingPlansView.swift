@@ -24,7 +24,7 @@ struct TrainingPlansView: View {
         }
         .uiTestMarker(A11yID.TrainingPlans.marker)
         .accessibilityIdentifier(A11yID.TrainingPlans.marker)
-        .navigationTitle(String(localized: "Training Plans", comment: "Training plans navigation title"))
+        .navigationTitle(L10n.localized("Training Plans", comment: "Training plans navigation title"))
         .toolbar {
             if aiService.availability.isAvailable {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -34,7 +34,7 @@ struct TrainingPlansView: View {
                         Image(systemName: "plus")
                     }
                     .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
-                    .accessibilityLabel(String(localized: "Create Plan", comment: "Accessibility label for create plan button"))
+                    .accessibilityLabel(L10n.localized("Create Plan", comment: "Accessibility label for create plan button"))
                 }
             }
         }
@@ -67,14 +67,14 @@ struct TrainingPlansView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignTokens.Spacing.md) {
             ContentUnavailableView {
-                Label(String(localized: "No Training Plans", comment: "Empty state title for training plans"), systemImage: "figure.walk.motion")
+                Label(L10n.localized("No Training Plans", comment: "Empty state title for training plans"), systemImage: "figure.walk.motion")
             } description: {
-                Text(String(localized: "Create your first AI-powered training plan to start your fitness journey.", comment: "Empty state description for training plans"))
+                Text(L10n.localized("Create your first AI-powered training plan to start your fitness journey.", comment: "Empty state description for training plans"))
             } actions: {
                 Button {
                     showingCreateSheet = true
                 } label: {
-                    Text(String(localized: "Create Plan", comment: "Empty state button to create plan"))
+                    Text(L10n.localized("Create Plan", comment: "Empty state button to create plan"))
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
@@ -217,7 +217,7 @@ struct PlanDetailView: View {
                 }
             }
 
-            Section(String(localized: "Weekly Targets", comment: "Training plan weekly targets section header")) {
+            Section(L10n.localized("Weekly Targets", comment: "Training plan weekly targets section header")) {
                 ForEach(Array(plan.weeklyTargets.enumerated()), id: \.offset) { index, target in
                     WeeklyTargetRow(
                         week: index + 1,
@@ -230,24 +230,24 @@ struct PlanDetailView: View {
 
             Section {
                 if plan.planStatus == .active {
-                    Button(String(localized: "Pause Plan", comment: "Training plan pause button")) {
+                    Button(L10n.localized("Pause Plan", comment: "Training plan pause button")) {
                         planService.pausePlan(plan)
                     }
                     .foregroundStyle(DesignTokens.Colors.warning)
 
-                    Button(String(localized: "Complete Plan", comment: "Training plan complete button")) {
+                    Button(L10n.localized("Complete Plan", comment: "Training plan complete button")) {
                         planService.completePlan(plan)
                         dismiss()
                     }
                     .foregroundStyle(DesignTokens.Colors.success)
                 } else if plan.planStatus == .paused {
-                    Button(String(localized: "Resume Plan", comment: "Training plan resume button")) {
+                    Button(L10n.localized("Resume Plan", comment: "Training plan resume button")) {
                         planService.resumePlan(plan)
                     }
                     .foregroundStyle(DesignTokens.Colors.accent)
                 }
 
-                Button(String(localized: "Delete Plan", comment: "Training plan delete button"), role: .destructive) {
+                Button(L10n.localized("Delete Plan", comment: "Training plan delete button"), role: .destructive) {
                     planService.deletePlan(plan)
                     dismiss()
                 }
@@ -282,7 +282,7 @@ struct WeeklyTargetRow: View {
                         .font(DesignTokens.Typography.subheadline.weight(.medium))
 
                     if isCurrent {
-                        Text(String(localized: "CURRENT", comment: "Current week badge"))
+                        Text(L10n.localized("CURRENT", comment: "Current week badge"))
                             .font(DesignTokens.Typography.caption2.weight(.bold))
                             .padding(.horizontal, DesignTokens.Spacing.xs)
                             .padding(.vertical, DesignTokens.Spacing.xxs)
@@ -331,7 +331,7 @@ struct CreatePlanSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(String(localized: "Goal", comment: "Training plan goal picker label"), selection: $selectedGoal) {
+                    Picker(L10n.localized("Goal", comment: "Training plan goal picker label"), selection: $selectedGoal) {
                         ForEach(TrainingGoalType.allCases, id: \.self) { goal in
                             VStack(alignment: .leading) {
                                 Text(goal.displayName)
@@ -344,11 +344,11 @@ struct CreatePlanSheet: View {
                     }
                     .pickerStyle(.inline)
                 } header: {
-                    Text(String(localized: "What's your goal?", comment: "Training plan goal section header"))
+                    Text(L10n.localized("What's your goal?", comment: "Training plan goal section header"))
                 }
 
                 Section {
-                    Picker(String(localized: "Fitness Level", comment: "Training plan fitness level picker label"), selection: $selectedLevel) {
+                    Picker(L10n.localized("Fitness Level", comment: "Training plan fitness level picker label"), selection: $selectedLevel) {
                         ForEach(FitnessLevel.allCases, id: \.self) { level in
                             Text(level.displayName).tag(level)
                         }
@@ -359,7 +359,7 @@ struct CreatePlanSheet: View {
                         .font(DesignTokens.Typography.caption)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 } header: {
-                    Text(String(localized: "Your fitness level", comment: "Training plan fitness level section header"))
+                    Text(L10n.localized("Your fitness level", comment: "Training plan fitness level section header"))
                 }
 
                 Section {
@@ -373,7 +373,7 @@ struct CreatePlanSheet: View {
                         in: 3...7
                     )
                 } header: {
-                    Text(String(localized: "Availability", comment: "Training plan availability section header"))
+                    Text(L10n.localized("Availability", comment: "Training plan availability section header"))
                 }
 
                 if let error {
@@ -388,15 +388,15 @@ struct CreatePlanSheet: View {
                     AIDisclaimerText()
                 }
             }
-            .navigationTitle(String(localized: "Create Plan", comment: "Create plan navigation title"))
+            .navigationTitle(L10n.localized("Create Plan", comment: "Create plan navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel", comment: "Cancel button")) { dismiss() }
+                    Button(L10n.localized("Cancel", comment: "Cancel button")) { dismiss() }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Create", comment: "Create button")) {
+                    Button(L10n.localized("Create", comment: "Create button")) {
                         Task { await createPlan() }
                     }
                     .disabled(isGenerating)
@@ -411,7 +411,7 @@ struct CreatePlanSheet: View {
                         VStack(spacing: DesignTokens.Spacing.md) {
                             ProgressView()
                                 .controlSize(.large)
-                            Text(String(localized: "Creating your personalized plan...", comment: "Training plan creation loading text"))
+                            Text(L10n.localized("Creating your personalized plan...", comment: "Training plan creation loading text"))
                                 .font(DesignTokens.Typography.subheadline)
                         }
                         .padding(DesignTokens.Spacing.lg)
