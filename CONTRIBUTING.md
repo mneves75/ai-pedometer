@@ -81,6 +81,8 @@ Use GitHub Issues with the provided templates for:
 - Bug reports
 - Feature requests
 
+For security vulnerabilities, do not open a public issue. Use the private reporting flow documented in [SECURITY.md](SECURITY.md).
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
