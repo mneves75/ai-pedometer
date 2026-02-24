@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Security Vulnerability (Private Report)
+    url: https://github.com/mneves75/ai-pedometer/security/advisories/new
+    about: Report security vulnerabilities privately via GitHub Security Advisories
   - name: Documentation
     url: https://github.com/mneves75/ai-pedometer/blob/master/README.md
     about: Check the README for setup and usage instructions

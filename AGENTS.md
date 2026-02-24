@@ -30,6 +30,7 @@ This project does not use npm; it relies on Xcode/XcodeGen tooling.
 - Update `CHANGELOG.md` and the version in `README.md`.
 - Validate HealthKit source filtering behavior (Apple sources preferred) and keep tests in sync.
 - Tag the release after tests pass (`v<MARKETING_VERSION>`, for example `v0.6`).
+- After pushing the tag, publish the matching GitHub Release (`gh release create <tag> ...`) and verify it appears as **Latest** on the Releases page.
 
 ## Detailed Guides
 - [Project structure and configuration](docs/agents/project-structure.md)
@@ -37,6 +38,10 @@ This project does not use npm; it relies on Xcode/XcodeGen tooling.
 - [Coding style and naming](docs/agents/coding-style.md)
 - [Testing guidelines](docs/agents/testing.md)
 - [Git workflow](docs/agents/git-workflow.md)
+
+## Repository Visibility
+- This repository is intended to be public.
+- Use `SECURITY.md` and GitHub Security Advisories for coordinated vulnerability disclosure.
 
 ## GUIDELINES-REF
 Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/check-agents-sync.sh`).

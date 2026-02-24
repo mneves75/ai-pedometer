@@ -9,12 +9,19 @@
 
 ## Reporting a Vulnerability
 
-This is a private repository. If you discover a security vulnerability:
+This repository is public. If you discover a security vulnerability:
 
-1. **Do not** create a public issue
-2. Contact the repository owner directly
-3. Include detailed information about the vulnerability
-4. Allow reasonable time for a fix before any disclosure
+1. **Do not** create a public issue with exploit details.
+2. Use GitHub private vulnerability reporting (Security Advisories):
+   - https://github.com/mneves75/ai-pedometer/security/advisories/new
+3. Include clear reproduction steps, impact, affected versions, and proof-of-concept.
+4. Allow coordinated disclosure time for triage, fix, and release.
+
+### Response Targets
+
+- Initial triage acknowledgment: within 72 hours
+- Risk assessment and mitigation plan: within 7 business days
+- Coordinated disclosure after patch and release notes
 
 ## Security Practices
 

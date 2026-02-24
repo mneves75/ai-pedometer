@@ -116,6 +116,7 @@ Supports English (en) and Portuguese Brazil (pt-BR) via String Catalogs.
 | [CLAUDE.md](CLAUDE.md) | AI assistant guidance for codebase |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
 | [AGENTS.md](AGENTS.md) | Agent guidelines and workflows |
+| [SECURITY.md](SECURITY.md) | Security policy and private vulnerability reporting |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
 
