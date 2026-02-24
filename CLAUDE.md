@@ -201,7 +201,7 @@ App Group `group.com.mneves.aipedometer` enables data sharing between app, widge
 5. **AI zero-step grounding**: When steps=0 with `.reliable` confidence, AI prompts must acknowledge inactivity — never fabricate achievements.
 6. **No hardcoded device IDs**: use device name + `Scripts/install-on-device.sh`; avoid committing raw UDIDs/UUIDs in docs/scripts.
 7. **Simulator name**: CI uses `iPhone 17` — keep local commands consistent to avoid destination mismatches.
-8. **Release tags**: Use `v<MARKETING_VERSION>` (for example `v0.5`) after docs/version sync and tests pass.
+8. **Release tags**: Use `v<MARKETING_VERSION>` (for example `v0.6`) after docs/version sync and tests pass.
 
 ## Further Reading
 

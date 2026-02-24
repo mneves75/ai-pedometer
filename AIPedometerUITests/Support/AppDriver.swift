@@ -240,6 +240,32 @@ final class AppDriver {
             ],
             timeout: 8
         )
+
+        let startButton = app.buttons[A11yID.Workouts.startWorkoutButton]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 8))
+
+        if !startButton.isHittable {
+            let container = UITestWait.firstExisting(
+                [
+                    app.scrollViews[A11yID.Workouts.scroll],
+                    app.otherElements[A11yID.Workouts.scroll],
+                    app.scrollViews.firstMatch,
+                ],
+                timeout: 2
+            ) ?? app
+            container.swipeUp()
+        }
+
+        XCTAssertTrue(startButton.isHittable, "Botao de iniciar treino deve estar tocavel acima da tab bar.")
+
+        let tabBar = app.tabBars.firstMatch
+        if tabBar.exists {
+            XCTAssertLessThanOrEqual(
+                startButton.frame.maxY,
+                tabBar.frame.minY + 1,
+                "Botao de iniciar treino nao pode ficar sob a tab bar."
+            )
+        }
     }
 
     func assertTrainingPlansLoaded() {

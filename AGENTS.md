@@ -29,7 +29,7 @@ This project does not use npm; it relies on Xcode/XcodeGen tooling.
 - Bump `project.yml` (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`).
 - Update `CHANGELOG.md` and the version in `README.md`.
 - Validate HealthKit source filtering behavior (Apple sources preferred) and keep tests in sync.
-- Tag the release after tests pass (`v<MARKETING_VERSION>`, for example `v0.5`).
+- Tag the release after tests pass (`v<MARKETING_VERSION>`, for example `v0.6`).
 
 ## Detailed Guides
 - [Project structure and configuration](docs/agents/project-structure.md)
