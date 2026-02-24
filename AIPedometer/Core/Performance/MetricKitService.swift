@@ -29,6 +29,10 @@ final class MetricKitService: NSObject {
 }
 
 extension MetricKitService: MXMetricManagerSubscriber {
+    nonisolated private static func oneDecimal(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(1)))
+    }
+
     nonisolated func didReceive(_ payloads: [MXMetricPayload]) {
         for payload in payloads {
             processMetricPayload(payload)
@@ -66,8 +70,8 @@ extension MetricKitService: MXMetricManagerSubscriber {
 
             logger.info("""
                 Memory metrics:
-                - Peak memory: \(String(format: "%.1f", peakMB)) MB
-                - Avg suspended memory: \(String(format: "%.1f", avgSuspendedMB)) MB
+                - Peak memory: \(Self.oneDecimal(peakMB)) MB
+                - Avg suspended memory: \(Self.oneDecimal(avgSuspendedMB)) MB
                 """)
         }
 
@@ -78,7 +82,7 @@ extension MetricKitService: MXMetricManagerSubscriber {
 
             logger.info("""
                 CPU metrics:
-                - Cumulative CPU time: \(String(format: "%.1f", cpuTimeSec)) sec
+                - Cumulative CPU time: \(Self.oneDecimal(cpuTimeSec)) sec
                 - CPU instructions: \(cpuInstructions)
                 """)
         }
@@ -89,14 +93,14 @@ extension MetricKitService: MXMetricManagerSubscriber {
 
             logger.info("""
                 Disk metrics:
-                - Logical writes: \(String(format: "%.1f", writesMB)) MB
+                - Logical writes: \(Self.oneDecimal(writesMB)) MB
                 """)
         }
 
         // Animation hitches (scrollHitchTimeRatio is ms per second)
         if let animationMetrics = payload.animationMetrics {
             let hitchRatioValue = animationMetrics.scrollHitchTimeRatio.value
-            let hitchRatioStr = String(format: "%.1f", hitchRatioValue)
+            let hitchRatioStr = Self.oneDecimal(hitchRatioValue)
 
             logger.info("""
                 Animation metrics:
@@ -136,7 +140,7 @@ extension MetricKitService: MXMetricManagerSubscriber {
 
             for (index, hang) in hangDiagnostics.prefix(3).enumerated() {
                 let durationSec = hang.hangDuration.converted(to: .seconds).value
-                logger.warning("Hang \(index + 1): duration=\(String(format: "%.1f", durationSec))s")
+                logger.warning("Hang \(index + 1): duration=\(Self.oneDecimal(durationSec))s")
             }
         }
 

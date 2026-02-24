@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7] - 2026-02-24
+
+### Fixed
+
+- Background task registration now dispatches handler execution on the main queue with explicit actor isolation, removing the `@unchecked Sendable` wrapper used for `BGTask` bridging.
+- Prompt distance formatting in AI services now uses Swift `FormatStyle` number formatting instead of legacy `String(format:)` interpolation in user-context prompts.
+
+### Improved
+
+- MetricKit telemetry logging now uses modern one-decimal `FormatStyle` formatting for memory, CPU, disk, animation hitch, and hang duration fields.
+- Added repository-local `PRAGMATIC-RULES.md` and `SECURITY-GUIDELINES.md` documents to satisfy required guideline references in `AGENTS.md`.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.7 (26)`.
+- Documentation sync: aligned `README.md` version reference with `project.yml`.
+
 ## [0.6] - 2026-02-24
 
 ### Fixed

@@ -715,7 +715,7 @@ private extension InsightService {
         - Progress: \(data.percentOfGoal)% of daily goal
         - Progress Tier: \(progressTier)
         - Goal Status: \(data.goalMet ? "ACHIEVED" : "NOT ACHIEVED")
-        - Distance: \(String(format: "%.1f", data.distance / 1000)) km
+        - Distance: \((data.distance / 1000).formatted(.number.precision(.fractionLength(1)))) km
         - Floors climbed: \(data.floors)
         - Estimated calories: \(data.calories)\(dataReliabilityNote)
 
@@ -857,7 +857,7 @@ private extension InsightService {
         - \(unitLabel.capitalized) so far: \(todayData.steps.formatted())
         - Goal: \(currentGoal.formatted()) \(unitLabel)
         - Progress: \(todayData.percentOfGoal)% complete
-        - Distance: \(String(format: "%.1f", todayData.distance / 1000)) km
+        - Distance: \((todayData.distance / 1000).formatted(.number.precision(.fractionLength(1)))) km
         
         This Week's Context:
         - Weekly average: \(weekData.averageSteps.formatted()) \(unitLabel)/day

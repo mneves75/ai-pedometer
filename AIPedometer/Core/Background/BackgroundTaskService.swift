@@ -33,16 +33,11 @@ protocol BackgroundTaskProtocol: AnyObject {
 protocol AppRefreshTaskProtocol: BackgroundTaskProtocol {}
 protocol ProcessingTaskProtocol: BackgroundTaskProtocol {}
 
-extension BGTask: BackgroundTaskProtocol {}
+/// BGTask callbacks are delivered by the system and completion/expiration callbacks are thread-safe APIs.
+/// Safety invariant: tasks are only mutated through documented completion/expiration APIs.
+extension BGTask: BackgroundTaskProtocol, @retroactive @unchecked Sendable {}
 extension BGAppRefreshTask: AppRefreshTaskProtocol {}
 extension BGProcessingTask: ProcessingTaskProtocol {}
-
-/// BGTask types are reference-based and thread-safe for completion/expiration callbacks.
-/// Safety invariant: the boxed task reference is only used on the MainActor after registration.
-/// TODO: Remove @unchecked Sendable when BackgroundTasks adopts Sendable or when isolation can avoid crossings.
-private struct BackgroundTaskBox<TaskType: BackgroundTaskProtocol>: @unchecked Sendable {
-    let task: TaskType
-}
 
 @MainActor
 final class BackgroundTaskService {
@@ -64,9 +59,8 @@ final class BackgroundTaskService {
                 task.setTaskCompleted(success: false)
                 return
             }
-            let boxedTask = BackgroundTaskBox(task: refreshTask)
             Task { @MainActor in
-                self.handleAppRefresh(task: boxedTask.task)
+                self.handleAppRefresh(task: refreshTask)
             }
         }
 
@@ -76,9 +70,8 @@ final class BackgroundTaskService {
                 task.setTaskCompleted(success: false)
                 return
             }
-            let boxedTask = BackgroundTaskBox(task: processingTask)
             Task { @MainActor in
-                self.handleProcessing(task: boxedTask.task)
+                self.handleProcessing(task: processingTask)
             }
         }
     }
