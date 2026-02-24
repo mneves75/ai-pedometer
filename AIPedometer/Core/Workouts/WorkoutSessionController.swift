@@ -129,6 +129,10 @@ final class WorkoutSessionController {
             Loggers.health.warning("workout.authorization_failed", metadata: ["error": error.localizedDescription])
         }
 
+        guard isCurrentPreparingSession(session) else {
+            return
+        }
+
         do {
             try metricsSource.start(from: startTime)
         } catch {
@@ -138,7 +142,16 @@ final class WorkoutSessionController {
             return
         }
 
+        guard isCurrentPreparingSession(session) else {
+            metricsSource.stop()
+            return
+        }
+
         transition(.prepared)
+        guard case .active = state else {
+            metricsSource.stop()
+            return
+        }
         liveActivityManager.start(type: type)
         startMetricsLoop()
         await refreshMetrics()
@@ -373,5 +386,11 @@ private extension WorkoutSessionController {
         }
         resetSession()
         resetState()
+    }
+
+    func isCurrentPreparingSession(_ session: WorkoutSession) -> Bool {
+        guard activeSession === session else { return false }
+        guard case .preparing = state else { return false }
+        return true
     }
 }

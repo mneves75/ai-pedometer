@@ -52,6 +52,5 @@ git -C "${TEST_REPO}" add commands.md
 git -C "${TEST_REPO}" commit -m "Remove hardcoded IDs" >/dev/null
 
 ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
-ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-ids.sh"
 
 echo "verify-device-identifiers.sh tests passed."
