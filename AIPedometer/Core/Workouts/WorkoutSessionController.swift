@@ -29,15 +29,15 @@ extension WorkoutSessionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unableToStart:
-            String(localized: "Unable to start workout", comment: "Workout error title")
+            L10n.localized("Unable to start workout", comment: "Workout error title")
         case .metricsUnavailable:
-            String(localized: "Workout metrics unavailable", comment: "Workout error when live metrics cannot be read")
+            L10n.localized("Workout metrics unavailable", comment: "Workout error when live metrics cannot be read")
         case .saveFailed:
-            String(localized: "Unable to save workout", comment: "Workout error when saving fails")
+            L10n.localized("Unable to save workout", comment: "Workout error when saving fails")
         case .discardFailed:
-            String(localized: "Unable to discard workout", comment: "Workout error when discarding fails")
+            L10n.localized("Unable to discard workout", comment: "Workout error when discarding fails")
         case .sessionUnavailable:
-            String(localized: "Workout session unavailable", comment: "Workout error when no active session is found")
+            L10n.localized("Workout session unavailable", comment: "Workout error when no active session is found")
         }
     }
 }

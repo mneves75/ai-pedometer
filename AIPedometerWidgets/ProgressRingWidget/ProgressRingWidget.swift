@@ -8,8 +8,8 @@ struct ProgressRingWidget: Widget {
         StaticConfiguration(kind: kind, provider: StepTimelineProvider()) { entry in
             ProgressRingWidgetView(entry: entry)
         }
-        .configurationDisplayName(String(localized: "Goal Ring", comment: "Widget display name for goal ring widget"))
-        .description(String(localized: "Your daily goal at a glance.", comment: "Widget description for goal ring widget"))
+        .configurationDisplayName(L10n.localized("Goal Ring", comment: "Widget display name for goal ring widget"))
+        .description(L10n.localized("Your daily goal at a glance.", comment: "Widget description for goal ring widget"))
         .supportedFamilies([.systemSmall])
     }
 }
@@ -54,7 +54,7 @@ struct ProgressRingContent: View {
                 VStack(spacing: DesignTokens.Spacing.xxs) {
                     Text(data.todaySteps.formattedSteps)
                         .font(DesignTokens.Typography.headline.monospacedDigit())
-                    Text(String(localized: "steps", comment: "Widget label for steps unit"))
+                    Text(L10n.localized("steps", comment: "Widget label for steps unit"))
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }

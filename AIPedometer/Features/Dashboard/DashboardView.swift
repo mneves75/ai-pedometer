@@ -75,7 +75,7 @@ struct DashboardView: View {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Image(systemName: "heart.slash")
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    Text(String(localized: "Health Access Needed", comment: "Dashboard banner title when HealthKit is not authorized"))
+                    Text(L10n.localized("Health Access Needed", comment: "Dashboard banner title when HealthKit is not authorized"))
                         .font(DesignTokens.Typography.headline)
                     Spacer()
                 }
@@ -86,7 +86,7 @@ struct DashboardView: View {
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     if healthAuthorization.status == .shouldRequest {
-                        Button(String(localized: "Grant Access", comment: "Button to request Health access")) {
+                        Button(L10n.localized("Grant Access", comment: "Button to request Health access")) {
                             Task {
                                 do {
                                     try await healthAuthorization.requestAuthorization()
@@ -101,7 +101,7 @@ struct DashboardView: View {
                         }
                         .glassButton()
                     } else {
-                        Button(String(localized: "How to enable", comment: "Button to open Health access instructions")) {
+                        Button(L10n.localized("How to enable", comment: "Button to open Health access instructions")) {
                             showHealthHelp = true
                         }
                         .glassButton()
@@ -123,7 +123,7 @@ struct DashboardView: View {
                 comment: "Dashboard banner description when falling back to Motion due to missing HealthKit read access"
             )
         }
-        return String(localized: "Enable Health access to improve history and insights.", comment: "Dashboard banner description when HealthKit not authorized")
+        return L10n.localized("Enable Health access to improve history and insights.", comment: "Dashboard banner description when HealthKit not authorized")
     }
 
     // MARK: - AI Insight
@@ -161,14 +161,14 @@ struct DashboardView: View {
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(String(localized: "Today", comment: "Dashboard header label for current day"))
+                Text(L10n.localized("Today", comment: "Dashboard header label for current day"))
                     .font(DesignTokens.Typography.subheadline)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
-                Text(String(localized: "Dashboard", comment: "Dashboard screen title"))
+                Text(L10n.localized("Dashboard", comment: "Dashboard screen title"))
                     .font(DesignTokens.Typography.largeTitle.bold())
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(String(localized: "Today's Dashboard", comment: "Accessibility label for dashboard header"))
+            .accessibilityLabel(L10n.localized("Today's Dashboard", comment: "Accessibility label for dashboard header"))
 
             Spacer()
 
@@ -188,7 +188,7 @@ struct DashboardView: View {
         }
         .glassCard(cornerRadius: DesignTokens.CornerRadius.xxl, interactive: true)
         .accessibilityIdentifier("profile_button")
-        .accessibleButton(label: String(localized: "Profile", comment: "Accessibility label for profile button"), hint: String(localized: "Opens your profile settings", comment: "Accessibility hint for profile button"))
+        .accessibleButton(label: L10n.localized("Profile", comment: "Accessibility label for profile button"), hint: L10n.localized("Opens your profile settings", comment: "Accessibility hint for profile button"))
     }
 
     // MARK: - Progress Ring
@@ -284,25 +284,25 @@ struct DashboardView: View {
         ) {
             StatCard(
                 icon: activityMode.iconName,
-                title: String(localized: "Distance"),
+                title: L10n.localized("Distance"),
                 value: trackingService.todayDistance.formattedDistance(),
                 color: DesignTokens.Colors.accent
             )
             StatCard(
                 icon: "flame.fill",
-                title: String(localized: "Calories", comment: "Dashboard stat card title"),
-                value: "\(trackingService.todayCalories.formattedCalories()) \(String(localized: "kcal", comment: "Calories unit"))",
+                title: L10n.localized("Calories", comment: "Dashboard stat card title"),
+                value: "\(trackingService.todayCalories.formattedCalories()) \(L10n.localized("kcal", comment: "Calories unit"))",
                 color: DesignTokens.Colors.orange
             )
             StatCard(
                 icon: "figure.stairs",
-                title: String(localized: "Floors", comment: "Dashboard stat card title"),
+                title: L10n.localized("Floors", comment: "Dashboard stat card title"),
                 value: "\(trackingService.todayFloors)",
                 color: DesignTokens.Colors.green
             )
             StatCard(
                 icon: "flame.circle",
-                title: String(localized: "Streak", comment: "Dashboard stat card title for current streak"),
+                title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
                 value: Localization.format(
                     "%lld days",
                     comment: "The value of the stat card for the current streak.",

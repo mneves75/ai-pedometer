@@ -8,8 +8,8 @@ struct StepCountWidget: Widget {
         StaticConfiguration(kind: kind, provider: StepTimelineProvider()) { entry in
             StepCountWidgetView(entry: entry)
         }
-        .configurationDisplayName(String(localized: "Steps Today", comment: "Widget display name for steps today widget"))
-        .description(String(localized: "Track your daily step progress.", comment: "Widget description for the steps today widget"))
+        .configurationDisplayName(L10n.localized("Steps Today", comment: "Widget display name for steps today widget"))
+        .description(L10n.localized("Track your daily step progress.", comment: "Widget description for the steps today widget"))
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -43,7 +43,7 @@ struct StepCountContentView: View {
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
                     HStack {
-                        Label(String(localized: "Steps", comment: "Widget label for steps"), systemImage: "figure.walk")
+                        Label(L10n.localized("Steps", comment: "Widget label for steps"), systemImage: "figure.walk")
                             .font(DesignTokens.Typography.caption.weight(.semibold))
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
 
@@ -63,7 +63,7 @@ struct StepCountContentView: View {
                         .tint(DesignTokens.Colors.mint)
 
                     HStack {
-                        Label(String(localized: "Streak", comment: "Widget label for streak"), systemImage: "flame.fill")
+                        Label(L10n.localized("Streak", comment: "Widget label for streak"), systemImage: "flame.fill")
                             .font(DesignTokens.Typography.caption2)
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
 
@@ -103,7 +103,7 @@ struct StepCountPlaceholderView: View {
             ContainerRelativeShape()
                 .fill(.ultraThinMaterial)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
-                Text(String(localized: "Steps", comment: "Widget placeholder label for steps"))
+                Text(L10n.localized("Steps", comment: "Widget placeholder label for steps"))
                     .font(DesignTokens.Typography.caption.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
 

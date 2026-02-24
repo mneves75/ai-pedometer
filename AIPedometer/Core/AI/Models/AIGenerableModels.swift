@@ -63,26 +63,26 @@ enum WorkoutIntent: String, Codable, Sendable, CaseIterable {
     var localizedTitle: String {
         switch self {
         case .maintain:
-            String(localized: "Maintain", comment: "Workout intent - maintain current fitness")
+            L10n.localized("Maintain", comment: "Workout intent - maintain current fitness")
         case .build:
-            String(localized: "Build", comment: "Workout intent - push for improvement")
+            L10n.localized("Build", comment: "Workout intent - push for improvement")
         case .explore:
-            String(localized: "Explore", comment: "Workout intent - try new activities")
+            L10n.localized("Explore", comment: "Workout intent - try new activities")
         case .recover:
-            String(localized: "Recover", comment: "Workout intent - light restorative")
+            L10n.localized("Recover", comment: "Workout intent - light restorative")
         }
     }
     
     var localizedDescription: String {
         switch self {
         case .maintain:
-            String(localized: "Keep your current fitness level steady", comment: "Maintain description")
+            L10n.localized("Keep your current fitness level steady", comment: "Maintain description")
         case .build:
-            String(localized: "Push yourself to improve", comment: "Build description")
+            L10n.localized("Push yourself to improve", comment: "Build description")
         case .explore:
-            String(localized: "Try new routes or activities", comment: "Explore description")
+            L10n.localized("Try new routes or activities", comment: "Explore description")
         case .recover:
-            String(localized: "Light activity for recovery", comment: "Recover description")
+            L10n.localized("Light activity for recovery", comment: "Recover description")
         }
     }
 }
@@ -118,13 +118,13 @@ enum TimeOfDay: String, Codable, Sendable {
     var localizedTitle: String {
         switch self {
         case .morning:
-            String(localized: "Morning", comment: "Time of day")
+            L10n.localized("Morning", comment: "Time of day")
         case .afternoon:
-            String(localized: "Afternoon", comment: "Time of day")
+            L10n.localized("Afternoon", comment: "Time of day")
         case .evening:
-            String(localized: "Evening", comment: "Time of day")
+            L10n.localized("Evening", comment: "Time of day")
         case .anytime:
-            String(localized: "Anytime", comment: "Time of day")
+            L10n.localized("Anytime", comment: "Time of day")
         }
     }
 }
@@ -177,15 +177,15 @@ enum TrainingGoal: String, Codable, Sendable, CaseIterable {
     var localizedTitle: String {
         switch self {
         case .startWalking:
-            String(localized: "Start Walking Regularly", comment: "Training goal")
+            L10n.localized("Start Walking Regularly", comment: "Training goal")
         case .reach10k:
-            String(localized: "Reach 10,000 Steps Daily", comment: "Training goal")
+            L10n.localized("Reach 10,000 Steps Daily", comment: "Training goal")
         case .improveConsistency:
-            String(localized: "Improve Consistency", comment: "Training goal")
+            L10n.localized("Improve Consistency", comment: "Training goal")
         case .buildEndurance:
-            String(localized: "Build Endurance", comment: "Training goal")
+            L10n.localized("Build Endurance", comment: "Training goal")
         case .weightManagement:
-            String(localized: "Support Weight Goals", comment: "Training goal")
+            L10n.localized("Support Weight Goals", comment: "Training goal")
         }
     }
 }

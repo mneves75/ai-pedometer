@@ -135,11 +135,11 @@ final class CoachService {
     
     static var suggestedQuestions: [String] {
         [
-            String(localized: "How did I do this week?", comment: "Suggested AI Coach question about weekly performance"),
-            String(localized: "What's my best day for walking?", comment: "Suggested AI Coach question about best walking day"),
-            String(localized: "Should I increase my goal?", comment: "Suggested AI Coach question about increasing goal"),
-            String(localized: "Create a plan to reach 10,000 steps", comment: "Suggested AI Coach question about creating a plan"),
-            String(localized: "Why am I not hitting my goals?", comment: "Suggested AI Coach question about missing goals")
+            L10n.localized("How did I do this week?", comment: "Suggested AI Coach question about weekly performance"),
+            L10n.localized("What's my best day for walking?", comment: "Suggested AI Coach question about best walking day"),
+            L10n.localized("Should I increase my goal?", comment: "Suggested AI Coach question about increasing goal"),
+            L10n.localized("Create a plan to reach 10,000 steps", comment: "Suggested AI Coach question about creating a plan"),
+            L10n.localized("Why am I not hitting my goals?", comment: "Suggested AI Coach question about missing goals")
         ]
     }
 

@@ -17,15 +17,15 @@ enum TrainingGoalType: String, Codable, Sendable, CaseIterable {
     var description: String {
         switch self {
         case .startWalking:
-            String(localized: "Perfect for beginners looking to establish a daily walking habit", comment: "Training goal description")
+            L10n.localized("Perfect for beginners looking to establish a daily walking habit", comment: "Training goal description")
         case .reach10k:
-            String(localized: "Progressively increase your daily steps to reach the 10K milestone", comment: "Training goal description")
+            L10n.localized("Progressively increase your daily steps to reach the 10K milestone", comment: "Training goal description")
         case .improveConsistency:
-            String(localized: "Focus on meeting your goals more days per week", comment: "Training goal description")
+            L10n.localized("Focus on meeting your goals more days per week", comment: "Training goal description")
         case .buildEndurance:
-            String(localized: "Increase walking duration and intensity over time", comment: "Training goal description")
+            L10n.localized("Increase walking duration and intensity over time", comment: "Training goal description")
         case .weightManagement:
-            String(localized: "Structured plan to support your weight management journey", comment: "Training goal description")
+            L10n.localized("Structured plan to support your weight management journey", comment: "Training goal description")
         }
     }
     
@@ -53,22 +53,22 @@ enum FitnessLevel: String, Codable, Sendable, CaseIterable {
     var displayName: String {
         switch self {
         case .beginner:
-            String(localized: "Beginner", comment: "Fitness level")
+            L10n.localized("Beginner", comment: "Fitness level")
         case .intermediate:
-            String(localized: "Intermediate", comment: "Fitness level")
+            L10n.localized("Intermediate", comment: "Fitness level")
         case .advanced:
-            String(localized: "Advanced", comment: "Fitness level")
+            L10n.localized("Advanced", comment: "Fitness level")
         }
     }
     
     var description: String {
         switch self {
         case .beginner:
-            String(localized: "New to regular exercise or returning after a break", comment: "Fitness level description")
+            L10n.localized("New to regular exercise or returning after a break", comment: "Fitness level description")
         case .intermediate:
-            String(localized: "Currently active but looking to improve", comment: "Fitness level description")
+            L10n.localized("Currently active but looking to improve", comment: "Fitness level description")
         case .advanced:
-            String(localized: "Regularly active, ready for a challenge", comment: "Fitness level description")
+            L10n.localized("Regularly active, ready for a challenge", comment: "Fitness level description")
         }
     }
 }

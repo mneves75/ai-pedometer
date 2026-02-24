@@ -138,7 +138,7 @@ struct HistoryView: View {
             Spacer()
             ProgressView()
                 .controlSize(.large)
-            Text(String(localized: "Loading history...", comment: "Loading indicator text"))
+            Text(L10n.localized("Loading history...", comment: "Loading indicator text"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
             Spacer()
@@ -152,7 +152,7 @@ struct HistoryView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DesignTokens.FontSize.md))
                 .foregroundStyle(DesignTokens.Colors.warning)
-            Text(String(localized: "Unable to Load History", comment: "Error state title"))
+            Text(L10n.localized("Unable to Load History", comment: "Error state title"))
                 .font(DesignTokens.Typography.headline)
             Text(message)
                 .font(DesignTokens.Typography.subheadline)
@@ -161,7 +161,7 @@ struct HistoryView: View {
             Button {
                 Task { await loadData() }
             } label: {
-                Text(String(localized: "Try Again", comment: "Retry button"))
+                Text(L10n.localized("Try Again", comment: "Retry button"))
             }
             .buttonStyle(.bordered)
             Spacer()
@@ -176,9 +176,9 @@ struct HistoryView: View {
             Image(systemName: "figure.walk")
                 .font(.system(size: DesignTokens.FontSize.md))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
-            Text(String(localized: "No Activity Data", comment: "Empty state title"))
+            Text(L10n.localized("No Activity Data", comment: "Empty state title"))
                 .font(DesignTokens.Typography.headline)
-            Text(String(localized: "Start walking to see your activity history here. Make sure Health access is enabled in Settings.", comment: "Empty state description"))
+            Text(L10n.localized("Start walking to see your activity history here. Make sure Health access is enabled in Settings.", comment: "Empty state description"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
                 .multilineTextAlignment(.center)
@@ -194,10 +194,10 @@ struct HistoryView: View {
             Image(systemName: "heart.slash")
                 .font(.system(size: DesignTokens.FontSize.md))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
-            Text(String(localized: "HealthKit Sync is Off", comment: "History empty state title when HealthKit sync disabled"))
+            Text(L10n.localized("HealthKit Sync is Off", comment: "History empty state title when HealthKit sync disabled"))
                 .font(DesignTokens.Typography.headline)
                 .accessibilityIdentifier(A11yID.History.syncOffLabel)
-            Text(String(localized: "Enable HealthKit Sync in Settings to see your activity history.", comment: "History empty state description when HealthKit sync disabled"))
+            Text(L10n.localized("Enable HealthKit Sync in Settings to see your activity history.", comment: "History empty state description when HealthKit sync disabled"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
                 .multilineTextAlignment(.center)
@@ -217,7 +217,7 @@ struct HistoryView: View {
             Image(systemName: "heart.slash")
                 .font(.system(size: DesignTokens.FontSize.md))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
-            Text(String(localized: "Health Access Needed", comment: "History state title when HealthKit is not authorized"))
+            Text(L10n.localized("Health Access Needed", comment: "History state title when HealthKit is not authorized"))
                 .font(DesignTokens.Typography.headline)
                 .multilineTextAlignment(.center)
             Text(permissionDescription)
@@ -225,7 +225,7 @@ struct HistoryView: View {
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignTokens.Spacing.lg)
-            Button(String(localized: "Grant Access", comment: "Button to request Health access")) {
+            Button(L10n.localized("Grant Access", comment: "Button to request Health access")) {
                 Task {
                     do {
                         try await healthAuthorization.requestAuthorization()
@@ -262,7 +262,7 @@ struct HistoryView: View {
             Image(systemName: "heart.slash")
                 .font(.system(size: DesignTokens.FontSize.md))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
-            Text(String(localized: "Health Access Needed", comment: "History troubleshooting title when Health data is missing"))
+            Text(L10n.localized("Health Access Needed", comment: "History troubleshooting title when Health data is missing"))
                 .font(DesignTokens.Typography.headline)
                 .multilineTextAlignment(.center)
             Text(
@@ -276,7 +276,7 @@ struct HistoryView: View {
             .multilineTextAlignment(.center)
             .padding(.horizontal, DesignTokens.Spacing.lg)
 
-            Button(String(localized: "How to enable", comment: "Button to open Health access instructions")) {
+            Button(L10n.localized("How to enable", comment: "Button to open Health access instructions")) {
                 showHealthHelp = true
             }
             .glassButton()
@@ -290,17 +290,17 @@ struct HistoryView: View {
     private var permissionDescription: String {
         switch healthAuthorization.status {
         case .shouldRequest:
-            return String(localized: "To show your history, we need permission to read your activity data from Health.", comment: "History permission description before requesting")
+            return L10n.localized("To show your history, we need permission to read your activity data from Health.", comment: "History permission description before requesting")
         case .requested:
-            return String(localized: "Health access was already requested. If data isn't showing, enable it in Settings.", comment: "History permission description after requesting")
+            return L10n.localized("Health access was already requested. If data isn't showing, enable it in Settings.", comment: "History permission description after requesting")
         case .unavailable:
-            return String(localized: "Health data is not available on this device.", comment: "History permission description when HealthKit unavailable")
+            return L10n.localized("Health data is not available on this device.", comment: "History permission description when HealthKit unavailable")
         }
     }
 
     private var headerSection: some View {
         HStack {
-            Text(String(localized: "History", comment: "History screen title"))
+            Text(L10n.localized("History", comment: "History screen title"))
                 .font(DesignTokens.Typography.largeTitle.bold())
             Spacer()
         }
@@ -352,7 +352,7 @@ struct HistoryView: View {
 
     private var weeklySummaryContent: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(String(localized: "Weekly Summary", comment: "History section header"))
+            Text(L10n.localized("Weekly Summary", comment: "History section header"))
                 .font(DesignTokens.Typography.headline)
 
             barChart
@@ -427,7 +427,7 @@ struct BarChartColumn: View {
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(summary.dayName): \(summary.steps.formattedSteps) \(activityMode.unitName), \(summary.goalMet ? String(localized: "goal met") : String(localized: "goal not met"))")
+        .accessibilityLabel("\(summary.dayName): \(summary.steps.formattedSteps) \(activityMode.unitName), \(summary.goalMet ? L10n.localized("goal met") : L10n.localized("goal not met"))")
     }
 }
 
@@ -462,7 +462,7 @@ struct HistoryRow: View {
         .buttonStyle(.plain)
         .accessibleCard(
             label: "\(summary.dateString), \(summary.steps.formattedSteps) \(activityMode.unitName)",
-            hint: summary.goalMet ? String(localized: "Goal achieved") : String(localized: "Goal not achieved")
+            hint: summary.goalMet ? L10n.localized("Goal achieved") : L10n.localized("Goal not achieved")
         )
     }
 }
@@ -475,8 +475,8 @@ struct GoalStatusBadge: View {
             Image(systemName: met ? "checkmark.circle.fill" : "xmark.circle.fill")
             Text(
                 met
-                    ? String(localized: "Goal Met", comment: "Badge label for when daily goal was met")
-                    : String(localized: "Goal Not Met", comment: "Badge label for when daily goal was not met")
+                    ? L10n.localized("Goal Met", comment: "Badge label for when daily goal was met")
+                    : L10n.localized("Goal Not Met", comment: "Badge label for when daily goal was not met")
             )
         }
         .font(DesignTokens.Typography.caption.weight(.semibold))

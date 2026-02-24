@@ -37,7 +37,7 @@ struct OnboardingView: View {
                 Spacer()
 
                 Button(action: handleNext) {
-                    Text(currentPage == 2 ? String(localized: "Get Started", comment: "Final onboarding button") : String(localized: "Next", comment: "Onboarding navigation button"))
+                    Text(currentPage == 2 ? L10n.localized("Get Started", comment: "Final onboarding button") : L10n.localized("Next", comment: "Onboarding navigation button"))
                         .font(DesignTokens.Typography.headline)
                         .frame(maxWidth: .infinity)
                 }
@@ -46,8 +46,8 @@ struct OnboardingView: View {
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .padding(.bottom, DesignTokens.Spacing.xxl)
                 .accessibleButton(
-                    label: currentPage == 2 ? String(localized: "Get Started", comment: "Final onboarding button") : String(localized: "Next", comment: "Onboarding navigation button"),
-                    hint: currentPage == 2 ? String(localized: "Finishes onboarding", comment: "Accessibility hint for Get Started button") : String(localized: "Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
+                    label: currentPage == 2 ? L10n.localized("Get Started", comment: "Final onboarding button") : L10n.localized("Next", comment: "Onboarding navigation button"),
+                    hint: currentPage == 2 ? L10n.localized("Finishes onboarding", comment: "Accessibility hint for Get Started button") : L10n.localized("Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
                 )
             }
         }
@@ -61,12 +61,12 @@ struct OnboardingView: View {
                 .padding(DesignTokens.Spacing.md)
                 .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
 
-            Text(String(localized: "Welcome to AI Pedometer", comment: "Onboarding welcome title"))
+            Text(L10n.localized("Welcome to AI Pedometer", comment: "Onboarding welcome title"))
                 .font(DesignTokens.Typography.largeTitle)
                 .bold()
                 .multilineTextAlignment(.center)
 
-            Text(String(localized: "Track your steps with the power of AI.", comment: "Onboarding welcome subtitle"))
+            Text(L10n.localized("Track your steps with the power of AI.", comment: "Onboarding welcome subtitle"))
                 .font(DesignTokens.Typography.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -76,7 +76,7 @@ struct OnboardingView: View {
     
     private var goalPage: some View {
         VStack(spacing: DesignTokens.Spacing.xl) {
-            Text(String(localized: "Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
+            Text(L10n.localized("Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
                 .font(DesignTokens.Typography.title)
                 .bold()
 
@@ -97,7 +97,7 @@ struct OnboardingView: View {
             .padding(DesignTokens.Spacing.md)
             .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
 
-            Text(String(localized: "You can change this later in settings.", comment: "Onboarding note about goal settings"))
+            Text(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
@@ -110,22 +110,22 @@ struct OnboardingView: View {
                 .font(.system(size: DesignTokens.FontSize.lg))
                 .foregroundStyle(DesignTokens.Colors.accent)
 
-            Text(String(localized: "Permissions", comment: "Onboarding permissions page title"))
+            Text(L10n.localized("Permissions", comment: "Onboarding permissions page title"))
                 .font(DesignTokens.Typography.title)
                 .bold()
 
-            Text(String(localized: "We need access to your motion and Health data to count steps.", comment: "Onboarding permissions explanation"))
+            Text(L10n.localized("We need access to your motion and Health data to count steps.", comment: "Onboarding permissions explanation"))
                 .multilineTextAlignment(.center)
                 .padding(DesignTokens.Spacing.md)
                 .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
 
             VStack(spacing: DesignTokens.Spacing.sm) {
                 permissionStatusRow(
-                    title: String(localized: "Health", comment: "Permission label for Apple Health access"),
+                    title: L10n.localized("Health", comment: "Permission label for Apple Health access"),
                     status: healthAuthorization.status
                 )
                 permissionStatusRow(
-                    title: String(localized: "Motion & Fitness", comment: "Permission label for Motion & Fitness access"),
+                    title: L10n.localized("Motion & Fitness", comment: "Permission label for Motion & Fitness access"),
                     status: motionAuthorization.status
                 )
             }
@@ -138,8 +138,8 @@ struct OnboardingView: View {
                 } label: {
                     Text(
                         isRequestingPermissions
-                            ? String(localized: "Requesting Access...", comment: "Onboarding permissions button while requesting access")
-                            : String(localized: "Grant Access", comment: "Onboarding permissions button to request access")
+                            ? L10n.localized("Requesting Access...", comment: "Onboarding permissions button while requesting access")
+                            : L10n.localized("Grant Access", comment: "Onboarding permissions button to request access")
                     )
                     .font(DesignTokens.Typography.headline)
                     .frame(maxWidth: .infinity)
@@ -148,7 +148,7 @@ struct OnboardingView: View {
                 .disabled(isRequestingPermissions)
 
                 if healthAuthorization.status == .requested || motionAuthorization.status == .denied {
-                    Button(String(localized: "Open Settings", comment: "Button to open system settings")) {
+                    Button(L10n.localized("Open Settings", comment: "Button to open system settings")) {
                         openSystemSettings()
                     }
                     .buttonStyle(.bordered)
@@ -163,7 +163,7 @@ struct OnboardingView: View {
     }
 
     private var skipButton: some View {
-        Button(String(localized: "Skip", comment: "Onboarding skip button")) {
+        Button(L10n.localized("Skip", comment: "Onboarding skip button")) {
             HapticService.shared.tap()
             completeOnboarding()
         }
@@ -172,7 +172,7 @@ struct OnboardingView: View {
         .padding(.horizontal, DesignTokens.Spacing.md)
         .padding(.top, DesignTokens.Spacing.md)
         .accessibilityIdentifier("onboarding_skip_button")
-        .accessibleButton(label: String(localized: "Skip", comment: "Onboarding skip button"))
+        .accessibleButton(label: L10n.localized("Skip", comment: "Onboarding skip button"))
     }
     
     private func handleNext() {
@@ -280,11 +280,11 @@ struct OnboardingView: View {
     private func statusLabel(for status: HealthKitAccessStatus) -> String {
         switch status {
         case .requested:
-            String(localized: "Requested", comment: "Permissions status: authorization already requested")
+            L10n.localized("Requested", comment: "Permissions status: authorization already requested")
         case .shouldRequest:
-            String(localized: "Not Requested", comment: "Permissions status: not requested yet")
+            L10n.localized("Not Requested", comment: "Permissions status: not requested yet")
         case .unavailable:
-            String(localized: "Unavailable", comment: "Permissions status: unavailable on this device")
+            L10n.localized("Unavailable", comment: "Permissions status: unavailable on this device")
         }
     }
 
@@ -309,13 +309,13 @@ struct OnboardingView: View {
     private func statusLabel(for status: MotionAuthStatus) -> String {
         switch status {
         case .authorized:
-            String(localized: "Granted", comment: "Permissions status: granted")
+            L10n.localized("Granted", comment: "Permissions status: granted")
         case .notDetermined:
-            String(localized: "Not Requested", comment: "Permissions status: not requested yet")
+            L10n.localized("Not Requested", comment: "Permissions status: not requested yet")
         case .denied:
-            String(localized: "Denied", comment: "Permissions status: denied")
+            L10n.localized("Denied", comment: "Permissions status: denied")
         case .unavailable:
-            String(localized: "Unavailable", comment: "Permissions status: unavailable on this device")
+            L10n.localized("Unavailable", comment: "Permissions status: unavailable on this device")
         }
     }
 

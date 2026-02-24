@@ -93,13 +93,13 @@ extension TrainingPlanRecord.PlanStatus {
     var localizedName: String {
         switch self {
         case .active:
-            return String(localized: "Active", comment: "Training plan status label")
+            return L10n.localized("Active", comment: "Training plan status label")
         case .completed:
-            return String(localized: "Completed", comment: "Training plan status label")
+            return L10n.localized("Completed", comment: "Training plan status label")
         case .paused:
-            return String(localized: "Paused", comment: "Training plan status label")
+            return L10n.localized("Paused", comment: "Training plan status label")
         case .abandoned:
-            return String(localized: "Abandoned", comment: "Training plan status label")
+            return L10n.localized("Abandoned", comment: "Training plan status label")
         }
     }
 }

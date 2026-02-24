@@ -21,13 +21,13 @@ enum AIUnavailabilityReason: String, Sendable, Equatable {
     var userFacingMessage: String {
         switch self {
         case .deviceNotEligible:
-            return String(localized: "Your device doesn't support Apple Intelligence", comment: "AI unavailable - device not eligible")
+            return L10n.localized("Your device doesn't support Apple Intelligence", comment: "AI unavailable - device not eligible")
         case .appleIntelligenceNotEnabled:
-            return String(localized: "Enable Apple Intelligence in Settings to use AI features", comment: "AI unavailable - not enabled")
+            return L10n.localized("Enable Apple Intelligence in Settings to use AI features", comment: "AI unavailable - not enabled")
         case .modelNotReady:
-            return String(localized: "AI model is being prepared. Please try again later.", comment: "AI unavailable - model not ready")
+            return L10n.localized("AI model is being prepared. Please try again later.", comment: "AI unavailable - model not ready")
         case .unknown:
-            return String(localized: "AI features are temporarily unavailable", comment: "AI unavailable - unknown reason")
+            return L10n.localized("AI features are temporarily unavailable", comment: "AI unavailable - unknown reason")
         }
     }
     
@@ -36,7 +36,7 @@ enum AIUnavailabilityReason: String, Sendable, Equatable {
     }
     
     var actionTitle: String {
-        String(localized: "Open Settings", comment: "Button to open Settings app")
+        L10n.localized("Open Settings", comment: "Button to open Settings app")
     }
 }
 
@@ -44,17 +44,17 @@ extension AIServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .sessionNotConfigured:
-            return String(localized: "AI session not configured", comment: "Error - session not configured")
+            return L10n.localized("AI session not configured", comment: "Error - session not configured")
         case .modelUnavailable(let reason):
             return reason.userFacingMessage
         case .generationFailed:
-            return String(localized: "AI generation failed. Please try again.", comment: "Error - generation failed")
+            return L10n.localized("AI generation failed. Please try again.", comment: "Error - generation failed")
         case .tokenLimitExceeded:
-            return String(localized: "The conversation is too long. Please start a new conversation.", comment: "Error - token limit exceeded")
+            return L10n.localized("The conversation is too long. Please start a new conversation.", comment: "Error - token limit exceeded")
         case .guardrailViolation:
-            return String(localized: "The request could not be processed due to content restrictions.", comment: "Error - guardrail violation")
+            return L10n.localized("The request could not be processed due to content restrictions.", comment: "Error - guardrail violation")
         case .invalidResponse:
-            return String(localized: "Received an invalid response from the AI model.", comment: "Error - invalid response")
+            return L10n.localized("Received an invalid response from the AI model.", comment: "Error - invalid response")
         }
     }
 }

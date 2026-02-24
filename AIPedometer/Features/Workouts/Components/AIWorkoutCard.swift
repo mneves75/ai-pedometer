@@ -33,7 +33,7 @@ struct AIWorkoutCard: View {
     private var header: some View {
         HStack {
             Label {
-                Text(String(localized: "Today's Plan", comment: "AI workout card header"))
+                Text(L10n.localized("Today's Plan", comment: "AI workout card header"))
                     .font(DesignTokens.Typography.headline)
             } icon: {
                 Image(systemName: "sparkles")
@@ -59,7 +59,7 @@ struct AIWorkoutCard: View {
             ProgressView()
                 .controlSize(.small)
             
-            Text(String(localized: "Generating plan...", comment: "AI workout loading state"))
+            Text(L10n.localized("Generating plan...", comment: "AI workout loading state"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
@@ -78,7 +78,7 @@ struct AIWorkoutCard: View {
             }
             
             Button(action: onRefresh) {
-                Text(String(localized: "Try Again", comment: "Retry button"))
+                Text(L10n.localized("Try Again", comment: "Retry button"))
                     .font(DesignTokens.Typography.subheadline.weight(.medium))
             }
             .buttonStyle(.borderedProminent)
@@ -103,7 +103,7 @@ struct AIWorkoutCard: View {
             } label: {
                 HStack {
                     Image(systemName: "figure.walk")
-                    Text(String(localized: "Start This Workout", comment: "Start workout button"))
+                    Text(L10n.localized("Start This Workout", comment: "Start workout button"))
                 }
                 .font(DesignTokens.Typography.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
@@ -141,13 +141,13 @@ struct AIWorkoutCard: View {
             statItem(
                 icon: "clock",
                 value: "\(recommendation.estimatedMinutes)",
-                label: String(localized: "min", comment: "Minutes abbreviation")
+                label: L10n.localized("min", comment: "Minutes abbreviation")
             )
             
             statItem(
                 icon: timeIcon(recommendation.suggestedTimeOfDay),
                 value: recommendation.suggestedTimeOfDay.localizedTitle,
-                label: String(localized: "best time", comment: "Best time label")
+                label: L10n.localized("best time", comment: "Best time label")
             )
             
             Spacer()
@@ -171,7 +171,7 @@ struct AIWorkoutCard: View {
     
     private var emptyContent: some View {
         Label {
-            Text(String(localized: "No workout plan available", comment: "Empty state"))
+            Text(L10n.localized("No workout plan available", comment: "Empty state"))
                 .font(DesignTokens.Typography.subheadline)
         } icon: {
             Image(systemName: "sparkles")

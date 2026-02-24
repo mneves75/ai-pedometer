@@ -88,7 +88,7 @@ struct WorkoutsView: View {
 
     private var headerSection: some View {
         HStack {
-            Text(String(localized: "Workouts", comment: "Workouts screen title"))
+            Text(L10n.localized("Workouts", comment: "Workouts screen title"))
                 .font(DesignTokens.Typography.largeTitle.bold())
             Spacer()
         }
@@ -109,10 +109,10 @@ struct WorkoutsView: View {
                     .background(DesignTokens.Colors.success.opacity(0.15), in: Circle())
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Text(String(localized: "Active Workout", comment: "Banner title for an active workout"))
+                    Text(L10n.localized("Active Workout", comment: "Banner title for an active workout"))
                         .font(DesignTokens.Typography.headline)
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
-                    Text(String(localized: "Tap to resume", comment: "Banner subtitle for resuming an active workout"))
+                    Text(L10n.localized("Tap to resume", comment: "Banner subtitle for resuming an active workout"))
                         .font(DesignTokens.Typography.subheadline)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
@@ -130,8 +130,8 @@ struct WorkoutsView: View {
         .accessibilityIdentifier(A11yID.Workouts.activeWorkoutBanner)
         .padding(.horizontal, DesignTokens.Spacing.md)
         .accessibleCard(
-            label: String(localized: "Active Workout", comment: "Accessibility label for active workout banner"),
-            hint: String(localized: "Resumes your current workout session", comment: "Accessibility hint for active workout banner")
+            label: L10n.localized("Active Workout", comment: "Accessibility label for active workout banner"),
+            hint: L10n.localized("Resumes your current workout session", comment: "Accessibility hint for active workout banner")
         )
     }
 
@@ -144,14 +144,14 @@ struct WorkoutsView: View {
                     view.symbolEffect(.breathe.pulse.byLayer)
                 }
 
-            Text(String(localized: "Ready to start?", comment: "Workouts view prompt"))
+            Text(L10n.localized("Ready to start?", comment: "Workouts view prompt"))
                 .font(DesignTokens.Typography.title2.bold())
 
             Button {
                 HapticService.shared.confirm()
                 startWorkout(targetSteps: nil)
             } label: {
-                Text(String(localized: "Start Workout", comment: "Button to begin a workout"))
+                Text(L10n.localized("Start Workout", comment: "Button to begin a workout"))
                     .font(DesignTokens.Typography.title3.bold())
                     .frame(maxWidth: .infinity)
                     .padding(DesignTokens.Spacing.md)
@@ -160,8 +160,8 @@ struct WorkoutsView: View {
             .accessibilityIdentifier(A11yID.Workouts.startWorkoutButton)
             .padding(.horizontal, DesignTokens.Spacing.xl)
             .accessibleButton(
-                label: String(localized: "Start Workout", comment: "Button to begin a workout"),
-                hint: String(localized: "Begins a new workout session", comment: "Accessibility hint for start workout button")
+                label: L10n.localized("Start Workout", comment: "Button to begin a workout"),
+                hint: L10n.localized("Begins a new workout session", comment: "Accessibility hint for start workout button")
             )
         }
         .padding(.vertical, DesignTokens.Spacing.lg)
@@ -171,7 +171,7 @@ struct WorkoutsView: View {
 
     private var trainingPlansSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(String(localized: "Training Plans", comment: "Section header for training plans"))
+            Text(L10n.localized("Training Plans", comment: "Section header for training plans"))
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
@@ -186,11 +186,11 @@ struct WorkoutsView: View {
                         .background(DesignTokens.Colors.accentSoft, in: Circle())
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Text(String(localized: "AI Training Plans", comment: "Training plans card title"))
+                        Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
                             .font(DesignTokens.Typography.headline)
                             .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-                        Text(String(localized: "Get personalized plans powered by AI", comment: "Training plans card subtitle"))
+                        Text(L10n.localized("Get personalized plans powered by AI", comment: "Training plans card subtitle"))
                             .font(DesignTokens.Typography.subheadline)
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
@@ -208,8 +208,8 @@ struct WorkoutsView: View {
             .padding(.horizontal, DesignTokens.Spacing.md)
             .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
             .accessibleCard(
-                label: String(localized: "AI Training Plans", comment: "Training plans card title"),
-                hint: String(localized: "Opens AI-powered training plan creation", comment: "Accessibility hint")
+                label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
+                hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
             )
         }
     }
@@ -218,7 +218,7 @@ struct WorkoutsView: View {
 
     private var recentWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(String(localized: "Recent Workouts", comment: "Workouts view section header"))
+            Text(L10n.localized("Recent Workouts", comment: "Workouts view section header"))
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
@@ -236,11 +236,11 @@ struct WorkoutsView: View {
                 .font(.system(size: DesignTokens.FontSize.xs))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-            Text(String(localized: "No workouts yet", comment: "Empty state title"))
+            Text(L10n.localized("No workouts yet", comment: "Empty state title"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-            Text(String(localized: "Start your first workout to see it here", comment: "Empty state description"))
+            Text(L10n.localized("Start your first workout to see it here", comment: "Empty state description"))
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
                 .multilineTextAlignment(.center)
@@ -335,7 +335,7 @@ struct WorkoutCard: View {
 
     private var formattedDuration: String {
         guard let endTime = workout.endTime else {
-            return String(localized: "In Progress", comment: "Workout status")
+            return L10n.localized("In Progress", comment: "Workout status")
         }
         let duration = endTime.timeIntervalSince(workout.startTime)
         return Formatters.durationString(seconds: duration)
@@ -344,9 +344,9 @@ struct WorkoutCard: View {
     private var formattedDate: String {
         let calendar = Calendar.current
         if calendar.isDateInToday(workout.startTime) {
-            return String(localized: "Today", comment: "Date label for today")
+            return L10n.localized("Today", comment: "Date label for today")
         } else if calendar.isDateInYesterday(workout.startTime) {
-            return String(localized: "Yesterday", comment: "Date label for yesterday")
+            return L10n.localized("Yesterday", comment: "Date label for yesterday")
         } else {
             return workout.startTime.formatted(date: .abbreviated, time: .omitted)
         }

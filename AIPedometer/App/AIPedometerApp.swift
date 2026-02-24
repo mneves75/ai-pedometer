@@ -27,6 +27,7 @@ struct AIPedometerApp: App {
     private let persistence = PersistenceController.shared
     private let backgroundService: BackgroundTaskService
     private let metricKitService = MetricKitService.shared
+    private let appLocale: Locale
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -51,6 +52,9 @@ struct AIPedometerApp: App {
             )
             UIView.setAnimationsEnabled(false)
         }
+
+        appLocale = AppLanguage.currentLocale
+
         // Create shared dependencies once - single source of truth
         let sharedHealthStore = HKHealthStore()
         let healthAuth = HealthKitAuthorization(healthStore: sharedHealthStore)
@@ -207,6 +211,7 @@ struct AIPedometerApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.locale, appLocale)
                 .environment(healthAuthorization)
                 .environment(motionAuthorization)
                 .environment(stepTrackingService)

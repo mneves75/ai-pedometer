@@ -8,8 +8,8 @@ struct WeeklyChartWidget: Widget {
         StaticConfiguration(kind: kind, provider: StepTimelineProvider()) { entry in
             WeeklyChartWidgetView(entry: entry)
         }
-        .configurationDisplayName(String(localized: "Weekly Steps", comment: "Widget display name and header for weekly steps summary"))
-        .description(String(localized: "Your recent step trend.", comment: "Widget description for weekly steps widget"))
+        .configurationDisplayName(L10n.localized("Weekly Steps", comment: "Widget display name and header for weekly steps summary"))
+        .description(L10n.localized("Your recent step trend.", comment: "Widget description for weekly steps widget"))
         .supportedFamilies([.systemMedium])
     }
 }
@@ -41,7 +41,7 @@ struct WeeklyChartContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             HStack {
-                Text(String(localized: "Weekly Steps", comment: "Widget header for weekly steps summary"))
+                Text(L10n.localized("Weekly Steps", comment: "Widget header for weekly steps summary"))
                     .font(DesignTokens.Typography.caption.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
                 Spacer()
@@ -76,7 +76,7 @@ struct WeeklyChartContent: View {
 struct WeeklyChartPlaceholder: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
-            Text(String(localized: "Weekly Steps", comment: "Widget header for weekly steps summary"))
+            Text(L10n.localized("Weekly Steps", comment: "Widget header for weekly steps summary"))
                 .font(DesignTokens.Typography.caption.weight(.semibold))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 

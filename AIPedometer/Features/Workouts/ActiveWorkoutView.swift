@@ -32,36 +32,36 @@ struct ActiveWorkoutView: View {
                 } label: {
                     Image(systemName: "trash")
                 }
-                .accessibilityLabel(String(localized: "Discard Workout", comment: "Discard workout toolbar action"))
+                .accessibilityLabel(L10n.localized("Discard Workout", comment: "Discard workout toolbar action"))
             }
         }
         .confirmationDialog(
-            String(localized: "End Workout", comment: "Confirmation dialog title for ending workout"),
+            L10n.localized("End Workout", comment: "Confirmation dialog title for ending workout"),
             isPresented: $showEndConfirmation,
             titleVisibility: .visible
         ) {
-            Button(String(localized: "End Workout", comment: "Confirm ending workout"), role: .destructive) {
+            Button(L10n.localized("End Workout", comment: "Confirm ending workout"), role: .destructive) {
                 Task { await workoutController.finishWorkout() }
             }
         } message: {
-            Text(String(localized: "Ending will save the workout to your history.", comment: "Message explaining that ending saves the workout"))
+            Text(L10n.localized("Ending will save the workout to your history.", comment: "Message explaining that ending saves the workout"))
         }
         .confirmationDialog(
-            String(localized: "Discard Workout", comment: "Confirmation dialog title for discarding workout"),
+            L10n.localized("Discard Workout", comment: "Confirmation dialog title for discarding workout"),
             isPresented: $showDiscardConfirmation,
             titleVisibility: .visible
         ) {
-            Button(String(localized: "Discard Workout", comment: "Confirm discarding workout"), role: .destructive) {
+            Button(L10n.localized("Discard Workout", comment: "Confirm discarding workout"), role: .destructive) {
                 workoutController.discardWorkout()
             }
         } message: {
-            Text(String(localized: "This will remove the workout and discard progress.", comment: "Message explaining that discarding removes progress"))
+            Text(L10n.localized("This will remove the workout and discard progress.", comment: "Message explaining that discarding removes progress"))
         }
         .alert(item: $workoutController.lastError) { error in
             Alert(
-                title: Text(String(localized: "Workout Error", comment: "Workout error alert title")),
+                title: Text(L10n.localized("Workout Error", comment: "Workout error alert title")),
                 message: Text(error.localizedDescription),
-                dismissButton: .default(Text(String(localized: "OK", comment: "Dismiss alert button")))
+                dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
             )
         }
     }
@@ -85,25 +85,25 @@ struct ActiveWorkoutView: View {
         let metrics = workoutController.metrics
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignTokens.Spacing.md) {
             metricCard(
-                title: String(localized: "Steps", comment: "Workout metric title"),
+                title: L10n.localized("Steps", comment: "Workout metric title"),
                 value: metrics?.steps.formattedSteps ?? "0",
                 icon: "figure.walk",
                 tint: DesignTokens.Colors.green
             )
             metricCard(
-                title: String(localized: "Distance", comment: "Workout metric title"),
+                title: L10n.localized("Distance", comment: "Workout metric title"),
                 value: metrics?.distance.formattedDistance() ?? 0.formattedDistance(),
                 icon: "map",
                 tint: DesignTokens.Colors.blue
             )
             metricCard(
-                title: String(localized: "Calories", comment: "Workout metric title"),
+                title: L10n.localized("Calories", comment: "Workout metric title"),
                 value: metrics?.calories.formattedCalories() ?? "0",
                 icon: "flame",
                 tint: DesignTokens.Colors.orange
             )
             metricCard(
-                title: String(localized: "Elapsed", comment: "Workout metric title"),
+                title: L10n.localized("Elapsed", comment: "Workout metric title"),
                 value: elapsedText,
                 icon: "clock",
                 tint: DesignTokens.Colors.purple
@@ -117,7 +117,7 @@ struct ActiveWorkoutView: View {
 
         return VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack {
-                Text(String(localized: "Target", comment: "Workout target label"))
+                Text(L10n.localized("Target", comment: "Workout target label"))
                     .font(DesignTokens.Typography.headline)
                 Spacer()
                 Text("\(currentSteps.formattedSteps)/\(targetSteps.formattedSteps)")
@@ -127,7 +127,7 @@ struct ActiveWorkoutView: View {
             ProgressView(value: progress)
                 .tint(DesignTokens.Colors.accent)
                 .accessibleProgress(
-                    label: String(localized: "Target progress", comment: "Accessibility label for target progress"),
+                    label: L10n.localized("Target progress", comment: "Accessibility label for target progress"),
                     value: progress
                 )
         }
@@ -146,7 +146,7 @@ struct ActiveWorkoutView: View {
             Button {
                 showEndConfirmation = true
             } label: {
-                Text(String(localized: "End Workout", comment: "Button to end workout"))
+                Text(L10n.localized("End Workout", comment: "Button to end workout"))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -187,18 +187,18 @@ struct ActiveWorkoutView: View {
     private var statusTitle: String {
         switch workoutController.state {
         case .paused:
-            return String(localized: "Workout Paused", comment: "Title when workout is paused")
+            return L10n.localized("Workout Paused", comment: "Title when workout is paused")
         default:
-            return String(localized: "Active Workout", comment: "Title when workout is active")
+            return L10n.localized("Active Workout", comment: "Title when workout is active")
         }
     }
 
     private var statusSubtitle: String {
         switch workoutController.state {
         case .paused:
-            return String(localized: "Paused", comment: "Workout status subtitle")
+            return L10n.localized("Paused", comment: "Workout status subtitle")
         default:
-            return String(localized: "In Progress", comment: "Workout status subtitle")
+            return L10n.localized("In Progress", comment: "Workout status subtitle")
         }
     }
 
@@ -221,15 +221,15 @@ struct ActiveWorkoutView: View {
     }
 
     private var workoutTypeTitle: String {
-        workoutController.workoutType?.displayName ?? String(localized: "Workout", comment: "Fallback workout title")
+        workoutController.workoutType?.displayName ?? L10n.localized("Workout", comment: "Fallback workout title")
     }
 
     private var pauseButtonTitle: String {
         switch workoutController.state {
         case .paused:
-            String(localized: "Resume Workout", comment: "Resume workout button title")
+            L10n.localized("Resume Workout", comment: "Resume workout button title")
         default:
-            String(localized: "Pause Workout", comment: "Pause workout button title")
+            L10n.localized("Pause Workout", comment: "Pause workout button title")
         }
     }
 

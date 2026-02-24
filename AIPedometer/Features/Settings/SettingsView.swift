@@ -62,7 +62,7 @@ struct SettingsView: View {
         }
         .accessibilityIdentifier(A11yID.Settings.list)
         .uiTestMarker(A11yID.Settings.marker)
-        .navigationTitle(String(localized: "Settings", comment: "Settings navigation title"))
+        .navigationTitle(L10n.localized("Settings", comment: "Settings navigation title"))
         .navigationBarBackButtonHidden(showsCustomBackButton)
         .toolbar {
             if showsCustomBackButton {
@@ -70,7 +70,7 @@ struct SettingsView: View {
                     Button {
                         presentationMode.wrappedValue.dismiss()
                     } label: {
-                        Label(String(localized: "Back", comment: "Back button label"), systemImage: "chevron.backward")
+                        Label(L10n.localized("Back", comment: "Back button label"), systemImage: "chevron.backward")
                     }
                     .accessibilityIdentifier("settings_back_button")
                 }
@@ -95,13 +95,13 @@ struct SettingsView: View {
         .sheet(isPresented: $showHealthHelp) {
             HealthAccessHelpSheet()
         }
-        .alert(String(localized: "Notifications", comment: "Alert title for notification settings"), isPresented: $showNotificationAlert) {
+        .alert(L10n.localized("Notifications", comment: "Alert title for notification settings"), isPresented: $showNotificationAlert) {
             if notificationAlertOffersSettings {
-                Button(String(localized: "Open Settings", comment: "Button to open system settings")) {
+                Button(L10n.localized("Open Settings", comment: "Button to open system settings")) {
                     openNotificationSettings()
                 }
             }
-            Button(String(localized: "OK", comment: "Dismiss alert button"), role: .cancel) {}
+            Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) {}
         } message: {
             Text(notificationAlertMessage)
         }
@@ -114,7 +114,7 @@ struct SettingsView: View {
                 showGoalEditor = true
             } label: {
                 HStack {
-                    Label(String(localized: "Daily Goal"), systemImage: activityMode.iconName)
+                    Label(L10n.localized("Daily Goal"), systemImage: activityMode.iconName)
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
                     Spacer()
                     Text("\(trackingService.currentGoal.formatted()) \(activityMode.unitName)")
@@ -131,11 +131,11 @@ struct SettingsView: View {
                     Int64(trackingService.currentGoal),
                     activityMode.unitName
                 ),
-                hint: String(localized: "Tap to change your daily goal")
+                hint: L10n.localized("Tap to change your daily goal")
             )
             .accessibilityIdentifier(A11yID.Settings.dailyGoalRow)
         } header: {
-            Text(String(localized: "Goals", comment: "Settings section header"))
+            Text(L10n.localized("Goals", comment: "Settings section header"))
         }
         .listSectionSpacing(DesignTokens.Spacing.sm)
     }
@@ -175,9 +175,9 @@ struct SettingsView: View {
                 .accessibilityAddTraits(activityMode == mode ? .isSelected : [])
             }
         } header: {
-            Text(String(localized: "Activity Tracking", comment: "Settings section header for activity tracking"))
+            Text(L10n.localized("Activity Tracking", comment: "Settings section header for activity tracking"))
         } footer: {
-            Text(String(localized: "Wheelchair mode uses Apple Watch to measure daily pushes instead of steps.", comment: "Settings footer describing wheelchair mode"))
+            Text(L10n.localized("Wheelchair mode uses Apple Watch to measure daily pushes instead of steps.", comment: "Settings footer describing wheelchair mode"))
         }
         .listSectionSpacing(DesignTokens.Spacing.sm)
     }
@@ -221,7 +221,7 @@ struct SettingsView: View {
             if distanceMode == .manual {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                     HStack {
-                        Text(String(localized: "Step Length", comment: "Settings label for step length"))
+                        Text(L10n.localized("Step Length", comment: "Settings label for step length"))
                         Spacer()
                         Text(Formatters.stepLengthString(meters: manualStepLength))
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -251,12 +251,12 @@ struct SettingsView: View {
                 )
             }
         } header: {
-            Text(String(localized: "Distance Estimation", comment: "Settings section header for distance estimation"))
+            Text(L10n.localized("Distance Estimation", comment: "Settings section header for distance estimation"))
         } footer: {
             if distanceMode == .automatic {
-                Text(String(localized: "Uses HealthKit data for more accurate distance tracking.", comment: "Settings footer when distance estimation is automatic"))
+                Text(L10n.localized("Uses HealthKit data for more accurate distance tracking.", comment: "Settings footer when distance estimation is automatic"))
             } else {
-                Text(String(localized: "Distance is calculated by multiplying your step count by your step length.", comment: "Settings footer when distance estimation is manual"))
+                Text(L10n.localized("Distance is calculated by multiplying your step count by your step length.", comment: "Settings footer when distance estimation is manual"))
             }
         }
         .listSectionSpacing(DesignTokens.Spacing.sm)
@@ -266,9 +266,9 @@ struct SettingsView: View {
         Section {
             Toggle(isOn: $notificationsEnabled) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Label(String(localized: "Daily Goal Reminder", comment: "Settings toggle for daily reminder"), systemImage: "bell.fill")
+                    Label(L10n.localized("Daily Goal Reminder", comment: "Settings toggle for daily reminder"), systemImage: "bell.fill")
                         .symbolRenderingMode(.multicolor)
-                    Text(String(localized: "Get a daily reminder to reach your step goal.", comment: "Daily reminder description"))
+                    Text(L10n.localized("Get a daily reminder to reach your step goal.", comment: "Daily reminder description"))
                         .font(DesignTokens.Typography.caption)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
@@ -278,8 +278,8 @@ struct SettingsView: View {
                 HapticService.shared.selection()
                 Task { await updateDailyReminder(enabled: newValue) }
             }
-            .accessibilityLabel(String(localized: "Daily Goal Reminder", comment: "Settings toggle for daily reminder"))
-            .accessibilityValue(notificationsEnabled ? String(localized: "Enabled", comment: "Accessibility value for enabled toggle") : String(localized: "Disabled", comment: "Accessibility value for disabled toggle"))
+            .accessibilityLabel(L10n.localized("Daily Goal Reminder", comment: "Settings toggle for daily reminder"))
+            .accessibilityValue(notificationsEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
 
             smartRemindersRow
 
@@ -288,7 +288,7 @@ struct SettingsView: View {
             } label: {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     HStack {
-                        Label(String(localized: "Health Access", comment: "Settings row label for HealthKit access"), systemImage: "heart.text.square")
+                        Label(L10n.localized("Health Access", comment: "Settings row label for HealthKit access"), systemImage: "heart.text.square")
                             .foregroundStyle(DesignTokens.Colors.accent)
                         Spacer()
                         Text(healthAccessStatusText)
@@ -301,12 +301,12 @@ struct SettingsView: View {
                     }
                 }
             }
-            .accessibilityLabel(String(localized: "Health Access", comment: "Settings row label for HealthKit access"))
+            .accessibilityLabel(L10n.localized("Health Access", comment: "Settings row label for HealthKit access"))
             .accessibilityValue(healthAccessStatusText)
             .accessibilityIdentifier(A11yID.Settings.healthAccessRow)
 
             Toggle(isOn: $healthKitEnabled) {
-                Label(String(localized: "HealthKit Sync", comment: "Settings toggle for HealthKit synchronization"), systemImage: "heart.fill")
+                Label(L10n.localized("HealthKit Sync", comment: "Settings toggle for HealthKit synchronization"), systemImage: "heart.fill")
                     .foregroundStyle(.pink)
             }
             .onChange(of: healthKitEnabled) {
@@ -338,16 +338,16 @@ struct SettingsView: View {
                 }
             }
             .accessibilityIdentifier(A11yID.Settings.healthKitSyncToggle)
-            .accessibilityLabel(String(localized: "HealthKit Sync", comment: "Settings toggle for HealthKit synchronization"))
+            .accessibilityLabel(L10n.localized("HealthKit Sync", comment: "Settings toggle for HealthKit synchronization"))
             .applyIfNotUITesting {
                 $0.accessibilityValue(
                     healthKitEnabled
-                        ? String(localized: "Enabled", comment: "Accessibility value for enabled toggle")
-                        : String(localized: "Disabled", comment: "Accessibility value for disabled toggle")
+                        ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle")
+                        : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle")
                 )
             }
         } header: {
-            Text(String(localized: "Permissions", comment: "Settings section header"))
+            Text(L10n.localized("Permissions", comment: "Settings section header"))
         }
         .listSectionSpacing(DesignTokens.Spacing.sm)
     }
@@ -358,7 +358,7 @@ struct SettingsView: View {
                 AboutView()
             } label: {
                 HStack {
-                    Label(String(localized: "About", comment: "Settings row that opens About screen"), systemImage: "info.circle")
+                    Label(L10n.localized("About", comment: "Settings row that opens About screen"), systemImage: "info.circle")
                     Spacer()
                     Text(appVersion.display)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -366,10 +366,10 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier(A11yID.Settings.aboutRow)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(String(localized: "About", comment: "Settings row that opens About screen"))
+            .accessibilityLabel(L10n.localized("About", comment: "Settings row that opens About screen"))
             .accessibilityValue(appVersion.display)
         } header: {
-            Text(String(localized: "About", comment: "Settings section header"))
+            Text(L10n.localized("About", comment: "Settings section header"))
         }
         .listSectionSpacing(DesignTokens.Spacing.sm)
     }
@@ -390,9 +390,9 @@ struct SettingsView: View {
                         .foregroundStyle(DesignTokens.Colors.warning)
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Text(String(localized: "Use Fake Data", comment: "Debug toggle for synthetic HealthKit data"))
+                        Text(L10n.localized("Use Fake Data", comment: "Debug toggle for synthetic HealthKit data"))
                             .foregroundStyle(DesignTokens.Colors.textPrimary)
-                        Text(String(localized: "Synthetic HealthKit data", comment: "Fake data toggle description"))
+                        Text(L10n.localized("Synthetic HealthKit data", comment: "Fake data toggle description"))
                             .font(DesignTokens.Typography.caption)
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
@@ -407,13 +407,13 @@ struct SettingsView: View {
                 HapticService.shared.error()
                 onboardingCompleted = false
             } label: {
-                Label(String(localized: "Reset Onboarding", comment: "Debug button to reset onboarding state"), systemImage: "arrow.counterclockwise")
+                Label(L10n.localized("Reset Onboarding", comment: "Debug button to reset onboarding state"), systemImage: "arrow.counterclockwise")
             }
-            .accessibleButton(label: String(localized: "Reset Onboarding", comment: "Debug button to reset onboarding state"), hint: String(localized: "Resets the app to show onboarding again", comment: "Accessibility hint for reset onboarding button"))
+            .accessibleButton(label: L10n.localized("Reset Onboarding", comment: "Debug button to reset onboarding state"), hint: L10n.localized("Resets the app to show onboarding again", comment: "Accessibility hint for reset onboarding button"))
         } header: {
-            Text(String(localized: "Debug", comment: "Settings section header for debug options"))
+            Text(L10n.localized("Debug", comment: "Settings section header for debug options"))
         } footer: {
-            Text(String(localized: "Fake Data uses synthetic HealthKit data for testing.", comment: "Debug section footer explaining demo options"))
+            Text(L10n.localized("Fake Data uses synthetic HealthKit data for testing.", comment: "Debug section footer explaining demo options"))
         }
         .listSectionSpacing(DesignTokens.Spacing.sm)
         #else
@@ -425,9 +425,9 @@ struct SettingsView: View {
         Group {
             Toggle(isOn: $smartRemindersEnabled) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Label(String(localized: "Smart Reminders", comment: "Settings toggle for AI reminders"), systemImage: "sparkles")
+                    Label(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"), systemImage: "sparkles")
                         .foregroundStyle(DesignTokens.Colors.accent)
-                    Text(String(localized: "AI-generated reminders based on your progress.", comment: "Smart reminders description"))
+                    Text(L10n.localized("AI-generated reminders based on your progress.", comment: "Smart reminders description"))
                         .font(DesignTokens.Typography.caption)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
@@ -437,8 +437,8 @@ struct SettingsView: View {
                 HapticService.shared.selection()
                 Task { await updateSmartReminders(enabled: newValue) }
             }
-            .accessibilityLabel(String(localized: "Smart Reminders", comment: "Settings toggle for AI reminders"))
-            .accessibilityValue(smartRemindersEnabled ? String(localized: "Enabled", comment: "Accessibility value for enabled toggle") : String(localized: "Disabled", comment: "Accessibility value for disabled toggle"))
+            .accessibilityLabel(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"))
+            .accessibilityValue(smartRemindersEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
             if case .unavailable(let reason) = aiService.availability {
                 Text(reason.userFacingMessage)
                     .font(DesignTokens.Typography.caption)
@@ -450,18 +450,18 @@ struct SettingsView: View {
     private var healthAccessStatusText: String {
         switch healthAuthorization.status {
         case .shouldRequest:
-            return String(localized: "Not Requested", comment: "Health access status when not requested")
+            return L10n.localized("Not Requested", comment: "Health access status when not requested")
         case .requested:
-            return String(localized: "Requested", comment: "Health access status when authorization was requested")
+            return L10n.localized("Requested", comment: "Health access status when authorization was requested")
         case .unavailable:
-            return String(localized: "Unavailable", comment: "Health access status when unavailable")
+            return L10n.localized("Unavailable", comment: "Health access status when unavailable")
         }
     }
 
     private var healthAccessDetailText: String? {
         switch healthAuthorization.status {
         case .shouldRequest:
-            return String(localized: "Tap to allow Health access.", comment: "Health access detail when not requested")
+            return L10n.localized("Tap to allow Health access.", comment: "Health access detail when not requested")
         case .requested:
             return String(
                 localized: "Health access was already requested. If data isn't showing, enable it in Settings.",
@@ -521,7 +521,7 @@ struct SettingsView: View {
             } catch {
                 notificationsEnabled = false
                 showNotificationAlert(
-                    message: String(localized: "Unable to schedule notifications. Please try again.", comment: "Alert when scheduling notifications fails"),
+                    message: L10n.localized("Unable to schedule notifications. Please try again.", comment: "Alert when scheduling notifications fails"),
                     offersSettings: false
                 )
                 Loggers.app.error("notifications.daily_goal_failed", metadata: ["error": error.localizedDescription])
@@ -577,19 +577,19 @@ struct SettingsView: View {
                 }
             } catch {
                 showNotificationAlert(
-                    message: String(localized: "Unable to request notification permissions.", comment: "Alert when notification permission request fails"),
+                    message: L10n.localized("Unable to request notification permissions.", comment: "Alert when notification permission request fails"),
                     offersSettings: false
                 )
                 return false
             }
             showNotificationAlert(
-                message: String(localized: "Notifications are disabled. Enable them in Settings.", comment: "Alert message when notifications are denied"),
+                message: L10n.localized("Notifications are disabled. Enable them in Settings.", comment: "Alert message when notifications are denied"),
                 offersSettings: true
             )
             return false
         case .denied:
             showNotificationAlert(
-                message: String(localized: "Notifications are disabled. Enable them in Settings.", comment: "Alert message when notifications are denied"),
+                message: L10n.localized("Notifications are disabled. Enable them in Settings.", comment: "Alert message when notifications are denied"),
                 offersSettings: true
             )
             return false
@@ -649,7 +649,7 @@ struct GoalEditorSheet: View {
                     .padding(.horizontal, DesignTokens.Spacing.xl)
                     .tint(DesignTokens.Colors.accent)
                     .accessibilityIdentifier(A11yID.GoalEditor.slider)
-                    .accessibilityLabel(String(localized: "Daily step goal", comment: "Accessibility label for step goal slider"))
+                    .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for step goal slider"))
                     .accessibilityValue(
                         Localization.format(
                             "%lld %@",
@@ -661,17 +661,17 @@ struct GoalEditorSheet: View {
 
                 Spacer()
             }
-            .navigationTitle(String(localized: "Daily Goal", comment: "Goal editor navigation title"))
+            .navigationTitle(L10n.localized("Daily Goal", comment: "Goal editor navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel", comment: "Button to cancel action")) {
+                    Button(L10n.localized("Cancel", comment: "Button to cancel action")) {
                         dismiss()
                     }
                     .accessibilityIdentifier("goal_editor_cancel_button")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Save", comment: "Button to save changes")) {
+                    Button(L10n.localized("Save", comment: "Button to save changes")) {
                         HapticService.shared.confirm()
                         onSave(Int(tempGoal))
                         dismiss()

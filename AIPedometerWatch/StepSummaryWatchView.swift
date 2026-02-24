@@ -30,7 +30,7 @@ struct StepSummaryWatchView: View {
                         .font(DesignTokens.Typography.title2Rounded)
                         .fontWeight(.bold)
                         .monospacedDigit()
-                    Text(String(localized: "steps", comment: "Watch steps unit"))
+                    Text(L10n.localized("steps", comment: "Watch steps unit"))
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
@@ -39,7 +39,7 @@ struct StepSummaryWatchView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Label(String(localized: "Distance", comment: "Watch distance label"), systemImage: "figure.walk")
+                    Label(L10n.localized("Distance", comment: "Watch distance label"), systemImage: "figure.walk")
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                     Text(distanceText)
@@ -49,7 +49,7 @@ struct StepSummaryWatchView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: DesignTokens.Spacing.xxs) {
-                    Label(String(localized: "Streak", comment: "Watch streak label"), systemImage: "flame.fill")
+                    Label(L10n.localized("Streak", comment: "Watch streak label"), systemImage: "flame.fill")
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                     Text(

@@ -35,7 +35,7 @@ struct AIInsightCard: View {
     private var header: some View {
         HStack {
             Label {
-                Text(String(localized: "AI Insight", comment: "AI insight card header"))
+                Text(L10n.localized("AI Insight", comment: "AI insight card header"))
                     .font(DesignTokens.Typography.headline)
             } icon: {
                 Image(systemName: "sparkles")
@@ -61,7 +61,7 @@ struct AIInsightCard: View {
             ProgressView()
                 .controlSize(.small)
             
-            Text(String(localized: "Generating insight...", comment: "AI insight loading state"))
+            Text(L10n.localized("Generating insight...", comment: "AI insight loading state"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
@@ -80,7 +80,7 @@ struct AIInsightCard: View {
             }
             
             Button(action: onRetry) {
-                Text(String(localized: "Try Again", comment: "Retry button"))
+                Text(L10n.localized("Try Again", comment: "Retry button"))
                     .font(DesignTokens.Typography.subheadline.weight(.medium))
             }
             .buttonStyle(.borderedProminent)
@@ -122,7 +122,7 @@ struct AIInsightCard: View {
             Divider()
             
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                Label(String(localized: "Suggestion", comment: "AI suggestion section header"), systemImage: "lightbulb.fill")
+                Label(L10n.localized("Suggestion", comment: "AI suggestion section header"), systemImage: "lightbulb.fill")
                     .font(DesignTokens.Typography.caption.weight(.medium))
                     .foregroundStyle(DesignTokens.Colors.accent)
                 
@@ -132,7 +132,7 @@ struct AIInsightCard: View {
             }
             
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                Label(String(localized: "Keep Going", comment: "AI encouragement section header"), systemImage: "flame.fill")
+                Label(L10n.localized("Keep Going", comment: "AI encouragement section header"), systemImage: "flame.fill")
                     .font(DesignTokens.Typography.caption.weight(.medium))
                     .foregroundStyle(DesignTokens.Colors.red)
                 
@@ -152,8 +152,8 @@ struct AIInsightCard: View {
         } label: {
             HStack {
                 Text(isExpanded
-                    ? String(localized: "Show Less", comment: "Collapse content button")
-                    : String(localized: "Show More", comment: "Expand content button"))
+                    ? L10n.localized("Show Less", comment: "Collapse content button")
+                    : L10n.localized("Show More", comment: "Expand content button"))
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
             }
             .font(DesignTokens.Typography.caption.weight(.medium))
@@ -165,7 +165,7 @@ struct AIInsightCard: View {
     
     private var emptyContent: some View {
         Label {
-            Text(String(localized: "No insight available yet", comment: "AI insight empty state"))
+            Text(L10n.localized("No insight available yet", comment: "AI insight empty state"))
                 .font(DesignTokens.Typography.subheadline)
         } icon: {
             Image(systemName: "sparkles")
@@ -204,7 +204,7 @@ struct WeeklyTrendCard: View {
     private var header: some View {
         HStack {
             Label {
-                Text(String(localized: "Weekly Trend", comment: "Weekly trend card header"))
+                Text(L10n.localized("Weekly Trend", comment: "Weekly trend card header"))
                     .font(DesignTokens.Typography.headline)
             } icon: {
                 Image(systemName: "chart.line.uptrend.xyaxis")
@@ -220,7 +220,7 @@ struct WeeklyTrendCard: View {
             ProgressView()
                 .controlSize(.small)
             
-            Text(String(localized: "Analyzing week...", comment: "Weekly trend loading state"))
+            Text(L10n.localized("Analyzing week...", comment: "Weekly trend loading state"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
@@ -233,7 +233,7 @@ struct WeeklyTrendCard: View {
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
             
-            Button(String(localized: "Try Again", comment: "Retry button"), action: onRetry)
+            Button(L10n.localized("Try Again", comment: "Retry button"), action: onRetry)
                 .font(DesignTokens.Typography.subheadline.weight(.medium))
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -250,7 +250,7 @@ struct WeeklyTrendCard: View {
             }
             
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                Text(String(localized: "Observation", comment: "Weekly trend observation section"))
+                Text(L10n.localized("Observation", comment: "Weekly trend observation section"))
                     .font(DesignTokens.Typography.caption.weight(.medium))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
                 
@@ -260,7 +260,7 @@ struct WeeklyTrendCard: View {
             
             if !analysis.recommendation.isEmpty {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                    Text(String(localized: "Recommendation", comment: "Weekly trend recommendation section"))
+                    Text(L10n.localized("Recommendation", comment: "Weekly trend recommendation section"))
                         .font(DesignTokens.Typography.caption.weight(.medium))
                         .foregroundStyle(DesignTokens.Colors.accent)
                     
