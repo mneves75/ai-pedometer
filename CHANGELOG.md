@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.71] - 2026-02-24
+
+### Fixed
+
+- watchOS sync now handles interactive message payloads via `WCSessionDelegate.session(_:didReceiveMessage:)`, preventing dropped updates when the phone sends direct messages.
+
+### Improved
+
+- App Store publishing toolkit:
+  - `Scripts/appstore-materials-prepare.sh` to assemble an ordered screenshot package from UI-test captures.
+  - `Scripts/appstore-screenshots-validate.sh` to enforce ASC-compatible dimensions (`IPHONE_65` and `IPAD_PRO_3GEN_129`).
+  - `Scripts/appstore-screenshots-upload.sh` to upload screenshot sets via `asc`, with optional automatic localization-ID resolution.
+  - `Scripts/appstore-publishing-preflight.sh` to run screenshot matrix check + prepare + validate + optional upload dry-run in one command.
+- App Store publishing documentation bundle in `docs/appstore/`:
+  - `PUBLISHING_PLAYBOOK.md` (industry-standard flow + checklist),
+  - metadata templates for `pt-BR` and `en-US`,
+  - screenshot package instructions.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.71 (27)`.
+- Documentation sync: aligned release references across `README.md`, App Store playbook examples, and agent build docs.
+- Removed redundant watch-only shim file `AIPedometerWatch/WatchDataModels.swift`.
+
 ## [0.7] - 2026-02-24
 
 ### Fixed

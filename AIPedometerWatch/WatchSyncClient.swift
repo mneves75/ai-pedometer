@@ -30,6 +30,10 @@ final class WatchSyncClient: NSObject, WCSessionDelegate {
         handlePayload(from: applicationContext)
     }
 
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        handlePayload(from: message)
+    }
+
     private nonisolated func handlePayload(from dictionary: [String: Any]) {
         guard let data = dictionary[WatchPayload.transferKey] as? Data,
               let decoded = WatchPayload.decode(from: data) else { return }

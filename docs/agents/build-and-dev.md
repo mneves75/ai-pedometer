@@ -21,3 +21,7 @@
 - `bash Scripts/check-agents-sync.sh`: verify AGENTS.md matches GUIDELINES-REF guidance.
 - `bash Scripts/update-agents-guidelines.sh`: refresh AGENTS.md from GUIDELINES-REF guidance.
 - `bash Scripts/verify-device-identifiers.sh`: fail if device IDs/UDIDs/ECIDs are hardcoded in tracked files.
+- `bash Scripts/appstore-materials-prepare.sh`: assemble ordered App Store screenshots from captured UI-test artifacts.
+- `bash Scripts/appstore-screenshots-validate.sh`: validate screenshot dimensions for ASC upload sets.
+- `bash Scripts/appstore-screenshots-upload.sh`: upload prepared screenshot sets with `asc`.
+- `bash Scripts/appstore-publishing-preflight.sh`: run end-to-end App Store screenshot preflight (matrix check + prepare + validate + optional upload dry-run).
