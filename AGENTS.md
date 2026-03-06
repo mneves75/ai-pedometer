@@ -255,7 +255,7 @@ Usage notes:
 
 <skill>
 <name>mneves-bun</name>
-<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.2+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and 28x faster package management (user)</description>
+<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.3.10+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and 28x faster package management (user)</description>
 <location>global</location>
 </skill>
 
@@ -291,7 +291,7 @@ Usage notes:
 
 <skill>
 <name>mneves-expo</name>
-<description>Enforce EXPO-GUIDELINES.md compliance for Expo SDK 54+, EAS Build, Config Plugins, dev-client, native modules, OTA updates, and Expo Router patterns (user)</description>
+<description>Enforce EXPO-GUIDELINES.md compliance for Expo SDK 55+, EAS Build, Config Plugins, dev-client, native modules, OTA updates, and Expo Router patterns (user)</description>
 <location>global</location>
 </skill>
 
@@ -339,7 +339,7 @@ Usage notes:
 
 <skill>
 <name>mneves-mobile-development</name>
-<description>Enforce MOBILE-GUIDELINES.md compliance for iOS 26+, Android 15/16, Expo SDK 54, React Native 0.81.5+ - New Architecture, React Compiler, performance, accessibility, offline-first patterns</description>
+<description>Enforce MOBILE-GUIDELINES.md compliance for iOS 26+, Android 15/16, Expo SDK 55, React Native 0.83+/0.84 bare stacks - New Architecture, React Compiler, performance, accessibility, offline-first patterns</description>
 <location>global</location>
 </skill>
 

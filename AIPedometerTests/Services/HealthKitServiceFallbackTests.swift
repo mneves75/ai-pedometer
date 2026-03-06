@@ -116,6 +116,36 @@ struct HealthKitServiceFallbackTests {
         let steps = try await service.fetchTodaySteps()
         #expect(steps == 0)
     }
+
+    @Test("Authorization denial does not permanently latch empty reads after recovery")
+    func authorizationDenialCanRecoverWithoutRelaunch() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
+        defer { cleanup() }
+
+        let primary = MutableHealthKitService()
+        primary.authorizationError = HealthKitError.authorizationFailed
+        let service = HealthKitServiceFallback(
+            primary: primary,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        await #expect(throws: HealthKitError.self) {
+            try await service.requestAuthorization()
+        }
+
+        let emptySteps = try await service.fetchTodaySteps()
+        #expect(emptySteps == 0)
+
+        primary.authorizationError = nil
+        primary.stepsToReturn = 4321
+
+        try await service.requestAuthorization()
+        let recoveredSteps = try await service.fetchTodaySteps()
+        #expect(recoveredSteps == 4321)
+    }
 }
 
 @MainActor
@@ -213,6 +243,27 @@ private final class SpyHealthKitService: HealthKitServiceProtocol {
         manualStepLength: Double,
         dailyGoal: Int
     ) async throws -> [DailyStepSummary] { [] }
+    func saveWorkout(_ session: WorkoutSession) async throws {}
+}
+
+@MainActor
+private final class MutableHealthKitService: HealthKitServiceProtocol {
+    var authorizationError: (any Error)?
+    var stepsToReturn = 0
+
+    func requestAuthorization() async throws {
+        if let authorizationError {
+            throw authorizationError
+        }
+    }
+
+    func fetchTodaySteps() async throws -> Int { stepsToReturn }
+    func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int { stepsToReturn }
+    func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
+    func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { [] }
+    func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { [] }
     func saveWorkout(_ session: WorkoutSession) async throws {}
 }
 

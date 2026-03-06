@@ -89,8 +89,8 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
     
     func respond(to prompt: String) async throws(AIServiceError) -> String {
-        guard availability == .available else {
-            throw AIServiceError.sessionNotConfigured
+        guard case .available = availability else {
+            throw unavailableError()
         }
 
         let oneShotSession = LanguageModelSession(instructions: instructions)
@@ -105,8 +105,8 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
     
     func respond<T: Generable>(to prompt: String, as type: T.Type) async throws(AIServiceError) -> T {
-        guard availability == .available else {
-            throw AIServiceError.sessionNotConfigured
+        guard case .available = availability else {
+            throw unavailableError()
         }
 
         let oneShotSession = LanguageModelSession(instructions: instructions)
@@ -189,6 +189,13 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
             }
         }
         return .generationFailed(underlying: error.localizedDescription)
+    }
+
+    private func unavailableError() -> AIServiceError {
+        if let reason = availability.unavailabilityReason {
+            return .modelUnavailable(reason)
+        }
+        return .sessionNotConfigured
     }
 }
 

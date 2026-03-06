@@ -125,6 +125,7 @@ final class TrainingPlanService {
                 to: prompt,
                 as: AITrainingPlan.self
             )
+            try validate(aiPlan: aiPlan, expectedGoal: goal, daysPerWeek: daysPerWeek)
             
             let record = createPlanRecord(from: aiPlan, goal: goal)
             modelContext.insert(record)
@@ -275,6 +276,7 @@ private extension TrainingPlanService {
         recentData: [DailyStepSummary]
     ) -> String {
         let unitLabel = ActivitySettings.current(userDefaults: userDefaults).activityMode.unitName
+        let languageInstruction = AppLanguage.promptInstruction()
         let averageSteps = recentData.isEmpty ? 0 : recentData.reduce(0) { $0 + $1.steps } / recentData.count
         let goalMetDays = recentData.filter { $0.steps >= $0.goal }.count
         let dataReliabilityNote = recentData.isEmpty
@@ -287,6 +289,9 @@ private extension TrainingPlanService {
         
         return """
         Create a personalized training plan with the following parameters:
+
+        Language:
+        - \(languageInstruction)
         
         Goal: \(goal.displayName) (internal: \(goal.aiGoal.rawValue))
         Fitness Level: \(level.displayName)
@@ -314,6 +319,7 @@ private extension TrainingPlanService {
     
     func buildWeeklyRecommendationPrompt(recentData: [DailyStepSummary]) -> String {
         let unitLabel = ActivitySettings.current(userDefaults: userDefaults).activityMode.unitName
+        let languageInstruction = AppLanguage.promptInstruction()
         let averageSteps = recentData.isEmpty ? 0 : recentData.reduce(0) { $0 + $1.steps } / recentData.count
         let maxSteps = recentData.max(by: { $0.steps < $1.steps })?.steps ?? 0
         let goalMetDays = recentData.filter { $0.steps >= $0.goal }.count
@@ -327,6 +333,9 @@ private extension TrainingPlanService {
         
         return """
         Recommend a workout for today based on:
+
+        Language:
+        - \(languageInstruction)
         
         Recent Activity (last 14 days):
         - Average daily \(unitLabel): \(averageSteps.formatted())
@@ -372,5 +381,26 @@ private extension TrainingPlanService {
         }
         
         return record
+    }
+
+    func validate(aiPlan: AITrainingPlan, expectedGoal: TrainingGoalType, daysPerWeek: Int) throws(AIServiceError) {
+        guard aiPlan.primaryGoal == expectedGoal.aiGoal else {
+            throw .invalidResponse
+        }
+        guard aiPlan.durationWeeks == aiPlan.weeklyTargets.count else {
+            throw .invalidResponse
+        }
+        guard !aiPlan.weeklyTargets.isEmpty else {
+            throw .invalidResponse
+        }
+
+        for (expectedWeek, target) in aiPlan.weeklyTargets.enumerated() {
+            guard target.weekNumber == expectedWeek + 1 else {
+                throw .invalidResponse
+            }
+            guard target.activeDaysRequired <= daysPerWeek else {
+                throw .invalidResponse
+            }
+        }
     }
 }

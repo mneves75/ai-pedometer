@@ -52,9 +52,12 @@ final class AppLifecycleCoordinator {
         refreshAIAvailability()
         refreshCoachSession()
         clearInsightCacheIfNeeded()
+        guard !Task.isCancelled else { return }
 
         await refreshTodayData()
+        guard !Task.isCancelled else { return }
         await refreshStreak()
+        guard !Task.isCancelled else { return }
         await performForegroundRefresh()
     }
 }

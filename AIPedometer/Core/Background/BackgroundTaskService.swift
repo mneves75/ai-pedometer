@@ -43,6 +43,7 @@ extension BGProcessingTask: ProcessingTaskProtocol {}
 final class BackgroundTaskService {
     private let stepTrackingService: any StepTrackingServiceProtocol
     private let scheduler: any BackgroundTaskScheduling
+    private var didRegisterTasks = false
 
     init(
         stepTrackingService: any StepTrackingServiceProtocol,
@@ -53,6 +54,8 @@ final class BackgroundTaskService {
     }
 
     func registerTasks() {
+        guard !didRegisterTasks else { return }
+        didRegisterTasks = true
         scheduler.register(forTaskWithIdentifier: AppConstants.BackgroundTaskIdentifiers.refresh) { task in
             guard let refreshTask = task as? BGAppRefreshTask else {
                 Loggers.background.error("background.refresh_task_cast_failed")
@@ -90,10 +93,12 @@ final class BackgroundTaskService {
         scheduleAppRefresh()
         let operation = Task { @MainActor in
             await performRefresh()
+            guard !Task.isCancelled else { return }
             task.setTaskCompleted(success: true)
         }
         task.expirationHandler = {
             operation.cancel()
+            task.setTaskCompleted(success: false)
         }
     }
 

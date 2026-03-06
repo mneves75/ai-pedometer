@@ -218,6 +218,9 @@ final class WorkoutSessionController {
 
         do {
             try await healthKitService.saveWorkout(session)
+            if session.healthKitWorkoutID != nil {
+                try modelContext.save()
+            }
         } catch {
             Loggers.health.warning("workout.healthkit_save_failed", metadata: ["error": error.localizedDescription])
         }

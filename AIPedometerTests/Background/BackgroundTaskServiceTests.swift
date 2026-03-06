@@ -40,8 +40,12 @@ final class FakeProcessingTask: ProcessingTaskProtocol {
 @MainActor
 final class MockStepTrackingService: StepTrackingServiceProtocol {
     private(set) var refreshCalled = false
+    var refreshDelayNanoseconds: UInt64 = 0
 
     func refreshTodayData() async {
+        if refreshDelayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: refreshDelayNanoseconds)
+        }
         refreshCalled = true
     }
 }
@@ -88,6 +92,21 @@ struct BackgroundTaskServiceTests {
 
         #expect(task.completed == true)
         #expect(tracker.refreshCalled == true)
+    }
+
+    @Test("handleAppRefresh expiration does not get overwritten by late success")
+    func handleAppRefreshExpirationWins() async {
+        let scheduler = MockBackgroundScheduler()
+        let tracker = MockStepTrackingService()
+        tracker.refreshDelayNanoseconds = 80_000_000
+        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
+        let task = FakeAppRefreshTask()
+
+        service.handleAppRefresh(task: task)
+        task.expirationHandler?()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        #expect(task.completed == false)
     }
 
     @Test("handleProcessing marks task complete")

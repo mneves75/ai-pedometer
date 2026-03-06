@@ -340,28 +340,10 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     }
     
     private func syncWorkouts(from startDate: Date, to endDate: Date) async throws {
-        // Note: WorkoutSession records are created when user starts workouts in-app.
-        // This method syncs any HealthKit-originated workouts we may have missed.
-        // For now, we just ensure existing records have updated metadata.
-        // Full HKWorkout query would require additional HealthKit permissions.
-        
-        // Mark records older than prune threshold as potentially stale
-        let pruneThreshold = Date.now.addingTimeInterval(-SyncPolicy.staleDataPruneThreshold)
-        let predicate = #Predicate<WorkoutSession> { session in
-            session.deletedAt == nil && session.endTime != nil
-        }
-        let descriptor = FetchDescriptor<WorkoutSession>(predicate: predicate)
-        
-        let endedWorkouts = try modelContext.fetch(descriptor)
-        for workout in endedWorkouts {
-            guard let endTime = workout.endTime, endTime < pruneThreshold else { continue }
-            // Mark as soft-deleted if very old and not synced back
-            if workout.healthKitWorkoutID == nil {
-                workout.deletedAt = Date.now
-            }
-        }
-        
-        try modelContext.save()
+        _ = startDate
+        _ = endDate
+        // Workout sessions are authored locally. Without a trustworthy reconciliation key from
+        // HealthKit, pruning old sessions based on a missing `healthKitWorkoutID` risks data loss.
     }
     
     private func fetchRecentRecords(referenceDate: Date, days: Int) throws -> [Date: DailyStepRecord] {

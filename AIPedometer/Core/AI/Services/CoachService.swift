@@ -225,6 +225,15 @@ final class CoachService {
         }
         
         guard let session else {
+            if let reason = foundationModelsService.availability.unavailabilityReason {
+                let error = AIServiceError.modelUnavailable(reason)
+                lastError = error
+                messages.append(ChatMessage(
+                    role: .assistant,
+                    content: error.localizedDescription
+                ))
+                return
+            }
             lastError = .sessionNotConfigured
             messages.append(ChatMessage(
                 role: .assistant,
@@ -359,6 +368,7 @@ final class CoachService {
     
     func retryLastMessage() async {
         guard let lastUserMessage = messages.last(where: { $0.role == .user }) else { return }
+        configureSession()
         
         if let lastAssistantIndex = messages.lastIndex(where: { $0.role == .assistant }),
            lastAssistantIndex == messages.count - 1 {
