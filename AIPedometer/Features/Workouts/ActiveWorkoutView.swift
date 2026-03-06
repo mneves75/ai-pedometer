@@ -52,7 +52,7 @@ struct ActiveWorkoutView: View {
             titleVisibility: .visible
         ) {
             Button(L10n.localized("Discard Workout", comment: "Confirm discarding workout"), role: .destructive) {
-                workoutController.discardWorkout()
+                Task { await workoutController.discardWorkout() }
             }
         } message: {
             Text(L10n.localized("This will remove the workout and discard progress.", comment: "Message explaining that discarding removes progress"))

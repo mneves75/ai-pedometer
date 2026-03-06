@@ -22,7 +22,6 @@ struct WorkoutSessionControllerTests {
         )
 
         await controller.startWorkout(type: .outdoorWalk, targetSteps: 4000)
-        defer { controller.discardWorkout() }
 
         #expect(controller.isPresenting)
         #expect(controller.isActive)
@@ -34,6 +33,7 @@ struct WorkoutSessionControllerTests {
         let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
         #expect(sessions.count == 1)
         #expect(sessions.first?.endTime == nil)
+        await controller.discardWorkout()
     }
 
     @Test
@@ -60,7 +60,7 @@ struct WorkoutSessionControllerTests {
         #expect(metricsSource.startCount == 2)
         #expect(metricsSource.lastStartDate == now)
 
-        controller.discardWorkout()
+        await controller.discardWorkout()
     }
 
     @Test
@@ -87,7 +87,7 @@ struct WorkoutSessionControllerTests {
         let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
         #expect(sessions.first?.steps == 2500)
 
-        controller.discardWorkout()
+        await controller.discardWorkout()
     }
 
     @Test
@@ -120,7 +120,7 @@ struct WorkoutSessionControllerTests {
         #expect(controller.metrics?.steps == 620)
         #expect(controller.metrics?.distance == 500)
 
-        controller.discardWorkout()
+        await controller.discardWorkout()
     }
 
     @Test
@@ -164,7 +164,7 @@ struct WorkoutSessionControllerTests {
         }
 
         await healthKit.waitUntilAuthorizationRequested()
-        controller.discardWorkout()
+        await controller.discardWorkout()
         healthKit.unblockAuthorization()
         await startTask.value
 
@@ -223,6 +223,78 @@ struct WorkoutSessionControllerTests {
         #expect(snapshot.floorsAscended == 0)
         source.stop()
     }
+
+    @Test
+    func refreshMetricsIgnoresWarmupNoData() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        metricsSource.snapshotErrorToThrow = MotionError.noData
+        let liveActivity = MockLiveActivityManager()
+        let healthKit = WorkoutSessionHealthKitStub()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        await controller.refreshMetrics()
+
+        #expect(controller.lastError == nil)
+        await controller.discardWorkout()
+    }
+
+    @Test
+    func discardWorkoutWaitsForLiveActivityEnd() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        let liveActivity = MockLiveActivityManager()
+        liveActivity.endDelayNanoseconds = 80_000_000
+        let healthKit = WorkoutSessionHealthKitStub()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        await controller.discardWorkout()
+
+        #expect(liveActivity.endCount == 1)
+        #expect(!controller.isPresenting)
+        #expect(!controller.isActive)
+    }
+
+    @Test
+    func finishWorkoutSeparatesHealthKitIdPersistenceFailure() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        metricsSource.snapshotErrorToThrow = MotionError.noData
+        let liveActivity = MockLiveActivityManager()
+        let healthKit = WorkoutSessionHealthKitStub()
+        var saveCalls = 0
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity,
+            saveModelContext: { context in
+                saveCalls += 1
+                if saveCalls == 3 {
+                    throw CocoaError(.validationMultipleErrors)
+                }
+                try context.save()
+            }
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        await controller.finishWorkout()
+
+        #expect(healthKit.saveCount == 1)
+        #expect(controller.lastError?.id.contains("saveFailed") == true)
+    }
 }
 
 @MainActor
@@ -230,13 +302,14 @@ final class MockMetricsSource: WorkoutLiveMetricsSource {
     var startCount = 0
     var stopCount = 0
     var snapshotToReturn = PedometerSnapshot(steps: 0, distance: 0, floorsAscended: 0)
-    var errorToThrow: (any Error)?
+    var startErrorToThrow: (any Error)?
+    var snapshotErrorToThrow: (any Error)?
     private(set) var lastStartDate: Date?
 
     func start(from startDate: Date) throws {
         startCount += 1
         lastStartDate = startDate
-        if let errorToThrow { throw errorToThrow }
+        if let startErrorToThrow { throw startErrorToThrow }
     }
 
     func stop() {
@@ -244,7 +317,7 @@ final class MockMetricsSource: WorkoutLiveMetricsSource {
     }
 
     func snapshot() async throws -> PedometerSnapshot {
-        if let errorToThrow { throw errorToThrow }
+        if let snapshotErrorToThrow { throw snapshotErrorToThrow }
         return snapshotToReturn
     }
 }
@@ -256,6 +329,7 @@ final class MockLiveActivityManager: LiveActivityManaging {
     var endCount = 0
     var lastType: WorkoutType?
     var lastUpdate: (steps: Int, distance: Double, calories: Double)?
+    var endDelayNanoseconds: UInt64 = 0
 
     func start(type: WorkoutType) {
         startCount += 1
@@ -268,6 +342,9 @@ final class MockLiveActivityManager: LiveActivityManaging {
     }
 
     func end() async {
+        if endDelayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: endDelayNanoseconds)
+        }
         endCount += 1
     }
 }
@@ -276,6 +353,7 @@ final class MockLiveActivityManager: LiveActivityManaging {
 final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
     var saveCount = 0
     var requestCount = 0
+    var assignedWorkoutID = UUID()
 
     func requestAuthorization() async throws {
         requestCount += 1
@@ -303,7 +381,7 @@ final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
     ) async throws -> [DailyStepSummary] { [] }
 
     func saveWorkout(_ session: WorkoutSession) async throws {
-        _ = session
+        session.healthKitWorkoutID = assignedWorkoutID
         saveCount += 1
     }
 }

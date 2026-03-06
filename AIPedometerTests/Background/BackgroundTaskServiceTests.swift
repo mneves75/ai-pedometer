@@ -109,6 +109,21 @@ struct BackgroundTaskServiceTests {
         #expect(task.completed == false)
     }
 
+    @Test("handleAppRefresh does not overwrite completed success when expiration fires later")
+    func handleAppRefreshDoesNotOverwriteCompletedSuccess() async {
+        let scheduler = MockBackgroundScheduler()
+        let tracker = MockStepTrackingService()
+        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
+        let task = FakeAppRefreshTask()
+
+        service.handleAppRefresh(task: task)
+        try? await Task.sleep(nanoseconds: 70_000_000)
+        task.expirationHandler?()
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        #expect(task.completed == true)
+    }
+
     @Test("handleProcessing marks task complete")
     func handleProcessingCompletesTask() async {
         let scheduler = MockBackgroundScheduler()

@@ -20,7 +20,7 @@ final class SmartNotificationService {
     private let goalService: any GoalServiceProtocol
     private let notificationCenter: any NotificationScheduling
     private let userDefaults: UserDefaults
-    private let sharedUserDefaults: UserDefaults
+    private let sharedUserDefaults: UserDefaults?
 
     private var lastNotificationDate: Date?
     private var notificationCountToday = 0
@@ -33,7 +33,7 @@ final class SmartNotificationService {
         goalService: any GoalServiceProtocol,
         notificationCenter: any NotificationScheduling = UNUserNotificationCenter.current(),
         userDefaults: UserDefaults = .standard,
-        sharedUserDefaults: UserDefaults = .shared
+        sharedUserDefaults: UserDefaults? = .sharedAppGroup
     ) {
         self.foundationModelsService = foundationModelsService
         self.healthKitService = healthKitService
@@ -207,7 +207,7 @@ final class SmartNotificationService {
     private func fetchTodayProgress() async throws -> TodayProgress {
         let settings = ActivitySettings.current(userDefaults: userDefaults)
         let goal = goalService.currentGoal
-        let sharedData = sharedUserDefaults.sharedStepData
+        let sharedData = sharedUserDefaults?.sharedStepData
         let hasFreshSharedData = sharedData?.isStale == false
         if !HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) {
             Loggers.sync.info("healthkit.fetch_skipped", metadata: [

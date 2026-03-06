@@ -33,6 +33,23 @@ protocol BackgroundTaskProtocol: AnyObject {
 protocol AppRefreshTaskProtocol: BackgroundTaskProtocol {}
 protocol ProcessingTaskProtocol: BackgroundTaskProtocol {}
 
+private final class TaskCompletionGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didComplete = false
+
+    func complete(_ task: any BackgroundTaskProtocol, success: Bool) {
+        lock.lock()
+        let shouldComplete = !didComplete
+        if shouldComplete {
+            didComplete = true
+        }
+        lock.unlock()
+
+        guard shouldComplete else { return }
+        task.setTaskCompleted(success: success)
+    }
+}
+
 /// BGTask callbacks are delivered by the system and completion/expiration callbacks are thread-safe APIs.
 /// Safety invariant: tasks are only mutated through documented completion/expiration APIs.
 extension BGTask: BackgroundTaskProtocol, @retroactive @unchecked Sendable {}
@@ -91,23 +108,25 @@ final class BackgroundTaskService {
 
     func handleAppRefresh(task: any AppRefreshTaskProtocol) {
         scheduleAppRefresh()
+        let completionGate = TaskCompletionGate()
         let operation = Task { @MainActor in
             await performRefresh()
             guard !Task.isCancelled else { return }
-            task.setTaskCompleted(success: true)
+            completionGate.complete(task, success: true)
         }
         task.expirationHandler = {
             operation.cancel()
-            task.setTaskCompleted(success: false)
+            completionGate.complete(task, success: false)
         }
     }
 
     func handleProcessing(task: any ProcessingTaskProtocol) {
+        let completionGate = TaskCompletionGate()
         task.expirationHandler = {
-            task.setTaskCompleted(success: false)
+            completionGate.complete(task, success: false)
         }
         Task { @MainActor in
-            task.setTaskCompleted(success: true)
+            completionGate.complete(task, success: true)
         }
     }
 

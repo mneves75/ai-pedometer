@@ -4,7 +4,8 @@ import SwiftUI
 final class AppLifecycleCoordinator {
     private let isTesting: () -> Bool
     private let isOnboardingCompleted: () -> Bool
-    private let refreshHealthAuthorization: () -> Void
+    private let isStartupComplete: () -> Bool
+    private let refreshHealthAuthorization: () async -> Void
     private let refreshMotionAuthorization: () -> Void
     private let refreshAIAvailability: () -> Void
     private let refreshCoachSession: () -> Void
@@ -18,7 +19,8 @@ final class AppLifecycleCoordinator {
     init(
         isTesting: @escaping () -> Bool,
         isOnboardingCompleted: @escaping () -> Bool,
-        refreshHealthAuthorization: @escaping () -> Void,
+        isStartupComplete: @escaping () -> Bool,
+        refreshHealthAuthorization: @escaping () async -> Void,
         refreshMotionAuthorization: @escaping () -> Void,
         refreshAIAvailability: @escaping () -> Void,
         refreshCoachSession: @escaping () -> Void,
@@ -29,6 +31,7 @@ final class AppLifecycleCoordinator {
     ) {
         self.isTesting = isTesting
         self.isOnboardingCompleted = isOnboardingCompleted
+        self.isStartupComplete = isStartupComplete
         self.refreshHealthAuthorization = refreshHealthAuthorization
         self.refreshMotionAuthorization = refreshMotionAuthorization
         self.refreshAIAvailability = refreshAIAvailability
@@ -46,8 +49,9 @@ final class AppLifecycleCoordinator {
         guard scenePhase == .active else { return }
         guard isOnboardingCompleted() else { return }
         guard !isTesting() else { return }
+        guard isStartupComplete() else { return }
 
-        refreshHealthAuthorization()
+        await refreshHealthAuthorization()
         refreshMotionAuthorization()
         refreshAIAvailability()
         refreshCoachSession()

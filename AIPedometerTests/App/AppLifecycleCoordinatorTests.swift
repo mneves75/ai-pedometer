@@ -19,6 +19,7 @@ struct AppLifecycleCoordinatorTests {
         let coordinator = AppLifecycleCoordinator(
             isTesting: { false },
             isOnboardingCompleted: { true },
+            isStartupComplete: { true },
             refreshHealthAuthorization: { healthAuthRefreshes += 1 },
             refreshMotionAuthorization: { motionAuthRefreshes += 1 },
             refreshAIAvailability: { aiAvailabilityRefreshes += 1 },
@@ -71,6 +72,7 @@ struct AppLifecycleCoordinatorTests {
         let coordinator = AppLifecycleCoordinator(
             isTesting: { false },
             isOnboardingCompleted: { false },
+            isStartupComplete: { true },
             refreshHealthAuthorization: { calls += 1 },
             refreshMotionAuthorization: { calls += 1 },
             refreshAIAvailability: { calls += 1 },
@@ -93,6 +95,30 @@ struct AppLifecycleCoordinatorTests {
         let coordinator = AppLifecycleCoordinator(
             isTesting: { true },
             isOnboardingCompleted: { true },
+            isStartupComplete: { true },
+            refreshHealthAuthorization: { calls += 1 },
+            refreshMotionAuthorization: { calls += 1 },
+            refreshAIAvailability: { calls += 1 },
+            refreshCoachSession: { calls += 1 },
+            clearInsightCacheIfNeeded: { calls += 1 },
+            refreshTodayData: { calls += 1 },
+            refreshStreak: { calls += 1 },
+            performForegroundRefresh: { calls += 1 }
+        )
+
+        await coordinator.handle(scenePhase: .active)
+
+        #expect(calls == 0)
+    }
+
+    @Test("Lifecycle refreshes skip until startup is complete")
+    func lifecycleSkipsUntilStartupCompletes() async {
+        var calls = 0
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { false },
             refreshHealthAuthorization: { calls += 1 },
             refreshMotionAuthorization: { calls += 1 },
             refreshAIAvailability: { calls += 1 },

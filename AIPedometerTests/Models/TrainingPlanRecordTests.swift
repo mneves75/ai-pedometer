@@ -36,6 +36,25 @@ struct TrainingPlanRecordTests {
         #expect(record.currentWeek == 0)
     }
 
+    @Test("invalid status does not remain active")
+    func invalidStatusDoesNotRemainActive() {
+        let record = makeRecord(startDate: Date(timeIntervalSince1970: 1_700_000_000), weeks: 2)
+        record.status = "broken"
+
+        #expect(record.planStatus == .abandoned)
+        #expect(!record.isActive)
+    }
+
+    @Test("invalid weekly target payload is treated as inactive")
+    func invalidWeeklyTargetsPayloadIsInactive() {
+        let record = makeRecord(startDate: Date(timeIntervalSince1970: 1_700_000_000), weeks: 2)
+        record.weeklyTargetsJSON = Data("invalid".utf8)
+
+        #expect(record.weeklyTargets.isEmpty)
+        #expect(!record.hasValidPlanData)
+        #expect(!record.isActive)
+    }
+
     private func makeRecord(startDate: Date, weeks: Int) -> TrainingPlanRecord {
         let record = TrainingPlanRecord()
         record.startDate = startDate

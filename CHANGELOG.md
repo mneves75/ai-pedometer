@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.72] - 2026-03-06
+
+### Fixed
+
+- Launch startup and the first foreground lifecycle refresh are now sequenced so the app does not double-run HealthKit refresh/sync work on first activation.
+- Shared App Group step data now fails closed instead of falling back to process-local defaults, and corrupted payloads are quarantined on decode instead of poisoning all future reads.
+- SQLite reset now removes the real `default.store-wal` and `default.store-shm` sidecars so UI-test resets and local store wipes do not leave stale state behind.
+- HealthKit fallback now propagates real authorization/query failures to sync and workout flows instead of silently relabeling them as fresh zero-step data.
+- Weekly summaries now merge the live current-day total before publishing to shared state so charts and widgets stay aligned with the dashboard ring.
+- Workout discard now awaits Live Activity shutdown, initial live-metrics warm-up no longer surfaces a false “metrics unavailable” error, and post-HealthKit reconciliation-ID persistence failures are logged separately from HealthKit write failures.
+- Training plan generation now rejects unpersistable weekly-target payloads, blocks overlapping generation requests, and rolls back in-memory status mutations when persistence saves fail.
+
+### Improved
+
+- Added regression coverage for startup/lifecycle gating, background-task completion races, shared-step payload staleness/corruption handling, SQLite sidecar cleanup, HealthKit fallback behavior, weekly-summary merging, training-plan fail-closed behavior, and workout shutdown/persistence edges.
+- Agent guidance now includes the explicit Xcode AdditionalDocumentation path for Swift / iOS/iPadOS 26 code in both `AGENTS.md` and `CLAUDE.md`.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.72 (28)`.
+
 ## [0.71] - 2026-02-24
 
 ### Fixed

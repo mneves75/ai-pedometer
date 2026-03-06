@@ -156,9 +156,9 @@ struct StreakDataTool: Tool {
     struct Arguments: Sendable {}
     
     func call(arguments: Arguments) async throws -> String {
-        let userDefaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .shared
+        let userDefaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .sharedAppGroup
         let currentStreak = await MainActor.run {
-            userDefaults.sharedStepData?.currentStreak ?? 0
+            userDefaults?.sharedStepData?.currentStreak ?? 0
         }
         return Localization.format(
             "Current streak: %lld days",

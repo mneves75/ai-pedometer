@@ -155,9 +155,9 @@ struct AIPedometerApp: App {
         backgroundTaskService.registerTasks()
         backgroundService = backgroundTaskService
 
-        _startupCoordinator = State(initialValue: AppStartupCoordinator(
+        let startupCoordinator = AppStartupCoordinator(
             isTesting: { LaunchConfiguration.isTesting() },
-            refreshHealthAuthorization: { Task { await healthAuth.refreshStatus() } },
+            refreshHealthAuthorization: { await healthAuth.refreshStatus() },
             refreshMotionAuthorization: { motionAuth.refreshStatus() },
             registerBackgroundTasks: { backgroundTaskService.registerTasks() },
             scheduleAppRefresh: { backgroundTaskService.scheduleAppRefresh() },
@@ -174,14 +174,16 @@ struct AIPedometerApp: App {
                     Loggers.sync.error("sync.initial_sync_failed", metadata: ["error": error.localizedDescription])
                 }
             }
-        ))
+        )
+        _startupCoordinator = State(initialValue: startupCoordinator)
 
         _lifecycleCoordinator = State(initialValue: AppLifecycleCoordinator(
             isTesting: { LaunchConfiguration.isTesting() },
             isOnboardingCompleted: {
                 UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
             },
-            refreshHealthAuthorization: { Task { await healthAuth.refreshStatus() } },
+            isStartupComplete: { startupCoordinator.hasCompletedStartup },
+            refreshHealthAuthorization: { await healthAuth.refreshStatus() },
             refreshMotionAuthorization: { motionAuth.refreshStatus() },
             refreshAIAvailability: { fmService.refreshAvailability() },
             refreshCoachSession: { coachService.refreshSession() },

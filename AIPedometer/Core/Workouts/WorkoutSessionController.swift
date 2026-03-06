@@ -49,6 +49,7 @@ final class WorkoutSessionController {
     private let healthKitService: any HealthKitServiceProtocol
     private let metricsSource: any WorkoutLiveMetricsSource
     private let liveActivityManager: any LiveActivityManaging
+    private let saveModelContext: @MainActor (ModelContext) throws -> Void
     private let now: () -> Date
     private var stateMachine = WorkoutStateMachine()
 
@@ -71,12 +72,14 @@ final class WorkoutSessionController {
         healthKitService: any HealthKitServiceProtocol,
         metricsSource: any WorkoutLiveMetricsSource,
         liveActivityManager: any LiveActivityManaging = NoopLiveActivityManager(),
+        saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() },
         now: @escaping () -> Date = { .now }
     ) {
         self.modelContext = modelContext
         self.healthKitService = healthKitService
         self.metricsSource = metricsSource
         self.liveActivityManager = liveActivityManager
+        self.saveModelContext = saveModelContext
         self.now = now
     }
 
@@ -108,7 +111,7 @@ final class WorkoutSessionController {
         modelContext.insert(session)
 
         do {
-            try modelContext.save()
+            try saveModelContext(modelContext)
         } catch {
             lastError = .saveFailed(error.localizedDescription)
             transition(.error(.unableToSave))
@@ -209,7 +212,7 @@ final class WorkoutSessionController {
         }
 
         do {
-            try modelContext.save()
+            try saveModelContext(modelContext)
         } catch {
             lastError = .saveFailed(error.localizedDescription)
             transition(.error(.unableToSave))
@@ -218,11 +221,19 @@ final class WorkoutSessionController {
 
         do {
             try await healthKitService.saveWorkout(session)
-            if session.healthKitWorkoutID != nil {
-                try modelContext.save()
-            }
         } catch {
             Loggers.health.warning("workout.healthkit_save_failed", metadata: ["error": error.localizedDescription])
+        }
+
+        if session.healthKitWorkoutID != nil {
+            do {
+                try saveModelContext(modelContext)
+            } catch {
+                Loggers.workouts.error("workout.healthkit_id_persist_failed", metadata: [
+                    "error": error.localizedDescription
+                ])
+                lastError = .saveFailed(error.localizedDescription)
+            }
         }
 
         let summary = WorkoutSummary(
@@ -237,19 +248,19 @@ final class WorkoutSessionController {
         resetSession()
     }
 
-    func discardWorkout() {
+    func discardWorkout() async {
         guard let session = activeSession else {
             lastError = .sessionUnavailable
             transition(.error(.unableToSave))
             return
         }
 
-        endLiveMetricsDetached()
+        await endLiveMetrics()
         session.deletedAt = now()
         session.updatedAt = now()
 
         do {
-            try modelContext.save()
+            try saveModelContext(modelContext)
         } catch {
             lastError = .discardFailed(error.localizedDescription)
             return
@@ -264,6 +275,11 @@ final class WorkoutSessionController {
         do {
             let snapshot = try await metricsSource.snapshot()
             await updateMetrics(from: snapshot)
+        } catch let error as MotionError {
+            if case .noData = error {
+                return
+            }
+            lastError = .metricsUnavailable
         } catch {
             lastError = .metricsUnavailable
         }
@@ -316,7 +332,7 @@ private extension WorkoutSessionController {
 
         if shouldPersistMetrics() {
             do {
-                try modelContext.save()
+                try saveModelContext(modelContext)
                 lastPersistedAt = now()
             } catch {
                 Loggers.workouts.error("workout.metrics_save_failed", metadata: ["error": error.localizedDescription])
@@ -334,14 +350,6 @@ private extension WorkoutSessionController {
     func shouldPersistMetrics() -> Bool {
         guard let lastPersistedAt else { return true }
         return now().timeIntervalSince(lastPersistedAt) >= 60
-    }
-
-    func endLiveMetricsDetached() {
-        updateTask?.cancel()
-        metricsSource.stop()
-        Task {
-            await liveActivityManager.end()
-        }
     }
 
     func endLiveMetrics() async {

@@ -55,4 +55,24 @@ struct PersistenceControllerTests {
             )
         }
     }
+
+    @Test
+    func removeStoreFilesDeletesSQLiteSidecars() throws {
+        let fileManager = FileManager.default
+        let directory = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("default.store")
+        for url in PersistenceController.storeFileURLs(for: storeURL) {
+            fileManager.createFile(atPath: url.path, contents: Data(), attributes: nil)
+            #expect(fileManager.fileExists(atPath: url.path))
+        }
+
+        PersistenceController.removeStoreFiles(at: storeURL, fileManager: fileManager)
+
+        for url in PersistenceController.storeFileURLs(for: storeURL) {
+            #expect(!fileManager.fileExists(atPath: url.path))
+        }
+    }
 }
