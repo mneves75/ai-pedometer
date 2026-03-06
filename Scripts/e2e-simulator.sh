@@ -157,16 +157,63 @@ if [[ "${ENABLE_WIDGETS}" == "1" ]]; then
 fi
 
 echo "Testes (unitários) (iOS)..."
-xcodebuild \
-  -scheme AIPedometer \
-  -destination "${IOS_DEST}" \
-  -derivedDataPath "${OUT_DIR}/DerivedData-iOS" \
-  -resultBundlePath "${OUT_DIR}/UnitTests.xcresult" \
-  -parallel-testing-enabled NO \
-  -collect-test-diagnostics on-failure \
-  -only-testing:AIPedometerTests \
-  test-without-building \
-  | tee "${OUT_DIR}/xcodebuild-unit-tests.log"
+UNIT_RESTART_MAX="${E2E_UNIT_RESTART_MAX:-3}"
+
+run_unit_tests_once() {
+  local attempt="$1"
+  local log_file="${OUT_DIR}/xcodebuild-unit-tests-attempt-${attempt}.log"
+
+  rm -rf "${OUT_DIR}/UnitTests.xcresult" >/dev/null 2>&1 || true
+
+  xcodebuild \
+    -scheme AIPedometer \
+    -destination "${IOS_DEST}" \
+    -derivedDataPath "${OUT_DIR}/DerivedData-iOS" \
+    -resultBundlePath "${OUT_DIR}/UnitTests.xcresult" \
+    -parallel-testing-enabled NO \
+    -collect-test-diagnostics on-failure \
+    -only-testing:AIPedometerTests \
+    test-without-building \
+    | tee "${log_file}"
+  local status=$?
+
+  cp -f "${log_file}" "${OUT_DIR}/xcodebuild-unit-tests.log" >/dev/null 2>&1 || true
+  if [[ "${status}" -eq 0 ]]; then
+    return 0
+  fi
+  return "${status}"
+}
+
+unit_status=0
+for attempt in $(seq 1 "${UNIT_RESTART_MAX}"); do
+  set +e
+  run_unit_tests_once "${attempt}"
+  unit_status=$?
+  set -e
+
+  if [[ "${unit_status}" -eq 0 ]]; then
+    break
+  fi
+
+  if rg -n "NSMachErrorDomain|server died|Failed to initialize for UI testing|Timed out waiting for AX loaded notification|Failed to get matching snapshots" "${OUT_DIR}/xcodebuild-unit-tests-attempt-${attempt}.log" >/dev/null 2>&1; then
+    echo "Unit tests falharam por instabilidade do simulador. Reiniciando e tentando novamente... (tentativa ${attempt}/${UNIT_RESTART_MAX})"
+    xcrun simctl shutdown "${IOS_UDID}" >/dev/null 2>&1 || true
+    sleep 2
+    xcrun simctl boot "${IOS_UDID}" >/dev/null 2>&1 || true
+    xcrun simctl bootstatus "${IOS_UDID}" -b >/dev/null 2>&1 || true
+    open -a Simulator >/dev/null 2>&1 || true
+    sleep 3
+    continue
+  fi
+
+  echo "Unit tests falharam (nao-recuperavel). Abortando."
+  exit "${unit_status}"
+done
+
+if [[ "${unit_status}" -ne 0 ]]; then
+  echo "Unit tests falharam apos ${UNIT_RESTART_MAX} tentativas."
+  exit "${unit_status}"
+fi
 
 UI_TEST_ITERATIONS="${E2E_UI_TEST_ITERATIONS:-1}"
 
@@ -219,6 +266,8 @@ run_ui_tests_once() {
   if rg -n "\\*\\* TEST EXECUTE FAILED \\*\\*" "${log_file}" >/dev/null 2>&1; then
     return 1
   fi
+
+  return 0
 }
 
 ui_status=0
