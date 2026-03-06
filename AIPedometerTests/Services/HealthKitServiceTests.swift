@@ -935,6 +935,43 @@ struct StepTrackingServiceTests {
         #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [8000, 11000])
     }
 
+    @Test("Weekly summaries merge current day with live today total")
+    @MainActor
+    func weeklySummariesMergeCurrentDayWithLiveTotal() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        mockHealthKit.stepsToReturn = 9500
+        mockHealthKit.distanceToReturn = 7200
+        mockHealthKit.floorsToReturn = 8
+        mockHealthKit.dailySummariesToReturn = [
+            DailyStepSummary(date: .now, steps: 8000, distance: 6000, floors: 5, calories: 300, goal: 10000),
+            DailyStepSummary(date: Date().addingTimeInterval(-86400), steps: 11000, distance: 8000, floors: 7, calories: 400, goal: 10000)
+        ]
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+        let result = await service.refreshWeeklySummaries()
+
+        if case .failure = result {
+            Issue.record("Expected success but got failure")
+        }
+
+        #expect(service.weeklySummaries.count == 2)
+        #expect(service.weeklySummaries[0].steps == 9500)
+        #expect(service.weeklySummaries[0].distance == 7200)
+        #expect(service.weeklySummaries[0].floors == 8)
+        #expect(service.weeklySummaries[1].steps == 11000)
+        #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [9500, 11000])
+    }
+
     @Test("Weekly summaries returns failure on HealthKit error")
     @MainActor
     func weeklySummariesReturnsFailureOnError() async {

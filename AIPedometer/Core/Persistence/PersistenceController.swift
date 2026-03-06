@@ -96,22 +96,32 @@ final class PersistenceController {
     ) {
         do {
             let storeURL = try resolveStoreURL(fileManager: fileManager, appGroupID: appGroupID)
-            let walURL = storeURL.appendingPathExtension("wal")
-            let shmURL = storeURL.appendingPathExtension("shm")
-            [storeURL, walURL, shmURL].forEach { url in
-                if fileManager.fileExists(atPath: url.path) {
-                    do {
-                        try fileManager.removeItem(at: url)
-                    } catch {
-                        Loggers.app.warning("persistence.reset_remove_failed", metadata: [
-                            "path": url.path,
-                            "error": String(describing: error)
-                        ])
-                    }
-                }
-            }
+            removeStoreFiles(at: storeURL, fileManager: fileManager)
         } catch {
             Loggers.app.warning("persistence.reset_failed", metadata: ["error": String(describing: error)])
         }
+    }
+
+    static func removeStoreFiles(at storeURL: URL, fileManager: FileManager = .default) {
+        storeFileURLs(for: storeURL).forEach { url in
+            if fileManager.fileExists(atPath: url.path) {
+                do {
+                    try fileManager.removeItem(at: url)
+                } catch {
+                    Loggers.app.warning("persistence.reset_remove_failed", metadata: [
+                        "path": url.path,
+                        "error": String(describing: error)
+                    ])
+                }
+            }
+        }
+    }
+
+    static func storeFileURLs(for storeURL: URL) -> [URL] {
+        [
+            storeURL,
+            URL(fileURLWithPath: storeURL.path + "-wal"),
+            URL(fileURLWithPath: storeURL.path + "-shm")
+        ]
     }
 }

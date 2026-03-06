@@ -90,5 +90,6 @@ struct AppStartupCoordinatorTests {
         #expect(counter.watchStart == 1)
         #expect(counter.stepTrackingStart == 1)
         #expect(counter.initialSync == 1)
+        #expect(coordinator.hasCompletedStartup)
     }
 }

@@ -1,8 +1,8 @@
 import Foundation
 
 extension UserDefaults {
-    static var shared: UserDefaults {
-        UserDefaults(suiteName: AppConstants.appGroupID) ?? .standard
+    static var sharedAppGroup: UserDefaults? {
+        UserDefaults(suiteName: AppConstants.appGroupID)
     }
 
     @MainActor
@@ -17,6 +17,7 @@ extension UserDefaults {
                 Loggers.sync.error("shared_step_data_decode_failed", metadata: [
                     "error": error.localizedDescription
                 ])
+                removeObject(forKey: AppConstants.UserDefaultsKeys.sharedStepData)
                 return nil
             }
         }

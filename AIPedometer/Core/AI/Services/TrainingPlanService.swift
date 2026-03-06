@@ -80,6 +80,7 @@ final class TrainingPlanService {
     private let healthKitService: any HealthKitServiceProtocol
     private let goalService: any GoalServiceProtocol
     private let modelContext: ModelContext
+    private let saveModelContext: @MainActor (ModelContext) throws -> Void
     private let userDefaults: UserDefaults
 
     private(set) var isGenerating = false
@@ -90,12 +91,14 @@ final class TrainingPlanService {
         healthKitService: any HealthKitServiceProtocol,
         goalService: any GoalServiceProtocol,
         modelContext: ModelContext,
+        saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() },
         userDefaults: UserDefaults = .standard
     ) {
         self.foundationModelsService = foundationModelsService
         self.healthKitService = healthKitService
         self.goalService = goalService
         self.modelContext = modelContext
+        self.saveModelContext = saveModelContext
         self.userDefaults = userDefaults
     }
     
@@ -104,6 +107,9 @@ final class TrainingPlanService {
         level: FitnessLevel,
         daysPerWeek: Int
     ) async throws(AIServiceError) -> TrainingPlanRecord {
+        guard !isGenerating else {
+            throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
+        }
         guard foundationModelsService.availability.isAvailable else {
             throw AIServiceError.modelUnavailable(.modelNotReady)
         }
@@ -127,9 +133,9 @@ final class TrainingPlanService {
             )
             try validate(aiPlan: aiPlan, expectedGoal: goal, daysPerWeek: daysPerWeek)
             
-            let record = createPlanRecord(from: aiPlan, goal: goal)
+            let record = try createPlanRecord(from: aiPlan, goal: goal)
             modelContext.insert(record)
-            try modelContext.save()
+            try saveModelContext(modelContext)
             
             Loggers.ai.info("ai.training_plan_generated", metadata: [
                 "goal": goal.rawValue,
@@ -149,6 +155,9 @@ final class TrainingPlanService {
     }
     
     func generateWeeklyRecommendation() async throws(AIServiceError) -> AIWorkoutRecommendation {
+        guard !isGenerating else {
+            throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
+        }
         guard foundationModelsService.availability.isAvailable else {
             throw AIServiceError.modelUnavailable(.modelNotReady)
         }
@@ -188,7 +197,7 @@ final class TrainingPlanService {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         do {
-            return try modelContext.fetch(descriptor)
+            return try modelContext.fetch(descriptor).filter(\.isActive)
         } catch {
             Loggers.ai.error("ai.training_plan_fetch_failed", metadata: [
                 "scope": "active",
@@ -215,35 +224,52 @@ final class TrainingPlanService {
     }
     
     func pausePlan(_ plan: TrainingPlanRecord) {
-        plan.status = TrainingPlanRecord.PlanStatus.paused.rawValue
-        plan.updatedAt = Date()
-        savePlanChange(action: "pause")
+        applyPlanMutation(action: "pause", to: plan) {
+            plan.status = TrainingPlanRecord.PlanStatus.paused.rawValue
+            plan.updatedAt = Date()
+        }
     }
     
     func resumePlan(_ plan: TrainingPlanRecord) {
-        plan.status = TrainingPlanRecord.PlanStatus.active.rawValue
-        plan.updatedAt = Date()
-        savePlanChange(action: "resume")
+        applyPlanMutation(action: "resume", to: plan) {
+            plan.status = TrainingPlanRecord.PlanStatus.active.rawValue
+            plan.updatedAt = Date()
+        }
     }
     
     func completePlan(_ plan: TrainingPlanRecord) {
-        plan.status = TrainingPlanRecord.PlanStatus.completed.rawValue
-        plan.endDate = Date()
-        plan.updatedAt = Date()
-        savePlanChange(action: "complete")
+        applyPlanMutation(action: "complete", to: plan) {
+            plan.status = TrainingPlanRecord.PlanStatus.completed.rawValue
+            plan.endDate = Date()
+            plan.updatedAt = Date()
+        }
     }
     
     func deletePlan(_ plan: TrainingPlanRecord) {
-        plan.deletedAt = Date()
-        plan.updatedAt = Date()
-        savePlanChange(action: "delete")
+        applyPlanMutation(action: "delete", to: plan) {
+            plan.deletedAt = Date()
+            plan.updatedAt = Date()
+        }
     }
 
-    private func savePlanChange(action: String) {
+    private func applyPlanMutation(
+        action: String,
+        to plan: TrainingPlanRecord,
+        mutation: () -> Void
+    ) {
+        let previousStatus = plan.status
+        let previousEndDate = plan.endDate
+        let previousUpdatedAt = plan.updatedAt
+        let previousDeletedAt = plan.deletedAt
+        mutation()
         do {
-            try modelContext.save()
+            try saveModelContext(modelContext)
             Loggers.ai.info("ai.training_plan_\(action)")
         } catch {
+            plan.status = previousStatus
+            plan.endDate = previousEndDate
+            plan.updatedAt = previousUpdatedAt
+            plan.deletedAt = previousDeletedAt
             Loggers.ai.error("ai.training_plan_\(action)_failed", metadata: ["error": error.localizedDescription])
         }
     }
@@ -358,7 +384,7 @@ private extension TrainingPlanService {
         """
     }
     
-    func createPlanRecord(from aiPlan: AITrainingPlan, goal: TrainingGoalType) -> TrainingPlanRecord {
+    func createPlanRecord(from aiPlan: AITrainingPlan, goal: TrainingGoalType) throws(AIServiceError) -> TrainingPlanRecord {
         let record = TrainingPlanRecord()
         record.name = aiPlan.name
         record.planDescription = aiPlan.planDescription
@@ -371,6 +397,7 @@ private extension TrainingPlanService {
             Loggers.ai.error("ai.training_plan_weekly_targets_encode_failed", metadata: [
                 "error": error.localizedDescription
             ])
+            throw .invalidResponse
         }
         
         if aiPlan.primaryGoal != goal.aiGoal {

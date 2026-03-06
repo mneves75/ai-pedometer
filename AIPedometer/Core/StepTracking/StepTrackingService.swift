@@ -249,15 +249,16 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             )
             weeklySummaries = summaries.map { summary in
                 let resolvedGoal = goalService.goal(for: summary.date) ?? effectiveGoal
+                let mergedSummary = mergeCurrentDaySummaryIfNeeded(summary, activityMode: settings.activityMode)
                 guard resolvedGoal != summary.goal else {
-                    return summary
+                    return mergedSummary
                 }
                 return DailyStepSummary(
-                    date: summary.date,
-                    steps: summary.steps,
-                    distance: summary.distance,
-                    floors: summary.floors,
-                    calories: summary.calories,
+                    date: mergedSummary.date,
+                    steps: mergedSummary.steps,
+                    distance: mergedSummary.distance,
+                    floors: mergedSummary.floors,
+                    calories: mergedSummary.calories,
                     goal: resolvedGoal
                 )
             }
@@ -550,6 +551,28 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.progressRing)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.weeklyChart)
         #endif
+    }
+
+    private func mergeCurrentDaySummaryIfNeeded(
+        _ summary: DailyStepSummary,
+        activityMode: ActivityTrackingMode
+    ) -> DailyStepSummary {
+        guard activityMode == .steps else { return summary }
+        guard Calendar.current.isDate(summary.date, inSameDayAs: .now) else { return summary }
+
+        let mergedSteps = max(summary.steps, todaySteps)
+        guard mergedSteps != summary.steps else { return summary }
+
+        let mergedDistance = max(summary.distance, todayDistance)
+        let mergedFloors = max(summary.floors, todayFloors)
+        return DailyStepSummary(
+            date: summary.date,
+            steps: mergedSteps,
+            distance: mergedDistance,
+            floors: mergedFloors,
+            calories: Double(mergedSteps) * AppConstants.Metrics.caloriesPerStep,
+            goal: summary.goal
+        )
     }
 
     private func currentBaseline() -> LiveStepBaseline? {

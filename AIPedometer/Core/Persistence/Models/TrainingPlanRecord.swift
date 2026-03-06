@@ -25,21 +25,19 @@ final class TrainingPlanRecord {
     init() {}
     
     var planStatus: PlanStatus {
-        get { PlanStatus(rawValue: status) ?? .active }
+        get {
+            guard let resolved = PlanStatus(rawValue: status) else {
+                Loggers.ai.error("ai.training_plan_invalid_status", metadata: ["status": status])
+                return .abandoned
+            }
+            return resolved
+        }
         set { status = newValue.rawValue }
     }
     
     var weeklyTargets: [WeeklyTarget] {
         get {
-            guard !weeklyTargetsJSON.isEmpty else { return [] }
-            do {
-                return try JSONDecoder().decode([WeeklyTarget].self, from: weeklyTargetsJSON)
-            } catch {
-                Loggers.ai.error("ai.training_plan_weekly_targets_decode_failed", metadata: [
-                    "error": error.localizedDescription
-                ])
-                return []
-            }
+            decodedWeeklyTargets() ?? []
         }
         set {
             do {
@@ -53,7 +51,7 @@ final class TrainingPlanRecord {
     }
     
     var isActive: Bool {
-        planStatus == .active && deletedAt == nil
+        planStatus == .active && hasValidPlanData && deletedAt == nil
     }
     
     var progressPercentage: Double {
@@ -86,6 +84,24 @@ final class TrainingPlanRecord {
         let index = currentWeek - 1
         guard index >= 0, index < weeklyTargets.count else { return nil }
         return weeklyTargets[index]
+    }
+
+    var hasValidPlanData: Bool {
+        guard PlanStatus(rawValue: status) != nil else { return false }
+        guard let targets = decodedWeeklyTargets() else { return false }
+        return !targets.isEmpty
+    }
+
+    private func decodedWeeklyTargets() -> [WeeklyTarget]? {
+        guard !weeklyTargetsJSON.isEmpty else { return [] }
+        do {
+            return try JSONDecoder().decode([WeeklyTarget].self, from: weeklyTargetsJSON)
+        } catch {
+            Loggers.ai.error("ai.training_plan_weekly_targets_decode_failed", metadata: [
+                "error": error.localizedDescription
+            ])
+            return nil
+        }
     }
 }
 

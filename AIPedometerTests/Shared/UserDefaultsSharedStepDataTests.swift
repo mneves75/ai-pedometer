@@ -58,5 +58,38 @@ struct UserDefaultsSharedStepDataTests {
         testDefaults.defaults.set(Data("invalid".utf8), forKey: AppConstants.UserDefaultsKeys.sharedStepData)
 
         #expect(testDefaults.defaults.sharedStepData == nil)
+        #expect(testDefaults.defaults.data(forKey: AppConstants.UserDefaultsKeys.sharedStepData) == nil)
+    }
+
+    @Test("Shared step data treats future timestamps as stale")
+    func sharedStepDataTreatsFutureTimestampAsStale() {
+        let futureData = SharedStepData(
+            todaySteps: 1200,
+            goalSteps: 8000,
+            goalProgress: 0.15,
+            currentStreak: 1,
+            lastUpdated: Date.now.addingTimeInterval(300),
+            weeklySteps: [1200]
+        )
+
+        #expect(futureData.isStale)
+    }
+
+    @Test("Shared step data is stale after calendar-day rollover even within one hour")
+    func sharedStepDataIsStaleAfterDayRollover() {
+        let calendar = Calendar(identifier: .gregorian)
+        let lastUpdated = Date(timeIntervalSince1970: 1_735_430_400) // 2024-12-31 23:00:00 UTC
+        let referenceDate = lastUpdated.addingTimeInterval(30 * 60)
+        let nextDayReference = calendar.date(byAdding: .day, value: 1, to: referenceDate) ?? referenceDate
+        let data = SharedStepData(
+            todaySteps: 9000,
+            goalSteps: 10000,
+            goalProgress: 0.9,
+            currentStreak: 4,
+            lastUpdated: lastUpdated,
+            weeklySteps: [8000, 9000]
+        )
+
+        #expect(data.isStale(referenceDate: nextDayReference, calendar: calendar))
     }
 }

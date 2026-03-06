@@ -247,6 +247,62 @@ struct TrainingPlanServiceTests {
         #expect(foundationModels.lastPrompt?.contains("Language:") ?? false)
         #expect(foundationModels.lastPrompt?.contains(AppLanguage.promptInstruction()) ?? false)
     }
+
+    @Test("generatePlan rejects overlapping requests")
+    func generatePlanRejectsOverlappingRequests() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let goalService = GoalService(persistence: persistence)
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+        foundationModels.respondDelayNanoseconds = 100_000_000
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: goalService,
+            modelContext: context
+        )
+
+        let first = Task {
+            let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+            return record.id
+        }
+        await Task.yield()
+        let second = Task {
+            let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+            return record.id
+        }
+
+        _ = try await first.value
+        await #expect(throws: AIServiceError.self) {
+            _ = try await second.value
+        }
+    }
+
+    @Test("pausePlan rolls back state when save fails")
+    func pausePlanRollsBackOnSaveFailure() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context,
+            saveModelContext: { _ in throw CocoaError(.validationMultipleErrors) }
+        )
+
+        let plan = TrainingPlanRecord()
+        plan.status = TrainingPlanRecord.PlanStatus.active.rawValue
+        plan.updatedAt = Date(timeIntervalSince1970: 100)
+        context.insert(plan)
+
+        service.pausePlan(plan)
+
+        #expect(plan.status == TrainingPlanRecord.PlanStatus.active.rawValue)
+        #expect(plan.updatedAt == Date(timeIntervalSince1970: 100))
+    }
 }
 
 private func makeAITrainingPlan() -> AITrainingPlan {

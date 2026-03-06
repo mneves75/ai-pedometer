@@ -8,7 +8,7 @@ Append notes for each run in `agent_planning/ultrawork-notes.txt` (what worked, 
 
 ## Apple Platforms
 
-For Swift / iOS/iPadOS 26 code, look for info in:
+for Swift / iOS/iPadOS 26 code: look for info in
 
 `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
 

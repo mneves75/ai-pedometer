@@ -37,8 +37,8 @@ struct HealthKitServiceFallbackTests {
         #expect(summaries.allSatisfy { $0.steps > 0 })
     }
 
-    @Test("Returns empty data gracefully when HealthKit unavailable and fake data off")
-    func returnsEmptyDataWhenUnavailable() async throws {
+    @Test("Throws when HealthKit is unavailable and fake data is disabled")
+    func throwsWhenUnavailableWithoutFakeData() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
         defer { cleanup() }
 
@@ -58,10 +58,42 @@ struct HealthKitServiceFallbackTests {
         await #expect(throws: HealthKitError.self) {
             try await service.requestAuthorization()
         }
-        
-        let steps = try await service.fetchTodaySteps()
-        #expect(steps == 0)
-        
+
+        await #expect(throws: HealthKitError.self) {
+            _ = try await service.fetchTodaySteps()
+        }
+
+        await #expect(throws: HealthKitError.self) {
+            _ = try await service.fetchDailySummaries(
+                days: 7,
+                activityMode: .steps,
+                distanceMode: .automatic,
+                manualStepLength: AppConstants.Defaults.manualStepLengthMeters,
+                dailyGoal: 10_000
+            )
+        }
+    }
+
+    @Test("No data still returns empty summaries")
+    func noDataStillReturnsEmptySummaries() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
+        defer { cleanup() }
+
+        let failing = FailingHealthKitService(
+            authorizationError: nil,
+            queryError: HealthKitError.noData
+        )
+
+        let service = HealthKitServiceFallback(
+            primary: failing,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        try await service.requestAuthorization()
+
         let summaries = try await service.fetchDailySummaries(
             days: 7,
             activityMode: .steps,
@@ -93,8 +125,8 @@ struct HealthKitServiceFallbackTests {
         #expect(spy.fetchTodayStepsCalls == 1)
     }
 
-    @Test("Gracefully handles query failures without fake data")
-    func handlesQueryFailuresGracefully() async throws {
+    @Test("Query failures propagate without fake data")
+    func queryFailuresPropagateWithoutFakeData() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
         defer { cleanup() }
 
@@ -112,9 +144,10 @@ struct HealthKitServiceFallbackTests {
         )
 
         try await service.requestAuthorization()
-        
-        let steps = try await service.fetchTodaySteps()
-        #expect(steps == 0)
+
+        await #expect(throws: HealthKitError.self) {
+            _ = try await service.fetchTodaySteps()
+        }
     }
 
     @Test("Authorization denial does not permanently latch empty reads after recovery")
@@ -136,8 +169,9 @@ struct HealthKitServiceFallbackTests {
             try await service.requestAuthorization()
         }
 
-        let emptySteps = try await service.fetchTodaySteps()
-        #expect(emptySteps == 0)
+        await #expect(throws: HealthKitError.self) {
+            _ = try await service.fetchTodaySteps()
+        }
 
         primary.authorizationError = nil
         primary.stepsToReturn = 4321
@@ -250,6 +284,7 @@ private final class SpyHealthKitService: HealthKitServiceProtocol {
 private final class MutableHealthKitService: HealthKitServiceProtocol {
     var authorizationError: (any Error)?
     var stepsToReturn = 0
+    var dailySummariesToReturn: [DailyStepSummary] = []
 
     func requestAuthorization() async throws {
         if let authorizationError {
@@ -262,8 +297,8 @@ private final class MutableHealthKitService: HealthKitServiceProtocol {
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
-    func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { [] }
-    func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { [] }
+    func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
+    func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
     func saveWorkout(_ session: WorkoutSession) async throws {}
 }
 

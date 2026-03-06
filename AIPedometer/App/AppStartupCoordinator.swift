@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class AppStartupCoordinator {
     private let isTesting: () -> Bool
-    private let refreshHealthAuthorization: () -> Void
+    private let refreshHealthAuthorization: () async -> Void
     private let refreshMotionAuthorization: () -> Void
     private let registerBackgroundTasks: () -> Void
     private let scheduleAppRefresh: () -> Void
@@ -12,10 +12,11 @@ final class AppStartupCoordinator {
     private let performInitialSync: () async -> Void
 
     private var didStart = false
+    private(set) var hasCompletedStartup = false
 
     init(
         isTesting: @escaping () -> Bool,
-        refreshHealthAuthorization: @escaping () -> Void,
+        refreshHealthAuthorization: @escaping () async -> Void,
         refreshMotionAuthorization: @escaping () -> Void,
         registerBackgroundTasks: @escaping () -> Void,
         scheduleAppRefresh: @escaping () -> Void,
@@ -39,12 +40,13 @@ final class AppStartupCoordinator {
         guard !didStart else { return }
         didStart = true
 
-        refreshHealthAuthorization()
+        await refreshHealthAuthorization()
         refreshMotionAuthorization()
         registerBackgroundTasks()
         scheduleAppRefresh()
         startWatchSync()
         await startStepTracking()
         await performInitialSync()
+        hasCompletedStartup = true
     }
 }

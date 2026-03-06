@@ -9,7 +9,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
     private let userDefaults: UserDefaults
 
     private var useFakeDataFallback = false
-    private var isHealthDataUnsupported = false
+    private var unavailableError: HealthKitError?
 
     init(
         primary: any HealthKitServiceProtocol = HealthKitService(),
@@ -36,7 +36,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
         guard isHealthDataAvailable() else {
             if enableFakeDataFallback(reason: "healthkit_unavailable") { return }
-            isHealthDataUnsupported = true
+            unavailableError = .notAvailable
             Loggers.health.info("healthkit.unavailable_graceful", metadata: ["action": "will_return_empty_data"])
             throw HealthKitError.notAvailable
         }
@@ -44,13 +44,14 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         do {
             try await primary.requestAuthorization()
             useFakeDataFallback = false
-            isHealthDataUnsupported = false
+            unavailableError = nil
         } catch {
             if enableFakeDataFallback(reason: "authorization_failed", error: error) { return }
-            Loggers.health.info("healthkit.authorization_denied_graceful", metadata: ["action": "will_return_empty_data"])
             if let typed = error as? HealthKitError {
+                unavailableError = typed
                 throw typed
             }
+            unavailableError = .authorizationFailed
             throw HealthKitError.authorizationFailed
         }
     }
@@ -159,9 +160,11 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             try await demoService.saveWorkout(session)
             return
         }
-        if isHealthDataUnsupported {
-            Loggers.health.info("healthkit.workout_save_skipped", metadata: ["reason": "healthkit_unavailable"])
-            return
+        if let unavailableError {
+            Loggers.health.info("healthkit.workout_save_skipped", metadata: [
+                "reason": unavailableError.localizedDescription
+            ])
+            throw unavailableError
         }
         try await primary.saveWorkout(session)
     }
@@ -177,40 +180,47 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         if shouldServeFakeData() {
             return try await fakeData()
         }
-        if isHealthDataUnsupported {
-            return emptyValue
+        if let unavailableError {
+            throw unavailableError
         }
 
         do {
             return try await primary()
         } catch let error as HealthKitError {
-            return handleHealthKitError(error, emptyValue: emptyValue)
+            return try handleHealthKitError(error, emptyValue: emptyValue)
         } catch {
             if enableFakeDataFallback(reason: "query_failed", error: error) {
                 return try await fakeData()
             }
             Loggers.health.warning("healthkit.query_failed_graceful", metadata: [
                 "error": error.localizedDescription,
-                "action": "returning_empty_data"
+                "action": "throwing_query_failed"
             ])
-            return emptyValue
+            throw HealthKitError.queryFailed
         }
     }
 
-    private func handleHealthKitError<T>(_ error: HealthKitError, emptyValue: T) -> T {
+    private func handleHealthKitError<T>(_ error: HealthKitError, emptyValue: T) throws -> T {
         switch error {
-        case .notAvailable, .authorizationFailed, .noData:
+        case .noData:
             Loggers.health.info("healthkit.expected_error_graceful", metadata: [
                 "error": error.localizedDescription,
                 "action": "returning_empty_data"
             ])
             return emptyValue
+        case .notAvailable, .authorizationFailed:
+            unavailableError = error
+            Loggers.health.info("healthkit.expected_error_graceful", metadata: [
+                "error": error.localizedDescription,
+                "action": "throwing_unavailable_error"
+            ])
+            throw error
         case .queryFailed:
             Loggers.health.warning("healthkit.query_failed_graceful", metadata: [
                 "error": error.localizedDescription,
-                "action": "returning_empty_data"
+                "action": "throwing_query_failed"
             ])
-            return emptyValue
+            throw error
         }
     }
 

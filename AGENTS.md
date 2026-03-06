@@ -7,7 +7,7 @@ AIPedometer is a Swift 6.2 SwiftUI iOS pedometer app with AI-powered insights, p
 Run notes are stored at `agent_planning/ultrawork-notes.txt` (append each run with what worked, what didn’t, and missing context; reuse between sessions). Link: [agent_planning/ultrawork-notes.txt](agent_planning/ultrawork-notes.txt).
 
 ## Apple Platforms
-For Swift / iOS/iPadOS 26 code, look for info in:
+for Swift / iOS/iPadOS 26 code: look for info in
 
 `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
 
