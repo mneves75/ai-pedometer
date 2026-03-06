@@ -207,12 +207,14 @@ final class SmartNotificationService {
     private func fetchTodayProgress() async throws -> TodayProgress {
         let settings = ActivitySettings.current(userDefaults: userDefaults)
         let goal = goalService.currentGoal
+        let sharedData = sharedUserDefaults.sharedStepData
+        let hasFreshSharedData = sharedData?.isStale == false
         if !HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) {
             Loggers.sync.info("healthkit.fetch_skipped", metadata: [
                 "reason": "sync_disabled",
                 "scope": "smart_notification"
             ])
-            guard let sharedData = sharedUserDefaults.sharedStepData, !sharedData.isStale else {
+            guard let sharedData, !sharedData.isStale else {
                 throw AIServiceError.generationFailed(underlying: "No recent activity data available")
             }
             let sharedSteps = sharedData.todaySteps
@@ -236,14 +238,21 @@ final class SmartNotificationService {
         )
 
         let today = summaries.first
-        let steps = today?.steps ?? 0
+        let healthKitSteps = today?.steps ?? 0
+        let steps = max(healthKitSteps, hasFreshSharedData ? sharedData?.todaySteps ?? 0 : 0)
         let progress = goal > 0 ? Double(steps) / Double(goal) : 0
+        let distanceKm: Double
+        if let today, today.distance > 0 {
+            distanceKm = today.distance / 1000
+        } else {
+            distanceKm = Double(steps) * settings.manualStepLength / 1000
+        }
 
         return TodayProgress(
             steps: steps,
             goal: goal,
             progressPercentage: Int(progress * 100),
-            distanceKm: (today?.distance ?? 0) / 1000,
+            distanceKm: distanceKm,
             timeOfDay: currentTimeOfDay(),
             unitName: settings.activityMode.unitName
         )

@@ -146,7 +146,7 @@ struct TrainingPlanServiceTests {
         _ = try await service.generatePlan(
             goal: .reach10k,
             level: .beginner,
-            daysPerWeek: 4
+            daysPerWeek: 5
         )
 
         let unitName = ActivityTrackingMode.wheelchairPushes.unitName
@@ -190,11 +190,62 @@ struct TrainingPlanServiceTests {
         _ = try await service.generatePlan(
             goal: .reach10k,
             level: .beginner,
-            daysPerWeek: 4
+            daysPerWeek: 5
         )
 
         #expect(healthKit.lastFetchDailySummariesArgs == nil)
         #expect(foundationModels.lastPrompt?.contains("DATA RELIABILITY WARNING") ?? false)
+    }
+
+    @Test("generatePlan rejects plans that exceed requested active days")
+    func generatePlanRejectsOverScheduledPlan() async {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let goalService = GoalService(persistence: persistence)
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(
+            AITrainingPlan(
+                name: "Too Much",
+                planDescription: "Invalid",
+                durationWeeks: 1,
+                weeklyTargets: [
+                    WeeklyTarget(weekNumber: 1, dailyStepTarget: 6000, activeDaysRequired: 6, focusTip: "Nope")
+                ],
+                primaryGoal: .reach10k
+            )
+        )
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: goalService,
+            modelContext: context
+        )
+
+        await #expect(throws: AIServiceError.self) {
+            _ = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 4)
+        }
+    }
+
+    @Test("generatePlan prompt includes language directive")
+    func generatePlanPromptIncludesLanguageDirective() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let goalService = GoalService(persistence: persistence)
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: goalService,
+            modelContext: context
+        )
+
+        _ = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+
+        #expect(foundationModels.lastPrompt?.contains("Language:") ?? false)
+        #expect(foundationModels.lastPrompt?.contains(AppLanguage.promptInstruction()) ?? false)
     }
 }
 

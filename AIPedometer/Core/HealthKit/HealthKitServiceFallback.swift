@@ -9,7 +9,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
     private let userDefaults: UserDefaults
 
     private var useFakeDataFallback = false
-    private var healthKitUnavailable = false
+    private var isHealthDataUnsupported = false
 
     init(
         primary: any HealthKitServiceProtocol = HealthKitService(),
@@ -36,7 +36,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
         guard isHealthDataAvailable() else {
             if enableFakeDataFallback(reason: "healthkit_unavailable") { return }
-            healthKitUnavailable = true
+            isHealthDataUnsupported = true
             Loggers.health.info("healthkit.unavailable_graceful", metadata: ["action": "will_return_empty_data"])
             throw HealthKitError.notAvailable
         }
@@ -44,10 +44,9 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         do {
             try await primary.requestAuthorization()
             useFakeDataFallback = false
-            healthKitUnavailable = false
+            isHealthDataUnsupported = false
         } catch {
             if enableFakeDataFallback(reason: "authorization_failed", error: error) { return }
-            healthKitUnavailable = true
             Loggers.health.info("healthkit.authorization_denied_graceful", metadata: ["action": "will_return_empty_data"])
             if let typed = error as? HealthKitError {
                 throw typed
@@ -160,7 +159,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             try await demoService.saveWorkout(session)
             return
         }
-        if healthKitUnavailable {
+        if isHealthDataUnsupported {
             Loggers.health.info("healthkit.workout_save_skipped", metadata: ["reason": "healthkit_unavailable"])
             return
         }
@@ -178,7 +177,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         if shouldServeFakeData() {
             return try await fakeData()
         }
-        if healthKitUnavailable {
+        if isHealthDataUnsupported {
             return emptyValue
         }
 

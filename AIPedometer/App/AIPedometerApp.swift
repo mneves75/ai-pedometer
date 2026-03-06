@@ -24,11 +24,12 @@ struct AIPedometerApp: App {
     @State private var tipJarStore: TipJarStore
     @State private var startupCoordinator: AppStartupCoordinator
     @State private var lifecycleCoordinator: AppLifecycleCoordinator
-    private let persistence = PersistenceController.shared
+    private let persistence: PersistenceController
     private let backgroundService: BackgroundTaskService
     private let metricKitService = MetricKitService.shared
     private let appLocale: Locale
     @Environment(\.scenePhase) private var scenePhase
+    @State private var lifecycleTask: Task<Void, Never>?
 
     init() {
         if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldResetState() {
@@ -54,6 +55,8 @@ struct AIPedometerApp: App {
         }
 
         appLocale = AppLanguage.currentLocale
+        let persistence = PersistenceController.shared
+        self.persistence = persistence
 
         // Create shared dependencies once - single source of truth
         let sharedHealthStore = HKHealthStore()
@@ -61,10 +64,10 @@ struct AIPedometerApp: App {
         let motionAuth = MotionAuthorization()
         let motionService = MotionService()
         let dataStore = SharedDataStore()
-        let goalService = GoalService(persistence: PersistenceController.shared)
+        let goalService = GoalService(persistence: persistence)
         let streakCalculator = StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
         let fmService = FoundationModelsService()
-        let modelContext = PersistenceController.shared.container.mainContext
+        let modelContext = persistence.container.mainContext
         let demoStore = DemoModeStore()
         let primaryHealthKitService = HealthKitService(
             healthStore: sharedHealthStore,
@@ -84,7 +87,7 @@ struct AIPedometerApp: App {
             liveActivityManager = LiveActivityManager()
         }
 
-        let badges = BadgeService(persistence: PersistenceController.shared)
+        let badges = BadgeService(persistence: persistence)
         badges.configure(with: fmService)
 
         // Create StepTrackingService with shared dependencies
@@ -149,6 +152,7 @@ struct AIPedometerApp: App {
         _badgeService = State(initialValue: badges)
 
         let backgroundTaskService = BackgroundTaskService(stepTrackingService: trackingService)
+        backgroundTaskService.registerTasks()
         backgroundService = backgroundTaskService
 
         _startupCoordinator = State(initialValue: AppStartupCoordinator(
@@ -237,7 +241,8 @@ struct AIPedometerApp: App {
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    Task { @MainActor in
+                    lifecycleTask?.cancel()
+                    lifecycleTask = Task { @MainActor in
                         await lifecycleCoordinator.handle(scenePhase: newPhase)
                     }
                 }

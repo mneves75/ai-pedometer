@@ -567,6 +567,7 @@ struct StepTrackingServiceTests {
         let mockHealthKit = MockHealthKitService()
         let mockMotion = MockMotionService()
         mockHealthKit.wheelchairPushesToReturn = 4321
+        mockHealthKit.distanceToReturn = 999
         let testDefaults = TestUserDefaults()
         defer { testDefaults.reset() }
         testDefaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
@@ -583,7 +584,56 @@ struct StepTrackingServiceTests {
         mockMotion.simulateLiveUpdate(PedometerSnapshot(steps: 999, distance: 100, floorsAscended: 1))
 
         #expect(service.todaySteps == 4321)
+        #expect(service.todayDistance == 0)
         #expect(service.todayCalories == Double(4321) * AppConstants.Metrics.caloriesPerStep)
+    }
+
+    @Test("Wheelchair mode clears stale values when HealthKit sync is disabled")
+    @MainActor
+    func wheelchairModeClearsValuesWhenSyncDisabled() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
+        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.todaySteps == 0)
+        #expect(service.todayDistance == 0)
+        #expect(service.todayFloors == 0)
+        #expect(testDefaults.defaults.sharedStepData?.todaySteps == 0)
+    }
+
+    @Test("Motion fallback clears stale values when pedometer query fails")
+    @MainActor
+    func motionFallbackClearsStaleValuesWhenQueryFails() async {
+        let mockHealthKit = MockHealthKitService()
+        mockHealthKit.errorToThrow = HealthKitError.queryFailed
+        let mockMotion = MockMotionService()
+        mockMotion.errorToThrow = MotionError.queryFailed
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.todaySteps == 0)
+        #expect(service.todayDistance == 0)
+        #expect(testDefaults.defaults.sharedStepData?.todaySteps == 0)
+        #expect(testDefaults.defaults.sharedStepData?.isStale == true)
     }
 
     @Test("Settings change restarts live updates and refreshes summaries")

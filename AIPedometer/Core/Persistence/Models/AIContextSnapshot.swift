@@ -78,15 +78,15 @@ final class AIContextSnapshot {
         var lines: [String] = []
         
         lines.append("User Activity Summary:")
-        lines.append("- Current daily goal: \(currentDailyGoal.formatted()) steps")
+        lines.append("- Current daily goal: \(currentDailyGoal.formatted()) activity units")
         lines.append("- Current streak: \(currentStreak) days")
         lines.append("- Longest streak: \(longestStreak) days")
         lines.append("- Total badges earned: \(totalBadgesEarned)")
         
         if !last7DaysSteps.isEmpty {
             lines.append("\nLast 7 Days:")
-            lines.append("- Daily steps: \(last7DaysSteps.map { $0.formatted() }.joined(separator: ", "))")
-            lines.append("- Average: \(last7DaysAverage.formatted()) steps/day")
+            lines.append("- Daily activity counts: \(last7DaysSteps.map { $0.formatted() }.joined(separator: ", "))")
+            lines.append("- Average: \(last7DaysAverage.formatted()) units/day")
             lines.append("- Days goal met: \(last7DaysGoalHitCount) of 7")
         }
         

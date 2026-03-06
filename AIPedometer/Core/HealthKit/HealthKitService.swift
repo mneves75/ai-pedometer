@@ -129,6 +129,10 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             case .manual:
                 dayDistance = Double(activityCount) * manualStepLength
             case .automatic:
+                if activityMode == .wheelchairPushes {
+                    dayDistance = 0
+                    break
+                }
                 if let distance {
                     dayDistance = distance[current] ?? 0
                 } else {
@@ -163,7 +167,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
         let start = session.startTime
         let end = session.endTime ?? .now
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        let workoutID = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UUID, any Error>) in
             builder.beginCollection(withStart: start) { success, error in
                 if let error {
                     Loggers.health.error("healthkit.workout_begin_failed", metadata: ["error": String(describing: error)])
@@ -180,17 +184,22 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                         continuation.resume(throwing: endError)
                         return
                     }
-                    builder.finishWorkout { _, finishError in
+                    builder.finishWorkout { workout, finishError in
                         if let finishError {
                             Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
                             continuation.resume(throwing: finishError)
                             return
                         }
-                        continuation.resume()
+                        guard let workout else {
+                            continuation.resume(throwing: HealthKitError.queryFailed)
+                            return
+                        }
+                        continuation.resume(returning: workout.uuid)
                     }
                 }
             }
         }
+        session.healthKitWorkoutID = workoutID
     }
 
     private func fetchSum(

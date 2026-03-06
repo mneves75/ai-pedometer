@@ -165,6 +165,48 @@ struct SmartNotificationServiceTests {
         #expect(foundationModels.lastPrompt?.contains(formattedSteps) ?? false)
     }
 
+    @Test("Smart notifications prefer fresh shared data when HealthKit is lagging")
+    func smartNotificationsPreferFreshSharedDataWhenHealthKitIsLagging() async {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.sharedStepData = SharedStepData(
+            todaySteps: 3456,
+            goalSteps: 8_000,
+            goalProgress: 0.432,
+            currentStreak: 0,
+            lastUpdated: .now,
+            weeklySteps: []
+        )
+
+        let persistence = PersistenceController(inMemory: true)
+        let goalService = GoalService(persistence: persistence)
+        goalService.setGoal(8_000)
+
+        let healthKit = MockHealthKitService()
+        healthKit.dailySummariesToReturn = []
+
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(NotificationContent(
+            title: "Keep going",
+            body: "You're making progress!"
+        ))
+
+        let notificationCenter = MockNotificationCenter()
+        let service = SmartNotificationService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: goalService,
+            notificationCenter: notificationCenter,
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
+        )
+
+        await service.scheduleSmartNotification()
+
+        #expect(notificationCenter.addedRequests.count == 1)
+        #expect(foundationModels.lastPrompt?.contains(3456.formatted()) ?? false)
+    }
+
     @Test("Smart notifications skip when shared data is stale and sync is disabled")
     func smartNotificationsSkipWhenSharedDataStale() async {
         let testDefaults = TestUserDefaults()

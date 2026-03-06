@@ -475,8 +475,8 @@ struct HealthKitSyncServiceTests {
         }
     }
 
-    @Test("Sync prunes only ended workouts without crashing on nil endTime")
-    func syncPrunesOldEndedWorkoutsSafely() async throws {
+    @Test("Sync preserves historical workouts without deleting missing HealthKit IDs")
+    func syncPreservesHistoricalWorkouts() async throws {
         let (service, _, _, modelContext) = makeTestEnvironment()
 
         let oldEnd = Date.now.addingTimeInterval(-SyncPolicy.staleDataPruneThreshold - 3600)
@@ -489,7 +489,7 @@ struct HealthKitSyncServiceTests {
 
         try await service.performIncrementalSync()
 
-        #expect(ended.deletedAt != nil)
+        #expect(ended.deletedAt == nil)
         #expect(inProgress.deletedAt == nil)
     }
 }
@@ -519,7 +519,7 @@ struct AIContextSnapshotPromptTests {
         
         #expect(prompt.contains("User Activity Summary"))
         // Check for goal value (locale-agnostic)
-        #expect(prompt.contains("10") && prompt.contains("000") && prompt.contains("steps"))
+        #expect(prompt.contains("10") && prompt.contains("000") && prompt.contains("activity units"))
         #expect(prompt.contains("Current streak: 5 days"))
         #expect(prompt.contains("Longest streak: 12 days"))
         #expect(prompt.contains("Total badges earned: 7"))
@@ -562,6 +562,7 @@ struct AIContextSnapshotPromptTests {
         // Should contain the numeric values (formatter may vary by locale)
         #expect(prompt.contains("15") && prompt.contains("000"))
         #expect(prompt.contains("12") && prompt.contains("345"))
+        #expect(prompt.contains("units/day"))
     }
 }
 

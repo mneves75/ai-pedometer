@@ -3,11 +3,25 @@ import SwiftData
 
 @MainActor
 final class PersistenceController {
-    static let shared = PersistenceController()
+    static let shared: PersistenceController = {
+        let environment = ProcessInfo.processInfo.environment
+        let isPreview = environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        return PersistenceController(
+            inMemory: false,
+            requireSharedContainer: !isPreview,
+            allowAppSupportFallback: isPreview,
+            allowInMemoryFallback: isPreview
+        )
+    }()
 
     let container: ModelContainer
 
-    init(inMemory: Bool = false) {
+    init(
+        inMemory: Bool = false,
+        requireSharedContainer: Bool = false,
+        allowAppSupportFallback: Bool = true,
+        allowInMemoryFallback: Bool = true
+    ) {
         let schema = Schema(SchemaV1.models)
 
         do {
@@ -15,7 +29,10 @@ final class PersistenceController {
             if inMemory {
                 configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             } else {
-                let storeURL = try Self.resolveStoreURL()
+                let storeURL = try Self.resolveStoreURL(
+                    requireSharedContainer: requireSharedContainer,
+                    allowAppSupportFallback: allowAppSupportFallback
+                )
                 configuration = ModelConfiguration(schema: schema, url: storeURL)
             }
 
@@ -26,6 +43,9 @@ final class PersistenceController {
             )
         } catch {
             Loggers.app.error("persistence.container_init_failed", metadata: ["error": String(describing: error)])
+            guard allowInMemoryFallback else {
+                fatalError("Failed to create persistent ModelContainer: \(error)")
+            }
             do {
                 let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
                 container = try ModelContainer(
@@ -45,10 +65,15 @@ final class PersistenceController {
 
     static func resolveStoreURL(
         fileManager: FileManager = .default,
-        appGroupID: String = AppConstants.appGroupID
+        appGroupID: String = AppConstants.appGroupID,
+        requireSharedContainer: Bool = false,
+        allowAppSupportFallback: Bool = true
     ) throws -> URL {
         if let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             return try storeURL(baseDirectory: containerURL, fileManager: fileManager)
+        }
+        if requireSharedContainer || !allowAppSupportFallback {
+            throw CocoaError(.fileNoSuchFile)
         }
         let appSupport = try fileManager.url(
             for: .applicationSupportDirectory,

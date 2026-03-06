@@ -42,4 +42,17 @@ struct PersistenceControllerTests {
         )
         #expect(url.lastPathComponent == "default.store")
     }
+
+    @Test
+    func resolveStoreURLThrowsWhenSharedContainerIsRequired() {
+        let fileManager = FileManager.default
+        #expect(throws: (any Error).self) {
+            _ = try PersistenceController.resolveStoreURL(
+                fileManager: fileManager,
+                appGroupID: "invalid.group.identifier",
+                requireSharedContainer: true,
+                allowAppSupportFallback: false
+            )
+        }
+    }
 }

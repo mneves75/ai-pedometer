@@ -110,7 +110,11 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         let startOfDay = calculator.startOfDay(for: .now)
         guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else {
             isUsingMotionFallback = true
-            await refreshTodayDataFromMotion(startOfDay: startOfDay)
+            if activitySettings.activityMode == .steps {
+                await refreshTodayDataFromMotion(startOfDay: startOfDay)
+            } else {
+                clearCurrentActivityData(markStale: true)
+            }
             return
         }
 
@@ -193,6 +197,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 ])
                 isUsingMotionFallback = true
                 await refreshTodayDataFromMotion(startOfDay: startOfDay)
+            } else {
+                clearCurrentActivityData(markStale: true)
             }
         }
     }
@@ -416,6 +422,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     }
 
     private func resolveDistance(steps: Int, start: Date, end: Date) async -> Double {
+        if activitySettings.activityMode == .wheelchairPushes {
+            return 0
+        }
         switch activitySettings.distanceMode {
         case .manual:
             return Double(steps) * activitySettings.manualStepLength
@@ -445,6 +454,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private func refreshTodayDataFromMotion(startOfDay: Date) async {
         guard activitySettings.activityMode == .steps else {
             Loggers.motion.info("motion.refresh_skipped", metadata: ["reason": "unsupported_mode"])
+            clearCurrentActivityData(markStale: true)
             return
         }
         do {
@@ -452,6 +462,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             applyMotionSnapshot(snapshot, startOfDay: startOfDay)
         } catch {
             Loggers.motion.warning("motion.refresh_failed", metadata: ["error": String(describing: error)])
+            clearCurrentActivityData(markStale: true)
         }
     }
 
@@ -466,6 +477,16 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         updateSharedData()
         evaluateBadges(steps: snapshot.steps, streak: nil)
         Loggers.tracking.info("steps.refresh_today_motion", metadata: ["steps": "\(snapshot.steps)"])
+    }
+
+    private func clearCurrentActivityData(markStale: Bool) {
+        todaySteps = 0
+        todayDistance = 0
+        todayFloors = 0
+        todayCalories = 0
+        lastUpdated = markStale ? .distantPast : .now
+        resetLiveState()
+        updateSharedData()
     }
 
     private func resolveMotionDistance(snapshot: PedometerSnapshot) -> Double {
