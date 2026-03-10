@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.74] - 2026-03-10
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.74 (30)`.
+- Release publication sync for the already-verified RevenueCat and workouts codebase shipped in `0.73`.
+
+### Tests
+
+- Release verification: regenerated the Xcode project with `xcodegen generate`, confirmed `AGENTS.md` sync, and reran the full simulator test suite before tagging and publishing.
+
 ## [0.73] - 2026-03-10
 
 ### Added
