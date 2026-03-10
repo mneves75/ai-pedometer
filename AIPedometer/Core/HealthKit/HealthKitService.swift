@@ -167,6 +167,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
         let start = session.startTime
         let end = session.endTime ?? .now
+        let samples = Self.makeWorkoutSamples(for: session, start: start, end: end)
         let workoutID = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UUID, any Error>) in
             builder.beginCollection(withStart: start) { success, error in
                 if let error {
@@ -178,28 +179,110 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                     continuation.resume(throwing: HealthKitError.queryFailed)
                     return
                 }
-                builder.endCollection(withEnd: end) { _, endError in
-                    if let endError {
-                        Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
-                        continuation.resume(throwing: endError)
+
+                guard !samples.isEmpty else {
+                    builder.endCollection(withEnd: end) { _, endError in
+                        if let endError {
+                            Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
+                            continuation.resume(throwing: endError)
+                            return
+                        }
+                        builder.finishWorkout { workout, finishError in
+                            if let finishError {
+                                Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
+                                continuation.resume(throwing: finishError)
+                                return
+                            }
+                            guard let workout else {
+                                continuation.resume(throwing: HealthKitError.queryFailed)
+                                return
+                            }
+                            continuation.resume(returning: workout.uuid)
+                        }
+                    }
+                    return
+                }
+
+                builder.add(samples) { success, addError in
+                    if let addError {
+                        Loggers.health.error("healthkit.workout_samples_add_failed", metadata: [
+                            "error": String(describing: addError)
+                        ])
+                        continuation.resume(throwing: addError)
                         return
                     }
-                    builder.finishWorkout { workout, finishError in
-                        if let finishError {
-                            Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
-                            continuation.resume(throwing: finishError)
+                    guard success else {
+                        continuation.resume(throwing: HealthKitError.queryFailed)
+                        return
+                    }
+                    builder.endCollection(withEnd: end) { _, endError in
+                        if let endError {
+                            Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
+                            continuation.resume(throwing: endError)
                             return
                         }
-                        guard let workout else {
-                            continuation.resume(throwing: HealthKitError.queryFailed)
-                            return
+                        builder.finishWorkout { workout, finishError in
+                            if let finishError {
+                                Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
+                                continuation.resume(throwing: finishError)
+                                return
+                            }
+                            guard let workout else {
+                                continuation.resume(throwing: HealthKitError.queryFailed)
+                                return
+                            }
+                            continuation.resume(returning: workout.uuid)
                         }
-                        continuation.resume(returning: workout.uuid)
                     }
                 }
             }
         }
         session.healthKitWorkoutID = workoutID
+    }
+
+    nonisolated static func makeWorkoutSamples(
+        for session: WorkoutSession,
+        start: Date,
+        end: Date
+    ) -> [HKQuantitySample] {
+        guard start <= end else { return [] }
+
+        var samples: [HKQuantitySample] = []
+
+        if session.steps > 0 {
+            let quantity = HKQuantity(unit: .count(), doubleValue: Double(session.steps))
+            let sample = HKQuantitySample(
+                type: .quantityType(forIdentifier: .stepCount)!,
+                quantity: quantity,
+                start: start,
+                end: end
+            )
+            samples.append(sample)
+        }
+
+        if session.distance > 0 {
+            let quantity = HKQuantity(unit: .meter(), doubleValue: session.distance)
+            let sample = HKQuantitySample(
+                type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
+                quantity: quantity,
+                start: start,
+                end: end
+            )
+            samples.append(sample)
+        }
+
+        if session.activeCalories > 0 {
+            let quantity = HKQuantity(unit: .kilocalorie(), doubleValue: session.activeCalories)
+            let sample = HKQuantitySample(
+                type: .quantityType(forIdentifier: .activeEnergyBurned)!,
+                quantity: quantity,
+                start: start,
+                end: end
+            )
+            samples.append(sample)
+        }
+
+        return samples
     }
 
     private func fetchSum(

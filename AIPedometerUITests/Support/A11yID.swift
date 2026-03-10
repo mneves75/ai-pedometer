@@ -26,6 +26,9 @@ enum A11yID {
         static let scroll = "workouts_scroll"
         static let startWorkoutButton = "workouts_start_workout_button"
         static let trainingPlansCard = "training_plans_card"
+        static let premiumTodayPlanGate = "workouts_premium_today_plan_gate"
+        static let premiumTrainingPlansGate = "workouts_premium_training_plans_gate"
+        static let recentWorkoutsEmptyState = "workouts_recent_empty_state"
     }
 
     enum TrainingPlans {

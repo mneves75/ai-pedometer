@@ -19,7 +19,11 @@ final class AppDriver {
         self.app = app
     }
 
-    func launch(skipOnboarding: Bool = true, forcedHealthKitSyncEnabled: Bool? = nil) {
+    func launch(
+        skipOnboarding: Bool = true,
+        forcedHealthKitSyncEnabled: Bool? = nil,
+        forcedPremiumEnabled: Bool? = nil
+    ) {
         app.launchArguments.append(contentsOf: [
             "-ui-testing",
             "-reset-state",
@@ -29,6 +33,9 @@ final class AppDriver {
         }
         if let forcedHealthKitSyncEnabled {
             app.launchArguments.append(forcedHealthKitSyncEnabled ? "-force-healthkit-sync-on" : "-force-healthkit-sync-off")
+        }
+        if let forcedPremiumEnabled {
+            app.launchArguments.append(forcedPremiumEnabled ? "-force-premium-on" : "-force-premium-off")
         }
 
         app.launchEnvironment["UI_TESTING"] = "1"

@@ -6,8 +6,11 @@ enum LaunchConfiguration {
     private static let skipOnboardingArgument = "-skip-onboarding"
     private static let forceHealthKitSyncOffArgument = "-force-healthkit-sync-off"
     private static let forceHealthKitSyncOnArgument = "-force-healthkit-sync-on"
+    private static let forcePremiumOffArgument = "-force-premium-off"
+    private static let forcePremiumOnArgument = "-force-premium-on"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
     private static let demoDeterministicEnvironmentKey = "DEMO_DETERMINISTIC"
+    private static let premiumEnabledEnvironmentKey = "PREMIUM_ENABLED"
 
     static func isUITesting(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
         isUITesting(
@@ -53,6 +56,22 @@ enum LaunchConfiguration {
     static func forcedHealthKitSyncEnabled(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
         if arguments.contains(forceHealthKitSyncOffArgument) { return false }
         if arguments.contains(forceHealthKitSyncOnArgument) { return true }
+        return nil
+    }
+
+    static func forcedPremiumEnabled(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool? {
+        if arguments.contains(forcePremiumOffArgument) { return false }
+        if arguments.contains(forcePremiumOnArgument) { return true }
+
+        if let value = environment[premiumEnabledEnvironmentKey] {
+            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if normalized == "0" || normalized == "false" { return false }
+            if normalized == "1" || normalized == "true" { return true }
+        }
+
         return nil
     }
 

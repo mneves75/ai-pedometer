@@ -35,4 +35,16 @@ struct LaunchConfigurationTests {
         let args = ["-reset-state"]
         #expect(LaunchConfiguration.shouldResetState(arguments: args))
     }
+
+    @Test
+    func detectsForcedPremiumFlag() {
+        let args = ["-force-premium-on"]
+        #expect(LaunchConfiguration.forcedPremiumEnabled(arguments: args, environment: [:]) == true)
+    }
+
+    @Test
+    func detectsForcedPremiumEnvironmentFlag() {
+        let environment = ["PREMIUM_ENABLED": "false"]
+        #expect(LaunchConfiguration.forcedPremiumEnabled(arguments: [], environment: environment) == false)
+    }
 }

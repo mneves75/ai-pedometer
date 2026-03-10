@@ -43,7 +43,8 @@ struct TrainingPlanServiceTests {
         let fetched = service.fetchAllPlans()
         #expect(fetched.count == 1)
         #expect(fetched.first?.id == record.id)
-        #expect(fetched.first?.name == aiPlan.name)
+        #expect(fetched.first?.name == TrainingGoalType.reach10k.displayName)
+        #expect(fetched.first?.planDescription == TrainingGoalType.reach10k.description)
         #expect(fetched.first?.weeklyTargets.count == aiPlan.weeklyTargets.count)
         #expect(record.primaryGoal == TrainingGoalType.reach10k.rawValue)
     }
@@ -197,8 +198,8 @@ struct TrainingPlanServiceTests {
         #expect(foundationModels.lastPrompt?.contains("DATA RELIABILITY WARNING") ?? false)
     }
 
-    @Test("generatePlan rejects plans that exceed requested active days")
-    func generatePlanRejectsOverScheduledPlan() async {
+    @Test("generatePlan falls back when the model exceeds requested active days")
+    func generatePlanFallsBackForOverScheduledPlan() async throws {
         let persistence = PersistenceController(inMemory: true)
         let context = persistence.container.mainContext
         let goalService = GoalService(persistence: persistence)
@@ -222,9 +223,11 @@ struct TrainingPlanServiceTests {
             modelContext: context
         )
 
-        await #expect(throws: AIServiceError.self) {
-            _ = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 4)
-        }
+        let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 4)
+
+        #expect(record.name == TrainingGoalType.reach10k.displayName)
+        #expect(record.weeklyTargets.allSatisfy { $0.activeDaysRequired <= 4 })
+        #expect(record.weeklyTargets.allSatisfy { !$0.focusTip.isEmpty })
     }
 
     @Test("generatePlan prompt includes language directive")
@@ -302,6 +305,28 @@ struct TrainingPlanServiceTests {
 
         #expect(plan.status == TrainingPlanRecord.PlanStatus.active.rawValue)
         #expect(plan.updatedAt == Date(timeIntervalSince1970: 100))
+    }
+
+    @Test("generatePlan falls back to localized deterministic content when the model returns an invalid response")
+    func generatePlanFallsBackWhenModelResponseIsInvalid() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .failure(.invalidResponse)
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context
+        )
+
+        let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+
+        #expect(record.name == TrainingGoalType.reach10k.displayName)
+        #expect(record.planDescription == TrainingGoalType.reach10k.description)
+        #expect(record.weeklyTargets.count == 4)
+        #expect(record.weeklyTargets.allSatisfy { !$0.focusTip.isEmpty })
     }
 }
 

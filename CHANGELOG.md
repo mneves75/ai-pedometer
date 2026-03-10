@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.73] - 2026-03-10
+
+### Added
+
+- RevenueCat-based premium access management with a native SwiftUI paywall, entitlement-aware feature gates, and local configuration via `Config/Local.xcconfig`.
+- Local Markdown rendering support for AI coach/chat surfaces using native `AttributedString(markdown:)`, removing the external `SwiftFastMarkdown` dependency.
+- Regression coverage for RevenueCat configuration resolution, premium launch overrides, recent workout filtering, and HealthKit workout sample generation.
+
+### Fixed
+
+- Workout recommendations and training-plan generation now fail closed to deterministic localized fallback content when Foundation Models return invalid, partial, or unavailable responses.
+- HealthKit workout saving now persists workout samples for steps, distance, and calories instead of saving workouts without quantity payloads.
+- Training Plans and Workouts surfaces now prioritize the user’s active saved plan over speculative AI recommendations and hide raw model-error copy from the UI.
+- Recent workouts now exclude in-progress sessions and render a clearer empty state when there is no completed history.
+
+### Improved
+
+- Premium-gated experiences now cover dashboard AI insights, weekly history trends, AI Coach, smart reminders, training-plan creation, and AI workout recommendations with a consistent unavailable-subscriptions state.
+- About screen now explains recurring premium support separately from the one-time tip jar.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.73 (29)`.
+
+### Tests
+
+- Release verification: unit tests passed with `368 tests / 68 suites`; UI tests passed with `14 tests / 0 failures`, plus a focused rerun of `testWorkoutsShowPremiumGatesWhenPremiumIsForcedOff` passed with `1 test / 0 failures`.
+
 ## [0.72] - 2026-03-06
 
 ### Fixed

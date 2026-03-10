@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftFastMarkdown
 
 /// Markdown configuration for AI chat rendering (iOS-only).
 ///
@@ -53,4 +52,3 @@ enum AIChatMarkdown {
         AttributedStringRenderer().render(document, style: style)
     }
 }
-

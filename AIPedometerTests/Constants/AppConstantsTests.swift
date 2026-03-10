@@ -106,4 +106,35 @@ struct AppConstantsTests {
         let url = try #require(URL(string: "itms-apps://itunes.apple.com/app/id123456789?action=write-review"))
         #expect(AppConstants.reviewAction(appStoreURL: url) == .openURL(url))
     }
+
+    @Test
+    func resolveRevenueCatConfigurationPrefersEnvironmentValue() {
+        let config = AppConstants.RevenueCat.resolveConfiguration(
+            bundle: .main,
+            environment: [
+                "REVENUECAT_API_KEY": "appl_test_key",
+                "REVENUECAT_ENTITLEMENT_ID": "pro",
+                "REVENUECAT_OFFERING_ID": "default"
+            ]
+        )
+
+        #expect(config.apiKey == "appl_test_key")
+        #expect(config.entitlementID == "pro")
+        #expect(config.offeringID == "default")
+        #expect(config.isConfigured)
+    }
+
+    @Test
+    func resolveRevenueCatConfigurationIgnoresPlaceholderValues() {
+        let config = AppConstants.RevenueCat.resolveConfiguration(
+            bundle: .main,
+            environment: [
+                "REVENUECAT_API_KEY": "REVENUECAT_API_KEY",
+                "REVENUECAT_ENTITLEMENT_ID": "premium"
+            ]
+        )
+
+        #expect(config.apiKey == nil)
+        #expect(config.entitlementID == "premium")
+    }
 }

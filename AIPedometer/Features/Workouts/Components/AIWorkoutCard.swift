@@ -2,8 +2,12 @@ import SwiftUI
 
 struct AIWorkoutCard: View {
     let recommendation: AIWorkoutRecommendation?
+    let summary: String?
+    let sourceTitle: String?
     let isLoading: Bool
+    let hasLoadedRecommendation: Bool
     let error: AIServiceError?
+    let canRefresh: Bool
     var onRefresh: () -> Void
     let unitName: String
     var onStartWorkout: (AIWorkoutRecommendation) -> Void
@@ -18,6 +22,8 @@ struct AIWorkoutCard: View {
                 loadingContent
             } else if let recommendation {
                 recommendationContent(recommendation)
+            } else if !hasLoadedRecommendation {
+                loadingContent
             } else {
                 emptyContent
             }
@@ -42,7 +48,7 @@ struct AIWorkoutCard: View {
             
             Spacer()
             
-            if recommendation != nil && !isLoading {
+            if canRefresh && recommendation != nil && !isLoading {
                 Button(action: onRefresh) {
                     Image(systemName: "arrow.clockwise")
                         .font(DesignTokens.Typography.subheadline)
@@ -90,8 +96,14 @@ struct AIWorkoutCard: View {
     private func recommendationContent(_ recommendation: AIWorkoutRecommendation) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             intentBadge(recommendation.intent)
-            
-            Text(recommendation.rationale)
+
+            if let sourceTitle {
+                Text(sourceTitle)
+                    .font(DesignTokens.Typography.caption.weight(.medium))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+
+            Text(summary ?? recommendation.intent.localizedDescription)
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
             
@@ -219,8 +231,12 @@ struct AIWorkoutCard: View {
             estimatedMinutes: 30,
             suggestedTimeOfDay: .afternoon
         ),
+        summary: "Keep your strongest routine and prioritize consistency.",
+        sourceTitle: "Reach 10,000 Steps Daily",
         isLoading: false,
+        hasLoadedRecommendation: true,
         error: nil,
+        canRefresh: true,
         onRefresh: {},
         unitName: ActivityTrackingMode.steps.unitName,
         onStartWorkout: { _ in }
@@ -231,8 +247,12 @@ struct AIWorkoutCard: View {
 #Preview("Loading") {
     AIWorkoutCard(
         recommendation: nil,
+        summary: nil,
+        sourceTitle: nil,
         isLoading: true,
+        hasLoadedRecommendation: false,
         error: nil,
+        canRefresh: false,
         onRefresh: {},
         unitName: ActivityTrackingMode.steps.unitName,
         onStartWorkout: { _ in }
@@ -243,8 +263,12 @@ struct AIWorkoutCard: View {
 #Preview("Error") {
     AIWorkoutCard(
         recommendation: nil,
+        summary: nil,
+        sourceTitle: nil,
         isLoading: false,
+        hasLoadedRecommendation: true,
         error: .sessionNotConfigured,
+        canRefresh: false,
         onRefresh: {},
         unitName: ActivityTrackingMode.steps.unitName,
         onStartWorkout: { _ in }

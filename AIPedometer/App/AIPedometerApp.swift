@@ -22,6 +22,7 @@ struct AIPedometerApp: App {
     @State private var notificationService: NotificationService
     @State private var smartNotificationService: SmartNotificationService
     @State private var tipJarStore: TipJarStore
+    @State private var premiumAccessStore: PremiumAccessStore
     @State private var startupCoordinator: AppStartupCoordinator
     @State private var lifecycleCoordinator: AppLifecycleCoordinator
     private let persistence: PersistenceController
@@ -148,6 +149,7 @@ struct AIPedometerApp: App {
             goalService: goalService
         ))
         _tipJarStore = State(initialValue: TipJarStore())
+        _premiumAccessStore = State(initialValue: PremiumAccessStore())
 
         _badgeService = State(initialValue: badges)
 
@@ -233,8 +235,10 @@ struct AIPedometerApp: App {
                 .environment(notificationService)
                 .environment(smartNotificationService)
                 .environment(tipJarStore)
+                .environment(premiumAccessStore)
                 .modelContainer(persistence.container)
                 .task {
+                    await premiumAccessStore.prepare()
                     await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
                 }
                 .onChange(of: onboardingCompleted) { _, _ in

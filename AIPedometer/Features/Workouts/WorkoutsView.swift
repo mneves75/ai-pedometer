@@ -5,8 +5,9 @@ struct WorkoutsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
+    @Environment(TrainingPlanService.self) private var trainingPlanService
     @Environment(WorkoutSessionController.self) private var workoutController
-    @Namespace private var workoutNamespace
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
     @Query(
         filter: #Predicate<WorkoutSession> { $0.deletedAt == nil },
@@ -17,13 +18,16 @@ struct WorkoutsView: View {
     @State private var workoutRecommendation: AIWorkoutRecommendation?
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
-    
+    @State private var hasLoadedRecommendation = false
+
     private var activityMode: ActivityTrackingMode {
         ActivityTrackingMode(rawValue: activityModeRaw) ?? .steps
     }
 
     private struct RecommendationTrigger: Hashable {
         let aiAvailable: Bool
+        let premiumEnabled: Bool
+        let activePlanID: UUID?
     }
 
     var body: some View {
@@ -48,19 +52,49 @@ struct WorkoutsView: View {
             ActiveWorkoutView()
                 .presentationDetents([.large])
         }
-        .task(id: RecommendationTrigger(aiAvailable: aiService.availability.isAvailable)) {
+        .task(id: RecommendationTrigger(
+            aiAvailable: aiService.availability.isAvailable,
+            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            activePlanID: activePlan?.id
+        )) {
             guard !LaunchConfiguration.isUITesting() else { return }
+
+            if activePlan != nil {
+                hasLoadedRecommendation = true
+                recommendationError = nil
+                workoutRecommendation = nil
+                return
+            }
+
+            guard premiumAccessStore.canAccessAIFeatures else {
+                workoutRecommendation = nil
+                recommendationError = nil
+                hasLoadedRecommendation = false
+                return
+            }
+
+            guard aiService.availability.isAvailable else {
+                workoutRecommendation = nil
+                recommendationError = nil
+                hasLoadedRecommendation = false
+                return
+            }
+
             await loadWorkoutRecommendation()
         }
     }
 
     @ViewBuilder
     private var aiWorkoutSection: some View {
-        if aiService.availability.isAvailable {
+        if let displayedRecommendation {
             AIWorkoutCard(
-                recommendation: workoutRecommendation,
-                isLoading: isLoadingRecommendation,
-                error: recommendationError,
+                recommendation: displayedRecommendation,
+                summary: displayedRecommendationSummary,
+                sourceTitle: activePlan?.name,
+                isLoading: isLoadingRecommendation && activePlan == nil,
+                hasLoadedRecommendation: hasLoadedRecommendation,
+                error: activePlan == nil ? recommendationError : nil,
+                canRefresh: activePlan == nil && premiumAccessStore.canAccessAIFeatures && aiService.availability.isAvailable,
                 onRefresh: { Task { await loadWorkoutRecommendation(forceRefresh: true) } },
                 unitName: activityMode.unitName,
                 onStartWorkout: { recommendation in
@@ -68,16 +102,35 @@ struct WorkoutsView: View {
                 }
             )
             .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if premiumAccessStore.canAccessAIFeatures {
+            if case .unavailable(let reason) = aiService.availability {
+                AIAvailabilityBanner(reason: reason)
+                    .padding(.horizontal, DesignTokens.Spacing.md)
+            }
+        } else {
+            PremiumFeatureGateCard(
+                title: L10n.localized("Today's Plan", comment: "AI workout card header"),
+                message: L10n.localized(
+                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                    comment: "Premium gate copy for AI features"
+                ),
+                accessibilityIdentifier: A11yID.Workouts.premiumTodayPlanGate
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
         }
     }
 
     private func loadWorkoutRecommendation(forceRefresh: Bool = false) async {
         guard aiService.availability.isAvailable else { return }
+        guard premiumAccessStore.canAccessAIFeatures else { return }
         guard !isLoadingRecommendation else { return }
 
         isLoadingRecommendation = true
         recommendationError = nil
-        defer { isLoadingRecommendation = false }
+        defer {
+            isLoadingRecommendation = false
+            hasLoadedRecommendation = true
+        }
 
         do {
             workoutRecommendation = try await insightService.generateWorkoutRecommendation(forceRefresh: forceRefresh)
@@ -167,54 +220,61 @@ struct WorkoutsView: View {
         .padding(.vertical, DesignTokens.Spacing.lg)
     }
 
-    // MARK: - Training Plans Section
-
     private var trainingPlansSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(L10n.localized("Training Plans", comment: "Section header for training plans"))
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
-            NavigationLink {
-                TrainingPlansView()
-            } label: {
-                HStack(spacing: DesignTokens.Spacing.md) {
-                    Image(systemName: "calendar.badge.plus")
-                        .font(DesignTokens.Typography.title2)
-                        .foregroundStyle(DesignTokens.Colors.accent)
-                        .frame(width: 44, height: 44)
-                        .background(DesignTokens.Colors.accentSoft, in: Circle())
+            if !premiumAccessStore.canAccessAIFeatures && !hasSavedPlans {
+                PremiumFeatureGateCard(
+                    title: L10n.localized("AI Training Plans", comment: "Training plans card title"),
+                    message: L10n.localized(
+                        "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                        comment: "Premium gate copy for AI features"
+                    ),
+                    accessibilityIdentifier: A11yID.Workouts.premiumTrainingPlansGate
+                )
+            } else {
+                NavigationLink {
+                    TrainingPlansView()
+                } label: {
+                    HStack(spacing: DesignTokens.Spacing.md) {
+                        Image(systemName: "calendar.badge.plus")
+                            .font(DesignTokens.Typography.title2)
+                            .foregroundStyle(DesignTokens.Colors.accent)
+                            .frame(width: 44, height: 44)
+                            .background(DesignTokens.Colors.accentSoft, in: Circle())
 
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
-                            .font(DesignTokens.Typography.headline)
-                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                            Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
+                                .font(DesignTokens.Typography.headline)
+                                .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-                        Text(L10n.localized("Get personalized plans powered by AI", comment: "Training plans card subtitle"))
-                            .font(DesignTokens.Typography.subheadline)
-                            .foregroundStyle(DesignTokens.Colors.textSecondary)
+                            Text(trainingPlansSubtitle)
+                                .font(DesignTokens.Typography.subheadline)
+                                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                            .foregroundStyle(DesignTokens.Colors.textTertiary)
                     }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(DesignTokens.Typography.subheadline.weight(.semibold))
-                        .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .padding(DesignTokens.Spacing.md)
+                    .glassCard(interactive: true)
                 }
-                .padding(DesignTokens.Spacing.md)
-                .glassCard(interactive: true)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
+                .accessibleCard(
+                    label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
+                    hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
+                )
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
-            .accessibleCard(
-                label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
-                hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
-            )
         }
+        .padding(.horizontal, DesignTokens.Spacing.md)
     }
-
-    // MARK: - Recent Workouts Section
 
     private var recentWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
@@ -222,7 +282,7 @@ struct WorkoutsView: View {
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
-            if recentWorkouts.isEmpty {
+            if completedRecentWorkouts.isEmpty {
                 emptyWorkoutsView
             } else {
                 recentWorkoutsCarousel
@@ -248,6 +308,7 @@ struct WorkoutsView: View {
         .frame(maxWidth: .infinity)
         .padding(DesignTokens.Spacing.xl)
         .glassCard()
+        .accessibilityIdentifier(A11yID.Workouts.recentWorkoutsEmptyState)
         .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
@@ -271,7 +332,7 @@ struct WorkoutsView: View {
 
     private var workoutCardsRow: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            ForEach(recentWorkouts.prefix(5)) { workout in
+            ForEach(completedRecentWorkouts) { workout in
                 WorkoutCard(workout: workout)
             }
         }
@@ -287,27 +348,97 @@ struct WorkoutsView: View {
             await workoutController.startWorkout(type: .outdoorWalk, targetSteps: targetSteps)
         }
     }
-}
 
-// MARK: - Workout Card
+    private var activePlan: TrainingPlanRecord? {
+        trainingPlanService.fetchActivePlans().first
+    }
+
+    private var hasSavedPlans: Bool {
+        !trainingPlanService.fetchAllPlans().isEmpty
+    }
+
+    private var displayedRecommendation: AIWorkoutRecommendation? {
+        if let activePlan {
+            return recommendation(for: activePlan)
+        }
+        return workoutRecommendation
+    }
+
+    private var displayedRecommendationSummary: String? {
+        if let activePlan {
+            return activePlan.currentWeekTarget?.focusTip ?? activePlan.planDescription
+        }
+        return workoutRecommendation.map { $0.intent.localizedDescription }
+    }
+
+    private var completedRecentWorkouts: [WorkoutSession] {
+        Self.recentCompletedWorkouts(from: recentWorkouts)
+    }
+
+    private var trainingPlansSubtitle: String {
+        if let activePlan {
+            return activePlan.planDescription
+        }
+        return L10n.localized("Get personalized plans powered by AI", comment: "Training plans card subtitle")
+    }
+
+    private func recommendation(for plan: TrainingPlanRecord) -> AIWorkoutRecommendation? {
+        guard let target = plan.currentWeekTarget else { return nil }
+
+        return AIWorkoutRecommendation(
+            intent: intent(for: plan),
+            difficulty: difficulty(for: target.dailyStepTarget),
+            rationale: plan.planDescription,
+            targetSteps: target.dailyStepTarget,
+            estimatedMinutes: max(Int(Double(target.dailyStepTarget) / 110.0), 15),
+            suggestedTimeOfDay: .anytime
+        )
+    }
+
+    private func intent(for plan: TrainingPlanRecord) -> WorkoutIntent {
+        switch TrainingGoalType(rawValue: plan.primaryGoal) {
+        case .startWalking, .improveConsistency:
+            return .maintain
+        case .buildEndurance, .reach10k:
+            return .build
+        case .weightManagement:
+            return .explore
+        case .none:
+            return .maintain
+        }
+    }
+
+    private func difficulty(for targetSteps: Int) -> Int {
+        switch targetSteps {
+        case ..<3_500: return 1
+        case ..<6_000: return 2
+        case ..<9_000: return 3
+        case ..<12_000: return 4
+        default: return 5
+        }
+    }
+
+    static func recentCompletedWorkouts(
+        from workouts: [WorkoutSession],
+        limit: Int = 6
+    ) -> [WorkoutSession] {
+        Array(workouts.filter { $0.endTime != nil }.prefix(limit))
+    }
+}
 
 struct WorkoutCard: View {
     let workout: WorkoutSession
 
     var body: some View {
-        Button {
-            HapticService.shared.tap()
-        } label: {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                iconBadge
-                workoutInfo
-            }
-            .padding(DesignTokens.Spacing.md)
-            .frame(width: 160)
-            .glassCard(interactive: true)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            iconBadge
+            workoutInfo
+            statsRow
         }
-        .buttonStyle(.plain)
-        .accessibleCard(label: "\(workout.type.displayName), \(formattedDuration), \(formattedDate)")
+        .padding(DesignTokens.Spacing.md)
+        .frame(width: 190)
+        .glassCard()
+        .accessibleCard(label: "\(workout.type.displayName), \(formattedDate), \(formattedDuration)")
     }
 
     private var iconBadge: some View {
@@ -325,11 +456,28 @@ struct WorkoutCard: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
             Text(workout.type.displayName)
                 .font(DesignTokens.Typography.headline)
-            Text(formattedDuration)
-                .font(DesignTokens.Typography.subheadline.bold())
             Text(formattedDate)
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
+        }
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            statValue(icon: "figure.walk", value: workout.steps.formattedSteps)
+            statValue(icon: "clock", value: formattedDuration)
+            statValue(icon: "location", value: workout.distance.formattedDistance())
+        }
+        .font(DesignTokens.Typography.caption.weight(.medium))
+        .foregroundStyle(DesignTokens.Colors.textSecondary)
+    }
+
+    private func statValue(icon: String, value: String) -> some View {
+        HStack(spacing: DesignTokens.Spacing.xxs) {
+            Image(systemName: icon)
+            Text(value)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
     }
 
@@ -352,8 +500,6 @@ struct WorkoutCard: View {
         }
     }
 }
-
-// MARK: - WorkoutType Extension
 
 extension WorkoutType {
     var color: Color {
@@ -379,6 +525,12 @@ extension WorkoutType {
         goalService: goalService,
         dataStore: dataStore
     )
+    let trainingPlanService = TrainingPlanService(
+        foundationModelsService: foundationModelsService,
+        healthKitService: healthKitService,
+        goalService: goalService,
+        modelContext: persistence.container.mainContext
+    )
     let workoutController = WorkoutSessionController(
         modelContext: persistence.container.mainContext,
         healthKitService: healthKitService,
@@ -390,5 +542,7 @@ extension WorkoutType {
         .environment(demoModeStore)
         .environment(foundationModelsService)
         .environment(insightService)
+        .environment(trainingPlanService)
         .environment(workoutController)
+        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }

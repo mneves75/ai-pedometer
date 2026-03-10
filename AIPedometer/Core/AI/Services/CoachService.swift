@@ -1,7 +1,6 @@
 import Foundation
 import FoundationModels
 import Observation
-import SwiftFastMarkdown
 
 @MainActor
 protocol CoachSessionProtocol: AnyObject {

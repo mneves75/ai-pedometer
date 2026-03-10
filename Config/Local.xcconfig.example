@@ -1,3 +1,7 @@
 // Copy to Local.xcconfig and set your Apple Developer Team ID
 // cp Config/Local.xcconfig.example Config/Local.xcconfig
 DEVELOPMENT_TEAM = YOUR_TEAM_ID
+APP_STORE_ID = 123456789
+REVENUECAT_API_KEY = REVENUECAT_API_KEY
+REVENUECAT_ENTITLEMENT_ID = premium
+REVENUECAT_OFFERING_ID =

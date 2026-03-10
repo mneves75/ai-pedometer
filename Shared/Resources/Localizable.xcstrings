@@ -4025,13 +4025,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "One-time tip to support ongoing development."
+            "value" : "Recurring support keeps AI Pedometer improving, and the coffee tip stays optional."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gorjeta única para apoiar o desenvolvimento contínuo."
+            "value" : "O apoio recorrente mantém o AI Pedometer evoluindo, e o cafezinho continua opcional."
           }
         }
       }
@@ -7074,6 +7074,210 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seu apoio mantém o AI Pedometer melhorando."
+          }
+        }
+      }
+    },
+    "Manage Subscription" : {
+      "comment" : "Manage subscription button",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Subscription"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerenciar assinatura"
+          }
+        }
+      }
+    },
+    "Premium" : {
+      "comment" : "Premium section title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        }
+      }
+    },
+    "Premium is active." : {
+      "comment" : "Premium active status in About",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is active."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Premium está ativo."
+          }
+        }
+      }
+    },
+    "Premium is required to generate new AI insights, coaching, plans, and smart reminders." : {
+      "comment" : "Premium gate copy for AI features",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is required to generate new AI insights, coaching, plans, and smart reminders."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Premium é necessário para gerar novos insights com IA, coaching, planos e lembretes inteligentes."
+          }
+        }
+      }
+    },
+    "Premium unlocks AI insights, AI Coach, training plans, and smart reminders." : {
+      "comment" : "Premium feature summary in About",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium unlocks AI insights, AI Coach, training plans, and smart reminders."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Premium libera insights com IA, Coach IA, planos de treino e lembretes inteligentes."
+          }
+        }
+      }
+    },
+    "Recurring support keeps AI Pedometer improving, and the coffee tip stays optional." : {
+      "comment" : "Tip jar description in About",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring support keeps AI Pedometer improving, and the coffee tip stays optional."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O apoio recorrente mantém o AI Pedometer evoluindo, e o cafezinho continua opcional."
+          }
+        }
+      }
+    },
+    "Start a little below your limit and make the routine easy to repeat." : {
+      "comment" : "Fallback focus tip for the first training week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a little below your limit and make the routine easy to repeat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comece um pouco abaixo do seu limite e deixe a rotina fácil de repetir."
+          }
+        }
+      }
+    },
+    "Subscriptions are unavailable right now. Please try again later." : {
+      "comment" : "RevenueCat unavailable state when API key is not configured",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscriptions are unavailable right now. Please try again later."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As assinaturas estão indisponíveis no momento. Tente novamente mais tarde."
+          }
+        }
+      }
+    },
+    "Unlock Premium" : {
+      "comment" : "Premium primary button label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Premium"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desbloquear Premium"
+          }
+        }
+      }
+    },
+    "Add volume gradually and protect your recovery between sessions." : {
+      "comment" : "Fallback focus tip for the second training week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add volume gradually and protect your recovery between sessions."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aumente o volume aos poucos e proteja sua recuperação entre as sessões."
+          }
+        }
+      }
+    },
+    "Keep your strongest routine and prioritize consistency." : {
+      "comment" : "Fallback focus tip for the third training week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep your strongest routine and prioritize consistency."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantenha sua rotina mais forte e priorize a consistência."
+          }
+        }
+      }
+    },
+    "Finish the block with steady effort and confident form." : {
+      "comment" : "Fallback focus tip for the final training week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish the block with steady effort and confident form."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feche o ciclo com esforço estável e execução confiante."
           }
         }
       }

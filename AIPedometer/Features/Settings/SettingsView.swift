@@ -17,6 +17,7 @@ struct SettingsView: View {
     @Environment(NotificationService.self) private var notificationService
     @Environment(SmartNotificationService.self) private var smartNotificationService
     @Environment(FoundationModelsService.self) private var aiService
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(\.presentationMode) private var presentationMode
     private let appVersion = AppVersion()
     @State private var showGoalEditor = false
@@ -432,14 +433,23 @@ struct SettingsView: View {
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
-            .disabled(isUpdatingSmartReminders || !aiService.availability.isAvailable)
+            .disabled(isUpdatingSmartReminders || !aiService.availability.isAvailable || !premiumAccessStore.canAccessAIFeatures)
             .onChange(of: smartRemindersEnabled) { _, newValue in
                 HapticService.shared.selection()
                 Task { await updateSmartReminders(enabled: newValue) }
             }
             .accessibilityLabel(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"))
             .accessibilityValue(smartRemindersEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
-            if case .unavailable(let reason) = aiService.availability {
+            if !premiumAccessStore.canAccessAIFeatures {
+                Text(
+                    L10n.localized(
+                        "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                        comment: "Premium gate copy for AI features"
+                    )
+                )
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+            } else if case .unavailable(let reason) = aiService.availability {
                 Text(reason.userFacingMessage)
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -535,6 +545,18 @@ struct SettingsView: View {
     private func updateSmartReminders(enabled: Bool) async {
         isUpdatingSmartReminders = true
         defer { isUpdatingSmartReminders = false }
+
+        guard premiumAccessStore.canAccessAIFeatures else {
+            smartRemindersEnabled = false
+            showNotificationAlert(
+                message: L10n.localized(
+                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                    comment: "Premium gate copy for AI features"
+                ),
+                offersSettings: false
+            )
+            return
+        }
 
         guard aiService.availability.isAvailable else {
             smartRemindersEnabled = false

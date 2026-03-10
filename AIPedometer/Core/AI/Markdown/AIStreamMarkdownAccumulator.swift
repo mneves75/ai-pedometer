@@ -1,5 +1,3 @@
-import SwiftFastMarkdown
-
 /// Incremental markdown parsing helper for streaming content.
 ///
 /// Rationale:
@@ -44,4 +42,3 @@ struct AIStreamMarkdownAccumulator {
         parser.finalize()
     }
 }
-

@@ -79,6 +79,74 @@ enum AppConstants {
         static let productID = "com.mneves.aipedometer.coffee"
     }
 
+    struct RevenueCatConfiguration: Sendable, Equatable {
+        let apiKey: String?
+        let entitlementID: String
+        let offeringID: String?
+
+        var isConfigured: Bool {
+            guard let apiKey else { return false }
+            return !apiKey.isEmpty
+        }
+    }
+
+    enum RevenueCat {
+        private static let placeholderAPIKey = "REVENUECAT_API_KEY"
+        private static let placeholderEntitlementID = "premium"
+
+        static func resolveConfiguration(
+            bundle: Bundle = .main,
+            environment: [String: String] = ProcessInfo.processInfo.environment
+        ) -> RevenueCatConfiguration {
+            RevenueCatConfiguration(
+                apiKey: resolveValue(
+                    environmentKey: "REVENUECAT_API_KEY",
+                    infoDictionaryKey: "RevenueCatAPIKey",
+                    placeholder: placeholderAPIKey,
+                    bundle: bundle,
+                    environment: environment
+                ),
+                entitlementID: resolveValue(
+                    environmentKey: "REVENUECAT_ENTITLEMENT_ID",
+                    infoDictionaryKey: "RevenueCatEntitlementID",
+                    placeholder: placeholderEntitlementID,
+                    bundle: bundle,
+                    environment: environment
+                ) ?? placeholderEntitlementID,
+                offeringID: resolveValue(
+                    environmentKey: "REVENUECAT_OFFERING_ID",
+                    infoDictionaryKey: "RevenueCatOfferingID",
+                    placeholder: "",
+                    bundle: bundle,
+                    environment: environment
+                )
+            )
+        }
+
+        private static func resolveValue(
+            environmentKey: String,
+            infoDictionaryKey: String,
+            placeholder: String,
+            bundle: Bundle,
+            environment: [String: String]
+        ) -> String? {
+            if let envValue = environment[environmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !envValue.isEmpty,
+               envValue != placeholder {
+                return envValue
+            }
+
+            if let bundleValue = bundle.object(forInfoDictionaryKey: infoDictionaryKey) as? String {
+                let trimmed = bundleValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty, !trimmed.contains("$("), trimmed != placeholder {
+                    return trimmed
+                }
+            }
+
+            return nil
+        }
+    }
+
     enum BackgroundTaskIdentifiers {
         static let refresh = "com.mneves.aipedometer.refresh"
         static let processing = "com.mneves.aipedometer.processing"
