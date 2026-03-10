@@ -258,6 +258,36 @@ final class AIPedometerUITests: XCTestCase {
         d.captureScreen(named: "Active Workout")
     }
 
+    func testWorkoutsShowPremiumGatesWhenPremiumIsForcedOff() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, forcedPremiumEnabled: false)
+
+        d.openTab(.workouts)
+        d.assertWorkoutsLoaded()
+
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.premiumTodayPlanGate],
+                d.app.staticTexts[A11yID.Workouts.premiumTodayPlanGate],
+            ],
+            timeout: navigationTimeout
+        )
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.premiumTrainingPlansGate],
+                d.app.staticTexts[A11yID.Workouts.premiumTrainingPlansGate],
+            ],
+            timeout: navigationTimeout
+        )
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.recentWorkoutsEmptyState],
+                d.app.staticTexts[A11yID.Workouts.recentWorkoutsEmptyState],
+            ],
+            timeout: navigationTimeout
+        )
+    }
+
     func testAboutFromSettings() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)

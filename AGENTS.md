@@ -59,18 +59,21 @@ Essentials (apply to every task):
 
 Common commands:
 - `bun --bun tools/kb-check-all.ts`
+- `bun --bun tools/kb-check-all.ts --critical-only`
 - `bun --bun tools/kb-check-references.ts`
 - `bun --bun tools/kb-check-index.ts`
 - `bun --bun tools/kb-check-staleness.ts`
 - `bun --bun tools/readiness-check.ts --format=html --output=report.html`
 
 Additional kb-tools commands:
+- `cd tools && bun test lib/__tests__/repo.test.ts`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`
 - `bun --bun tools/kb-check-schemas.ts`
 - `bun --bun tools/kb-check-tldr.ts`
 - `bun --bun tools/kb-check-tldr-quality.ts`
+- `bun --bun tools/kb-check-tldr-quality.ts --verbose`
 - `bun --bun tools/kb-check-deprecated.ts`
 - `bun --bun tools/kb-context-filter.ts [--project <path>] [--json]`
 - `bun --bun tools/kb-verify.ts <path>#Section`

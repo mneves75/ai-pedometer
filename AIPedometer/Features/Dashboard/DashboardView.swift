@@ -6,6 +6,7 @@ struct DashboardView: View {
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
 
     @State private var animateProgress = false
@@ -130,7 +131,16 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var aiInsightSection: some View {
-        if aiService.availability.isAvailable {
+        if !premiumAccessStore.canAccessAIFeatures {
+            PremiumFeatureGateCard(
+                title: L10n.localized("AI-Powered Insights", comment: "Feature title"),
+                message: L10n.localized(
+                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                    comment: "Premium gate copy for AI features"
+                )
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if aiService.availability.isAvailable {
             AIInsightCard(
                 insight: dailyInsight,
                 isLoading: insightService.isGeneratingDailyInsight,
@@ -146,6 +156,7 @@ struct DashboardView: View {
     }
 
     private func loadDailyInsight(forceRefresh: Bool = false) async {
+        guard premiumAccessStore.canAccessAIFeatures else { return }
         guard aiService.availability.isAvailable else { return }
 
         insightError = nil

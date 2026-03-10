@@ -233,8 +233,39 @@ final class InsightService {
         let signpostState = Signposts.ai.begin("WorkoutRecommendation")
         defer { Signposts.ai.end("WorkoutRecommendation", signpostState) }
 
+        let weekData: WeekActivityData
         do {
-            let weekData = try await fetchWeekActivityData()
+            weekData = try await fetchWeekActivityData()
+        } catch let error as AIServiceError {
+            lastError = error
+            let fallback = fallbackWorkoutRecommendation(
+                weekData: nil,
+                todayData: todayData,
+                currentGoal: currentGoal
+            )
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, fallback)
+            Loggers.ai.warning("ai.workout_recommendation_fallback", metadata: [
+                "reason": "fetch_failed",
+                "error": error.logDescription
+            ])
+            return fallback
+        } catch {
+            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
+            lastError = mappedError
+            let fallback = fallbackWorkoutRecommendation(
+                weekData: nil,
+                todayData: todayData,
+                currentGoal: currentGoal
+            )
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, fallback)
+            Loggers.ai.warning("ai.workout_recommendation_fallback", metadata: [
+                "reason": "fetch_failed",
+                "error": mappedError.logDescription
+            ])
+            return fallback
+        }
+
+        do {
             let prompt = buildWorkoutRecommendationPrompt(
                 weekData: weekData,
                 todayData: todayData,
@@ -252,13 +283,18 @@ final class InsightService {
                 "targetSteps": "\(recommendation.targetSteps)"
             ])
             return recommendation
-        } catch let error as AIServiceError {
+        } catch let error {
             lastError = error
-            throw error
-        } catch {
-            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
-            lastError = mappedError
-            throw mappedError
+            let fallback = fallbackWorkoutRecommendation(
+                weekData: weekData,
+                todayData: todayData,
+                currentGoal: currentGoal
+            )
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, fallback)
+            Loggers.ai.warning("ai.workout_recommendation_fallback", metadata: [
+                "reason": error.logDescription
+            ])
+            return fallback
         }
     }
     
@@ -874,5 +910,69 @@ private extension InsightService {
         If they're behind on their goal, suggest something achievable.
         If they're ahead, suggest an appropriate challenge or recovery.
         """
+    }
+
+    func fallbackWorkoutRecommendation(
+        weekData: WeekActivityData?,
+        todayData: ActivityData,
+        currentGoal: Int
+    ) -> AIWorkoutRecommendation {
+        let remaining = max(currentGoal - todayData.steps, 0)
+        let weeklyAverage = weekData?.averageSteps ?? todayData.steps
+        let goalMetDays = weekData?.goalMetDays ?? 0
+
+        let intent: WorkoutIntent
+        if todayData.percentOfGoal >= 100 || goalMetDays >= 5 {
+            intent = .recover
+        } else if remaining > max(2_500, currentGoal / 3) || weeklyAverage < Int(Double(currentGoal) * 0.75) {
+            intent = .build
+        } else if todayData.percentOfGoal < 35 {
+            intent = .explore
+        } else {
+            intent = .maintain
+        }
+
+        let suggestedTarget = switch intent {
+        case .recover:
+            max(2_000, weeklyAverage / 3)
+        case .maintain:
+            max(2_500, min(remaining, currentGoal / 3))
+        case .explore:
+            max(3_000, min(remaining, weeklyAverage / 2))
+        case .build:
+            max(3_500, min(max(remaining, weeklyAverage / 2), currentGoal))
+        }
+
+        let roundedTarget = max(Int((Double(suggestedTarget) / 250).rounded()) * 250, 1_500)
+        let estimatedMinutes = min(max(Int(Double(roundedTarget) / 110), 15), 80)
+
+        return AIWorkoutRecommendation(
+            intent: intent,
+            difficulty: fallbackWorkoutDifficulty(for: intent),
+            rationale: intent.localizedDescription,
+            targetSteps: roundedTarget,
+            estimatedMinutes: estimatedMinutes,
+            suggestedTimeOfDay: fallbackWorkoutTimeOfDay()
+        )
+    }
+
+    func fallbackWorkoutDifficulty(for intent: WorkoutIntent) -> Int {
+        switch intent {
+        case .recover:
+            return 1
+        case .maintain:
+            return 2
+        case .explore:
+            return 3
+        case .build:
+            return 4
+        }
+    }
+
+    func fallbackWorkoutTimeOfDay(now: Date = .now, calendar: Calendar = .current) -> TimeOfDay {
+        let hour = calendar.component(.hour, from: now)
+        if hour < 12 { return .morning }
+        if hour < 18 { return .afternoon }
+        return .evening
     }
 }

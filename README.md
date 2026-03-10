@@ -15,8 +15,9 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 
 - **Step Tracking** — HealthKit integration with real-time pedometer and Apple Watch merging
 - **AI Insights** — On-device AI analysis using Apple Foundation Models
-- **AI Coach** — Personalized coaching and training plans
-- **AI Training Plans** — AI-generated workout programs adapted to your fitness level
+- **Premium AI** — RevenueCat-backed subscription gating for AI insights, coach, reminders, history trends, and workout planning
+- **AI Coach** — Personalized coaching with local Markdown rendering and resilient fallback behavior
+- **AI Training Plans** — AI-generated workout programs adapted to your fitness level, with deterministic localized fallbacks when the model response is invalid
 - **watchOS App** — Companion app with bidirectional sync
 - **Widgets** — Lock screen and Home Screen widgets
 - **Accessibility** — Wheelchair mode for push tracking, VoiceOver support
@@ -50,6 +51,17 @@ Local signing override (recommended for physical-device builds):
 cp Config/Local.xcconfig.example Config/Local.xcconfig
 # then set DEVELOPMENT_TEAM in Config/Local.xcconfig
 ```
+
+Premium / RevenueCat setup:
+
+```bash
+cp Config/Local.xcconfig.example Config/Local.xcconfig
+# set DEVELOPMENT_TEAM
+# set REVENUECAT_API_KEY
+# optionally override REVENUECAT_ENTITLEMENT_ID and REVENUECAT_OFFERING_ID
+```
+
+If `REVENUECAT_API_KEY` is not configured, premium surfaces fail closed and the app shows an unavailable subscriptions state instead of exposing gated AI actions.
 
 ## Project Structure
 
@@ -122,6 +134,7 @@ Localization lookup is centralized through `L10n.localized(...)` with explicit l
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
 | `docs/appstore/` | Publicação App Store (playbook, metadata e StoreKit) |
+| `docs/revenuecat/` | Guia completo de configuração, testes e operação do premium com RevenueCat |
 
 ## Contributing
 
@@ -129,7 +142,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.72
+**Current**: 0.73
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

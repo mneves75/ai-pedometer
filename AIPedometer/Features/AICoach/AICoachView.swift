@@ -3,6 +3,7 @@ import SwiftUI
 struct AICoachView: View {
     @Environment(CoachService.self) private var coachService
     @Environment(FoundationModelsService.self) private var aiService
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
     private let autoScrollMinInterval: TimeInterval = DesignTokens.Animation.defaultDuration
     @State private var inputText = ""
@@ -43,7 +44,18 @@ struct AICoachView: View {
                     .opacity(0.01)
                     .accessibilityIdentifier(A11yID.AICoach.marker)
             }
-            if case .unavailable(let reason) = aiService.availability {
+            if !premiumAccessStore.canAccessAIFeatures {
+                PremiumFeatureGateCard(
+                    title: L10n.localized("AI Coach", comment: "AI Coach navigation title"),
+                    message: L10n.localized(
+                        "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                        comment: "Premium gate copy for AI features"
+                    )
+                )
+                .padding(.horizontal, DesignTokens.Spacing.md)
+                .padding(.top, DesignTokens.Spacing.xl)
+                Spacer(minLength: DesignTokens.Spacing.xl)
+            } else if case .unavailable(let reason) = aiService.availability {
                 AIUnavailableStateView(reason: reason)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                     .padding(.top, DesignTokens.Spacing.xl)

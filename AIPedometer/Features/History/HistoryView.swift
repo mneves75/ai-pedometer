@@ -6,6 +6,7 @@ struct HistoryView: View {
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var foundationModelsService
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @State private var animateChart = false
     @State private var isLoading = true
@@ -73,6 +74,7 @@ struct HistoryView: View {
     }
 
     private func loadWeeklyAnalysis(forceRefresh: Bool = false) async {
+        guard premiumAccessStore.canAccessAIFeatures else { return }
         guard foundationModelsService.availability.isAvailable else { return }
 
         isLoadingAnalysis = true
@@ -321,7 +323,16 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var aiTrendCard: some View {
-        if foundationModelsService.availability.isAvailable {
+        if !premiumAccessStore.canAccessAIFeatures {
+            PremiumFeatureGateCard(
+                title: L10n.localized("Weekly Trend", comment: "Weekly trend card header"),
+                message: L10n.localized(
+                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                    comment: "Premium gate copy for AI features"
+                )
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if foundationModelsService.availability.isAvailable {
             WeeklyTrendCard(
                 analysis: weeklyAnalysis,
                 isLoading: isLoadingAnalysis,

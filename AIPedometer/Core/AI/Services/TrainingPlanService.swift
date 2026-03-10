@@ -126,21 +126,42 @@ final class TrainingPlanService {
                 daysPerWeek: daysPerWeek,
                 recentData: recentData
             )
-            
-            let aiPlan: AITrainingPlan = try await foundationModelsService.respond(
-                to: prompt,
-                as: AITrainingPlan.self
+
+            let fallbackPlan = makeFallbackPlan(
+                goal: goal,
+                level: level,
+                daysPerWeek: daysPerWeek,
+                recentData: recentData
             )
-            try validate(aiPlan: aiPlan, expectedGoal: goal, daysPerWeek: daysPerWeek)
-            
-            let record = try createPlanRecord(from: aiPlan, goal: goal)
+            let resolvedPlan: AITrainingPlan
+
+            do {
+                let aiPlan: AITrainingPlan = try await foundationModelsService.respond(
+                    to: prompt,
+                    as: AITrainingPlan.self
+                )
+                try validate(aiPlan: aiPlan, expectedGoal: goal, daysPerWeek: daysPerWeek)
+                resolvedPlan = localizedPlan(aiPlan, goal: goal)
+            } catch let error {
+                guard shouldUseFallback(for: error) else {
+                    throw error
+                }
+                resolvedPlan = fallbackPlan
+                Loggers.ai.warning("ai.training_plan_fallback", metadata: [
+                    "goal": goal.rawValue,
+                    "level": level.rawValue,
+                    "reason": error.logDescription
+                ])
+            }
+
+            let record = try createPlanRecord(from: resolvedPlan, goal: goal)
             modelContext.insert(record)
             try saveModelContext(modelContext)
             
             Loggers.ai.info("ai.training_plan_generated", metadata: [
                 "goal": goal.rawValue,
                 "level": level.rawValue,
-                "weeks": "\(aiPlan.weeklyTargets.count)"
+                "weeks": "\(resolvedPlan.weeklyTargets.count)"
             ])
             
             return record
@@ -169,11 +190,23 @@ final class TrainingPlanService {
         do {
             let recentData = try await fetchRecentActivityData()
             let prompt = buildWeeklyRecommendationPrompt(recentData: recentData)
+            let recommendation: AIWorkoutRecommendation
 
-            let recommendation: AIWorkoutRecommendation = try await foundationModelsService.respond(
-                to: prompt,
-                as: AIWorkoutRecommendation.self
-            )
+            do {
+                recommendation = try await foundationModelsService.respond(
+                    to: prompt,
+                    as: AIWorkoutRecommendation.self
+                )
+            } catch let error {
+                guard shouldUseFallback(for: error) else {
+                    throw error
+                }
+                let fallback = makeFallbackWeeklyRecommendation(recentData: recentData)
+                Loggers.ai.warning("ai.training_plan_weekly_recommendation_fallback", metadata: [
+                    "reason": error.logDescription
+                ])
+                return fallback
+            }
 
             Loggers.ai.info("ai.workout_recommendation_generated", metadata: [
                 "intent": recommendation.intent.rawValue,
@@ -428,6 +461,207 @@ private extension TrainingPlanService {
             guard target.activeDaysRequired <= daysPerWeek else {
                 throw .invalidResponse
             }
+        }
+    }
+
+    func shouldUseFallback(for error: AIServiceError) -> Bool {
+        switch error {
+        case .sessionNotConfigured, .modelUnavailable:
+            return false
+        case .generationFailed, .tokenLimitExceeded, .guardrailViolation, .invalidResponse:
+            return true
+        }
+    }
+
+    func localizedPlan(_ aiPlan: AITrainingPlan, goal: TrainingGoalType) -> AITrainingPlan {
+        let localizedTargets = aiPlan.weeklyTargets.enumerated().map { index, target in
+            WeeklyTarget(
+                weekNumber: index + 1,
+                dailyStepTarget: target.dailyStepTarget,
+                activeDaysRequired: target.activeDaysRequired,
+                focusTip: localizedFocusTip(for: index)
+            )
+        }
+
+        return AITrainingPlan(
+            name: goal.displayName,
+            planDescription: goal.description,
+            durationWeeks: localizedTargets.count,
+            weeklyTargets: localizedTargets,
+            primaryGoal: goal.aiGoal
+        )
+    }
+
+    func makeFallbackPlan(
+        goal: TrainingGoalType,
+        level: FitnessLevel,
+        daysPerWeek: Int,
+        recentData: [DailyStepSummary]
+    ) -> AITrainingPlan {
+        let targets = fallbackWeeklyTargets(
+            goal: goal,
+            level: level,
+            daysPerWeek: daysPerWeek,
+            recentData: recentData
+        )
+
+        return AITrainingPlan(
+            name: goal.displayName,
+            planDescription: goal.description,
+            durationWeeks: targets.count,
+            weeklyTargets: targets,
+            primaryGoal: goal.aiGoal
+        )
+    }
+
+    func fallbackWeeklyTargets(
+        goal: TrainingGoalType,
+        level: FitnessLevel,
+        daysPerWeek: Int,
+        recentData: [DailyStepSummary]
+    ) -> [WeeklyTarget] {
+        let baseline = max(
+            recentData.isEmpty
+                ? defaultBaseline(for: level)
+                : recentData.reduce(0) { $0 + $1.steps } / max(recentData.count, 1),
+            1_500
+        )
+        let desiredTarget = desiredTargetSteps(goal: goal, level: level, baseline: baseline)
+        let startMultiplier: Double
+        switch level {
+        case .beginner:
+            startMultiplier = 0.9
+        case .intermediate:
+            startMultiplier = 1.0
+        case .advanced:
+            startMultiplier = 1.08
+        }
+        let firstWeekTarget = min(
+            desiredTarget,
+            roundedStepTarget(Int(Double(baseline) * startMultiplier))
+        )
+        let activeDays = min(daysPerWeek, max(3, daysPerWeek - (level == .beginner ? 1 : 0)))
+
+        return (0..<4).map { index in
+            let progress = Double(index) / 3.0
+            let interpolatedTarget = Int(
+                Double(firstWeekTarget) + Double(desiredTarget - firstWeekTarget) * progress
+            )
+
+            return WeeklyTarget(
+                weekNumber: index + 1,
+                dailyStepTarget: roundedStepTarget(interpolatedTarget),
+                activeDaysRequired: activeDays,
+                focusTip: localizedFocusTip(for: index)
+            )
+        }
+    }
+
+    func makeFallbackWeeklyRecommendation(recentData: [DailyStepSummary]) -> AIWorkoutRecommendation {
+        let baseline = recentData.isEmpty
+            ? goalService.currentGoal / 2
+            : recentData.reduce(0) { $0 + $1.steps } / max(recentData.count, 1)
+        let goalMetDays = recentData.filter { $0.steps >= $0.goal }.count
+        let intent: WorkoutIntent = if goalMetDays <= 2 {
+            .build
+        } else if goalMetDays >= 5 {
+            .recover
+        } else {
+            .maintain
+        }
+        let targetSteps = min(max(roundedStepTarget(max(baseline / 2, 2_000)), 2_000), 10_000)
+        let estimatedMinutes = min(max(Int(Double(targetSteps) / 110), 15), 75)
+
+        return AIWorkoutRecommendation(
+            intent: intent,
+            difficulty: fallbackDifficulty(for: intent),
+            rationale: intent.localizedDescription,
+            targetSteps: targetSteps,
+            estimatedMinutes: estimatedMinutes,
+            suggestedTimeOfDay: .anytime
+        )
+    }
+
+    func desiredTargetSteps(goal: TrainingGoalType, level: FitnessLevel, baseline: Int) -> Int {
+        let currentGoal = goalService.currentGoal
+        let rawTarget: Int
+        switch goal {
+        case .startWalking:
+            rawTarget = max(4_000, baseline + 1_000)
+        case .reach10k:
+            rawTarget = max(10_000, currentGoal)
+        case .improveConsistency:
+            rawTarget = max(baseline, Int(Double(currentGoal) * 0.85))
+        case .buildEndurance:
+            rawTarget = max(baseline + 2_000, currentGoal)
+        case .weightManagement:
+            rawTarget = max(baseline + 1_500, Int(Double(currentGoal) * 0.9))
+        }
+
+        let levelAdjustment: Int
+        switch level {
+        case .beginner:
+            levelAdjustment = -500
+        case .intermediate:
+            levelAdjustment = 0
+        case .advanced:
+            levelAdjustment = 1_000
+        }
+
+        return roundedStepTarget(max(3_000, rawTarget + levelAdjustment))
+    }
+
+    func defaultBaseline(for level: FitnessLevel) -> Int {
+        switch level {
+        case .beginner:
+            3_500
+        case .intermediate:
+            6_000
+        case .advanced:
+            8_000
+        }
+    }
+
+    func roundedStepTarget(_ value: Int) -> Int {
+        let rounded = Int((Double(value) / 250.0).rounded()) * 250
+        return max(1_500, rounded)
+    }
+
+    func localizedFocusTip(for index: Int) -> String {
+        switch index {
+        case 0:
+            return L10n.localized(
+                "Start a little below your limit and make the routine easy to repeat.",
+                comment: "Fallback focus tip for the first training week"
+            )
+        case 1:
+            return L10n.localized(
+                "Add volume gradually and protect your recovery between sessions.",
+                comment: "Fallback focus tip for the second training week"
+            )
+        case 2:
+            return L10n.localized(
+                "Keep your strongest routine and prioritize consistency.",
+                comment: "Fallback focus tip for the third training week"
+            )
+        default:
+            return L10n.localized(
+                "Finish the block with steady effort and confident form.",
+                comment: "Fallback focus tip for the final training week"
+            )
+        }
+    }
+
+    func fallbackDifficulty(for intent: WorkoutIntent) -> Int {
+        switch intent {
+        case .recover:
+            return 1
+        case .maintain:
+            return 2
+        case .explore:
+            return 3
+        case .build:
+            return 4
         }
     }
 }

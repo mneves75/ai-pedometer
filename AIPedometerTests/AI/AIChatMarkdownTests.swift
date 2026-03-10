@@ -1,5 +1,4 @@
 import Foundation
-import SwiftFastMarkdown
 import Testing
 
 @testable import AIPedometer
@@ -59,4 +58,3 @@ struct AIChatMarkdownTests {
         return count
     }
 }
-

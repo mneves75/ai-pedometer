@@ -5,6 +5,7 @@ struct TrainingPlansView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @Environment(TrainingPlanService.self) private var planService
     @Environment(FoundationModelsService.self) private var aiService
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
     @Query(
         filter: #Predicate<TrainingPlanRecord> { $0.deletedAt == nil },
@@ -26,7 +27,7 @@ struct TrainingPlansView: View {
         .accessibilityIdentifier(A11yID.TrainingPlans.marker)
         .navigationTitle(L10n.localized("Training Plans", comment: "Training plans navigation title"))
         .toolbar {
-            if aiService.availability.isAvailable {
+            if canCreatePlan {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingCreateSheet = true
@@ -46,12 +47,14 @@ struct TrainingPlansView: View {
 
     @ViewBuilder
     private var content: some View {
-        if case .unavailable(let reason) = aiService.availability {
-            unavailableView(reason: reason)
-        } else if plans.isEmpty {
-            emptyStateView
-        } else {
+        if !plans.isEmpty {
             plansList
+        } else if !premiumAccessStore.canAccessAIFeatures {
+            premiumGateView
+        } else if case .unavailable(let reason) = aiService.availability {
+            unavailableView(reason: reason)
+        } else {
+            emptyStateView
         }
     }
 
@@ -71,18 +74,31 @@ struct TrainingPlansView: View {
             } description: {
                 Text(L10n.localized("Create your first AI-powered training plan to start your fitness journey.", comment: "Empty state description for training plans"))
             } actions: {
-                Button {
-                    showingCreateSheet = true
-                } label: {
-                    Text(L10n.localized("Create Plan", comment: "Empty state button to create plan"))
+                if canCreatePlan {
+                    Button {
+                        showingCreateSheet = true
+                    } label: {
+                        Text(L10n.localized("Create Plan", comment: "Empty state button to create plan"))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
                 }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
             }
 
             AIDisclaimerText()
                 .padding(.horizontal, DesignTokens.Spacing.md)
         }
+    }
+
+    private var premiumGateView: some View {
+        PremiumFeatureGateCard(
+            title: L10n.localized("AI Training Plans", comment: "Training plans card title"),
+            message: L10n.localized(
+                "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
+                comment: "Premium gate copy for AI features"
+            )
+        )
+        .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
     private var plansList: some View {
@@ -107,6 +123,10 @@ struct TrainingPlansView: View {
         for index in offsets {
             planService.deletePlan(plans[index])
         }
+    }
+
+    private var canCreatePlan: Bool {
+        premiumAccessStore.canAccessAIFeatures && aiService.availability.isAvailable
     }
 }
 
@@ -447,4 +467,5 @@ struct CreatePlanSheet: View {
     TrainingPlansView()
         .environment(demoModeStore)
         .environment(FoundationModelsService())
+        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }
