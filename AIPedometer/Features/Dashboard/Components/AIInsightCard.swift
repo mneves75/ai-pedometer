@@ -192,6 +192,8 @@ struct WeeklyTrendCard: View {
                 loadingContent
             } else if let analysis {
                 analysisContent(analysis)
+            } else {
+                emptyWeeklyContent
             }
 
             AIDisclaimerText()
@@ -270,6 +272,18 @@ struct WeeklyTrendCard: View {
                 }
             }
         }
+    }
+
+    private var emptyWeeklyContent: some View {
+        Label {
+            Text(L10n.localized("No insight available yet", comment: "AI insight empty state"))
+                .font(DesignTokens.Typography.subheadline)
+        } icon: {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .foregroundStyle(DesignTokens.Colors.accent)
+        }
+        .foregroundStyle(DesignTokens.Colors.textSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private func trendIcon(for trend: TrendDirection) -> some View {

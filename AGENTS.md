@@ -1,47 +1,97 @@
-# Repository Guidelines
+# AGENTS.md
 
-## Project Overview
-AIPedometer is a Swift 6.2 SwiftUI iOS pedometer app with AI-powered insights, plus watchOS and widget targets.
+This file governs the entire repository.
 
-## Agent Notes
-Run notes are stored at `agent_planning/ultrawork-notes.txt` (append each run with what worked, what didn’t, and missing context; reuse between sessions). Link: [agent_planning/ultrawork-notes.txt](agent_planning/ultrawork-notes.txt).
+## Startup Order
 
-## Apple Platforms
-for Swift / iOS/iPadOS 26 code: look for info in
+Before doing anything else in this repo:
+
+1. Run `pwd`.
+2. Run `git rev-parse --show-toplevel`.
+3. Read `MEMORY.md`.
+4. Read `memory/YYYY-MM-DD.md` for today if it exists.
+5. Read `FOR_YOU_KNOW.md`.
+
+If these files do not exist yet, create them first.
+
+## Bug Report Protocol
+
+When there is a bug report, do not start by trying to fix it.
+
+1. First write a regression test that reproduces the bug.
+2. Confirm the test fails for the expected reason.
+3. Then have bounded subagents try to fix the bug when delegation is useful.
+4. Accept a fix only after the reproducer passes and any relevant surrounding tests still pass.
+
+Never claim a bug is fixed without proof from the reproducer.
+
+## Figure It Out Directive
+
+You have unrestricted internet access, browser automation, and shell execution.
+
+When given a task:
+
+1. "I can't" is not in your vocabulary. If you do not know how, search for it. Read docs. Find tutorials. Reverse engineer it.
+2. "I don't know how" means "I have not learned yet." Learn now by using web search, documentation, APIs, and source code.
+3. Before saying something is impossible, you must:
+   - Search for at least 3 different approaches.
+   - Try at least 2 of them.
+   - Document why each failed with specific errors.
+4. Deliver results, not excuses. If Plan A fails, try B through Z, then Plan AA.
+5. Assume everything is figureoutable. Someone has done something close before. Find it, learn from it, adapt it.
+
+You are not a helpdesk. You are an operator. Operators ship.
+
+## Bash Guidelines
+
+Avoid commands that cause output buffering issues.
+
+- Do not pipe output through `head`, `tail`, `less`, or `more` when monitoring or checking command output.
+- Do not use `| head -n X` or `| tail -n X` to truncate output.
+- Prefer direct commands with full output.
+- If output must be limited, use command-specific flags such as `git log -n 10`.
+- For logs, prefer reading the file directly over chained pipe filters.
+
+## Apple Platform Guidance
+
+For Swift / iOS / iPadOS 26 work, check Apple documentation in:
 
 `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
 
-If using an unreleased iOS SDK, look in Xcode beta:
+Use official Apple documentation before guessing behavior.
 
-`/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+## Project Learning Docs
 
-## Design Context
-For UI work, read: `DESIGN_SYSTEM.md`, `FRONTEND_GUIDELINES.md`, `APP_FLOW.md`, `PRD.md`, `TECH_STACK.md`, `LESSONS.md`, `progress.txt`.
-Use design tokens for color, spacing, and typography (no hardcoded values).
+Every project must maintain a detailed `FOR_YOU_KNOW.md` written in plain language.
 
-## Package Manager
-This project does not use npm; it relies on Xcode/XcodeGen tooling.
+It should explain:
 
-## Non-Standard Commands
-- `xcodegen generate`: regenerate `AIPedometer.xcodeproj` from `project.yml` (required after config/target changes).
+- the architecture
+- the codebase structure
+- how the parts connect
+- the technologies in use
+- why technical decisions were made
+- bugs that happened and how they were fixed
+- pitfalls and how to avoid them
+- lessons worth reusing in future work
 
-## Release Checklist
-- Bump `project.yml` (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`).
-- Update `CHANGELOG.md` and the version in `README.md`.
-- Validate HealthKit source filtering behavior (Apple sources preferred) and keep tests in sync.
-- Tag the release after tests pass (`v<MARKETING_VERSION>`, for example `v0.6`).
-- After pushing the tag, publish the matching GitHub Release (`gh release create <tag> ...`) and verify it appears as **Latest** on the Releases page.
+Write it like an engaging field guide, not a dry textbook.
 
-## Detailed Guides
-- [Project structure and configuration](docs/agents/project-structure.md)
-- [Build, test, and utilities](docs/agents/build-and-dev.md)
-- [Coding style and naming](docs/agents/coding-style.md)
-- [Testing guidelines](docs/agents/testing.md)
-- [Git workflow](docs/agents/git-workflow.md)
+## Local Memory System
 
-## Repository Visibility
-- This repository is intended to be public.
-- Use `SECURITY.md` and GitHub Security Advisories for coordinated vulnerability disclosure.
+This repo uses a local second-brain memory system.
+
+- `MEMORY.md` is long-term curated memory.
+- `memory/YYYY-MM-DD.md` files are daily journals with timestamped raw notes.
+
+Rules:
+
+- Read local memory files first at the start of every session.
+- If it is not written down, it is not remembered.
+- When the user says "remember this", write it immediately.
+- When you make a mistake, document it so it does not repeat.
+- As you learn the user's preferences, goals, annoyances, and active work, update `MEMORY.md`.
+- Log important session events, decisions, tasks, mistakes, and context in the daily journal in real time.
 
 ## GUIDELINES-REF
 Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/check-agents-sync.sh`).
@@ -64,9 +114,19 @@ Common commands:
 - `bun --bun tools/kb-check-index.ts`
 - `bun --bun tools/kb-check-staleness.ts`
 - `bun --bun tools/readiness-check.ts --format=html --output=report.html`
+- `firecrawl --status`
+- `xcodebuild -version`
+- `swift --version`
+- `node -v`
+- `bun --version`
 
 Additional kb-tools commands:
 - `cd tools && bun test lib/__tests__/repo.test.ts`
+- `cd tools && bun test lib/__tests__/typescript-adapter.test.ts`
+- `cd tools && bun run typecheck`
+- `cd tools && bun run lint`
+- `TODO: promote a generic targeted Biome lint command after more run-note evidence (current single-run example: bunx biome check lib/adapters/typescript.ts lib/__tests__/typescript-adapter.test.ts --formatter-enabled=false from notes/run-2026-02-20.txt)`
+- `TODO: no further command promotions until a newer notes/run-*.txt captures repeated execution evidence beyond the currently promoted command set.`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`
@@ -228,7 +288,7 @@ Usage notes:
 
 <skill>
 <name>mneves-agent-workflows</name>
-<description>Enforce AGENTS_GUIDELINES.md compliance for mandatory guideline references, code quality standards, workflow standards (tmux, git commits), testing, logging/audit requirements, and security-first principles</description>
+<description>Enforce AGENTS.md compliance for mandatory guideline references, code quality standards, workflow standards (tmux, git commits), testing, logging/audit requirements, and security-first principles</description>
 <location>global</location>
 </skill>
 
@@ -258,7 +318,7 @@ Usage notes:
 
 <skill>
 <name>mneves-bun</name>
-<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.3.10+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and 28x faster package management (user)</description>
+<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.3.10+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and built-in APIs (user)</description>
 <location>global</location>
 </skill>
 
@@ -270,7 +330,7 @@ Usage notes:
 
 <skill>
 <name>mneves-cloudflare</name>
-<description>Enforce CLOUDFARE-GUIDELINES.md compliance for Cloudflare Workers, Pages, Workers AI, D1, Durable Objects, Pipelines, R2, Hyperdrive, Zero Trust, post-quantum (PQ) networking, and observability (2025-2026)</description>
+<description>Enforce CLOUDFLARE-GUIDELINES.md compliance for Cloudflare Workers, Pages, Workers AI, D1, Durable Objects, Pipelines, R2, Hyperdrive, Zero Trust, post-quantum (PQ) networking, and observability (2025-2026)</description>
 <location>global</location>
 </skill>
 
@@ -372,7 +432,7 @@ Usage notes:
 
 <skill>
 <name>mneves-react-useeffect</name>
-<description>Enforce REACT_USE_EFEECT-GUIDELINES.md compliance - proper useEffect usage, dependency arrays, cleanup functions, and avoiding common anti-patterns</description>
+<description>Enforce REACT_USE_EFFECT-GUIDELINES.md compliance - proper useEffect usage, dependency arrays, cleanup functions, and avoiding common anti-patterns</description>
 <location>global</location>
 </skill>
 

@@ -6,6 +6,46 @@ import UserNotifications
 
 @MainActor
 struct SmartNotificationServiceTests {
+    @Test("Motivational reminders return false when AI is unavailable")
+    func motivationalReminderReturnsFalseWhenAIUnavailable() async {
+        let persistence = PersistenceController(inMemory: true)
+        let goalService = GoalService(persistence: persistence)
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.availability = .unavailable(reason: .deviceNotEligible)
+        let notificationCenter = MockNotificationCenter()
+
+        let service = SmartNotificationService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: goalService,
+            notificationCenter: notificationCenter
+        )
+
+        let didSchedule = await service.scheduleMotivationalReminder(at: 9, minute: 0)
+
+        #expect(didSchedule == false)
+        #expect(notificationCenter.addedRequests.isEmpty)
+    }
+
+    @Test("cancelAllSmartNotifications removes scheduled smart identifiers")
+    func cancelAllSmartNotificationsRemovesKnownIdentifiers() {
+        let persistence = PersistenceController(inMemory: true)
+        let goalService = GoalService(persistence: persistence)
+        let notificationCenter = MockNotificationCenter()
+
+        let service = SmartNotificationService(
+            foundationModelsService: MockFoundationModelsService(),
+            healthKitService: MockHealthKitService(),
+            goalService: goalService,
+            notificationCenter: notificationCenter
+        )
+
+        service.cancelAllSmartNotifications()
+
+        #expect(notificationCenter.removedIdentifiers.contains("ai-smart-notification"))
+        #expect(notificationCenter.removedIdentifiers.contains("ai-motivational-9-0"))
+    }
+
     @Test("Smart notifications use activity mode unit names")
     func scheduleSmartNotificationUsesActivityModeUnits() async {
         let testDefaults = TestUserDefaults()

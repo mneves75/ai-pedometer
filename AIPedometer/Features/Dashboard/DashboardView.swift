@@ -24,6 +24,8 @@ struct DashboardView: View {
     private struct InsightTrigger: Hashable {
         let activityModeRaw: String
         let aiAvailable: Bool
+        let premiumEnabled: Bool
+        let premiumResolving: Bool
     }
 
     private var activityMode: ActivityTrackingMode {
@@ -63,7 +65,9 @@ struct DashboardView: View {
         }
         .task(id: InsightTrigger(
             activityModeRaw: activityModeRaw,
-            aiAvailable: aiService.availability.isAvailable
+            aiAvailable: aiService.availability.isAvailable,
+            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            premiumResolving: premiumAccessStore.isResolvingAccess
         )) {
             await loadDailyInsight()
         }
@@ -131,7 +135,12 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var aiInsightSection: some View {
-        if !premiumAccessStore.canAccessAIFeatures {
+        if premiumAccessStore.isResolvingAccess {
+            PremiumAccessLoadingCard(
+                title: L10n.localized("AI-Powered Insights", comment: "Feature title")
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if !premiumAccessStore.canAccessAIFeatures {
             PremiumFeatureGateCard(
                 title: L10n.localized("AI-Powered Insights", comment: "Feature title"),
                 message: L10n.localized(

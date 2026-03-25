@@ -27,6 +27,7 @@ struct WorkoutsView: View {
     private struct RecommendationTrigger: Hashable {
         let aiAvailable: Bool
         let premiumEnabled: Bool
+        let premiumResolving: Bool
         let activePlanID: UUID?
     }
 
@@ -55,6 +56,7 @@ struct WorkoutsView: View {
         .task(id: RecommendationTrigger(
             aiAvailable: aiService.availability.isAvailable,
             premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            premiumResolving: premiumAccessStore.isResolvingAccess,
             activePlanID: activePlan?.id
         )) {
             guard !LaunchConfiguration.isUITesting() else { return }
@@ -100,6 +102,11 @@ struct WorkoutsView: View {
                 onStartWorkout: { recommendation in
                     startWorkout(targetSteps: recommendation.targetSteps)
                 }
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if premiumAccessStore.isResolvingAccess {
+            PremiumAccessLoadingCard(
+                title: L10n.localized("Today's Plan", comment: "AI workout card header")
             )
             .padding(.horizontal, DesignTokens.Spacing.md)
         } else if premiumAccessStore.canAccessAIFeatures {
@@ -226,7 +233,11 @@ struct WorkoutsView: View {
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
-            if !premiumAccessStore.canAccessAIFeatures && !hasSavedPlans {
+            if premiumAccessStore.isResolvingAccess && !hasSavedPlans {
+                PremiumAccessLoadingCard(
+                    title: L10n.localized("AI Training Plans", comment: "Training plans card title")
+                )
+            } else if !premiumAccessStore.canAccessAIFeatures && !hasSavedPlans {
                 PremiumFeatureGateCard(
                     title: L10n.localized("AI Training Plans", comment: "Training plans card title"),
                     message: L10n.localized(

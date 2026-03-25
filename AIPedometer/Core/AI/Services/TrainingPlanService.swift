@@ -110,8 +110,11 @@ final class TrainingPlanService {
         guard !isGenerating else {
             throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
         }
+        if case .unavailable(let reason) = foundationModelsService.availability {
+            throw AIServiceError.modelUnavailable(reason)
+        }
         guard foundationModelsService.availability.isAvailable else {
-            throw AIServiceError.modelUnavailable(.modelNotReady)
+            throw AIServiceError.sessionNotConfigured
         }
         
         isGenerating = true
@@ -179,8 +182,11 @@ final class TrainingPlanService {
         guard !isGenerating else {
             throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
         }
+        if case .unavailable(let reason) = foundationModelsService.availability {
+            throw AIServiceError.modelUnavailable(reason)
+        }
         guard foundationModelsService.availability.isAvailable else {
-            throw AIServiceError.modelUnavailable(.modelNotReady)
+            throw AIServiceError.sessionNotConfigured
         }
 
         isGenerating = true
