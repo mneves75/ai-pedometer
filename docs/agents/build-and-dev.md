@@ -15,6 +15,8 @@
   - `--install-retries <n>`
   - `--retry-delay <seg>`
   - `--destination-timeout <s>`
+- Operational note: `devicectl` can emit `Failed to load provisioning paramter list ... No provider was found.` even when build/install/launch still succeed; current evidence points to a host-side CoreDevice/Xcode warning rather than a repo/script bug.
+- Operational note: a locked physical iPhone can reject the first launch request with `Locked`; `Scripts/install-on-device.sh` already retries launch automatically.
 
 ## Utilities
 - `swift Scripts/generate-app-icon.swift`: regenerate app icons (writes into each target's `AppIcon.appiconset`).

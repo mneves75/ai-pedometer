@@ -1,0 +1,24 @@
+Date: 2026-03-25
+Topic: CoreDevice/devicectl warning during physical-device install
+
+Summary
+- Reproduced `Failed to load provisioning paramter list due to error: ... No provider was found.` even on `xcrun devicectl --help` and `xcrun devicectl list devices`.
+- Confirmed the warning is not specific to `Scripts/install-on-device.sh`.
+- Verified physical install + launch on `iMarcus` still succeeded despite the warning.
+
+Local evidence
+- `xcrun devicectl --help`
+- `xcrun devicectl list devices`
+- `/usr/bin/log show --last 10m --predicate '(subsystem CONTAINS "CoreDevice") OR (process == "devicectl")'`
+
+Findings
+- CoreDevice logs show plugin-loader warnings for missing or unreadable plugin directories:
+  - `/Library/Developer/PrivateFrameworks/CoreDevice.framework/PlugIns/`
+  - `/Library/Developer/CoreDevice/PlugIns/`
+  - `~/Library/Developer/CoreDevice/PlugIns/`
+- User uid and ownership looked normal for `~/Library`, `~/Library/Developer`, and `/Library/Developer`.
+- This looked like a host-side CoreDevice/Xcode issue, not an app/repo bug.
+
+Operational takeaway
+- Do not treat the `No provider was found.` warning alone as install failure.
+- Real failure signal for launch remains the explicit `Locked` / `RequestDenied` error when the device is not unlocked.

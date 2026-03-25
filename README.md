@@ -109,6 +109,10 @@ bash Scripts/install-on-device.sh \
   --destination-timeout 180
 ```
 
+Notes for physical-device installs:
+- `devicectl` may print `Failed to load provisioning paramter list ... No provider was found.` on this host even for `--help` or `list devices`; in our verified runs it was a benign CoreDevice/Xcode warning and did not block build, install, or final launch.
+- If the iPhone is locked, the first `devicectl device process launch` attempt can be denied with `Locked`; the script already retries automatically and often succeeds on the second attempt once the device is unlocked.
+
 ### Configuration
 
 Swift 6.2 strict concurrency is enforced project-wide:
