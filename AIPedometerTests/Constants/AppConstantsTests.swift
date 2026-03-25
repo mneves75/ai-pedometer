@@ -125,9 +125,26 @@ struct AppConstantsTests {
     }
 
     @Test
-    func resolveRevenueCatConfigurationIgnoresPlaceholderValues() {
+    func resolveRevenueCatConfigurationIgnoresPlaceholderValues() throws {
+        let fileManager = FileManager.default
+        let tempRoot = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bundleURL = tempRoot.appendingPathComponent("TestRevenueCat.bundle", isDirectory: true)
+        try fileManager.createDirectory(at: bundleURL, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: tempRoot) }
+
+        let infoPlistURL = bundleURL.appendingPathComponent("Info.plist")
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.test",
+            "RevenueCatAPIKey": "REVENUECAT_API_KEY",
+            "RevenueCatEntitlementID": "premium",
+            "RevenueCatOfferingID": "$(REVENUECAT_OFFERING_ID)"
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        try data.write(to: infoPlistURL, options: .atomic)
+
+        let bundle = try #require(Bundle(url: bundleURL))
         let config = AppConstants.RevenueCat.resolveConfiguration(
-            bundle: .main,
+            bundle: bundle,
             environment: [
                 "REVENUECAT_API_KEY": "REVENUECAT_API_KEY",
                 "REVENUECAT_ENTITLEMENT_ID": "premium"

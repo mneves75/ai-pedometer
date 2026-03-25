@@ -49,6 +49,10 @@ struct TrainingPlansView: View {
     private var content: some View {
         if !plans.isEmpty {
             plansList
+        } else if premiumAccessStore.isResolvingAccess {
+            PremiumAccessLoadingCard(
+                title: L10n.localized("AI Training Plans", comment: "Training plans card title")
+            )
         } else if !premiumAccessStore.canAccessAIFeatures {
             premiumGateView
         } else if case .unavailable(let reason) = aiService.availability {

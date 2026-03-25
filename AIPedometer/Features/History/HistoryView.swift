@@ -18,6 +18,9 @@ struct HistoryView: View {
     private struct LoadTrigger: Hashable {
         let syncEnabled: Bool
         let activityModeRaw: String
+        let premiumEnabled: Bool
+        let aiAvailable: Bool
+        let premiumResolving: Bool
     }
 
     private var activityMode: ActivityTrackingMode {
@@ -42,7 +45,13 @@ struct HistoryView: View {
                 animateChart = true
             }
         }
-        .task(id: LoadTrigger(syncEnabled: healthKitSyncEnabled, activityModeRaw: activityModeRaw)) {
+        .task(id: LoadTrigger(
+            syncEnabled: healthKitSyncEnabled,
+            activityModeRaw: activityModeRaw,
+            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            aiAvailable: foundationModelsService.availability.isAvailable,
+            premiumResolving: premiumAccessStore.isResolvingAccess
+        )) {
             await loadData()
         }
         .refreshable {
@@ -323,7 +332,12 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var aiTrendCard: some View {
-        if !premiumAccessStore.canAccessAIFeatures {
+        if premiumAccessStore.isResolvingAccess {
+            PremiumAccessLoadingCard(
+                title: L10n.localized("Weekly Trend", comment: "Weekly trend card header")
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if !premiumAccessStore.canAccessAIFeatures {
             PremiumFeatureGateCard(
                 title: L10n.localized("Weekly Trend", comment: "Weekly trend card header"),
                 message: L10n.localized(
@@ -342,6 +356,9 @@ struct HistoryView: View {
                 }
             )
             .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if case .unavailable(let reason) = foundationModelsService.availability {
+            AIAvailabilityBanner(reason: reason)
+                .padding(.horizontal, DesignTokens.Spacing.md)
         }
     }
 

@@ -78,12 +78,12 @@ struct TrainingPlanServiceTests {
         #expect(fetched.map(\.name) == ["Newer", "Older"])
     }
 
-    @Test("generatePlan throws when model unavailable")
-    func generatePlanThrowsWhenModelUnavailable() async {
+    @Test("generatePlan preserves the concrete model unavailability reason")
+    func generatePlanPreservesModelUnavailabilityReason() async {
         let persistence = PersistenceController(inMemory: true)
         let context = persistence.container.mainContext
         let foundationModels = MockFoundationModelsService()
-        foundationModels.availability = .unavailable(reason: .modelNotReady)
+        foundationModels.availability = .unavailable(reason: .appleIntelligenceNotEnabled)
 
         let service = TrainingPlanService(
             foundationModelsService: foundationModels,
@@ -102,7 +102,34 @@ struct TrainingPlanServiceTests {
         } catch {
             switch error {
             case .modelUnavailable(let reason):
-                #expect(reason == .modelNotReady)
+                #expect(reason == .appleIntelligenceNotEnabled)
+            default:
+                #expect(Bool(false), "Expected modelUnavailable error, got \(error)")
+            }
+        }
+    }
+
+    @Test("generateWeeklyRecommendation preserves the concrete model unavailability reason")
+    func generateWeeklyRecommendationPreservesModelUnavailabilityReason() async {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.availability = .unavailable(reason: .deviceNotEligible)
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context
+        )
+
+        do {
+            _ = try await service.generateWeeklyRecommendation()
+            #expect(Bool(false), "Expected error to be thrown")
+        } catch {
+            switch error {
+            case .modelUnavailable(let reason):
+                #expect(reason == .deviceNotEligible)
             default:
                 #expect(Bool(false), "Expected modelUnavailable error, got \(error)")
             }

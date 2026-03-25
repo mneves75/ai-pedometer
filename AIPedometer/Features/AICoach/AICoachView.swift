@@ -44,7 +44,14 @@ struct AICoachView: View {
                     .opacity(0.01)
                     .accessibilityIdentifier(A11yID.AICoach.marker)
             }
-            if !premiumAccessStore.canAccessAIFeatures {
+            if premiumAccessStore.isResolvingAccess {
+                PremiumAccessLoadingCard(
+                    title: L10n.localized("AI Coach", comment: "AI Coach navigation title")
+                )
+                .padding(.horizontal, DesignTokens.Spacing.md)
+                .padding(.top, DesignTokens.Spacing.xl)
+                Spacer(minLength: DesignTokens.Spacing.xl)
+            } else if !premiumAccessStore.canAccessAIFeatures {
                 PremiumFeatureGateCard(
                     title: L10n.localized("AI Coach", comment: "AI Coach navigation title"),
                     message: L10n.localized(

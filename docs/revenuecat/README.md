@@ -21,7 +21,8 @@ Hoje o projeto usa RevenueCat apenas para o produto premium recorrente. O fluxo 
 2. O `PremiumAccessStore` configura o SDK no bootstrap do app.
 3. O app busca `Offerings` e `CustomerInfo`.
 4. O entitlement configurado define se o usuário pode acessar recursos premium.
-5. A UI abre um paywall SwiftUI próprio e dispara `purchase`, `restorePurchases`, `syncPurchases` e `showManageSubscriptions`.
+5. A UI apresenta o paywall oficial da RevenueCat via `RevenueCatUI`, enquanto o app mantém um store próprio para `purchase`, `restorePurchases`, `syncPurchases`, estado de entitlement e gates premium.
+6. A tela About também pode abrir o Customer Center oficial da RevenueCat quando faz sentido.
 
 Arquivos principais:
 
@@ -65,6 +66,11 @@ Para este projeto, a modelagem recomendada é:
   - opcionalmente lifetime, se o produto existir
 
 Se `REVENUECAT_OFFERING_ID` ficar vazio, o app usa `currentOffering` retornado pelo SDK. Se você definir um identificador, o app vai procurar exatamente esse offering.
+
+Nome recomendado do entitlement no dashboard:
+
+- display name: `AI Pedometer Pro`
+- identifier técnico no app: `premium`
 
 ## Pré-requisitos
 
@@ -271,6 +277,12 @@ Responsabilidades:
 ### Entitlement que libera acesso
 
 O app considera premium ativo quando o entitlement configurado está ativo em `CustomerInfo`.
+
+Na implementação atual:
+
+- o app usa `PremiumAccessStore` como fonte única de verdade para `CustomerInfo`, `Offerings`, compra, restore, sync e gates premium
+- o About usa `CustomerCenter` oficial da RevenueCat
+- o paywall usa `PaywallView` oficial da RevenueCat sempre que há offering/config válidos
 
 Pontos importantes:
 

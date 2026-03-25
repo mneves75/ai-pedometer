@@ -84,6 +84,12 @@ struct SettingsView: View {
             await refreshNotificationStatus()
             await healthAuthorization.refreshStatus()
         }
+        .task(id: premiumAccessStore.canAccessAIFeatures) {
+            await enforceSmartReminderAccessIfNeeded()
+        }
+        .task(id: aiService.availability.isAvailable) {
+            await enforceSmartReminderAccessIfNeeded()
+        }
         .sheet(isPresented: $showGoalEditor) {
             GoalEditorSheet(
                 initialGoal: trackingService.currentGoal,
@@ -316,26 +322,19 @@ struct SettingsView: View {
                     "sync.toggle_updated",
                     metadata: ["enabled": "\(healthKitEnabled)"]
                 )
-                guard healthKitEnabled else {
-                    Task {
-                        _ = await trackingService.refreshWeeklySummaries()
-                        await healthAuthorization.refreshStatus()
-                    }
-                    return
-                }
                 Task {
-                    do {
-                        if healthKitSyncService.needsColdStartSync() {
-                            try await healthKitSyncService.performColdStartSync()
-                        } else {
-                            try await healthKitSyncService.performPullToRefresh()
+                    await SettingsSideEffects.applyHealthKitSyncChange(
+                        enabled: healthKitEnabled,
+                        refreshTodayData: { await trackingService.refreshTodayData() },
+                        refreshWeeklySummaries: { _ = await trackingService.refreshWeeklySummaries() },
+                        refreshAuthorization: { await healthAuthorization.refreshStatus() },
+                        needsColdStartSync: { healthKitSyncService.needsColdStartSync() },
+                        performColdStartSync: { try await healthKitSyncService.performColdStartSync() },
+                        performPullToRefresh: { try await healthKitSyncService.performPullToRefresh() },
+                        onError: { message in
+                            Loggers.sync.error("sync.manual_trigger_failed", metadata: ["error": message])
                         }
-                        await healthAuthorization.refreshStatus()
-                    } catch {
-                        Loggers.sync.error("sync.manual_trigger_failed", metadata: [
-                            "error": error.localizedDescription
-                        ])
-                    }
+                    )
                 }
             }
             .accessibilityIdentifier(A11yID.Settings.healthKitSyncToggle)
@@ -433,14 +432,18 @@ struct SettingsView: View {
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
-            .disabled(isUpdatingSmartReminders || !aiService.availability.isAvailable || !premiumAccessStore.canAccessAIFeatures)
+            .disabled(isUpdatingSmartReminders || premiumAccessStore.isResolvingAccess || !aiService.availability.isAvailable || !premiumAccessStore.canAccessAIFeatures)
             .onChange(of: smartRemindersEnabled) { _, newValue in
                 HapticService.shared.selection()
                 Task { await updateSmartReminders(enabled: newValue) }
             }
             .accessibilityLabel(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"))
             .accessibilityValue(smartRemindersEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
-            if !premiumAccessStore.canAccessAIFeatures {
+            if premiumAccessStore.isResolvingAccess {
+                Text(L10n.localized("Loading...", comment: "Premium loading status"))
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            } else if !premiumAccessStore.canAccessAIFeatures {
                 Text(
                     L10n.localized(
                         "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
@@ -571,14 +574,41 @@ struct SettingsView: View {
                 smartRemindersEnabled = false
                 return
             }
-            await smartNotificationService.scheduleMotivationalReminder(
+            let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
                 at: AppConstants.Notifications.defaultSmartReminderHour,
                 minute: AppConstants.Notifications.defaultSmartReminderMinute
             )
+            guard didSchedule else {
+                smartRemindersEnabled = false
+                showNotificationAlert(
+                    message: L10n.localized("Unable to schedule notifications. Please try again.", comment: "Alert when scheduling notifications fails"),
+                    offersSettings: false
+                )
+                return
+            }
             Loggers.ai.info("notifications.smart_enabled")
         } else {
             smartNotificationService.cancelAllSmartNotifications()
             Loggers.ai.info("notifications.smart_disabled")
+        }
+    }
+
+    private func enforceSmartReminderAccessIfNeeded() async {
+        switch SettingsSideEffects.smartReminderAccessDecision(
+            isEnabled: smartRemindersEnabled,
+            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            aiAvailability: aiService.availability
+        ) {
+        case .keep:
+            break
+        case .disablePremium:
+            smartNotificationService.cancelAllSmartNotifications()
+            smartRemindersEnabled = false
+            Loggers.ai.info("notifications.smart_disabled", metadata: ["reason": "premium_unavailable"])
+        case .disableUnavailableAI:
+            smartNotificationService.cancelAllSmartNotifications()
+            smartRemindersEnabled = false
+            Loggers.ai.info("notifications.smart_disabled", metadata: ["reason": "ai_unavailable"])
         }
     }
 

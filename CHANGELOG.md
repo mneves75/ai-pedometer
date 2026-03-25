@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.75] - 2026-03-25
+
+### Added
+
+- Official `RevenueCatUI` integration for the iOS app target, enabling the native RevenueCat SwiftUI paywall and Customer Center on top of the app-owned premium state layer.
+- Regression coverage for premium startup/loading behavior, smart-reminder fail-closed behavior, and training-plan AI unavailability handling.
+
+### Fixed
+
+- Premium access now preserves entitlement state even when offerings fail to load, avoiding false lockouts after a successful purchase or restore.
+- Dashboard, History, AI Coach, Workouts, and Training Plans now show a consistent premium-loading state instead of flashing a false gate while customer info is still resolving.
+- History weekly AI card now renders a proper empty state instead of showing a blank premium/AI section.
+- HealthKit Sync setting changes now refresh current-day tracking state immediately so the dashboard and shared state do not keep stale values.
+- Smart reminders now fail closed when premium or AI availability disappears, and reminder scheduling only remains enabled after a successful schedule operation.
+- Training-plan generation now preserves the concrete AI unavailability reason instead of collapsing every unavailable state into `modelNotReady`.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.75 (31)`.
+- RevenueCat local test-store configuration now defaults to the provided local key with entitlement `premium` and offering `default`.
+
+### Tests
+
+- Full simulator release verification passed with RevenueCatUI enabled: `395` unit tests and `14` UI tests.
+- Physical-device release verification passed on `iMarcus` after install and direct launch.
+
 ## [0.74] - 2026-03-10
 
 ### Changed

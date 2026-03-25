@@ -1,4 +1,5 @@
 import RevenueCat
+import RevenueCatUI
 import SwiftUI
 
 enum PremiumSheetMode: String, Identifiable {
@@ -79,9 +80,37 @@ struct PremiumFeatureGateCard: View {
     }
 }
 
+struct PremiumAccessLoadingCard: View {
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                ProgressView()
+                    .controlSize(.small)
+
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    Text(title)
+                        .font(DesignTokens.Typography.headline)
+                    Text(L10n.localized("Premium", comment: "Premium section title"))
+                        .font(DesignTokens.Typography.caption.weight(.medium))
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                }
+            }
+
+            Text(L10n.localized("Loading...", comment: "Premium loading status"))
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+        }
+        .padding(DesignTokens.Spacing.md)
+        .glassCard()
+    }
+}
+
 struct PremiumSubscriptionCard: View {
     @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @State private var sheetMode: PremiumSheetMode?
+    @State private var presentCustomerCenter = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
@@ -115,7 +144,7 @@ struct PremiumSubscriptionCard: View {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Button(primaryButtonTitle) {
                     if premiumAccessStore.isPremiumActive {
-                        Task { _ = await premiumAccessStore.showManageSubscriptions() }
+                        presentCustomerCenter = true
                     } else {
                         sheetMode = .paywall
                     }
@@ -133,6 +162,17 @@ struct PremiumSubscriptionCard: View {
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()
+        .presentCustomerCenter(
+            isPresented: $presentCustomerCenter,
+            restoreCompleted: { _ in
+                Task { @MainActor in
+                    await premiumAccessStore.syncPurchases()
+                }
+            },
+            showingManageSubscriptions: {
+                Loggers.app.info("premium.customer_center_manage_subscriptions")
+            }
+        )
         .sheet(item: $sheetMode) { mode in
             PremiumAccessSheet(mode: mode)
                 .environment(premiumAccessStore)
@@ -190,28 +230,28 @@ struct PremiumAccessSheet: View {
     }
 
     private var paywallContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                headerCard
+        Group {
+            if premiumAccessStore.isConfigured {
+                paywallView
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                        headerCard
+                        unavailableContent
 
-                if premiumAccessStore.isConfigured {
-                    packageList
-                    actionRow
-                } else {
-                    unavailableContent
+                        if let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
+                            Text(lastError)
+                                .font(DesignTokens.Typography.caption)
+                                .foregroundStyle(DesignTokens.Colors.warning)
+                                .padding(DesignTokens.Spacing.md)
+                                .glassCard()
+                        }
+                    }
+                    .padding(DesignTokens.Spacing.lg)
                 }
-
-                if let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
-                    Text(lastError)
-                        .font(DesignTokens.Typography.caption)
-                        .foregroundStyle(DesignTokens.Colors.warning)
-                        .padding(DesignTokens.Spacing.md)
-                        .glassCard()
-                }
+                .background(DesignTokens.Colors.surfaceGrouped)
             }
-            .padding(DesignTokens.Spacing.lg)
         }
-        .background(DesignTokens.Colors.surfaceGrouped)
     }
 
     private var headerCard: some View {
@@ -294,6 +334,53 @@ struct PremiumAccessSheet: View {
             )
             .font(DesignTokens.Typography.caption)
             .foregroundStyle(DesignTokens.Colors.textTertiary)
+        }
+    }
+
+    @ViewBuilder
+    private var paywallView: some View {
+        if let offering = premiumAccessStore.currentOffering {
+            PaywallView(offering: offering, displayCloseButton: false)
+                .onPurchaseCompleted { _ in
+                    Task { @MainActor in
+                        await premiumAccessStore.syncPurchases()
+                        if premiumAccessStore.isPremiumActive {
+                            dismiss()
+                        }
+                    }
+                }
+                .onRestoreCompleted { _ in
+                    Task { @MainActor in
+                        await premiumAccessStore.syncPurchases()
+                        if premiumAccessStore.isPremiumActive {
+                            dismiss()
+                        }
+                    }
+                }
+                .onRequestedDismissal {
+                    dismiss()
+                }
+        } else {
+            PaywallView(displayCloseButton: false)
+                .onPurchaseCompleted { _ in
+                    Task { @MainActor in
+                        await premiumAccessStore.syncPurchases()
+                        if premiumAccessStore.isPremiumActive {
+                            dismiss()
+                        }
+                    }
+                }
+                .onRestoreCompleted { _ in
+                    Task { @MainActor in
+                        await premiumAccessStore.syncPurchases()
+                        if premiumAccessStore.isPremiumActive {
+                            dismiss()
+                        }
+                    }
+                }
+                .onRequestedDismissal {
+                    dismiss()
+                }
         }
     }
 

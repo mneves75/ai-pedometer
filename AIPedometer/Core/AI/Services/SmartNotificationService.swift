@@ -67,8 +67,9 @@ final class SmartNotificationService {
         }
     }
 
-    func scheduleMotivationalReminder(at hour: Int, minute: Int) async {
-        guard foundationModelsService.availability.isAvailable else { return }
+    @discardableResult
+    func scheduleMotivationalReminder(at hour: Int, minute: Int) async -> Bool {
+        guard foundationModelsService.availability.isAvailable else { return false }
 
         var dateComponents = DateComponents()
         dateComponents.hour = hour
@@ -90,10 +91,12 @@ final class SmartNotificationService {
                 "hour": "\(hour)",
                 "minute": "\(minute)"
             ])
+            return true
         } catch {
             Loggers.ai.error("ai.motivational_reminder_failed", metadata: [
                 "error": error.localizedDescription
             ])
+            return false
         }
     }
 
