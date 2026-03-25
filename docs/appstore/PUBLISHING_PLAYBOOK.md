@@ -41,7 +41,7 @@ Com upload dry-run já resolvendo localization:
 bash Scripts/appstore-publishing-preflight.sh \
   --run-upload-dry-run \
   --app-id "<APP_ID_ASC>" \
-  --version "0.75" \
+  --version "0.76" \
   --locale "pt-BR"
 ```
 
@@ -71,7 +71,7 @@ Opção B (resolver automaticamente por app/version/locale):
 ```bash
 bash Scripts/appstore-screenshots-upload.sh \
   --app-id "<APP_ID_ASC>" \
-  --version "0.75" \
+  --version "0.76" \
   --locale "pt-BR"
 ```
 
