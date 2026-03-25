@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+
+- Documented the recurring `devicectl` warning `Failed to load provisioning paramter list ... No provider was found.` as a host-side CoreDevice/Xcode issue that can appear even when install/launch succeeds.
+- Clarified that `Scripts/install-on-device.sh` may hit a first launch denial when the iPhone is locked and then recover on the built-in retry path.
+
 ## [0.76] - 2026-03-25
 
 ### Changed
