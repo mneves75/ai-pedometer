@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.76] - 2026-03-25
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.76 (32)`.
+- App Store publishing commands and top-level version references now point to `0.76`.
+
+### Tests
+
+- No code changes in this release; verification was limited to release metadata/doc integrity checks.
+
 ## [0.75] - 2026-03-25
 
 ### Added
