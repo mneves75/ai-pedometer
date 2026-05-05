@@ -5,12 +5,12 @@ import Testing
 
 struct AppLoggerTests {
     @Test("AppLogger renders JSON payload with metadata")
-    func rendersPayloadWithMetadata() throws {
+    func rendersPayloadWithRedactedMetadata() throws {
         let timestamp = Date(timeIntervalSince1970: 0)
         let payload = AppLogger.renderPayload(
             event: "test.event",
             level: "info",
-            metadata: ["key": "value"],
+            metadata: ["path": "/private/app/container", "steps": "12000"],
             timestamp: timestamp
         )
 
@@ -20,7 +20,8 @@ struct AppLoggerTests {
 
         #expect(parsed["event"] == "test.event")
         #expect(parsed["level"] == "info")
-        #expect(parsed["key"] == "value")
+        #expect(parsed["path"] == "[private]")
+        #expect(parsed["steps"] == "[private]")
         #expect(parsed["timestamp"]?.contains("1970") == true)
     }
 }

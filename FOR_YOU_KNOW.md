@@ -136,7 +136,7 @@ If RevenueCat is not configured, the app does not quietly leak premium capabilit
 
 That is the right instinct. Billing bugs are trust bugs.
 
-Also note the current doc drift: `PRD.md` still says subscriptions are out of scope, but the codebase and `README.md` clearly show premium gating is already part of reality. When docs and code disagree, trust the code first, then fix the docs.
+The docs now reflect this reality: `PRD.md`, `README.md`, `CHANGELOG.md`, and `docs/revenuecat/README.md` all treat RevenueCat-backed premium access as part of the product, not a future add-on. Keep them aligned whenever the premium boundary changes.
 
 ## Watch and widgets: the satellites
 
@@ -223,9 +223,9 @@ Here are the things most likely to waste time if you forget them.
 
 ### 1. Doc drift is real here
 
-This repo already had references to `AGENTS.md` and `CLAUDE.md` in `README.md` before those files existed locally. `PRD.md` also trails the code on premium features.
+This repo has had stale generated or supporting docs before. A concrete example from 2026-05-05: `project.yml` had release metadata `0.76 (32)` while the generated `.xcodeproj` still reported `0.74 (30)` until `xcodegen generate && Scripts/restore-entitlements.sh` was rerun.
 
-Lesson: docs are useful, but they are not always current. Verify against real files before repeating a claim.
+Lesson: docs and generated files are useful, but they are not always current. Verify against real files and generated project metadata before repeating a claim.
 
 ### 2. "Executed 0 tests" is not success
 
@@ -277,4 +277,3 @@ When you touch this codebase:
 If you remember only one thing, remember this:
 
 This app is less like a single screen stack and more like a small transit system. Phone, watch, widgets, AI, HealthKit, and premium state are all connected. A local change can ripple outward fast. Work like a signal engineer, not like someone swapping light bulbs in isolation.
-

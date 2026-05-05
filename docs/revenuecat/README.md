@@ -413,13 +413,13 @@ Fluxos implementados:
 - abrir gestão de assinatura
 - mostrar estado indisponível quando não há configuração válida
 
-O app usa paywall próprio. Ele não depende de `RevenueCatUI`.
+O app usa `PaywallView` oficial da `RevenueCatUI` quando a configuração e o offering são válidos.
 
-Isso é intencional neste repo porque:
+A lógica de acesso continua local e explícita:
 
-- reduz superfície de dependência
-- mantém a estética consistente com o design system do app
-- deixa a lógica de gating explícita no código local
+- `PremiumAccessStore` é a fonte única de verdade para entitlement, offerings e estado de compra
+- `PremiumAccessSheet` escolhe entre paywall oficial, ações de restore/manage e estado indisponível
+- se RevenueCat não estiver configurado ou não retornar offerings válidos, a UI falha fechada
 
 ## Como os recursos premium são gated
 
@@ -578,7 +578,7 @@ Antes de publicar:
 
 Estas são decisões já tomadas no código:
 
-- o app usa paywall SwiftUI próprio, não `RevenueCatUI`
+- o app usa `RevenueCatUI` para o paywall oficial quando há offering/config válidos
 - o app usa entitlement único `premium`
 - o app usa usuário anônimo da RevenueCat, porque não há login
 - o app falha fechado quando não há configuração válida

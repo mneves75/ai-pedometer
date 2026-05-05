@@ -4,21 +4,20 @@ import os
 struct AppLogger: Sendable {
     private let logger: Logger
 
-
     init(subsystem: String, category: String) {
         self.logger = Logger(subsystem: subsystem, category: category)
     }
 
     func info(_ event: String, metadata: [String: String] = [:]) {
-        logger.info("\(render(event: event, level: "info", metadata: metadata))")
+        logger.info("\(render(event: event, level: "info", metadata: metadata), privacy: .private)")
     }
 
     func warning(_ event: String, metadata: [String: String] = [:]) {
-        logger.warning("\(render(event: event, level: "warning", metadata: metadata))")
+        logger.warning("\(render(event: event, level: "warning", metadata: metadata), privacy: .private)")
     }
 
     func error(_ event: String, metadata: [String: String] = [:]) {
-        logger.error("\(render(event: event, level: "error", metadata: metadata))")
+        logger.error("\(render(event: event, level: "error", metadata: metadata), privacy: .private)")
     }
 
     private func render(event: String, level: String, metadata: [String: String]) -> String {
@@ -38,8 +37,8 @@ struct AppLogger: Sendable {
             "level": level,
             "timestamp": formatter.string(from: timestamp)
         ]
-        for (key, value) in metadata {
-            payload[key] = value
+        for key in metadata.keys {
+            payload[key] = "[private]"
         }
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])

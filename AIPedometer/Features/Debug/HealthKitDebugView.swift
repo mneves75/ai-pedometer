@@ -34,7 +34,7 @@ struct HealthKitDebugView: View {
             summarySection
             dayBreakdownSection
         }
-        .navigationTitle("Debug do HealthKit")
+        .navigationTitle(L10n.localized("Debug do HealthKit", comment: "A title for this view."))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -48,14 +48,14 @@ struct HealthKitDebugView: View {
                     }
                 }
                 .disabled(isLoading)
-                .accessibilityLabel("Atualizar")
+                .accessibilityLabel(L10n.localized("Atualizar", comment: "Refresh debug data button"))
             }
         }
         .task {
             await refresh()
         }
         .alert(
-            "Debug do HealthKit",
+            L10n.localized("Debug do HealthKit", comment: "A title for this view."),
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { isPresented in
@@ -63,7 +63,7 @@ struct HealthKitDebugView: View {
                 }
             )
         ) {
-            Button("OK", role: .cancel) { errorMessage = nil }
+            Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }
@@ -72,7 +72,9 @@ struct HealthKitDebugView: View {
     private var summarySection: some View {
         Section {
             if days.isEmpty {
-                Text(isLoading ? "Carregando..." : "Sem dados ainda.")
+                Text(isLoading
+                     ? L10n.localized("Carregando...", comment: "Loading state")
+                     : L10n.localized("Sem dados ainda.", comment: "No data empty state"))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
             } else {
                 let sumAll = days.reduce(0) { $0 + $1.totalAllSources }
@@ -80,19 +82,25 @@ struct HealthKitDebugView: View {
                 let sumUsed = days.reduce(0) { $0 + $1.totalUsedByApp }
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                    row("Total (todas as fontes)", value: sumAll)
-                    row("Total (fontes Apple)", value: sumApple)
-                    row("Total (usado no app)", value: sumUsed)
+                    row(L10n.localized("Total (all sources)", comment: "HealthKit debug total for all sources"), value: sumAll)
+                    row(L10n.localized("Total (Apple sources)", comment: "HealthKit debug total for Apple sources"), value: sumApple)
+                    row(L10n.localized("Total (used by app)", comment: "HealthKit debug total used by the app"), value: sumUsed)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Resumo do HealthKit dos ultimos 7 dias")
+                .accessibilityLabel(L10n.localized(
+                    "Resumo do HealthKit dos ultimos 7 dias",
+                    comment: "HealthKit debug summary accessibility label"
+                ))
 
-                Text("O app usa o total agregado do HealthKit (HKStatisticsQuery/Collection) que aplica a logica do proprio iOS para mesclar dados entre dispositivos e respeitar a prioridade de fontes configurada em Saude. Os totais por fonte aqui sao diagnostico: somar fontes pode inflar o total por haver sobreposicao (mesmas caminhadas contadas por multiplos dispositivos).")
+                Text(L10n.localized(
+                    "O app usa o total agregado do HealthKit (HKStatisticsQuery/Collection) que aplica a logica do proprio iOS para mesclar dados entre dispositivos e respeitar a prioridade de fontes configurada em Saude. Os totais por fonte aqui sao diagnostico: somar fontes pode inflar o total por haver sobreposicao (mesmas caminhadas contadas por multiplos dispositivos).",
+                    comment: "HealthKit debug explanation"
+                ))
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         } header: {
-            Text("Resumo (7 dias)")
+            Text(L10n.localized("Resumo (7 dias)", comment: "HealthKit debug section header"))
         }
     }
 
@@ -110,9 +118,9 @@ struct HealthKitDebugView: View {
                     }
 
                     HStack(spacing: DesignTokens.Spacing.md) {
-                        smallPill("Todas", value: day.totalAllSources)
-                        smallPill("Apple", value: day.totalAppleSources)
-                        smallPill("App", value: day.totalUsedByApp)
+                        smallPill(L10n.localized("All", comment: "HealthKit debug all sources pill"), value: day.totalAllSources)
+                        smallPill(L10n.localized("Apple", comment: "HealthKit debug Apple sources pill"), value: day.totalAppleSources)
+                        smallPill(L10n.localized("App", comment: "HealthKit debug app aggregate pill"), value: day.totalUsedByApp)
                     }
 
                     if !day.sources.isEmpty {
@@ -130,7 +138,11 @@ struct HealthKitDebugView: View {
                             }
                         }
                         if day.sources.count > 6 {
-                            Text("... +\(day.sources.count - 6) fontes")
+                            Text(Localization.format(
+                                "... +%d sources",
+                                comment: "HealthKit debug hidden source count",
+                                day.sources.count - 6
+                            ))
                                 .font(DesignTokens.Typography.caption)
                                 .foregroundStyle(DesignTokens.Colors.textSecondary)
                         }
@@ -139,7 +151,7 @@ struct HealthKitDebugView: View {
                 .padding(.vertical, DesignTokens.Spacing.xs)
             }
         } header: {
-            Text("Por dia")
+            Text(L10n.localized("Por dia", comment: "HealthKit debug section header by day"))
         }
     }
 
@@ -171,7 +183,7 @@ struct HealthKitDebugView: View {
 
     private func refresh() async {
         guard HKHealthStore.isHealthDataAvailable() else {
-            errorMessage = "HealthKit nao esta disponivel neste dispositivo."
+            errorMessage = HealthKitError.notAvailable.localizedDescription
             return
         }
         isLoading = true

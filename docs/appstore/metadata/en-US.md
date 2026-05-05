@@ -21,7 +21,7 @@
 
 ## What's New (next release)
 
-`General stability, performance, and release-publishing workflow improvements.`
+`Privacy manifest, logging, localization, and release-readiness improvements.`
 
 ## URLs
 
@@ -35,6 +35,8 @@
 - Sign-in required: `No`
 - Review notes:
   - `Tip Jar (consumable IAP): com.mneves.aipedometer.coffee`
+  - `Premium AI subscription entitlement: premium`
+  - `AI processing is on-device via Apple Foundation Models; no cloud AI service is used.`
   - `Access path: More > About > Buy me a coffee`
 
 ## Screenshot set (suggested order)

@@ -27,20 +27,20 @@ NavigationSplitView sidebar:
 
 ## Dashboard
 - Daily header
-- AI Insight card (if AI available)
+- Premium-gated AI Insight card (if premium and AI are available)
 - Progress ring
 - Stats grid
 - Profile button routes to Settings
 
 ## History
 - Weekly summary chart
-- Weekly trend AI card (if AI available)
+- Premium-gated weekly trend AI card (if premium and AI are available)
 - Daily history rows
 - Empty/loading/error states
 
 ## Workouts
 - Active workout banner (if active) -> ActiveWorkoutView sheet
-- AI workout recommendation (if AI available)
+- Premium-gated AI workout recommendation (if premium and AI are available)
 - Start workout action
 - Training Plans card -> TrainingPlansView
 - Recent workouts carousel
@@ -53,7 +53,7 @@ NavigationSplitView sidebar:
 - Discard action (toolbar)
 
 ## Training Plans
-- Empty state -> Create plan
+- Empty state -> Create plan (premium-gated for AI generation)
 - List of plans -> Plan detail
 - CreatePlanSheet for new plan
 
@@ -65,6 +65,7 @@ NavigationSplitView sidebar:
 - Message list
 - Suggested questions
 - Input field and send action
+- Premium gate before coach access when entitlement is unavailable
 - AI availability banner and disclaimer
 
 ## Settings
@@ -80,6 +81,7 @@ NavigationSplitView sidebar:
 - Hero and feature cards
 - Links (App Store review, feedback, privacy policy)
 - Support (tip jar) section
+- Premium subscription status, restore/manage actions, and RevenueCat Customer Center when available
 - Version info
 
 ## More

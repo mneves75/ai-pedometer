@@ -34,6 +34,7 @@ Derived from current code and documentation.
 
 ## Store
 - StoreKit (tip jar)
+- RevenueCat + RevenueCatUI (premium subscriptions, fail-closed gates)
 
 ## Performance and Metrics
 - MetricKit
@@ -41,3 +42,4 @@ Derived from current code and documentation.
 ## Testing
 - Swift Testing (AIPedometerTests)
 - XCUITest (AIPedometerUITests)
+- App Store Connect CLI (`asc`) for release-readiness checks when credentials are configured

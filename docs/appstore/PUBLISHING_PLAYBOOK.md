@@ -35,6 +35,15 @@ Após rodar o preparo:
 bash Scripts/appstore-publishing-preflight.sh
 ```
 
+### 0) Validar ambiente ASC/Xcode
+
+```bash
+asc doctor
+asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer
+```
+
+Se `asc doctor` informar que não há credenciais armazenadas, configure `asc auth login` ou as variáveis `ASC_KEY_ID`, `ASC_ISSUER_ID` e chave privada antes de comandos remotos.
+
 Com upload dry-run já resolvendo localization:
 
 ```bash
@@ -91,9 +100,20 @@ Preencher e revisar:
 5. Submeter para review.
 6. Após aprovado: liberar manualmente ou phased release.
 
+Validação remota recomendada quando app/version/build já existem no ASC:
+
+```bash
+asc validate --app "<APP_ID_ASC>" --version "0.76" --platform IOS --output table
+asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
+asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
+```
+
 ## Checklist de envio
 
 - [ ] Build correto anexado à versão.
+- [ ] `asc doctor` sem bloqueios de autenticação local.
+- [ ] `asc validate` sem bloqueios para versão App Store.
+- [ ] `asc validate testflight` sem bloqueios para build processado.
 - [ ] Screenshots válidas para iPhone e iPad.
 - [ ] Metadata completa em pt-BR e en-US.
 - [ ] Notes para review atualizadas.
