@@ -85,11 +85,25 @@ If `REVENUECAT_API_KEY` is not configured, premium surfaces fail closed and the 
 ### Build & Test
 
 ```bash
+# Verify local App Store Connect CLI/auth state
+asc doctor
+
+# Confirm generated Xcode project version/build metadata
+asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer
+
 # Build for simulator
 xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
 
-# Run all tests
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
+# Run all unit tests
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -parallel-testing-enabled NO -only-testing:AIPedometerTests test
+
+# Run all UI tests
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -parallel-testing-enabled NO -only-testing:AIPedometerUITests test
+
+# Run static analysis
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze
 
 # Run specific test file
 xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
@@ -109,6 +123,14 @@ bash Scripts/install-on-device.sh \
   --destination-timeout 180
 ```
 
+App Store Connect readiness, when ASC credentials and IDs are configured:
+
+```bash
+asc validate --app "<APP_ID_ASC>" --version "0.76" --platform IOS --output table
+asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
+asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
+```
+
 Notes for physical-device installs:
 - `devicectl` may print `Failed to load provisioning paramter list ... No provider was found.` on this host even for `--help` or `list devices`; in our verified runs it was a benign CoreDevice/Xcode warning and did not block build, install, or final launch.
 - If the iPhone is locked, the first `devicectl device process launch` attempt can be denied with `Locked`; the script already retries automatically and often succeeds on the second attempt once the device is unlocked.
@@ -120,6 +142,22 @@ Swift 6.2 strict concurrency is enforced project-wide:
 - `SWIFT_STRICT_CONCURRENCY: complete`
 - `SWIFT_TREAT_WARNINGS_AS_ERRORS: YES`
 - `GCC_TREAT_WARNINGS_AS_ERRORS: YES`
+
+The repo uses XcodeGen. If `project.yml` changes, regenerate before building or publishing:
+
+```bash
+xcodegen generate && Scripts/restore-entitlements.sh
+```
+
+Privacy and security checks expected before release:
+
+```bash
+plutil -lint AIPedometer/Resources/PrivacyInfo.xcprivacy \
+  AIPedometerWatch/Resources/PrivacyInfo.xcprivacy \
+  AIPedometerWidgets/Resources/PrivacyInfo.xcprivacy
+jq empty Shared/Resources/Localizable.xcstrings AIPedometer/Resources/InfoPlist.xcstrings
+bash Scripts/verify-entitlements.sh
+```
 
 ### Localization
 

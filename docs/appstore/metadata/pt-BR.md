@@ -21,7 +21,7 @@
 
 ## What's New (próxima versão)
 
-`Melhorias gerais de estabilidade, performance e experiência de publicação da versão.`
+`Melhorias nos manifests de privacidade, logs, localização e prontidão de publicação.`
 
 ## URLs
 
@@ -35,6 +35,8 @@
 - Sign-in required: `Não`
 - Notes para revisão:
   - `Tip Jar (IAP consumable): com.mneves.aipedometer.coffee`
+  - `Entitlement da assinatura Premium AI: premium`
+  - `A IA roda no dispositivo via Apple Foundation Models; nenhum serviço de IA em nuvem é usado.`
   - `Fluxo acessível na tela More > About > Buy me a coffee`
 
 ## Screenshot set (ordem sugerida)

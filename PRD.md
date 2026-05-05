@@ -11,6 +11,7 @@ Provide a calm, reliable, on-device step tracking experience with AI-guided insi
 - AI Insights: daily insight and weekly trend analysis when on-device AI is available.
 - AI Coach: conversational coaching with strict guardrails and no medical advice.
 - AI Training Plans: create, view, and manage plans with weekly targets.
+- Premium AI: subscription-gate AI insights, coach, smart reminders, history trends, and training plan generation through RevenueCat, failing closed when unavailable.
 - Workouts: start, track, pause/resume, and end walking workouts; Live Activity support.
 - Badges: milestones and streak achievements with celebration.
 - watchOS companion: glanceable daily summary.
@@ -28,11 +29,11 @@ Provide a calm, reliable, on-device step tracking experience with AI-guided insi
 ## Constraints
 - No medical advice or health outcome claims in AI output.
 - Tip jar must remain optional and not gate features.
+- Subscription failures must not expose premium-only AI features.
 
 ## Out of Scope (Current)
-- Subscription paywalls or premium feature gates.
 - Cloud backends or remote AI services.
 
 ## Open Questions
-- App Store ID and release channel details.
-- Marketing copy and App Store metadata ownership.
+- App Store ID and release channel details for remote ASC validation.
+- Final public support, marketing, and privacy-policy URLs for App Store metadata.

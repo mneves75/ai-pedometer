@@ -4,8 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.6.x   | Yes       |
-| < 0.6   | No        |
+| 0.76.x  | Yes       |
+| < 0.76  | No        |
 
 ## Reporting a Vulnerability
 
@@ -31,6 +31,8 @@ This project follows security best practices:
 - **AI Processing**: On-device only via Apple Foundation Models; no cloud AI
 - **Entitlements**: Minimal permissions requested (HealthKit, App Groups only)
 - **No Analytics**: No third-party tracking or telemetry
+- **Private Logs**: Structured log metadata is redacted by default before OSLog emission
+- **Privacy Manifests**: Health/Fitness collection uses Apple's official privacy manifest identifiers and app functionality purpose only
 - **Strict Concurrency**: Swift 6.2 data-race safety enforced at compile time
 
 ## Data Privacy
@@ -38,4 +40,5 @@ This project follows security best practices:
 - Health data is accessed via HealthKit APIs with user consent
 - All data processing occurs locally on the user's device
 - No personal data is transmitted to external servers
+- App-group UserDefaults access is declared with the Apple-required reason for shared app/widget/watch state
 - See Apple's [HealthKit privacy documentation](https://developer.apple.com/documentation/healthkit/protecting_user_privacy)

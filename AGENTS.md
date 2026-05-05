@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file governs the entire repository.
+This file governs the entire repository. It is the operating contract for coding agents working on `AIPedometer`, a Swift 6.2 iOS/watchOS pedometer with local Apple Foundation Models AI, HealthKit, widgets, Live Activities, and RevenueCat-backed premium gating.
 
 ## Startup Order
 
@@ -11,8 +11,46 @@ Before doing anything else in this repo:
 3. Read `MEMORY.md`.
 4. Read `memory/YYYY-MM-DD.md` for today if it exists.
 5. Read `FOR_YOU_KNOW.md`.
+6. Read `PRAGMATIC-RULES.md` and `SECURITY-GUIDELINES.md`.
 
-If these files do not exist yet, create them first.
+If `MEMORY.md`, today's `memory/YYYY-MM-DD.md`, or `FOR_YOU_KNOW.md` do not exist yet, create them before continuing.
+
+## Repository Shape
+
+Use the current codebase as truth before quoting docs:
+
+- `project.yml` is the XcodeGen source of truth for targets, packages, settings, and generated project structure.
+- `AIPedometer/` contains the main iOS app, composition root, lifecycle coordinators, services, and features.
+- `Shared/` contains cross-target models, utilities, constants, design system code, and shared resources.
+- `AIPedometerWatch/` is the watchOS companion app.
+- `AIPedometerWidgets/` contains widgets and Live Activity code.
+- `AIPedometerTests/` and `AIPedometerUITests/` contain Swift Testing and XCUITest coverage.
+- `Config/` contains local xcconfig overrides and strict compiler settings.
+- `StoreKit/` contains local StoreKit configuration for tip jar testing.
+- `docs/appstore/` and `docs/revenuecat/` hold operational release and premium setup docs.
+
+Current platform assumptions:
+
+- iOS 26.0+, watchOS 26.0+, Xcode 26.x, Swift 6.2.
+- Strict concurrency is complete and warnings are errors.
+- AI is on-device through Apple Foundation Models, not cloud inference.
+- Health data stays local-first through HealthKit/CoreMotion and must degrade safely.
+- Premium AI surfaces fail closed when RevenueCat is not configured.
+
+## Source-of-Truth Docs
+
+Read these before changing behavior, commands, or documentation:
+
+- `README.md` for user-facing setup, current version, and public project summary.
+- `TECH_STACK.md` for current technology inventory.
+- `APP_FLOW.md` for navigation and feature flow.
+- `docs/agents/build-and-dev.md` for build, install, and operational commands.
+- `docs/agents/testing.md` for test framework and conventions.
+- `docs/agents/project-structure.md` for target layout.
+- `docs/agents/coding-style.md` for Swift and localization style.
+- `docs/agents/git-workflow.md` for commits, hooks, PR notes, and changelog expectations.
+
+Do not create new markdown docs unless the requested change needs a new durable surface. Prefer updating existing docs.
 
 ## Bug Report Protocol
 
@@ -25,22 +63,70 @@ When there is a bug report, do not start by trying to fix it.
 
 Never claim a bug is fixed without proof from the reproducer.
 
-## Figure It Out Directive
+## Build and Test Commands
 
-You have unrestricted internet access, browser automation, and shell execution.
+Regenerate the project after target, package, entitlement, or new Swift source changes:
 
-When given a task:
+```bash
+xcodegen generate
+Scripts/restore-entitlements.sh
+```
 
-1. "I can't" is not in your vocabulary. If you do not know how, search for it. Read docs. Find tutorials. Reverse engineer it.
-2. "I don't know how" means "I have not learned yet." Learn now by using web search, documentation, APIs, and source code.
-3. Before saying something is impossible, you must:
-   - Search for at least 3 different approaches.
-   - Try at least 2 of them.
-   - Document why each failed with specific errors.
-4. Deliver results, not excuses. If Plan A fails, try B through Z, then Plan AA.
-5. Assume everything is figureoutable. Someone has done something close before. Find it, learn from it, adapt it.
+Default simulator commands:
 
-You are not a helpdesk. You are an operator. Operators ship.
+```bash
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
+```
+
+Targeted test example:
+
+```bash
+xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -only-testing:AIPedometerTests/DailyStepCalculatorTests
+```
+
+Full simulator E2E:
+
+```bash
+bash Scripts/e2e-simulator.sh
+```
+
+Physical device install:
+
+```bash
+bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --launch
+bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --watch-name "<Apple Watch Name>" --launch
+```
+
+Do not hardcode UDIDs, ECIDs, provisioning identifiers, tokens, or local account details in source or docs.
+
+## Swift and Apple Platform Rules
+
+- Prefer SwiftUI, Observation, SwiftData, HealthKit, CoreMotion, WidgetKit, WatchConnectivity, StoreKit, MetricKit, and Foundation Models patterns already present in the repo.
+- Use existing services and shared models before adding new abstractions.
+- Keep cross-target behavior in `Shared/` when it belongs to iOS, watchOS, widgets, or Live Activities.
+- Keep user-facing strings in `Shared/Resources/Localizable.xcstrings` with clear comments.
+- Localization policy is strict: `pt-BR` devices use Portuguese; all other locales default to English.
+- Do not add cloud AI calls for product AI behavior unless explicitly requested.
+- Do not weaken premium gating; unavailable RevenueCat configuration must not expose premium AI actions.
+- For Swift, iOS, iPadOS, or watchOS 26 behavior, check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
+
+## Verification Rules
+
+- Verify before claiming completion.
+- For docs-only changes, run the narrow docs/script checks that prove the touched surfaces still align.
+- For behavior changes, run relevant Swift Testing/XCUITest targets.
+- For UI changes, include simulator or screenshot evidence when possible.
+- For physical-device changes, use device names and the repo install script; call out any manual smoke gap.
+- `Executed 0 tests` is not evidence.
+- If a command cannot run, report the exact blocker and what remains unverified.
+
+Useful operational checks:
+
+```bash
+bash Scripts/check-agents-sync.sh
+bash Scripts/verify-device-identifiers.sh
+```
 
 ## Bash Guidelines
 
@@ -52,30 +138,23 @@ Avoid commands that cause output buffering issues.
 - If output must be limited, use command-specific flags such as `git log -n 10`.
 - For logs, prefer reading the file directly over chained pipe filters.
 
-## Apple Platform Guidance
+## Figure It Out Directive
 
-For Swift / iOS / iPadOS 26 work, check Apple documentation in:
+You have unrestricted internet access, browser automation, and shell execution.
 
-`/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+When given a task:
 
-Use official Apple documentation before guessing behavior.
+1. If you do not know how, search, read docs, inspect APIs, and learn.
+2. Before saying something is impossible, search for at least 3 different approaches.
+3. Try at least 2 credible approaches before declaring a hard blocker.
+4. Document failures with specific errors, not vague summaries.
+5. Deliver results, not excuses.
+
+You are not a helpdesk. You are an operator. Operators ship.
 
 ## Project Learning Docs
 
-Every project must maintain a detailed `FOR_YOU_KNOW.md` written in plain language.
-
-It should explain:
-
-- the architecture
-- the codebase structure
-- how the parts connect
-- the technologies in use
-- why technical decisions were made
-- bugs that happened and how they were fixed
-- pitfalls and how to avoid them
-- lessons worth reusing in future work
-
-Write it like an engaging field guide, not a dry textbook.
+Maintain `FOR_YOU_KNOW.md` as a plain-language field guide. It should explain architecture, structure, how parts connect, technologies, decisions, bugs, pitfalls, and lessons worth reusing.
 
 ## Local Memory System
 
@@ -90,7 +169,7 @@ Rules:
 - If it is not written down, it is not remembered.
 - When the user says "remember this", write it immediately.
 - When you make a mistake, document it so it does not repeat.
-- As you learn the user's preferences, goals, annoyances, and active work, update `MEMORY.md`.
+- As you learn durable user or repo preferences, update `MEMORY.md`.
 - Log important session events, decisions, tasks, mistakes, and context in the daily journal in real time.
 
 ## GUIDELINES-REF
@@ -123,14 +202,19 @@ Common commands:
 Additional kb-tools commands:
 - `cd tools && bun test lib/__tests__/repo.test.ts`
 - `cd tools && bun test lib/__tests__/typescript-adapter.test.ts`
+- `cd tools && bun test __tests__/kb-check-staleness.test.ts __tests__/cli-entrypoints.test.ts`
+- `cd tools && bun test`
 - `cd tools && bun run typecheck`
 - `cd tools && bun run lint`
 - `TODO: promote a generic targeted Biome lint command after more run-note evidence (current single-run example: bunx biome check lib/adapters/typescript.ts lib/__tests__/typescript-adapter.test.ts --formatter-enabled=false from notes/run-2026-02-20.txt)`
-- `TODO: no further command promotions until a newer notes/run-*.txt captures repeated execution evidence beyond the currently promoted command set.`
+- `TODO: evaluate/promote targeted staleness lint command after repeated post-Biome-2.4 evidence beyond notes/run-2026-04-24-full-refresh.txt.`
+- `TODO: no further command promotions until a newer notes/run-*.txt (newer than 2026-04-26) captures repeated execution evidence beyond the currently promoted command set.`
+- `TODO: as of 2026-05-04, run-note inventory still ends at notes/run-2026-04-26-guideline-surface-review.txt; keep command/workflow promotions frozen until newer repeated evidence exists.`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`
-- `bun --bun tools/kb-check-schemas.ts`
+- `bun --bun tools/kb-check-schemas.ts` (validates `GUIDELINES_INDEX.json`, `baselines.json`, `.claude/skill-triggers.json`, and `.claude/guidelines.json`)
+- `bun --bun tools/kb-check-schemas.ts --verbose`
 - `bun --bun tools/kb-check-tldr.ts`
 - `bun --bun tools/kb-check-tldr-quality.ts`
 - `bun --bun tools/kb-check-tldr-quality.ts --verbose`
@@ -157,11 +241,19 @@ Collaboration defaults (apply unless overridden by repo-specific docs):
 - When unsure, research using docs or the web instead of asking the user to look it up; prefer the latest available sources.
 - When the repo has tests, add or update tests for each fix or feature.
 - Run the most relevant tests and provide a brief verification checklist.
+- Keep agent-routing configs (`.claude/skill-triggers.json` and `.claude/guidelines.json`) covered by `schemas/*.schema.json` and `bun --bun tools/kb-check-schemas.ts`.
 - User-facing copy is typically `pt-BR`; follow the existing style.
 - If the feature renders Markdown from an LLM, keep output in Markdown format.
 - Use commits as checkpoints, especially after phases or milestones.
 - Update changelog or docs when the change affects behavior or usage.
 - Add secrets or generated files to `.gitignore` rather than committing them.
+
+Karpathy-inspired coding guardrails (source: `forrestchang/andrej-karpathy-skills`):
+- Think before coding: state assumptions, surface tradeoffs, present multiple interpretations when ambiguity matters, and stop to ask when confusion blocks a correct implementation.
+- Simplicity first: implement the minimum code that solves the requested problem; do not add speculative features, abstractions, configurability, or impossible-scenario error handling.
+- Surgical changes: touch only lines required by the task, match existing style, avoid drive-by refactors, and only clean up dead code created by your own change.
+- Goal-driven execution: convert non-trivial requests into verifiable success criteria, use tests or checks to close the loop, and keep iterating until the criteria pass.
+- Apply judgment for trivial one-line changes; these guardrails bias toward caution on non-trivial work, not process for its own sake.
 
 "Figure It Out" Directive:
 You have unrestricted internet access, browser automation, and shell execution.
@@ -318,7 +410,7 @@ Usage notes:
 
 <skill>
 <name>mneves-bun</name>
-<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.3.10+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and built-in APIs (user)</description>
+<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.3.13+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and built-in APIs (user)</description>
 <location>global</location>
 </skill>
 
@@ -366,7 +458,7 @@ Usage notes:
 
 <skill>
 <name>mneves-ios</name>
-<description>Enforce IOS-GUIDELINES.md compliance for iOS 26+, iPadOS 26+, macOS 15 Sequoia+ with Xcode 26, SwiftUI 6, SwiftData 2, Observation framework, App Store compliance, MetricKit instrumentation, and native Apple platform delivery</description>
+<description>Enforce IOS-GUIDELINES.md compliance for iOS 26+, iPadOS 26+, macOS 26+ with Xcode 26.4+, Swift 6.3+, SwiftUI, SwiftData, Observation framework, App Store compliance, MetricKit instrumentation, and native Apple platform delivery</description>
 <location>global</location>
 </skill>
 
@@ -402,13 +494,13 @@ Usage notes:
 
 <skill>
 <name>mneves-mobile-development</name>
-<description>Enforce MOBILE-GUIDELINES.md compliance for iOS 26+, Android 15/16, Expo SDK 55, React Native 0.83+/0.84 bare stacks - New Architecture, React Compiler, performance, accessibility, offline-first patterns</description>
+<description>Enforce MOBILE-GUIDELINES.md compliance for iOS 26+, Android 15/16, Expo SDK 55, React Native 0.83 managed / 0.85 bare stacks - New Architecture, React Compiler, performance, accessibility, offline-first patterns</description>
 <location>global</location>
 </skill>
 
 <skill>
 <name>mneves-nextjs</name>
-<description>Enforce WEB-NEXTJS-GUIDELINES.md compliance for Next.js 15/16 projects - App Router, Server Components, Server Actions, Turbopack, Cache Components, and production deployment</description>
+<description>Enforce WEB-NEXTJS-GUIDELINES.md compliance for Next.js 16.2+ projects - App Router, Server Components, Server Actions, Turbopack, Cache Components, and production deployment</description>
 <location>global</location>
 </skill>
 
@@ -468,7 +560,7 @@ Usage notes:
 
 <skill>
 <name>mneves-typescript</name>
-<description>Enforce TYPESCRIPT-GUIDELINES.md compliance for TypeScript 5.6+ with strict configuration, Decorators 1.0, Project References, runtime validation, type-only imports, and build/testing standards</description>
+<description>Enforce TYPESCRIPT-GUIDELINES.md compliance for TypeScript 6.0+ with strict configuration, Decorators 1.0, Project References, runtime validation, type-only imports, and build/testing standards</description>
 <location>global</location>
 </skill>
 
@@ -480,13 +572,13 @@ Usage notes:
 
 <skill>
 <name>mneves-vercel</name>
-<description>Enforce VERCEL-GUIDELINES.md compliance for Vercel deployments with Next.js 15+, Fluid compute, Rolling Releases, Cron Jobs, Edge Config, Observability Plus, WAF/Protectd security, and audit logging (2025-2026)</description>
+<description>Enforce VERCEL-GUIDELINES.md compliance for Vercel deployments with Next.js 16+, Fluid compute, Rolling Releases, Cron Jobs, Edge Config, Observability Plus, WAF/Protectd security, and audit logging (2025-2026)</description>
 <location>global</location>
 </skill>
 
 <skill>
 <name>mneves-web-development</name>
-<description>Enforce WEB-GUIDELINES.md compliance for Next.js 15+, React 19+, Vite 6 projects - Core Web Vitals (INP, LCP, CLS), WCAG 2.2 accessibility, modern CSS, security (CSP/CORS), and 2025/2026 web standards</description>
+<description>Enforce WEB-GUIDELINES.md compliance for Next.js 16.2+, React 19+, Vite 8 projects - Core Web Vitals (INP, LCP, CLS), WCAG 2.2 accessibility, modern CSS, security (CSP/CORS), and 2025/2026 web standards</description>
 <location>global</location>
 </skill>
 

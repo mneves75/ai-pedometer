@@ -5,8 +5,7 @@ import os
 /// Service for receiving and processing MetricKit performance payloads.
 ///
 /// MetricKit delivers system-level performance metrics (launch time, memory, CPU, disk, etc.)
-/// aggregated over 24-hour periods. This service logs payloads for observability and can
-/// optionally forward them to an analytics backend.
+/// aggregated over 24-hour periods. This service logs local payload summaries for observability.
 ///
 /// Usage: Create once at app startup and retain for the app's lifetime.
 @MainActor

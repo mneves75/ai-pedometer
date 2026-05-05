@@ -491,13 +491,13 @@ private struct PremiumPackageCard: View {
     private var packageTypeLabel: String {
         switch package.packageType {
         case .monthly:
-            return String(localized: "Mensal", comment: "Monthly package label")
+            return L10n.localized("Monthly", comment: "Monthly package label")
         case .annual:
-            return String(localized: "Anual", comment: "Annual package label")
+            return L10n.localized("Annual", comment: "Annual package label")
         case .weekly:
-            return String(localized: "Semanal", comment: "Weekly package label")
+            return L10n.localized("Weekly", comment: "Weekly package label")
         case .lifetime:
-            return String(localized: "Vitalício", comment: "Lifetime package label")
+            return L10n.localized("Lifetime", comment: "Lifetime package label")
         default:
             return package.identifier
         }
@@ -510,22 +510,22 @@ private struct PremiumPackageCard: View {
         switch period.unit {
         case .day:
             base = value == 1
-                ? String(localized: "dia", comment: "Subscription period day singular")
-                : String(localized: "dias", comment: "Subscription period day plural")
+                ? L10n.localized("day", comment: "Subscription period day singular")
+                : L10n.localized("days", comment: "Subscription period day plural")
         case .week:
             base = value == 1
-                ? String(localized: "semana", comment: "Subscription period week singular")
-                : String(localized: "semanas", comment: "Subscription period week plural")
+                ? L10n.localized("week", comment: "Subscription period week singular")
+                : L10n.localized("weeks", comment: "Subscription period week plural")
         case .month:
             base = value == 1
-                ? String(localized: "mês", comment: "Subscription period month singular")
-                : String(localized: "meses", comment: "Subscription period month plural")
+                ? L10n.localized("month", comment: "Subscription period month singular")
+                : L10n.localized("months", comment: "Subscription period month plural")
         case .year:
             base = value == 1
-                ? String(localized: "ano", comment: "Subscription period year singular")
-                : String(localized: "anos", comment: "Subscription period year plural")
+                ? L10n.localized("year", comment: "Subscription period year singular")
+                : L10n.localized("years", comment: "Subscription period year plural")
         @unknown default:
-            base = String(localized: "período", comment: "Unknown subscription period label")
+            base = L10n.localized("period", comment: "Unknown subscription period label")
         }
 
         return "\(value) \(base)"
