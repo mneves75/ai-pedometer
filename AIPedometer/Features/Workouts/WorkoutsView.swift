@@ -3,6 +3,7 @@ import SwiftData
 
 struct WorkoutsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
+    @AppStorage(AppConstants.UserDefaultsKeys.expeditionModeEnabled) private var expeditionModeEnabled = false
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(TrainingPlanService.self) private var trainingPlanService
@@ -40,6 +41,7 @@ struct WorkoutsView: View {
                     activeWorkoutBanner
                 }
                 aiWorkoutSection
+                expeditionModeSection
                 startWorkoutSection
                 trainingPlansSection
                 recentWorkoutsSection
@@ -143,6 +145,57 @@ struct WorkoutsView: View {
             workoutRecommendation = try await insightService.generateWorkoutRecommendation(forceRefresh: forceRefresh)
         } catch {
             recommendationError = error
+        }
+    }
+
+    @ViewBuilder
+    private var expeditionModeSection: some View {
+        if premiumAccessStore.isResolvingAccess {
+            PremiumAccessLoadingCard(
+                title: L10n.localized("Expedition Mode", comment: "Expedition Mode card title")
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if premiumAccessStore.canAccessAIFeatures {
+            Toggle(isOn: $expeditionModeEnabled) {
+                HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                    Image(systemName: "battery.100.bolt")
+                        .font(DesignTokens.Typography.title2)
+                        .foregroundStyle(DesignTokens.Colors.green)
+                        .frame(width: 44, height: 44)
+                        .background(DesignTokens.Colors.green.opacity(0.14), in: Circle())
+
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text(L10n.localized("Expedition Mode", comment: "Expedition Mode card title"))
+                            .font(DesignTokens.Typography.headline)
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+
+                        Text(
+                            L10n.localized(
+                                "Use fewer live metric updates during long hikes and walks to reduce battery impact.",
+                                comment: "Expedition Mode explanatory copy"
+                            )
+                        )
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    }
+                }
+            }
+            .toggleStyle(.switch)
+            .padding(DesignTokens.Spacing.md)
+            .glassCard()
+            .accessibilityIdentifier(A11yID.Workouts.expeditionModeToggle)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else {
+            PremiumFeatureGateCard(
+                title: L10n.localized("Expedition Mode", comment: "Expedition Mode card title"),
+                message: L10n.localized(
+                    "Premium is required to reduce live metric updates during long workouts.",
+                    comment: "Premium gate copy for Expedition Mode"
+                ),
+                accessibilityIdentifier: A11yID.Workouts.premiumExpeditionModeGate
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .task { expeditionModeEnabled = false }
         }
     }
 

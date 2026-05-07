@@ -90,6 +90,7 @@ struct AIPedometerApp: App {
 
         let badges = BadgeService(persistence: persistence)
         badges.configure(with: fmService)
+        let premiumAccessStore = PremiumAccessStore()
 
         // Create StepTrackingService with shared dependencies
         let trackingService = StepTrackingService(
@@ -139,7 +140,11 @@ struct AIPedometerApp: App {
             modelContext: modelContext,
             healthKitService: healthKitService,
             metricsSource: workoutMetricsSource,
-            liveActivityManager: liveActivityManager
+            liveActivityManager: liveActivityManager,
+            isExpeditionModeEnabled: {
+                UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.expeditionModeEnabled)
+                    && premiumAccessStore.canAccessAIFeatures
+            }
         ))
         _demoModeStore = State(initialValue: demoStore)
         _notificationService = State(initialValue: NotificationService())
@@ -149,7 +154,7 @@ struct AIPedometerApp: App {
             goalService: goalService
         ))
         _tipJarStore = State(initialValue: TipJarStore())
-        _premiumAccessStore = State(initialValue: PremiumAccessStore())
+        _premiumAccessStore = State(initialValue: premiumAccessStore)
 
         _badgeService = State(initialValue: badges)
 

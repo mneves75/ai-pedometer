@@ -51,6 +51,7 @@ final class WorkoutSessionController {
     private let liveActivityManager: any LiveActivityManaging
     private let saveModelContext: @MainActor (ModelContext) throws -> Void
     private let now: () -> Date
+    private let isExpeditionModeEnabled: () -> Bool
     private var stateMachine = WorkoutStateMachine()
 
     private var updateTask: Task<Void, Never>?
@@ -65,6 +66,7 @@ final class WorkoutSessionController {
     private(set) var metrics: WorkoutMetrics?
     var lastError: WorkoutSessionError?
     private(set) var workoutType: WorkoutType?
+    private(set) var isExpeditionModeActive = false
     var isPresenting = false
 
     init(
@@ -73,7 +75,10 @@ final class WorkoutSessionController {
         metricsSource: any WorkoutLiveMetricsSource,
         liveActivityManager: any LiveActivityManaging = NoopLiveActivityManager(),
         saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() },
-        now: @escaping () -> Date = { .now }
+        now: @escaping () -> Date = { .now },
+        isExpeditionModeEnabled: @escaping () -> Bool = {
+            UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.expeditionModeEnabled)
+        }
     ) {
         self.modelContext = modelContext
         self.healthKitService = healthKitService
@@ -81,6 +86,7 @@ final class WorkoutSessionController {
         self.liveActivityManager = liveActivityManager
         self.saveModelContext = saveModelContext
         self.now = now
+        self.isExpeditionModeEnabled = isExpeditionModeEnabled
     }
 
     var isActive: Bool {
@@ -97,6 +103,10 @@ final class WorkoutSessionController {
         let end = pauseStartedAt ?? now()
         let total = end.timeIntervalSince(metrics.startTime) - totalPausedDuration
         return max(total, 0)
+    }
+
+    var metricsRefreshIntervalSeconds: Int {
+        isExpeditionModeActive ? 60 : 5
     }
 
     func startWorkout(type: WorkoutType, targetSteps: Int?) async {
@@ -121,6 +131,7 @@ final class WorkoutSessionController {
         activeSession = session
         workoutType = type
         metrics = WorkoutMetrics.initial(startTime: startTime, targetSteps: targetSteps)
+        isExpeditionModeActive = isExpeditionModeEnabled()
         accumulatedSteps = 0
         accumulatedDistance = 0
         transition(.start)
@@ -299,7 +310,7 @@ private extension WorkoutSessionController {
             while !Task.isCancelled {
                 await self.refreshMetrics()
                 do {
-                    try await Task.sleep(for: .seconds(5))
+                    try await Task.sleep(for: .seconds(self.metricsRefreshIntervalSeconds))
                 } catch is CancellationError {
                     break
                 } catch {
@@ -365,6 +376,7 @@ private extension WorkoutSessionController {
         lastPersistedAt = nil
         accumulatedSteps = 0
         accumulatedDistance = 0
+        isExpeditionModeActive = false
         stateMachine = WorkoutStateMachine()
         state = .idle
     }
@@ -381,6 +393,7 @@ private extension WorkoutSessionController {
         lastPersistedAt = nil
         accumulatedSteps = 0
         accumulatedDistance = 0
+        isExpeditionModeActive = false
         isPresenting = false
     }
 

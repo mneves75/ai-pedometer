@@ -41,6 +41,7 @@ NavigationSplitView sidebar:
 ## Workouts
 - Active workout banner (if active) -> ActiveWorkoutView sheet
 - Premium-gated AI workout recommendation (if premium and AI are available)
+- Premium-gated Expedition Mode toggle for reduced live metrics cadence during long workouts
 - Start workout action
 - Training Plans card -> TrainingPlansView
 - Recent workouts carousel
