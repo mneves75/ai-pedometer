@@ -40,7 +40,7 @@ Also confirm repo scope first with:
 - Swift 6.2 and strict concurrency are enforced project-wide.
 - AI is on-device through Apple Foundation Models, not cloud inference.
 - Health data is read through HealthKit, with graceful fallback behavior when data or permissions are unavailable.
-- RevenueCat gates premium AI surfaces and is designed to fail closed when not configured.
+- RevenueCat gates premium AI surfaces and is designed to fail closed when not configured or when Trusted Entitlements verification fails.
 - Watch and widgets rely on shared models plus app-group-backed shared state.
 
 ## Known Documentation Drift

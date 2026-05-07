@@ -270,6 +270,7 @@ O store principal é [PremiumAccessStore.swift](../../AIPedometer/Core/Monetizat
 Responsabilidades:
 
 - configurar o SDK uma vez
+- habilitar Trusted Entitlements em modo informativo
 - buscar offerings
 - buscar `CustomerInfo`
 - observar `customerInfoStream`
@@ -291,6 +292,7 @@ Pontos importantes:
 - se não há configuração válida, o app falha fechado
 - se o SDK não está configurado, a UI mostra estado de assinatura indisponível
 - a UI não “abre” recurso premium por ausência de resposta; ela bloqueia
+- se a verificação de entitlements da RevenueCat falhar, o app bloqueia acesso premium mesmo com entitlement/produto ativo no payload
 
 ### Offering usado pelo app
 
