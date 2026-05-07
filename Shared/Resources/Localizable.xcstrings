@@ -89,6 +89,23 @@
         }
       }
     },
+    "%d waypoints" : {
+      "comment" : "Route waypoint count",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d waypoints"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d pontos de referência"
+          }
+        }
+      }
+    },
     "%@ steps/day" : {
       "comment" : "A label displaying the daily step target for a training plan.",
       "extractionState" : "stale",
@@ -1833,6 +1850,23 @@
         }
       }
     },
+    "Could not import route" : {
+      "comment" : "GPX import error alert title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not import route"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível importar a rota"
+          }
+        }
+      }
+    },
     "Complete Plan" : {
       "comment" : "Training plan complete button",
       "localizations" : {
@@ -2476,6 +2510,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tempo"
+          }
+        }
+      }
+    },
+    "Elevation Gain" : {
+      "comment" : "Route elevation gain label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elevation Gain"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganho de Elevação"
+          }
+        }
+      }
+    },
+    "Estimated" : {
+      "comment" : "Route estimate label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimado"
           }
         }
       }
@@ -3490,6 +3558,40 @@
         }
       }
     },
+    "Import GPX" : {
+      "comment" : "Button to import a GPX route",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import GPX"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar GPX"
+          }
+        }
+      }
+    },
+    "Import a GPX route before a walk or hike to keep distance, elevation, and waypoints close at hand." : {
+      "comment" : "Routes GPX explanatory copy",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a GPX route before a walk or hike to keep distance, elevation, and waypoints close at hand."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importe uma rota GPX antes de uma caminhada ou trilha para manter distância, elevação e pontos de referência à mão."
+          }
+        }
+      }
+    },
     "In Progress" : {
       "comment" : "Workout status\nWorkout status subtitle",
       "localizations" : {
@@ -4116,6 +4218,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nenhuma Medalha Ainda"
+          }
+        }
+      }
+    },
+    "No route imported" : {
+      "comment" : "Empty state for route import card",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No route imported"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma rota importada"
           }
         }
       }
@@ -6994,6 +7113,23 @@
         }
       }
     },
+    "Waypoints" : {
+      "comment" : "Route waypoint label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waypoints"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pontos"
+          }
+        }
+      }
+    },
     "Weekly %@ summary chart" : {
       "localizations" : {
         "en" : {
@@ -7537,6 +7673,23 @@
         }
       }
     },
+    "Premium is required to import GPX routes and plan map-guided workouts." : {
+      "comment" : "Premium gate copy for Routes GPX",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is required to import GPX routes and plan map-guided workouts."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Premium é necessário para importar rotas GPX e planejar treinos guiados por mapa."
+          }
+        }
+      }
+    },
     "Premium unlocks AI insights, AI Coach, training plans, and smart reminders." : {
       "comment" : "Premium feature summary in About",
       "localizations" : {
@@ -7567,6 +7720,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O apoio recorrente mantém o AI Pedometer evoluindo, e o cafezinho continua opcional."
+          }
+        }
+      }
+    },
+    "Remove Route" : {
+      "comment" : "Button to remove imported route",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Route"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover Rota"
+          }
+        }
+      }
+    },
+    "Routes & GPX" : {
+      "comment" : "Routes GPX card title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routes & GPX"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotas e GPX"
           }
         }
       }

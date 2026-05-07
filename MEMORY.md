@@ -42,6 +42,7 @@ Also confirm repo scope first with:
 - Health data is read through HealthKit, with graceful fallback behavior when data or permissions are unavailable.
 - RevenueCat gates premium AI surfaces and is designed to fail closed when not configured or when Trusted Entitlements verification fails.
 - Expedition Mode is a Premium workouts capability: the Workouts UI owns the toggle, while `WorkoutSessionController` rechecks premium-gated persisted state before reducing live metrics cadence.
+- Routes & GPX is presently a local GPX import/summary/preview feature, not full live maps, offline maps, or Apple Watch maps.
 - Watch and widgets rely on shared models plus app-group-backed shared state.
 
 ## Known Documentation Drift

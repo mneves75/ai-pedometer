@@ -70,6 +70,7 @@ enum AppConstants {
         static let smartNotificationLastDate = "smartNotificationLastDate"
         static let smartNotificationCount = "smartNotificationCount"
         static let expeditionModeEnabled = "expeditionModeEnabled"
+        static let importedGPXRoute = "importedGPXRoute"
     }
 
     enum Defaults {
