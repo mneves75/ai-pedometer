@@ -9,9 +9,16 @@ protocol HealthKitServiceProtocol: Sendable {
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int
+    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double?
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
     func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
     func saveWorkout(_ session: WorkoutSession) async throws
+}
+
+extension HealthKitServiceProtocol {
+    func fetchLatestHeartRate(from _: Date, to _: Date) async throws -> Double? {
+        nil
+    }
 }
 
 @MainActor
@@ -53,6 +60,37 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
 
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
         Int(try await fetchSum(type: .flightsClimbed, unit: .count(), from: startDate, to: endDate))
+    }
+
+    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            return nil
+        }
+
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictEndDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: heartRateType,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: Self.mapQueryError(error))
+                    return
+                }
+
+                guard let sample = samples?.first as? HKQuantitySample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let unit = HKUnit.count().unitDivided(by: .minute())
+                continuation.resume(returning: sample.quantity.doubleValue(for: unit))
+            }
+            healthStore.execute(query)
+        }
     }
 
     nonisolated static func isNoDataError(_ error: any Error) -> Bool {

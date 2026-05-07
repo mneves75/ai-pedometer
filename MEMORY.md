@@ -43,6 +43,7 @@ Also confirm repo scope first with:
 - RevenueCat gates premium AI surfaces and is designed to fail closed when not configured or when Trusted Entitlements verification fails.
 - Expedition Mode is a Premium workouts capability: the Workouts UI owns the toggle, while `WorkoutSessionController` rechecks premium-gated persisted state before reducing live metrics cadence.
 - Routes & GPX is presently a local GPX import/summary/preview feature, not full live maps, offline maps, or Apple Watch maps.
+- Heart rate support is current-day latest-sample display only; keep it out of medical/training-zone claims unless a later safety pass explicitly expands scope.
 - Watch and widgets rely on shared models plus app-group-backed shared state.
 
 ## Known Documentation Drift

@@ -13,7 +13,7 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 
 ### Key Features
 
-- **Step Tracking** — HealthKit integration with real-time pedometer and Apple Watch merging
+- **Step Tracking** — HealthKit integration with real-time pedometer, Apple Watch merging, flights climbed, and latest heart-rate display
 - **AI Insights** — On-device AI analysis using Apple Foundation Models
 - **Premium AI** — RevenueCat-backed subscription gating for AI insights, coach, reminders, history trends, and workout planning
 - **AI Coach** — Personalized coaching with local Markdown rendering and resilient fallback behavior

@@ -55,6 +55,11 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
         return max(steps / 500, 0)
     }
 
+    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
+        guard startDate < endDate else { return nil }
+        return isDeterministic ? 72 : 68 + Double(calendar.component(.minute, from: now()) % 12)
+    }
+
     func fetchDailySummaries(
         days: Int,
         activityMode: ActivityTrackingMode,
