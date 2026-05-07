@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added Premium-gated Expedition Mode on the Workouts screen; when enabled for a session, live workout metrics refresh at a lower cadence to reduce battery impact during long walks and hikes.
+- Added a Premium-gated Routes & GPX card on Workouts with local GPX import, route preview, distance, elevation gain, waypoint count, estimated duration, and persisted last-route storage.
 
 ### Fixed
 

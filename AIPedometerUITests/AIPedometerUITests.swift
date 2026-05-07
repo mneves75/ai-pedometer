@@ -288,8 +288,38 @@ final class AIPedometerUITests: XCTestCase {
         )
         UITestWait.assertAnyExists(
             [
+                d.app.otherElements[A11yID.Workouts.premiumRoutesGate],
+                d.app.staticTexts[A11yID.Workouts.premiumRoutesGate],
+            ],
+            timeout: navigationTimeout
+        )
+        UITestWait.assertAnyExists(
+            [
                 d.app.otherElements[A11yID.Workouts.recentWorkoutsEmptyState],
                 d.app.staticTexts[A11yID.Workouts.recentWorkoutsEmptyState],
+            ],
+            timeout: navigationTimeout
+        )
+    }
+
+    func testWorkoutsShowsRouteImportWhenPremiumIsForcedOn() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, forcedPremiumEnabled: true)
+
+        d.openTab(.workouts)
+        d.assertWorkoutsLoaded()
+
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.routeImportCard],
+                d.app.staticTexts[A11yID.Workouts.routeImportCard],
+            ],
+            timeout: navigationTimeout
+        )
+        UITestWait.assertAnyExists(
+            [
+                d.app.buttons[A11yID.Workouts.routeImportButton],
+                d.app.otherElements[A11yID.Workouts.routeImportButton],
             ],
             timeout: navigationTimeout
         )

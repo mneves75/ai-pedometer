@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct WorkoutsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
@@ -20,6 +21,9 @@ struct WorkoutsView: View {
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
     @State private var hasLoadedRecommendation = false
+    @State private var importedRoute: ImportedRoute? = ImportedRouteStorage.load()
+    @State private var isImportingRoute = false
+    @State private var routeImportError: RouteImportError?
 
     private var activityMode: ActivityTrackingMode {
         ActivityTrackingMode(rawValue: activityModeRaw) ?? .steps
@@ -42,6 +46,7 @@ struct WorkoutsView: View {
                 }
                 aiWorkoutSection
                 expeditionModeSection
+                routeImportSection
                 startWorkoutSection
                 trainingPlansSection
                 recentWorkoutsSection
@@ -54,6 +59,20 @@ struct WorkoutsView: View {
         .sheet(isPresented: $workoutController.isPresenting) {
             ActiveWorkoutView()
                 .presentationDetents([.large])
+        }
+        .fileImporter(
+            isPresented: $isImportingRoute,
+            allowedContentTypes: [Self.gpxContentType],
+            allowsMultipleSelection: false
+        ) { result in
+            importRoute(from: result)
+        }
+        .alert(item: $routeImportError) { error in
+            Alert(
+                title: Text(L10n.localized("Could not import route", comment: "GPX import error alert title")),
+                message: Text(error.message),
+                dismissButton: .default(Text(L10n.localized("OK", comment: "Generic OK button")))
+            )
         }
         .task(id: RecommendationTrigger(
             aiAvailable: aiService.availability.isAvailable,
@@ -87,6 +106,8 @@ struct WorkoutsView: View {
             await loadWorkoutRecommendation()
         }
     }
+
+    private static let gpxContentType = UTType(filenameExtension: "gpx") ?? .xml
 
     @ViewBuilder
     private var aiWorkoutSection: some View {
@@ -196,6 +217,79 @@ struct WorkoutsView: View {
             )
             .padding(.horizontal, DesignTokens.Spacing.md)
             .task { expeditionModeEnabled = false }
+        }
+    }
+
+    @ViewBuilder
+    private var routeImportSection: some View {
+        if premiumAccessStore.isResolvingAccess {
+            PremiumAccessLoadingCard(
+                title: L10n.localized("Routes & GPX", comment: "Routes GPX card title")
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else if premiumAccessStore.canAccessAIFeatures {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                    Image(systemName: "map.fill")
+                        .font(DesignTokens.Typography.title2)
+                        .foregroundStyle(DesignTokens.Colors.mint)
+                        .frame(width: 44, height: 44)
+                        .background(DesignTokens.Colors.mint.opacity(0.14), in: Circle())
+
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text(L10n.localized("Routes & GPX", comment: "Routes GPX card title"))
+                            .font(DesignTokens.Typography.headline)
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+
+                        Text(
+                            L10n.localized(
+                                "Import a GPX route before a walk or hike to keep distance, elevation, and waypoints close at hand.",
+                                comment: "Routes GPX explanatory copy"
+                            )
+                        )
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    }
+                }
+                .accessibilityIdentifier(A11yID.Workouts.routeImportCard)
+
+                if let importedRoute {
+                    ImportedRouteSummary(route: importedRoute) {
+                        ImportedRouteStorage.clear()
+                        self.importedRoute = nil
+                    }
+                } else {
+                    Text(L10n.localized("No route imported", comment: "Empty state for route import card"))
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                Button {
+                    isImportingRoute = true
+                } label: {
+                    Label(
+                        L10n.localized("Import GPX", comment: "Button to import a GPX route"),
+                        systemImage: "square.and.arrow.down"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .glassButton()
+                .accessibilityIdentifier(A11yID.Workouts.routeImportButton)
+            }
+            .padding(DesignTokens.Spacing.md)
+            .glassCard()
+            .padding(.horizontal, DesignTokens.Spacing.md)
+        } else {
+            PremiumFeatureGateCard(
+                title: L10n.localized("Routes & GPX", comment: "Routes GPX card title"),
+                message: L10n.localized(
+                    "Premium is required to import GPX routes and plan map-guided workouts.",
+                    comment: "Premium gate copy for Routes GPX"
+                ),
+                accessibilityIdentifier: A11yID.Workouts.premiumRoutesGate
+            )
+            .padding(.horizontal, DesignTokens.Spacing.md)
         }
     }
 
@@ -413,6 +507,25 @@ struct WorkoutsView: View {
         }
     }
 
+    private func importRoute(from result: Result<[URL], any Error>) {
+        do {
+            guard let url = try result.get().first else { return }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if didAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let data = try Data(contentsOf: url)
+            let route = try GPXRouteParser.parse(data: data, sourceFilename: url.lastPathComponent)
+            try ImportedRouteStorage.save(route)
+            importedRoute = route
+        } catch {
+            routeImportError = RouteImportError(message: error.localizedDescription)
+        }
+    }
+
     private var activePlan: TrainingPlanRecord? {
         trainingPlanService.fetchActivePlans().first
     }
@@ -487,6 +600,116 @@ struct WorkoutsView: View {
         limit: Int = 6
     ) -> [WorkoutSession] {
         Array(workouts.filter { $0.endTime != nil }.prefix(limit))
+    }
+}
+
+private struct RouteImportError: Identifiable {
+    let id = UUID()
+    let message: String
+}
+
+private struct ImportedRouteSummary: View {
+    let route: ImportedRoute
+    let onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            RoutePreview(points: route.previewPoints)
+                .frame(height: 104)
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    Text(route.name)
+                        .font(DesignTokens.Typography.headline)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
+                        .lineLimit(2)
+
+                    Text(route.sourceFilename)
+                        .font(DesignTokens.Typography.caption)
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Button(role: .destructive) {
+                    onRemove()
+                } label: {
+                    Image(systemName: "trash")
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(L10n.localized("Remove Route", comment: "Button to remove imported route"))
+                .accessibilityIdentifier(A11yID.Workouts.routeRemoveButton)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignTokens.Spacing.sm) {
+                routeStat(icon: "point.topleft.down.curvedto.point.bottomright.up", value: route.distanceMeters.formattedDistance(), label: L10n.localized("Distance", comment: "Workout metric title"))
+                routeStat(icon: "clock", value: Formatters.durationString(seconds: route.estimatedDuration), label: L10n.localized("Estimated", comment: "Route estimate label"))
+                routeStat(icon: "mountain.2.fill", value: Formatters.distanceString(meters: route.elevationGainMeters), label: L10n.localized("Elevation Gain", comment: "Route elevation gain label"))
+                routeStat(icon: "mappin.and.ellipse", value: Localization.format("%d waypoints", comment: "Route waypoint count", route.waypointCount), label: L10n.localized("Waypoints", comment: "Route waypoint label"))
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func routeStat(icon: String, value: String, label: String) -> some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            Image(systemName: icon)
+                .foregroundStyle(DesignTokens.Colors.accent)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(value)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(label)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct RoutePreview: View {
+    let points: [RouteCoordinate]
+
+    var body: some View {
+        Canvas { context, size in
+            guard points.count >= 2 else { return }
+            let latitudes = points.map(\.latitude)
+            let longitudes = points.map(\.longitude)
+            guard let minLatitude = latitudes.min(),
+                  let maxLatitude = latitudes.max(),
+                  let minLongitude = longitudes.min(),
+                  let maxLongitude = longitudes.max() else {
+                return
+            }
+
+            let latitudeRange = max(maxLatitude - minLatitude, 0.000_001)
+            let longitudeRange = max(maxLongitude - minLongitude, 0.000_001)
+            let inset: CGFloat = 12
+            let drawSize = CGSize(width: max(size.width - inset * 2, 1), height: max(size.height - inset * 2, 1))
+
+            var path = Path()
+            for (index, point) in points.enumerated() {
+                let x = inset + CGFloat((point.longitude - minLongitude) / longitudeRange) * drawSize.width
+                let y = inset + CGFloat(1 - ((point.latitude - minLatitude) / latitudeRange)) * drawSize.height
+                if index == 0 {
+                    path.move(to: CGPoint(x: x, y: y))
+                } else {
+                    path.addLine(to: CGPoint(x: x, y: y))
+                }
+            }
+
+            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: DesignTokens.CornerRadius.sm), with: .color(DesignTokens.Colors.accentSoft))
+            context.stroke(path, with: .color(DesignTokens.Colors.accent), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+        }
     }
 }
 

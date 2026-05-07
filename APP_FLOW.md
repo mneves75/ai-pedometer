@@ -42,6 +42,7 @@ NavigationSplitView sidebar:
 - Active workout banner (if active) -> ActiveWorkoutView sheet
 - Premium-gated AI workout recommendation (if premium and AI are available)
 - Premium-gated Expedition Mode toggle for reduced live metrics cadence during long workouts
+- Premium-gated Routes & GPX card for importing a route file and reviewing distance, estimated time, elevation gain, waypoints, and a local preview
 - Start workout action
 - Training Plans card -> TrainingPlansView
 - Recent workouts carousel
