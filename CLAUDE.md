@@ -19,6 +19,7 @@ Then read the task-relevant docs before editing:
 - `README.md`
 - `TECH_STACK.md`
 - `APP_FLOW.md`
+- `docs/revenuecat/README.md` and `docs/revenuecat/apple-payments-setup.md` for premium, RevenueCat, Apple payments, StoreKit subscription, entitlement, or paywall work
 - `docs/agents/build-and-dev.md`
 - `docs/agents/testing.md`
 - `docs/agents/project-structure.md`
@@ -31,6 +32,7 @@ Then read the task-relevant docs before editing:
 - Tooling: Swift 6.2, Xcode 26.x, XcodeGen, SwiftUI, Observation, SwiftData, Swift Testing, XCUITest.
 - Source of truth: `project.yml`; regenerate `AIPedometer.xcodeproj` after target/package/entitlement/new Swift source changes.
 - Premium behavior: RevenueCat-backed AI surfaces fail closed when not configured.
+- Payment setup: recurring premium uses RevenueCat + App Store Connect subscriptions; the Tip Jar remains separate through StoreKit 2.
 - Privacy posture: health and AI data stays local-first; do not add cloud AI calls unless explicitly requested.
 
 ## Common Commands
@@ -43,6 +45,7 @@ xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 
 bash Scripts/e2e-simulator.sh
 bash Scripts/check-agents-sync.sh
 bash Scripts/verify-device-identifiers.sh
+bash Scripts/test-payments-device.sh
 ```
 
 Physical-device install must use device names, not hardcoded identifiers:
@@ -70,6 +73,7 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 - Put cross-target code in `Shared/` when iOS, watchOS, widgets, or Live Activities need the same behavior.
 - Add user-facing strings to `Shared/Resources/Localizable.xcstrings`.
 - `pt-BR` devices use Portuguese; every other locale defaults to English.
+- For RevenueCat/App Store payments work, follow `docs/revenuecat/apple-payments-setup.md`; never commit `.p8` keys, ASC credentials, RevenueCat secret keys, sandbox accounts, or local Apple account details.
 - Check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing iOS/watchOS 26 behavior.
 
 ## Shell Rules

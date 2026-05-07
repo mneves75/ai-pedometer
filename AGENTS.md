@@ -27,7 +27,7 @@ Use the current codebase as truth before quoting docs:
 - `AIPedometerTests/` and `AIPedometerUITests/` contain Swift Testing and XCUITest coverage.
 - `Config/` contains local xcconfig overrides and strict compiler settings.
 - `StoreKit/` contains local StoreKit configuration for tip jar testing.
-- `docs/appstore/` and `docs/revenuecat/` hold operational release and premium setup docs.
+- `docs/appstore/` and `docs/revenuecat/` hold operational release and premium setup docs; use `docs/revenuecat/apple-payments-setup.md` for App Store Connect subscriptions, RevenueCat products/entitlements/offerings, Apple payments validation, and go-live checks.
 
 Current platform assumptions:
 
@@ -49,6 +49,7 @@ Read these before changing behavior, commands, or documentation:
 - `docs/agents/project-structure.md` for target layout.
 - `docs/agents/coding-style.md` for Swift and localization style.
 - `docs/agents/git-workflow.md` for commits, hooks, PR notes, and changelog expectations.
+- `docs/revenuecat/README.md` and `docs/revenuecat/apple-payments-setup.md` before changing premium, RevenueCat, App Store payments, StoreKit subscription, entitlement, offering, paywall, or purchase/restore behavior.
 
 Do not create new markdown docs unless the requested change needs a new durable surface. Prefer updating existing docs.
 
@@ -100,6 +101,12 @@ bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --watch-name "<A
 
 Do not hardcode UDIDs, ECIDs, provisioning identifiers, tokens, or local account details in source or docs.
 
+Payment/TestFlight validation:
+
+```bash
+bash Scripts/test-payments-device.sh
+```
+
 ## Swift and Apple Platform Rules
 
 - Prefer SwiftUI, Observation, SwiftData, HealthKit, CoreMotion, WidgetKit, WatchConnectivity, StoreKit, MetricKit, and Foundation Models patterns already present in the repo.
@@ -109,6 +116,7 @@ Do not hardcode UDIDs, ECIDs, provisioning identifiers, tokens, or local account
 - Localization policy is strict: `pt-BR` devices use Portuguese; all other locales default to English.
 - Do not add cloud AI calls for product AI behavior unless explicitly requested.
 - Do not weaken premium gating; unavailable RevenueCat configuration must not expose premium AI actions.
+- For RevenueCat/App Store payment work, keep the setup aligned with `docs/revenuecat/apple-payments-setup.md`: recurring premium uses RevenueCat + App Store Connect subscriptions, the Tip Jar remains separate through StoreKit 2, and `.p8` files, ASC credentials, RevenueCat secret keys, sandbox accounts, and local Apple account details must never be committed.
 - For Swift, iOS, iPadOS, or watchOS 26 behavior, check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
 
 ## Verification Rules
