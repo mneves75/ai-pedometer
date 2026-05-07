@@ -70,6 +70,7 @@ final class HealthKitAuthorization {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.flightsClimbed),
             HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.heartRate),
             HKQuantityType(.pushCount),
             HKObjectType.workoutType()
         ]
@@ -96,6 +97,7 @@ final class HealthKitAuthorization {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.flightsClimbed),
             HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.heartRate),
             HKQuantityType(.pushCount),
             HKObjectType.workoutType()
         ]

@@ -13,6 +13,8 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
     var stepsToReturn: Int = 0
     var distanceToReturn: Double = 0
     var floorsToReturn: Int = 0
+    var heartRateToReturn: Double?
+    var fetchLatestHeartRateCallCount = 0
     var wheelchairPushesToReturn: Int = 0
     var dailySummariesToReturn: [DailyStepSummary] = []
     var fetchDailySummariesCallCount = 0
@@ -76,6 +78,11 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
             throw error
         }
         return floorsToReturn
+    }
+
+    func fetchLatestHeartRate(from _: Date, to _: Date) async throws -> Double? {
+        fetchLatestHeartRateCallCount += 1
+        return heartRateToReturn
     }
 
     func fetchDailySummaries(
@@ -285,6 +292,7 @@ struct StepTrackingServiceTests {
         let mockHealthKit = MockHealthKitService()
         let mockMotion = MockMotionService()
         mockHealthKit.stepsToReturn = 8765
+        mockHealthKit.heartRateToReturn = 72
         let testDefaults = TestUserDefaults()
         defer { testDefaults.reset() }
 
@@ -298,6 +306,8 @@ struct StepTrackingServiceTests {
 
         #expect(service.todaySteps == 8765)
         #expect(service.todayCalories == Double(8765) * AppConstants.Metrics.caloriesPerStep)
+        #expect(service.todayHeartRateBPM == 72)
+        #expect(mockHealthKit.fetchLatestHeartRateCallCount == 1)
     }
 
     @Test("Refresh today uses motion when HealthKit returns 0 but Motion has steps")

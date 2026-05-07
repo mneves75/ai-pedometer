@@ -1662,6 +1662,23 @@
         }
       }
     },
+    "bpm" : {
+      "comment" : "Heart rate unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bpm"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bpm"
+          }
+        }
+      }
+    },
     "Build" : {
       "comment" : "Workout intent - push for improvement",
       "localizations" : {
@@ -2783,6 +2800,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Andares"
+          }
+        }
+      }
+    },
+    "Heart Rate" : {
+      "comment" : "Dashboard stat card title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heart Rate"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequência Cardíaca"
           }
         }
       }
@@ -4218,6 +4252,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nenhuma Medalha Ainda"
+          }
+        }
+      }
+    },
+    "No Data" : {
+      "comment" : "Dashboard stat fallback when a metric has no value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Data"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem Dados"
           }
         }
       }

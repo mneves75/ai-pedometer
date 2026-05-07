@@ -321,6 +321,12 @@ struct DashboardView: View {
                 color: DesignTokens.Colors.green
             )
             StatCard(
+                icon: "heart.fill",
+                title: L10n.localized("Heart Rate", comment: "Dashboard stat card title"),
+                value: heartRateText,
+                color: DesignTokens.Colors.red
+            )
+            StatCard(
                 icon: "flame.circle",
                 title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
                 value: Localization.format(
@@ -331,6 +337,13 @@ struct DashboardView: View {
                 color: DesignTokens.Colors.accent
             )
         }
+    }
+
+    private var heartRateText: String {
+        guard let heartRate = trackingService.todayHeartRateBPM else {
+            return L10n.localized("No Data", comment: "Dashboard stat fallback when a metric has no value")
+        }
+        return "\(Int(heartRate.rounded())) \(L10n.localized("bpm", comment: "Heart rate unit"))"
     }
 
 }

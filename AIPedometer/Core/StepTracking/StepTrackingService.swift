@@ -48,6 +48,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private(set) var todayDistance: Double = 0
     private(set) var todayFloors: Int = 0
     private(set) var todayCalories: Double = 0
+    private(set) var todayHeartRateBPM: Double?
     private(set) var currentGoal: Int = AppConstants.defaultDailyGoal
     private(set) var currentStreak: Int = 0
     private(set) var lastUpdated: Date = .now
@@ -130,6 +131,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 todayDistance = 0
                 todayFloors = 0
                 todayCalories = 0
+                todayHeartRateBPM = nil
                 lastUpdated = .now
                 updateSharedData()
             }
@@ -158,10 +160,12 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 isUsingMotionFallback = false
                 let distance = await resolveDistance(steps: hkSteps, start: startOfDay, end: .now)
                 let floors = await resolveFloors(start: startOfDay, end: .now)
+                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: .now)
                 todaySteps = hkSteps
                 todayDistance = distance
                 todayFloors = floors
                 todayCalories = Double(hkSteps) * AppConstants.Metrics.caloriesPerStep
+                todayHeartRateBPM = heartRate
                 lastUpdated = .now
                 seedLiveBaseline(
                     startOfDay: startOfDay,
@@ -178,10 +182,12 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 let pushes = try await healthKitService.fetchWheelchairPushes(from: startOfDay, to: .now)
                 let distance = await resolveDistance(steps: pushes, start: startOfDay, end: .now)
                 let floors = await resolveFloors(start: startOfDay, end: .now)
+                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: .now)
                 todaySteps = pushes
                 todayDistance = distance
                 todayFloors = floors
                 todayCalories = Double(pushes) * AppConstants.Metrics.caloriesPerStep
+                todayHeartRateBPM = heartRate
                 lastUpdated = .now
                 liveBaseline = nil
                 pendingBaseline = nil
@@ -452,6 +458,17 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
+    private func resolveLatestHeartRate(start: Date, end: Date) async -> Double? {
+        do {
+            return try await healthKitService.fetchLatestHeartRate(from: start, to: end)
+        } catch {
+            Loggers.health.warning("healthkit.heart_rate_unavailable", metadata: [
+                "error": error.localizedDescription
+            ])
+            return nil
+        }
+    }
+
     private func refreshTodayDataFromMotion(startOfDay: Date) async {
         guard activitySettings.activityMode == .steps else {
             Loggers.motion.info("motion.refresh_skipped", metadata: ["reason": "unsupported_mode"])
@@ -473,6 +490,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         todayDistance = distance
         todayFloors = snapshot.floorsAscended
         todayCalories = Double(snapshot.steps) * AppConstants.Metrics.caloriesPerStep
+        todayHeartRateBPM = nil
         lastUpdated = .now
         seedMotionBaseline(snapshot: snapshot, startOfDay: startOfDay)
         updateSharedData()
@@ -485,6 +503,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         todayDistance = 0
         todayFloors = 0
         todayCalories = 0
+        todayHeartRateBPM = nil
         lastUpdated = markStale ? .distantPast : .now
         resetLiveState()
         updateSharedData()

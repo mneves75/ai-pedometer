@@ -29,7 +29,7 @@ NavigationSplitView sidebar:
 - Daily header
 - Premium-gated AI Insight card (if premium and AI are available)
 - Progress ring
-- Stats grid
+- Stats grid with distance, calories, floors, latest heart rate, and streak
 - Profile button routes to Settings
 
 ## History
