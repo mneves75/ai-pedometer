@@ -18,6 +18,7 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 - **Premium AI** — RevenueCat-backed subscription gating for AI insights, coach, reminders, history trends, and workout planning
 - **AI Coach** — Personalized coaching with local Markdown rendering and resilient fallback behavior
 - **AI Training Plans** — AI-generated workout programs adapted to your fitness level, with deterministic localized fallbacks when the model response is invalid
+- **Workouts** — Live workout tracking with history, plans, and Premium Expedition Mode for lower-cadence updates during long walks or hikes
 - **watchOS App** — Companion app with bidirectional sync
 - **Widgets** — Lock screen and Home Screen widgets
 - **Accessibility** — Wheelchair mode for push tracking, VoiceOver support

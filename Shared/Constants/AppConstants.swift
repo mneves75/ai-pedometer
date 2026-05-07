@@ -69,6 +69,7 @@ enum AppConstants {
         static let smartRemindersEnabled = "smartRemindersEnabled"
         static let smartNotificationLastDate = "smartNotificationLastDate"
         static let smartNotificationCount = "smartNotificationCount"
+        static let expeditionModeEnabled = "expeditionModeEnabled"
     }
 
     enum Defaults {

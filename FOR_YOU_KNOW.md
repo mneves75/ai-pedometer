@@ -140,6 +140,8 @@ That is the right instinct. Billing bugs are trust bugs.
 
 The docs now reflect this reality: `PRD.md`, `README.md`, `CHANGELOG.md`, and `docs/revenuecat/README.md` all treat RevenueCat-backed premium access as part of the product, not a future add-on. Keep them aligned whenever the premium boundary changes.
 
+Expedition Mode follows the same rule. The visible toggle lives on Workouts and is only shown to Premium users, but the session controller also rechecks premium-gated `UserDefaults` state before changing live metrics cadence. That keeps battery-saver behavior from becoming an entitlement bypass.
+
 ## Watch and widgets: the satellites
 
 The watch app is intentionally thin. It is not trying to recreate the whole phone experience.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added Premium-gated Expedition Mode on the Workouts screen; when enabled for a session, live workout metrics refresh at a lower cadence to reduce battery impact during long walks and hikes.
+
 ### Fixed
 
 - Hardened RevenueCat premium access so unrelated active entitlements, expired historical premium products, or failed Trusted Entitlements verification cannot unlock Premium AI.

@@ -30,6 +30,8 @@ enum A11yID {
         static let trainingPlansCard = "training_plans_card"
         static let premiumTodayPlanGate = "workouts_premium_today_plan_gate"
         static let premiumTrainingPlansGate = "workouts_premium_training_plans_gate"
+        static let expeditionModeToggle = "workouts_expedition_mode_toggle"
+        static let premiumExpeditionModeGate = "workouts_premium_expedition_mode_gate"
         static let recentWorkoutsEmptyState = "workouts_recent_empty_state"
     }
 

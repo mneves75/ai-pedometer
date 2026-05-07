@@ -64,6 +64,31 @@ struct WorkoutSessionControllerTests {
     }
 
     @Test
+    func expeditionModeUsesReducedMetricsCadenceAndClearsOnDiscard() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        let liveActivity = MockLiveActivityManager()
+        let healthKit = WorkoutSessionHealthKitStub()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity,
+            isExpeditionModeEnabled: { true }
+        )
+
+        await controller.startWorkout(type: .hike, targetSteps: nil)
+
+        #expect(controller.isExpeditionModeActive)
+        #expect(controller.metricsRefreshIntervalSeconds == 60)
+
+        await controller.discardWorkout()
+
+        #expect(!controller.isExpeditionModeActive)
+        #expect(controller.metricsRefreshIntervalSeconds == 5)
+    }
+
+    @Test
     func refreshMetricsUpdatesSessionAndLiveActivity() async throws {
         let persistence = PersistenceController(inMemory: true)
         let metricsSource = MockMetricsSource()

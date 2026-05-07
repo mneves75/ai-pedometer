@@ -2582,6 +2582,23 @@
         }
       }
     },
+    "Expedition Mode" : {
+      "comment" : "Expedition Mode card title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expedition Mode"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo Expedição"
+          }
+        }
+      }
+    },
     "Error" : {
       "comment" : "Error alert title",
       "extractionState" : "stale",
@@ -6273,6 +6290,23 @@
         }
       }
     },
+    "Use fewer live metric updates during long hikes and walks to reduce battery impact." : {
+      "comment" : "Expedition Mode explanatory copy",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use fewer live metric updates during long hikes and walks to reduce battery impact."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use menos atualizações de métricas ao vivo em caminhadas longas e trilhas para reduzir o impacto na bateria."
+          }
+        }
+      }
+    },
     "Track your daily walking steps" : {
       "comment" : "Steps mode description",
       "localizations" : {
@@ -7482,6 +7516,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O Premium é necessário para gerar novos insights com IA, coaching, planos e lembretes inteligentes."
+          }
+        }
+      }
+    },
+    "Premium is required to reduce live metric updates during long workouts." : {
+      "comment" : "Premium gate copy for Expedition Mode",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is required to reduce live metric updates during long workouts."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Premium é necessário para reduzir as atualizações de métricas ao vivo durante treinos longos."
           }
         }
       }

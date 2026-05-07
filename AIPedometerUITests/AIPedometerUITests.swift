@@ -281,6 +281,13 @@ final class AIPedometerUITests: XCTestCase {
         )
         UITestWait.assertAnyExists(
             [
+                d.app.otherElements[A11yID.Workouts.premiumExpeditionModeGate],
+                d.app.staticTexts[A11yID.Workouts.premiumExpeditionModeGate],
+            ],
+            timeout: navigationTimeout
+        )
+        UITestWait.assertAnyExists(
+            [
                 d.app.otherElements[A11yID.Workouts.recentWorkoutsEmptyState],
                 d.app.staticTexts[A11yID.Workouts.recentWorkoutsEmptyState],
             ],
