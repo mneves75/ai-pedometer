@@ -238,6 +238,7 @@ O app configura RevenueCat assim:
 - `Configuration.Builder(withAPIKey:)`;
 - `purchasesAreCompletedBy: .revenueCat`;
 - `storeKitVersion: .storeKit2`;
+- `entitlementVerificationMode: .informational`;
 - `Purchases.shared.offerings()`;
 - `Purchases.shared.customerInfo()`;
 - `Purchases.shared.purchase(package:)`;
@@ -251,6 +252,8 @@ Acesso premium é verdadeiro quando:
 
 - o entitlement configurado está ativo no `CustomerInfo`; ou
 - existe uma assinatura ativa conhecida vinculada aos packages carregados.
+
+Se `CustomerInfo.entitlements.verification` retornar `.failed`, o app trata o resultado como não confiável e falha fechado, mesmo que o payload contenha entitlement ou produto premium ativo.
 
 Não enfraqueça esse gate. Recurso AI premium deve continuar atrás de `premiumAccessStore.canAccessAIFeatures`.
 

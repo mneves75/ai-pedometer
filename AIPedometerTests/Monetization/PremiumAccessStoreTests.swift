@@ -186,6 +186,26 @@ struct PremiumAccessStoreTests {
         #expect(store.canAccessAIFeatures == true)
     }
 
+    @Test("restore does not unlock premium for an unrelated single active entitlement")
+    func restoreDoesNotUnlockPremiumForUnrelatedSingleActiveEntitlement() async {
+        let client = FakePurchasesClient()
+        client.restoreResult = .success(
+            makeCustomerInfo(activeEntitlementIDs: ["supporter"])
+        )
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.restorePurchases()
+
+        #expect(store.state == .ready)
+        #expect(store.canAccessAIFeatures == false)
+    }
+
     @Test("restore unlocks premium when RevenueCat returns a known premium product id but no matching entitlement slug")
     func restoreUnlocksPremiumForKnownPremiumProductWithoutEntitlementSlug() async {
         let client = FakePurchasesClient()
@@ -232,13 +252,57 @@ struct PremiumAccessStoreTests {
         #expect(store.state == .ready)
         #expect(store.canAccessAIFeatures == false)
     }
+
+    @Test("restore does not unlock premium for an expired known premium product")
+    func restoreDoesNotUnlockPremiumForExpiredKnownPremiumProduct() async {
+        let client = FakePurchasesClient()
+        client.restoreResult = .success(
+            makeCustomerInfo(
+                activeEntitlementIDs: [],
+                purchasedProductIDs: ["com.mneves.aipedometer.premium.yearly"]
+            )
+        )
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.restorePurchases()
+
+        #expect(store.state == .ready)
+        #expect(store.canAccessAIFeatures == false)
+    }
+
+    @Test("restore does not unlock premium when RevenueCat entitlement verification fails")
+    func restoreDoesNotUnlockPremiumWhenEntitlementVerificationFails() async {
+        let client = FakePurchasesClient()
+        client.restoreResult = .success(
+            makeCustomerInfo(activeEntitlementIDs: ["premium"], verification: .failed)
+        )
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.restorePurchases()
+
+        #expect(store.state == .ready)
+        #expect(store.canAccessAIFeatures == false)
+    }
 }
 
 private func makeCustomerInfo(
     activeEntitlementIDs: Set<String>,
     activeProductIDs: Set<String> = [],
     purchasedProductIDs: Set<String> = [],
-    managementURL: URL? = nil
+    managementURL: URL? = nil,
+    verification: VerificationResult = .verified
 ) -> CustomerInfo {
     let entitlements = activeEntitlementIDs.reduce(into: [String: EntitlementInfo]()) { partialResult, identifier in
         partialResult[identifier] = EntitlementInfo(
@@ -253,7 +317,7 @@ private func makeCustomerInfo(
             productIdentifier: "com.mneves.aipedometer.\(identifier)",
             isSandbox: true,
             ownershipType: .purchased,
-            verification: .verified
+            verification: verification
         )
     }
 
@@ -263,7 +327,7 @@ private func makeCustomerInfo(
     let purchasedProducts = purchasedProductIDs.union(activeProducts)
 
     return CustomerInfo(
-        entitlements: EntitlementInfos(entitlements: entitlements, verification: .verified),
+        entitlements: EntitlementInfos(entitlements: entitlements, verification: verification),
         expirationDatesByProductId: Dictionary(uniqueKeysWithValues: activeProducts.map {
             ($0, Date.now.addingTimeInterval(86_400))
         }),

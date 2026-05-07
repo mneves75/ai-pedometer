@@ -36,6 +36,7 @@ final class RevenueCatPurchasesClient: PurchasesClientProtocol {
 
         let config = Configuration.Builder(withAPIKey: apiKey)
             .with(purchasesAreCompletedBy: .revenueCat, storeKitVersion: .storeKit2)
+            .with(entitlementVerificationMode: .informational)
             .build()
         Purchases.configure(with: config)
     }
@@ -139,6 +140,10 @@ final class PremiumAccessStore {
 
         if isTesting {
             return true
+        }
+
+        if customerInfo?.entitlements.verification == .failed {
+            return false
         }
 
         return resolvedActiveEntitlement?.isActive == true || hasKnownPremiumPurchase
@@ -321,14 +326,16 @@ final class PremiumAccessStore {
             return aliasMatch
         }
 
-        let activeCurrent = customerInfo.entitlements.activeInCurrentEnvironment
-        if activeCurrent.count == 1 {
-            return activeCurrent.first?.value
+        if let knownAliasMatch = customerInfo.entitlements.activeInCurrentEnvironment.first(where: {
+            Self.isKnownPremiumEntitlementID($0.key)
+        })?.value {
+            return knownAliasMatch
         }
 
-        let activeAny = customerInfo.entitlements.active
-        if activeAny.count == 1 {
-            return activeAny.first?.value
+        if let knownAliasMatch = customerInfo.entitlements.active.first(where: {
+            Self.isKnownPremiumEntitlementID($0.key)
+        })?.value {
+            return knownAliasMatch
         }
 
         return nil
@@ -338,11 +345,17 @@ final class PremiumAccessStore {
         guard let customerInfo else { return false }
 
         let configuredOfferingProductIDs = Set(availablePackages.map(\.storeProduct.productIdentifier))
-        let purchasedProductIDs = customerInfo.activeSubscriptions.union(customerInfo.allPurchasedProductIdentifiers)
+        let activeProductIDs = customerInfo.activeSubscriptions
 
-        return purchasedProductIDs.contains { productID in
+        return activeProductIDs.contains { productID in
             configuredOfferingProductIDs.contains(productID) || Self.isKnownPremiumProductID(productID)
         }
+    }
+
+    private static func isKnownPremiumEntitlementID(_ rawValue: String) -> Bool {
+        let normalized = normalizeEntitlementID(rawValue)
+
+        return normalized == "premium" || normalized == "aipedometerpro"
     }
 
     private static func isKnownPremiumProductID(_ rawValue: String) -> Bool {

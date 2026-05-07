@@ -61,7 +61,7 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig
 # optionally override REVENUECAT_ENTITLEMENT_ID and REVENUECAT_OFFERING_ID
 ```
 
-If `REVENUECAT_API_KEY` is not configured, premium surfaces fail closed and the app shows an unavailable subscriptions state instead of exposing gated AI actions.
+If `REVENUECAT_API_KEY` is not configured, premium surfaces fail closed and the app shows an unavailable subscriptions state instead of exposing gated AI actions. RevenueCat Trusted Entitlements verification is enabled in informational mode, and failed verification is treated as untrusted data that does not unlock Premium AI.
 
 ## Project Structure
 
