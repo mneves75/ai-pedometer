@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Docs
 
+- Added a dedicated RevenueCat + Apple payments setup runbook covering App Store Connect subscriptions, In-App Purchase Key setup, RevenueCat products/entitlements/offerings, local `xcconfig` wiring, sandbox/TestFlight validation, review notes, troubleshooting, and go-live checks.
 - Synced README, App Store, testing, security, tech-stack, RevenueCat, and project field-guide docs with the 2026 source/security review and ASC/Xcode verification flow.
 - Regenerated the Xcode project from `project.yml` so local ASC/Xcode version metadata matches `0.76 (32)`.
 - Updated the PRD to reflect the current RevenueCat-backed Premium AI requirement instead of treating subscriptions as out of scope.

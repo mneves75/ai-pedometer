@@ -177,6 +177,7 @@ Localization lookup is centralized through `L10n.localized(...)` with explicit l
 | `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
 | `docs/appstore/` | Publicação App Store (playbook, metadata e StoreKit) |
 | `docs/revenuecat/` | Guia completo de configuração, testes e operação do premium com RevenueCat |
+| [docs/revenuecat/apple-payments-setup.md](docs/revenuecat/apple-payments-setup.md) | Runbook de configuração Apple payments + RevenueCat para assinaturas premium |
 
 ## Contributing
 

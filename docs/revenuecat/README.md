@@ -4,6 +4,8 @@
 
 Este documento descreve, de ponta a ponta, como configurar, testar, operar e publicar a integração com a RevenueCat neste repositório.
 
+Para um runbook direto de setup entre App Store Connect, Apple payments, StoreKit 2 e RevenueCat, veja [apple-payments-setup.md](apple-payments-setup.md).
+
 O foco aqui não é uma integração genérica de iOS. O guia está alinhado ao estado real do projeto:
 
 - app iOS SwiftUI
