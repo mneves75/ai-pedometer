@@ -171,7 +171,10 @@ final class SmartNotificationService {
         content.title = response.title
         content.body = response.body
         content.sound = .default
-        content.interruptionLevel = .timeSensitive
+        // Smart coaching reminders are not genuinely time-critical (medication, security, deliveries
+        // are the supported `.timeSensitive` use cases). Use `.active` so the user's Focus modes
+        // and notification scheduling remain authoritative.
+        content.interruptionLevel = .active
 
         return content
     }

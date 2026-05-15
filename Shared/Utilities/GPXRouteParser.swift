@@ -3,21 +3,51 @@ import Foundation
 enum GPXRouteParserError: Error, Equatable {
     case invalidDocument
     case noRoutePoints
+    case fileTooLarge
+    case tooManyElements
 }
 
 enum GPXRouteParser {
+    /// Hard cap on GPX file size accepted by the importer. Anything larger is rejected
+    /// before we hand bytes to `XMLParser` to avoid memory pressure from hostile input.
+    static let maxFileSizeBytes = 5 * 1024 * 1024 // 5 MiB
+    /// Cap on track/route points to defend against degenerate inputs that would blow up
+    /// distance/elevation math, MapKit preview rendering, and storage size.
+    static let maxRoutePoints = 50_000
+    /// Cap on waypoint elements parsed; matches `maxRoutePoints` order of magnitude.
+    static let maxWaypoints = 5_000
+
     static func parse(
         data: Data,
         sourceFilename: String,
         now: Date = .now,
         id: UUID = UUID()
     ) throws -> ImportedRoute {
-        let delegate = GPXParserDelegate()
+        guard data.count <= maxFileSizeBytes else {
+            throw GPXRouteParserError.fileTooLarge
+        }
+
+        let delegate = GPXParserDelegate(
+            maxRoutePoints: maxRoutePoints,
+            maxWaypoints: maxWaypoints
+        )
         let parser = XMLParser(data: data)
         parser.delegate = delegate
+        // Defense in depth: disable XML external entity resolution and DTD lookup so that a
+        // hostile GPX cannot trigger network requests or local file reads via XXE.
+        parser.shouldResolveExternalEntities = false
+        parser.shouldProcessNamespaces = false
+        parser.shouldReportNamespacePrefixes = false
 
         guard parser.parse() else {
+            if delegate.aborted {
+                throw GPXRouteParserError.tooManyElements
+            }
             throw GPXRouteParserError.invalidDocument
+        }
+
+        if delegate.aborted {
+            throw GPXRouteParserError.tooManyElements
         }
 
         let points = delegate.points
@@ -97,6 +127,9 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         var elevationMeters: Double?
     }
 
+    private let maxRoutePoints: Int
+    private let maxWaypoints: Int
+
     private var textBuffer = ""
     private var currentPoint: MutablePoint?
     private var waypointDepth = 0
@@ -104,26 +137,38 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
     private(set) var routeName: String?
     private(set) var points: [RouteCoordinate] = []
     private(set) var waypointCount = 0
+    private(set) var aborted = false
+
+    init(maxRoutePoints: Int, maxWaypoints: Int) {
+        self.maxRoutePoints = maxRoutePoints
+        self.maxWaypoints = maxWaypoints
+    }
 
     func parser(
-        _: XMLParser,
+        _ parser: XMLParser,
         didStartElement elementName: String,
         namespaceURI _: String?,
         qualifiedName _: String?,
         attributes attributeDict: [String: String] = [:]
     ) {
         textBuffer = ""
+        if aborted { return }
 
         switch elementName {
         case "trkpt", "rtept":
-            guard let latitude = Double(attributeDict["lat"] ?? ""),
-                  let longitude = Double(attributeDict["lon"] ?? "") else {
+            guard let latitude = Self.parseCoordinate(attributeDict["lat"], range: -90...90),
+                  let longitude = Self.parseCoordinate(attributeDict["lon"], range: -180...180) else {
                 currentPoint = nil
                 return
             }
             currentPoint = MutablePoint(latitude: latitude, longitude: longitude)
         case "wpt":
             waypointDepth += 1
+            if waypointCount >= maxWaypoints {
+                aborted = true
+                parser.abortParsing()
+                return
+            }
             waypointCount += 1
         default:
             break
@@ -131,24 +176,35 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
     }
 
     func parser(_: XMLParser, foundCharacters string: String) {
+        if aborted { return }
         textBuffer += string
     }
 
     func parser(
-        _: XMLParser,
+        _ parser: XMLParser,
         didEndElement elementName: String,
         namespaceURI _: String?,
         qualifiedName _: String?
     ) {
+        if aborted { return }
         let value = textBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch elementName {
         case "name" where routeName == nil && waypointDepth == 0:
             routeName = value
         case "ele":
-            currentPoint?.elevationMeters = Double(value)
+            if let elevation = Double(value), elevation.isFinite {
+                currentPoint?.elevationMeters = elevation
+            }
         case "trkpt", "rtept":
             if let currentPoint {
+                if points.count >= maxRoutePoints {
+                    aborted = true
+                    parser.abortParsing()
+                    self.currentPoint = nil
+                    textBuffer = ""
+                    return
+                }
                 points.append(RouteCoordinate(
                     latitude: currentPoint.latitude,
                     longitude: currentPoint.longitude,
@@ -163,5 +219,10 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         }
 
         textBuffer = ""
+    }
+
+    private static func parseCoordinate(_ raw: String?, range: ClosedRange<Double>) -> Double? {
+        guard let raw, let value = Double(raw), value.isFinite, range.contains(value) else { return nil }
+        return value
     }
 }

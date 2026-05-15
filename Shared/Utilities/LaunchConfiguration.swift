@@ -54,6 +54,10 @@ enum LaunchConfiguration {
     }
 
     static func forcedHealthKitSyncEnabled(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
+        // The override gate intentionally checks the live deployment context — not the
+        // function inputs — so a callable that receives crafted args cannot fake "we are
+        // testing." App Store release builds must remain immune to launch-argument tampering.
+        guard isOverridable else { return nil }
         if arguments.contains(forceHealthKitSyncOffArgument) { return false }
         if arguments.contains(forceHealthKitSyncOnArgument) { return true }
         return nil
@@ -63,6 +67,10 @@ enum LaunchConfiguration {
         arguments: [String] = ProcessInfo.processInfo.arguments,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool? {
+        // Fail-closed: forced premium overrides are a test affordance, not a production feature.
+        // See `isOverridable` for the gate rationale.
+        guard isOverridable else { return nil }
+
         if arguments.contains(forcePremiumOffArgument) { return false }
         if arguments.contains(forcePremiumOnArgument) { return true }
 
@@ -73,6 +81,20 @@ enum LaunchConfiguration {
         }
 
         return nil
+    }
+
+    /// Whether forced test-only launch overrides should be honored in this binary.
+    ///
+    /// DEBUG builds always allow overrides for engineering convenience. Release builds
+    /// only honor them while running under an actual UI test or XCTest harness — the
+    /// check uses the live process environment so caller-supplied arguments cannot
+    /// spoof a test context.
+    private static var isOverridable: Bool {
+        #if DEBUG
+        return true
+        #else
+        return isUITesting() || isRunningXCTest()
+        #endif
     }
 
     static var isDemoModeSupported: Bool {

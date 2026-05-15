@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 import UniformTypeIdentifiers
 
 struct WorkoutsView: View {
@@ -517,7 +518,15 @@ struct WorkoutsView: View {
                 }
             }
 
-            let data = try Data(contentsOf: url)
+            // Reject oversized payloads before allocating: `Data(contentsOf:)` would otherwise
+            // load the entire file into memory before the parser's size cap fires.
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            if let fileSize = attributes[.size] as? NSNumber,
+               fileSize.intValue > GPXRouteParser.maxFileSizeBytes {
+                throw GPXRouteParserError.fileTooLarge
+            }
+
+            let data = try Data(contentsOf: url, options: [.mappedIfSafe])
             let route = try GPXRouteParser.parse(data: data, sourceFilename: url.lastPathComponent)
             try ImportedRouteStorage.save(route)
             importedRoute = route
@@ -676,40 +685,60 @@ private struct ImportedRouteSummary: View {
     }
 }
 
-private struct RoutePreview: View {
+struct RoutePreview: View {
     let points: [RouteCoordinate]
 
-    var body: some View {
-        Canvas { context, size in
-            guard points.count >= 2 else { return }
-            let latitudes = points.map(\.latitude)
-            let longitudes = points.map(\.longitude)
-            guard let minLatitude = latitudes.min(),
-                  let maxLatitude = latitudes.max(),
-                  let minLongitude = longitudes.min(),
-                  let maxLongitude = longitudes.max() else {
-                return
-            }
-
-            let latitudeRange = max(maxLatitude - minLatitude, 0.000_001)
-            let longitudeRange = max(maxLongitude - minLongitude, 0.000_001)
-            let inset: CGFloat = 12
-            let drawSize = CGSize(width: max(size.width - inset * 2, 1), height: max(size.height - inset * 2, 1))
-
-            var path = Path()
-            for (index, point) in points.enumerated() {
-                let x = inset + CGFloat((point.longitude - minLongitude) / longitudeRange) * drawSize.width
-                let y = inset + CGFloat(1 - ((point.latitude - minLatitude) / latitudeRange)) * drawSize.height
-                if index == 0 {
-                    path.move(to: CGPoint(x: x, y: y))
-                } else {
-                    path.addLine(to: CGPoint(x: x, y: y))
-                }
-            }
-
-            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: DesignTokens.CornerRadius.sm), with: .color(DesignTokens.Colors.accentSoft))
-            context.stroke(path, with: .color(DesignTokens.Colors.accent), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+    private var coordinates: [CLLocationCoordinate2D] {
+        points.map { point in
+            CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
         }
+    }
+
+    private var startCoordinate: CLLocationCoordinate2D? {
+        coordinates.first
+    }
+
+    private var finishCoordinate: CLLocationCoordinate2D? {
+        coordinates.last
+    }
+
+    private var cameraPosition: MapCameraPosition {
+        var rect = MKMapRect.null
+        for coordinate in coordinates {
+            let point = MKMapPoint(coordinate)
+            let pointRect = MKMapRect(x: point.x, y: point.y, width: 1, height: 1)
+            rect = rect.union(pointRect)
+        }
+
+        guard !rect.isNull else {
+            return .automatic
+        }
+
+        let horizontalPadding = max(rect.width * 0.2, 1_000)
+        let verticalPadding = max(rect.height * 0.2, 1_000)
+        return .rect(rect.insetBy(dx: -horizontalPadding, dy: -verticalPadding))
+    }
+
+    var body: some View {
+        Map(initialPosition: cameraPosition) {
+            if coordinates.count >= 2 {
+                MapPolyline(coordinates: coordinates)
+                    .stroke(DesignTokens.Colors.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+            }
+
+            if let startCoordinate {
+                Marker(L10n.localized("Start", comment: "Route preview start marker"), systemImage: "figure.walk", coordinate: startCoordinate)
+                    .tint(DesignTokens.Colors.green)
+            }
+
+            if let finishCoordinate {
+                Marker(L10n.localized("Finish", comment: "Route preview finish marker"), systemImage: "flag.checkered", coordinate: finishCoordinate)
+                    .tint(DesignTokens.Colors.accent)
+            }
+        }
+        .mapControlVisibility(.hidden)
+        .allowsHitTesting(false)
+        .accessibilityLabel(L10n.localized("Route map preview", comment: "Accessibility label for imported route map preview"))
     }
 }
 

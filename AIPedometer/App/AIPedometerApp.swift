@@ -88,9 +88,11 @@ struct AIPedometerApp: App {
             liveActivityManager = LiveActivityManager()
         }
 
-        let badges = BadgeService(persistence: persistence)
-        badges.configure(with: fmService)
         let premiumAccessStore = PremiumAccessStore()
+        let badges = BadgeService(persistence: persistence)
+        badges.configure(with: fmService) { [premiumAccessStore] in
+            premiumAccessStore.canAccessAIFeatures
+        }
 
         // Create StepTrackingService with shared dependencies
         let trackingService = StepTrackingService(

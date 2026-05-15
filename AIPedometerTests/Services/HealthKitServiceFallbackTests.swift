@@ -150,6 +150,71 @@ struct HealthKitServiceFallbackTests {
         }
     }
 
+    @Test("fetchLatestHeartRate forwards to primary instead of falling back to nil")
+    func fetchLatestHeartRateForwardsToPrimary() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
+        defer { cleanup() }
+
+        let primary = MutableHealthKitService()
+        primary.heartRateToReturn = 88
+        let service = HealthKitServiceFallback(
+            primary: primary,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        try await service.requestAuthorization()
+        let bpm = try await service.fetchLatestHeartRate(from: Date.now.addingTimeInterval(-3600), to: .now)
+        #expect(bpm == 88)
+    }
+
+    @Test("fetchLatestHeartRate uses demo data when fake-data mode is on")
+    func fetchLatestHeartRateUsesFakeDataWhenEnabled() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: true)
+        defer { cleanup() }
+
+        let failing = FailingHealthKitService(
+            authorizationError: nil,
+            queryError: HealthKitError.queryFailed
+        )
+        let service = HealthKitServiceFallback(
+            primary: failing,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        try await service.requestAuthorization()
+        let bpm = try await service.fetchLatestHeartRate(from: Date.now.addingTimeInterval(-3600), to: .now)
+        #expect(bpm != nil)
+    }
+
+    @Test("fetchLatestHeartRate returns nil when sync is disabled")
+    func fetchLatestHeartRateRespectsSyncDisabled() async throws {
+        let suiteName = "HealthKitServiceFallbackTests-sync-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+
+        let store = DemoModeStore(userDefaults: defaults)
+        let primary = MutableHealthKitService()
+        primary.heartRateToReturn = 99
+        let service = HealthKitServiceFallback(
+            primary: primary,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        let bpm = try await service.fetchLatestHeartRate(from: Date.now.addingTimeInterval(-3600), to: .now)
+        #expect(bpm == nil)
+    }
+
     @Test("Authorization denial does not permanently latch empty reads after recovery")
     func authorizationDenialCanRecoverWithoutRelaunch() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
@@ -215,6 +280,10 @@ private final class FailingHealthKitService: HealthKitServiceProtocol {
     }
 
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
+        throw queryError
+    }
+
+    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
         throw queryError
     }
 
@@ -284,6 +353,7 @@ private final class SpyHealthKitService: HealthKitServiceProtocol {
 private final class MutableHealthKitService: HealthKitServiceProtocol {
     var authorizationError: (any Error)?
     var stepsToReturn = 0
+    var heartRateToReturn: Double?
     var dailySummariesToReturn: [DailyStepSummary] = []
 
     func requestAuthorization() async throws {
@@ -297,6 +367,7 @@ private final class MutableHealthKitService: HealthKitServiceProtocol {
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? { heartRateToReturn }
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
     func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
     func saveWorkout(_ session: WorkoutSession) async throws {}

@@ -48,6 +48,14 @@ final class DynamicTypeTests: XCTestCase {
         XCTAssertNotNil(card)
     }
 
+    func testRoutePreviewInstantiatesWithoutCrash() {
+        let preview = RoutePreview(points: [
+            RouteCoordinate(latitude: 37.33182, longitude: -122.03118, elevationMeters: 10),
+            RouteCoordinate(latitude: 37.33282, longitude: -122.03218, elevationMeters: 15)
+        ])
+        XCTAssertNotNil(preview)
+    }
+
     func testGoalEditorSheetInstantiatesWithoutCrash() {
         let sheet = GoalEditorSheet(initialGoal: 10000, unitName: ActivityTrackingMode.steps.unitName) { _ in }
         XCTAssertNotNil(sheet)

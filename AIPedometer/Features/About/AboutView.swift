@@ -427,4 +427,5 @@ private struct LinkRow: View {
         AboutView()
     }
     .environment(TipJarStore())
+    .environment(PremiumAccessStore(forcedPremiumEnabled: false, isTesting: true))
 }

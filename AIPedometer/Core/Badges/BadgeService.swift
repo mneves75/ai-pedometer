@@ -6,20 +6,29 @@ import FoundationModels
 @Observable
 final class BadgeService {
     private let persistence: PersistenceController
-    private var foundationModelsService: FoundationModelsService?
+    private var foundationModelsService: (any FoundationModelsServiceProtocol)?
     @ObservationIgnored private var didLoadEarnedBadges = false
-    
+    @ObservationIgnored private var canGenerateAICoaching: @MainActor @Sendable () -> Bool = { false }
+
     private(set) var earnedBadgesCache: [EarnedBadge] = []
     private(set) var pendingCelebration: AchievementCelebration?
     private(set) var celebratingBadge: BadgeType?
+    @ObservationIgnored private(set) var pendingCelebrationTask: Task<Void, Never>?
 
     init(persistence: PersistenceController) {
         self.persistence = persistence
         refreshEarnedBadges()
     }
-    
-    func configure(with aiService: FoundationModelsService) {
+
+    /// Wire up the AI service and the premium gate. The badge celebration generator only runs
+    /// when both AI availability and `canGenerateAICoaching()` are true, keeping AI coaching
+    /// behind the same fail-closed premium boundary as the rest of the AI surfaces.
+    func configure(
+        with aiService: any FoundationModelsServiceProtocol,
+        canGenerateAICoaching: @escaping @MainActor @Sendable () -> Bool = { false }
+    ) {
         self.foundationModelsService = aiService
+        self.canGenerateAICoaching = canGenerateAICoaching
     }
 
     @discardableResult
@@ -76,8 +85,9 @@ final class BadgeService {
                 "badge": badgeType.rawValue
             ])
             refreshEarnedBadges()
-            Task {
-                await generateCelebration(for: badgeType)
+            pendingCelebrationTask?.cancel()
+            pendingCelebrationTask = Task { [weak self] in
+                await self?.generateCelebration(for: badgeType)
             }
             return true
         } catch {
@@ -95,9 +105,10 @@ final class BadgeService {
     }
     
     private func generateCelebration(for badgeType: BadgeType) async {
+        guard canGenerateAICoaching() else { return }
         guard let aiService = foundationModelsService,
               aiService.availability.isAvailable else { return }
-        
+
         celebratingBadge = badgeType
         
         let prompt = """

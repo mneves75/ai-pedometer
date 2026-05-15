@@ -35,18 +35,10 @@ final class MotionService: MotionServiceProtocol {
         }
         let queryPedometer = CMPedometer()
         return try await withCheckedThrowingContinuation { continuation in
-            let lock = NSLock()
-            var didResume = false
-            queryPedometer.startUpdates(from: startDate) { data, error in
-                lock.lock()
-                let shouldResume = !didResume
-                didResume = true
-                lock.unlock()
-                guard shouldResume else {
-                    Loggers.motion.warning("motion.query_duplicate_callback")
-                    return
-                }
-                defer { queryPedometer.stopUpdates() }
+            // Use the purpose-built one-shot query API. Unlike `startUpdates`, this fires the
+            // handler exactly once with the historical totals between `startDate` and `endDate`
+            // and tears itself down automatically — no manual `stopUpdates`/dedupe lock required.
+            queryPedometer.queryPedometerData(from: startDate, to: endDate) { data, error in
                 if let error {
                     Loggers.motion.error("motion.query_failed", metadata: ["error": String(describing: error)])
                     continuation.resume(throwing: MotionError.queryFailed)

@@ -96,6 +96,14 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
     }
 
+    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
+        try await fetchWithGracefulFallback(emptyValue: Double?.none) {
+            try await primary.fetchLatestHeartRate(from: startDate, to: endDate)
+        } fakeData: {
+            try await demoService.fetchLatestHeartRate(from: startDate, to: endDate)
+        }
+    }
+
     func fetchDailySummaries(
         days: Int,
         activityMode: ActivityTrackingMode,
