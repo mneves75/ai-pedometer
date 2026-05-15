@@ -7809,6 +7809,40 @@
         }
       }
     },
+    "Route map preview" : {
+      "comment" : "Accessibility label for imported route map preview",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Route map preview"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prévia da rota no mapa"
+          }
+        }
+      }
+    },
+    "Start" : {
+      "comment" : "Route preview start marker",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Início"
+          }
+        }
+      }
+    },
     "Start a little below your limit and make the routine easy to repeat." : {
       "comment" : "Fallback focus tip for the first training week",
       "localizations" : {
@@ -7873,6 +7907,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aumente o volume aos poucos e proteja sua recuperação entre as sessões."
+          }
+        }
+      }
+    },
+    "Finish" : {
+      "comment" : "Route preview finish marker",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fim"
           }
         }
       }

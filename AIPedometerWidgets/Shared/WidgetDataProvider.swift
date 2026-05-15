@@ -14,12 +14,6 @@ struct WidgetStepData: Codable, Hashable, Sendable {
     }
 }
 
-enum WidgetConstants {
-    static let appGroupID = "group.com.mneves.aipedometer"
-    static let sharedStepDataKey = "sharedStepData"
-    static let defaultDailyGoal = 10_000
-}
-
 struct WidgetStepEntry: TimelineEntry {
     let date: Date
     let data: WidgetStepData?
@@ -27,10 +21,10 @@ struct WidgetStepEntry: TimelineEntry {
 
 enum WidgetDataLoader {
     static func loadSharedData() -> WidgetStepData? {
-        guard let defaults = UserDefaults(suiteName: WidgetConstants.appGroupID) else {
+        guard let defaults = UserDefaults(suiteName: AppConstants.appGroupID) else {
             return nil
         }
-        guard let rawData = defaults.data(forKey: WidgetConstants.sharedStepDataKey) else {
+        guard let rawData = defaults.data(forKey: AppConstants.UserDefaultsKeys.sharedStepData) else {
             return nil
         }
         do {
@@ -46,7 +40,7 @@ enum WidgetDataLoader {
     static func placeholderData() -> WidgetStepData {
         WidgetStepData(
             todaySteps: 6420,
-            goalSteps: WidgetConstants.defaultDailyGoal,
+            goalSteps: AppConstants.defaultDailyGoal,
             goalProgress: 0.642,
             currentStreak: 12,
             lastUpdated: .now,

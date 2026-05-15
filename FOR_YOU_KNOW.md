@@ -142,7 +142,7 @@ The docs now reflect this reality: `PRD.md`, `README.md`, `CHANGELOG.md`, and `d
 
 Expedition Mode follows the same rule. The visible toggle lives on Workouts and is only shown to Premium users, but the session controller also rechecks premium-gated `UserDefaults` state before changing live metrics cadence. That keeps battery-saver behavior from becoming an entitlement bypass.
 
-Routes & GPX is currently a local-first premium import surface, not full offline mapping. The parser lives in `Shared/Utilities/GPXRouteParser.swift`, stores only the last imported summary through `ImportedRouteStorage`, and keeps coordinates bounded for preview rendering. Do not claim live/offline maps or Apple Watch maps until those are actually built and verified.
+Routes & GPX is currently a local-first premium import surface with a MapKit preview, not full offline mapping. The parser lives in `Shared/Utilities/GPXRouteParser.swift`, stores only the last imported summary through `ImportedRouteStorage`, and keeps coordinates bounded for preview rendering. Do not claim live/offline maps or Apple Watch maps until those are actually built and verified.
 
 Heart rate is read as the latest HealthKit sample for the current day and shown on the Dashboard. It is intentionally display-only for now; do not use it for medical advice, training-zone prescriptions, or AI claims without a separate safety review.
 

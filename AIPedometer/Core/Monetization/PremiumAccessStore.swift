@@ -110,6 +110,10 @@ final class PremiumAccessStore {
     }
 
     deinit {
+        // We rely on `assumeIsolated` here because this `@MainActor` class is owned by
+        // SwiftUI `@State` and its final deallocation runs on main in every supported
+        // configuration. Swift 6.2 strict concurrency also requires the closure form to
+        // touch main-isolated stored properties from a nonisolated deinit.
         MainActor.assumeIsolated {
             customerInfoTask?.cancel()
         }

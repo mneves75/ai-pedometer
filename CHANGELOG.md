@@ -12,9 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Premium-gated Expedition Mode on the Workouts screen; when enabled for a session, live workout metrics refresh at a lower cadence to reduce battery impact during long walks and hikes.
 - Added a Premium-gated Routes & GPX card on Workouts with local GPX import, route preview, distance, elevation gain, waypoint count, estimated duration, and persisted last-route storage.
 - Added latest HealthKit heart-rate read support and a Dashboard heart-rate stat card.
+- Upgraded the imported GPX preview from a static route sketch to a non-interactive MapKit preview with start/finish markers and a route polyline.
 
 ### Fixed
 
+- Fixed a regression where the Dashboard heart-rate card never displayed data because the production `HealthKitServiceFallback` wrapper inherited the protocol's default `fetchLatestHeartRate` (returning `nil`) instead of forwarding to the primary or demo HealthKit service.
+- Hardened the GPX route importer against malformed or hostile input: file payloads are size-capped at 5 MiB before allocation (Workouts now checks file attributes before mapping into memory), parsing aborts after 50,000 track points / 5,000 waypoints, non-finite or out-of-range coordinates and elevations are rejected, and external XML entity resolution is explicitly disabled (XXE defense in depth).
+- Made the test-only forced-premium / forced-HealthKit-sync launch overrides fail closed in App Store release builds, so a stray launch argument or environment variable on a tampered binary cannot unlock Premium AI or reshape user data.
+- Gated AI-generated badge celebrations behind the same Premium boundary as the rest of the AI surfaces (Foundation Models is no longer invoked from `BadgeService` for non-Premium users), and reset the smart-notification interruption level from `.timeSensitive` to `.active` so coaching reminders respect Focus modes.
+- Replaced `MotionService.query`'s `CMPedometer.startUpdates(from:)` workaround (live-updates API used for a one-shot read, manually guarded by a dedupe lock and `defer { stopUpdates() }`) with Apple's purpose-built `queryPedometerData(from:to:withHandler:)` — same behavior, no manual teardown, no callback dedupe gymnastics.
+- Removed `AIPedometer/Core/Workouts/WorkoutService.swift`, which had no callers anywhere in production or tests after `WorkoutSessionController` superseded it; the leftover file was a maintenance hazard.
 - Hardened RevenueCat premium access so unrelated active entitlements, expired historical premium products, or failed Trusted Entitlements verification cannot unlock Premium AI.
 - Aligned target privacy manifests with Apple's official Health/Fitness data type identifiers and the no-analytics privacy promise.
 - Removed invalid Health/Motion required-reason API categories and declared UserDefaults app-group access with the appropriate Apple reason code.

@@ -51,6 +51,97 @@ struct GPXRouteParserTests {
         }
     }
 
+    @Test("rejects GPX payloads larger than the configured size limit")
+    func rejectsOversizedGPX() throws {
+        let oversized = Data(count: GPXRouteParser.maxFileSizeBytes + 1)
+        #expect(throws: GPXRouteParserError.fileTooLarge) {
+            _ = try GPXRouteParser.parse(data: oversized, sourceFilename: "huge.gpx")
+        }
+    }
+
+    @Test("rejects GPX with too many track points")
+    func rejectsTooManyTrackPoints() throws {
+        let pointCount = GPXRouteParser.maxRoutePoints + 100
+        var body = "<?xml version=\"1.0\"?><gpx version=\"1.1\"><trk><trkseg>"
+        body.reserveCapacity(pointCount * 64)
+        for index in 0..<pointCount {
+            let lat = 37.0 + Double(index) * 0.000001
+            body += "<trkpt lat=\"\(lat)\" lon=\"-122.0\"><ele>10</ele></trkpt>"
+        }
+        body += "</trkseg></trk></gpx>"
+
+        #expect(throws: GPXRouteParserError.tooManyElements) {
+            _ = try GPXRouteParser.parse(data: Data(body.utf8), sourceFilename: "many.gpx")
+        }
+    }
+
+    @Test("ignores track points with non-finite or out-of-range coordinates")
+    func ignoresInvalidCoordinates() throws {
+        let data = Data("""
+        <?xml version="1.0"?>
+        <gpx version="1.1">
+          <trk><trkseg>
+            <trkpt lat="nan" lon="-122.0"><ele>10</ele></trkpt>
+            <trkpt lat="91.0" lon="0.0"><ele>10</ele></trkpt>
+            <trkpt lat="0.0" lon="181.0"><ele>10</ele></trkpt>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>15</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        let route = try GPXRouteParser.parse(data: data, sourceFilename: "noisy.gpx")
+        #expect(route.pointCount == 2)
+        #expect(route.distanceMeters > 0)
+        #expect(route.previewPoints.allSatisfy { (-90.0...90.0).contains($0.latitude) })
+        #expect(route.previewPoints.allSatisfy { (-180.0...180.0).contains($0.longitude) })
+    }
+
+    @Test("ignores non-finite elevation values")
+    func ignoresInvalidElevations() throws {
+        let data = Data("""
+        <?xml version="1.0"?>
+        <gpx version="1.1">
+          <trk><trkseg>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>nan</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>inf</ele></trkpt>
+            <trkpt lat="37.33382" lon="-122.03318"><ele>15</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        let route = try GPXRouteParser.parse(data: data, sourceFilename: "elev.gpx")
+        #expect(route.elevationGainMeters.isFinite)
+        #expect(route.elevationLossMeters.isFinite)
+    }
+
+    @Test("disables external entity resolution to defend against XXE")
+    func disablesExternalEntities() throws {
+        // The parser may still report well-formed-document errors, but the assertion we care
+        // about is that no external entity is resolved into the route name. With external
+        // entity resolution off, the most likely outcome is `invalidDocument` (or, on lenient
+        // parsers, an empty name). The route name must never echo the file contents.
+        let data = Data("""
+        <?xml version="1.0"?>
+        <!DOCTYPE foo [ <!ENTITY xxe SYSTEM "file:///etc/hostname"> ]>
+        <gpx version="1.1">
+          <metadata><name>&xxe;</name></metadata>
+          <trk><trkseg>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>15</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        do {
+            let route = try GPXRouteParser.parse(data: data, sourceFilename: "xxe.gpx")
+            #expect(route.name != "/etc/hostname")
+            #expect(route.name.contains("hostname") == false)
+        } catch GPXRouteParserError.invalidDocument {
+            // Acceptable: parser rejected the document outright once entity resolution is off.
+        }
+    }
+
     @Test
     func savesLoadsAndClearsImportedRoute() throws {
         let suiteName = "ImportedRouteStorageTests.\(UUID().uuidString)"

@@ -62,6 +62,40 @@ struct BadgeServiceTests {
         #expect(service.earnedBadgesCache.contains { $0.badgeType == .steps5K })
     }
 
+    @Test("Badge celebration is gated by AI coaching permission")
+    func celebrationGatedByAICoachingPermission() async {
+        let persistence = PersistenceController(inMemory: true)
+        let service = BadgeService(persistence: persistence)
+        let mockAI = MockFoundationModelsService()
+        mockAI.availability = .available
+        service.configure(with: mockAI, canGenerateAICoaching: { false })
+
+        let unlocked = service.unlock(.steps5K)
+        #expect(unlocked == true)
+        await service.pendingCelebrationTask?.value
+
+        #expect(service.celebratingBadge == nil)
+        #expect(service.pendingCelebration == nil)
+        #expect(mockAI.respondCallCount == 0)
+    }
+
+    @Test("Badge celebration is skipped when AI is unavailable even if coaching is allowed")
+    func celebrationSkippedWhenAIUnavailable() async {
+        let persistence = PersistenceController(inMemory: true)
+        let service = BadgeService(persistence: persistence)
+        let mockAI = MockFoundationModelsService()
+        mockAI.availability = .unavailable(reason: .modelNotReady)
+        service.configure(with: mockAI, canGenerateAICoaching: { true })
+
+        let unlocked = service.unlock(.streak3)
+        #expect(unlocked == true)
+        await service.pendingCelebrationTask?.value
+
+        #expect(service.celebratingBadge == nil)
+        #expect(service.pendingCelebration == nil)
+        #expect(mockAI.respondCallCount == 0)
+    }
+
     @Test("refreshEarnedBadges deduplicates duplicate badge types")
     func refreshEarnedBadgesDeduplicatesDuplicateBadgeTypes() throws {
         let persistence = PersistenceController(inMemory: true)
