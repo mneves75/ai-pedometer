@@ -105,6 +105,8 @@ TestResults/
 # Internal planning artifacts
 agent_planning/
 .planning/
+.agent/
+.omx/
 .sisyphus/
 progress.md
 tests.json
@@ -113,6 +115,7 @@ output/
 
 # Local temp artifacts
 tmp/
+-
 
 # Local run notes
 notes/run-*.txt
