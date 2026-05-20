@@ -152,6 +152,9 @@ struct AICoachView: View {
                     } label: {
                         Text(question)
                             .font(DesignTokens.Typography.subheadline)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
                             .padding(.horizontal, DesignTokens.Spacing.md)
                             .padding(.vertical, DesignTokens.Spacing.sm)
                             .background(.ultraThinMaterial, in: Capsule())
@@ -426,6 +429,7 @@ struct FlowLayout: Layout {
 
     private func layout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
         let maxWidth = proposal.width ?? .infinity
+        let childProposal = maxWidth.isFinite ? ProposedViewSize(width: maxWidth, height: nil) : .unspecified
         var positions: [CGPoint] = []
         var currentX: CGFloat = 0
         var currentY: CGFloat = 0
@@ -433,7 +437,7 @@ struct FlowLayout: Layout {
         var maxX: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(childProposal)
 
             if currentX + size.width > maxWidth && currentX > 0 {
                 currentX = 0
@@ -464,4 +468,7 @@ struct FlowLayout: Layout {
         ))
         .environment(fmService)
         .environment(demoModeStore)
+        // AICoachView gates on PremiumAccessStore before rendering chat; injecting a forced-on
+        // premium store keeps the preview functional.
+        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }

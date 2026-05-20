@@ -1679,6 +1679,23 @@
         }
       }
     },
+    "%lld beats per minute" : {
+      "comment" : "Accessibility value for heart rate",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld beats per minute"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld batimentos por minuto"
+          }
+        }
+      }
+    },
     "Build" : {
       "comment" : "Workout intent - push for improvement",
       "localizations" : {
@@ -1863,6 +1880,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Complete um desafio mensal"
+          }
+        }
+      }
+    },
+    "The GPX file isn’t valid. Try exporting it again from your route tool." : {
+      "comment" : "GPX import error: malformed XML/GPX document",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The GPX file isn’t valid. Try exporting it again from your route tool."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este arquivo GPX não é válido. Exporte-o novamente na ferramenta de origem."
+          }
+        }
+      }
+    },
+    "We couldn’t find any track or route points in this file." : {
+      "comment" : "GPX import error: parse succeeded but no track/route points present",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn’t find any track or route points in this file."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não encontramos pontos de rota ou trilha neste arquivo."
+          }
+        }
+      }
+    },
+    "This GPX file is over the 5 MB import limit. Try a shorter route or simplify the track." : {
+      "comment" : "GPX import error: file exceeds the parser size cap",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This GPX file is over the 5 MB import limit. Try a shorter route or simplify the track."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este GPX excede o limite de 5 MB. Tente uma rota menor ou simplifique a trilha."
+          }
+        }
+      }
+    },
+    "This GPX has too many track points or waypoints for offline import." : {
+      "comment" : "GPX import error: file exceeds the parser element caps",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This GPX has too many track points or waypoints for offline import."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este GPX tem pontos de trilha ou marcadores em excesso para importação offline."
           }
         }
       }
@@ -3554,6 +3639,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Desculpe, não estou disponível no momento. Tente novamente mais tarde."
+          }
+        }
+      }
+    },
+    "Introductory offer: %@" : {
+      "comment" : "Premium introductory offer label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introductory offer: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oferta introdutória: %@"
           }
         }
       }

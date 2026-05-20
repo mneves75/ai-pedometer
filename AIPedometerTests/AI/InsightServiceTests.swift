@@ -574,7 +574,11 @@ private final class StubHealthKitService: HealthKitServiceProtocol, Sendable {
 
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
 
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
+
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? { nil }
 
     func fetchDailySummaries(
         days: Int,

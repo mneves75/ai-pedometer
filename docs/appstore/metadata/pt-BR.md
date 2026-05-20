@@ -21,7 +21,7 @@
 
 ## What's New (próxima versão)
 
-`Melhorias nos manifests de privacidade, logs, localização e prontidão de publicação.`
+`Adiciona Modo Expedição e prévias de rotas GPX para treinos Premium, exibição de batimentos recentes, fallback mais seguro de assinatura, polimento de acessibilidade em widgets/watch e reforços de privacidade.`
 
 ## URLs
 

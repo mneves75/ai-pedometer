@@ -44,14 +44,24 @@ final class AppLifecycleCoordinator {
 
     func handle(scenePhase: ScenePhase) async {
         guard scenePhase != lastPhase else { return }
-        lastPhase = scenePhase
 
-        guard scenePhase == .active else { return }
+        // Non-active transitions can be recorded immediately — they have no follow-up work
+        // that we might want to retry later.
+        guard scenePhase == .active else {
+            lastPhase = scenePhase
+            return
+        }
+
+        // For `.active`, do NOT commit `lastPhase` until we’ve cleared every guard. If a cold
+        // launch fires `.active` before startup finished, we previously recorded it as “seen”
+        // and then never re-ran the foreground work once startup caught up. Now the next call
+        // (after startup completes) can re-enter and actually refresh.
         guard isOnboardingCompleted() else { return }
         guard !isTesting() else { return }
         guard isStartupComplete() else { return }
 
         await refreshHealthAuthorization()
+        guard !Task.isCancelled else { return }
         refreshMotionAuthorization()
         refreshAIAvailability()
         refreshCoachSession()
@@ -63,5 +73,8 @@ final class AppLifecycleCoordinator {
         await refreshStreak()
         guard !Task.isCancelled else { return }
         await performForegroundRefresh()
+        guard !Task.isCancelled else { return }
+
+        lastPhase = scenePhase
     }
 }

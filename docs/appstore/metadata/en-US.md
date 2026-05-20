@@ -21,7 +21,7 @@
 
 ## What's New (next release)
 
-`Privacy manifest, logging, localization, and release-readiness improvements.`
+`Adds Expedition Mode and GPX route previews for Premium workouts, latest heart-rate display, stronger subscription fallback behavior, accessibility polish for widgets and watch, and privacy/security hardening.`
 
 ## URLs
 

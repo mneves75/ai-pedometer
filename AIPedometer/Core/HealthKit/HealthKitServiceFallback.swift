@@ -88,6 +88,14 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
     }
 
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double {
+        try await fetchWithGracefulFallback(emptyValue: 0.0) {
+            try await primary.fetchWheelchairDistance(from: startDate, to: endDate)
+        } fakeData: {
+            try await demoService.fetchWheelchairDistance(from: startDate, to: endDate)
+        }
+    }
+
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
         try await fetchWithGracefulFallback(emptyValue: 0) {
             try await primary.fetchFloors(from: startDate, to: endDate)
@@ -96,11 +104,11 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
     }
 
-    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
-        try await fetchWithGracefulFallback(emptyValue: Double?.none) {
-            try await primary.fetchLatestHeartRate(from: startDate, to: endDate)
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? {
+        try await fetchWithGracefulFallback(emptyValue: HeartRateSample?.none) {
+            try await primary.fetchLatestHeartRateSample(from: startDate, to: endDate)
         } fakeData: {
-            try await demoService.fetchLatestHeartRate(from: startDate, to: endDate)
+            try await demoService.fetchLatestHeartRateSample(from: startDate, to: endDate)
         }
     }
 

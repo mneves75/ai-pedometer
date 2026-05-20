@@ -7,6 +7,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     static let shared = WatchSyncService()
 
     private var lastQueuedTransferAt: Date?
+    private var lastReachableSendAt: Date?
+    private var lastReachableSentSteps: Int?
 
     private override init() {
         super.init()
@@ -42,17 +44,28 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 ])
             }
 
-            // If reachable, push the snapshot immediately for best UX.
-            if session.isReachable {
+            let now = Date.now
+
+            // If reachable, push the snapshot immediately for best UX — but throttle to avoid
+            // saturating the WC channel during a brisk walk where CMPedometer fires several
+            // updates per second. See implementation-notes.html#finding-watch-connectivity-throttle.
+            if session.isReachable,
+               Self.shouldSendReachableMessage(
+                   lastSentAt: lastReachableSendAt,
+                   lastSentSteps: lastReachableSentSteps,
+                   newSteps: stepData.todaySteps,
+                   now: now
+               ) {
                 session.sendMessage([WatchPayload.transferKey: encoded], replyHandler: nil) { error in
                     Loggers.sync.warning("watch.send_message_failed", metadata: [
                         "error": error.localizedDescription
                     ])
                 }
+                lastReachableSendAt = now
+                lastReachableSentSteps = stepData.todaySteps
             }
 
             // Queue userInfo as a durability mechanism, but throttle to avoid an unbounded queue.
-            let now = Date.now
             let minInterval: TimeInterval = 10 * 60
             if lastQueuedTransferAt == nil || now.timeIntervalSince(lastQueuedTransferAt ?? .distantPast) >= minInterval {
                 session.transferUserInfo([WatchPayload.transferKey: encoded])
@@ -65,9 +78,38 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         }
     }
 
+    /// Pure throttle decision for `WCSession.sendMessage`. Push immediately on first send;
+    /// otherwise require either ≥`minInterval` elapsed or ≥`minDeltaSteps` step change.
+    /// Extracted for testability — WatchConnectivity has no usable test seam.
+    static func shouldSendReachableMessage(
+        lastSentAt: Date?,
+        lastSentSteps: Int?,
+        newSteps: Int,
+        now: Date,
+        minInterval: TimeInterval = 5,
+        minDeltaSteps: Int = 10
+    ) -> Bool {
+        guard let lastSentAt else { return true }
+        if now.timeIntervalSince(lastSentAt) >= minInterval { return true }
+        if let lastSentSteps, abs(newSteps - lastSentSteps) >= minDeltaSteps { return true }
+        return false
+    }
+
+    private func resetReachableThrottle() {
+        lastReachableSendAt = nil
+        lastReachableSentSteps = nil
+    }
+
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {}
-    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
+        Task { @MainActor in
+            self.resetReachableThrottle()
+        }
+    }
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
+        Task { @MainActor in
+            self.resetReachableThrottle()
+        }
         session.activate()
     }
 }

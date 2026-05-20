@@ -388,7 +388,9 @@ final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
     func fetchSteps(from _: Date, to _: Date) async throws -> Int { 0 }
     func fetchWheelchairPushes(from _: Date, to _: Date) async throws -> Int { 0 }
     func fetchDistance(from _: Date, to _: Date) async throws -> Double { 0 }
+    func fetchWheelchairDistance(from _: Date, to _: Date) async throws -> Double { 0 }
     func fetchFloors(from _: Date, to _: Date) async throws -> Int { 0 }
+    func fetchLatestHeartRateSample(from _: Date, to _: Date) async throws -> HeartRateSample? { nil }
     func fetchDailySummaries(
         days _: Int,
         activityMode _: ActivityTrackingMode,
@@ -447,7 +449,9 @@ final class BlockingWorkoutSessionHealthKitStub: HealthKitServiceProtocol {
     func fetchSteps(from _: Date, to _: Date) async throws -> Int { 0 }
     func fetchWheelchairPushes(from _: Date, to _: Date) async throws -> Int { 0 }
     func fetchDistance(from _: Date, to _: Date) async throws -> Double { 0 }
+    func fetchWheelchairDistance(from _: Date, to _: Date) async throws -> Double { 0 }
     func fetchFloors(from _: Date, to _: Date) async throws -> Int { 0 }
+    func fetchLatestHeartRateSample(from _: Date, to _: Date) async throws -> HeartRateSample? { nil }
     func fetchDailySummaries(
         days _: Int,
         activityMode _: ActivityTrackingMode,

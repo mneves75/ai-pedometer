@@ -1,5 +1,42 @@
 import SwiftUI
 
+enum HeartRateDisplayFormatter {
+    static let freshnessThreshold: TimeInterval = 5 * 60
+
+    static func visualText(sample: HeartRateSample?, now: Date = .now) -> String {
+        guard let sample else {
+            return L10n.localized("No Data", comment: "Dashboard stat fallback when a metric has no value")
+        }
+        let bpm = "\(Int(sample.bpm.rounded())) \(L10n.localized("bpm", comment: "Heart rate unit"))"
+        let age = now.timeIntervalSince(sample.endDate)
+        guard age >= freshnessThreshold else { return bpm }
+        let ageText = localizedAgeText(for: sample.endDate, relativeTo: now)
+        return "\(bpm) · \(ageText)"
+    }
+
+    static func accessibilityText(sample: HeartRateSample?, now: Date = .now) -> String {
+        guard let sample else {
+            return L10n.localized("No Data", comment: "Dashboard stat fallback when a metric has no value")
+        }
+        let bpm = Localization.format(
+            "%lld beats per minute",
+            comment: "Accessibility value for heart rate",
+            Int64(sample.bpm.rounded())
+        )
+        let age = now.timeIntervalSince(sample.endDate)
+        guard age >= freshnessThreshold else { return bpm }
+        let ageText = localizedAgeText(for: sample.endDate, relativeTo: now)
+        return "\(bpm), \(ageText)"
+    }
+
+    private static func localizedAgeText(for date: Date, relativeTo now: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        formatter.dateTimeStyle = .numeric
+        return formatter.localizedString(for: date, relativeTo: now)
+    }
+}
+
 struct DashboardView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitSyncEnabled = true
@@ -324,7 +361,8 @@ struct DashboardView: View {
                 icon: "heart.fill",
                 title: L10n.localized("Heart Rate", comment: "Dashboard stat card title"),
                 value: heartRateText,
-                color: DesignTokens.Colors.red
+                color: DesignTokens.Colors.red,
+                accessibilityValue: heartRateAccessibilityText
             )
             StatCard(
                 icon: "flame.circle",
@@ -340,10 +378,11 @@ struct DashboardView: View {
     }
 
     private var heartRateText: String {
-        guard let heartRate = trackingService.todayHeartRateBPM else {
-            return L10n.localized("No Data", comment: "Dashboard stat fallback when a metric has no value")
-        }
-        return "\(Int(heartRate.rounded())) \(L10n.localized("bpm", comment: "Heart rate unit"))"
+        HeartRateDisplayFormatter.visualText(sample: trackingService.todayHeartRateSample)
+    }
+
+    private var heartRateAccessibilityText: String {
+        HeartRateDisplayFormatter.accessibilityText(sample: trackingService.todayHeartRateSample)
     }
 
 }
@@ -355,6 +394,7 @@ struct StatCard: View {
     let title: String
     let value: String
     let color: Color
+    var accessibilityValue: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
@@ -377,7 +417,7 @@ struct StatCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DesignTokens.Spacing.md)
         .glassCard()
-        .accessibleStatistic(title: title, value: value)
+        .accessibleStatistic(title: title, value: value, accessibilityValue: accessibilityValue)
     }
 }
 
@@ -410,4 +450,8 @@ struct StatCard: View {
             dataStore: SharedDataStore()
         ))
         .environment(demoModeStore)
+        // DashboardView reads `PremiumAccessStore` from the environment to decide between the
+        // AI insight card and the premium gate. Without it, the preview crashes at runtime
+        // (see implementation-notes.html#finding-dashboard-preview-premium).
+        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }

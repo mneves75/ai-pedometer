@@ -7,22 +7,26 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         @Bindable var workoutController = workoutController
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            statusHeader
+        ScrollView {
+            VStack(spacing: DesignTokens.Spacing.lg) {
+                statusHeader
 
-            metricsSection
+                metricsSection
 
-            if let targetSteps = workoutController.metrics?.targetSteps {
-                targetProgressSection(targetSteps: targetSteps)
+                if let targetSteps = workoutController.metrics?.targetSteps {
+                    targetProgressSection(targetSteps: targetSteps)
+                }
             }
-
-            Spacer()
-
-            actionButtons
+            .padding(DesignTokens.Spacing.md)
+            .padding(.bottom, DesignTokens.Spacing.xl)
         }
         .accessibilityIdentifier(A11yID.ActiveWorkout.view)
-        .padding(DesignTokens.Spacing.md)
         .background(DesignTokens.Colors.surfaceGrouped)
+        .safeAreaInset(edge: .bottom) {
+            actionButtons
+                .padding(DesignTokens.Spacing.md)
+                .background(.regularMaterial)
+        }
         .navigationTitle(statusTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

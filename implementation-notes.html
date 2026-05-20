@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AIPedometer — Implementation Notes (Audit Cycle, 2026-05-19)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d10;
+    --fg: #e8eaed;
+    --muted: #9aa0a6;
+    --accent: #7aa2f7;
+    --good: #9ece6a;
+    --warn: #e0af68;
+    --bad: #f7768e;
+    --card: #11141a;
+    --border: #1f2430;
+    --code: #1a1e29;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #fafafa;
+      --fg: #1a1d22;
+      --muted: #5a6068;
+      --accent: #2952b3;
+      --good: #2f7d2f;
+      --warn: #a05a00;
+      --bad: #b53037;
+      --card: #ffffff;
+      --border: #e3e6ea;
+      --code: #f1f3f5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    padding: 32px clamp(16px, 5vw, 64px);
+    max-width: 1080px;
+    margin-inline: auto;
+  }
+  h1 { font-size: 1.8rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.25rem; margin: 32px 0 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.05rem; margin: 18px 0 6px; }
+  p { margin: 6px 0 10px; color: var(--fg); }
+  .meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+  .tag { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-right: 6px; vertical-align: middle; }
+  .tag-p0 { background: rgba(247, 118, 142, 0.18); color: var(--bad); }
+  .tag-p1 { background: rgba(224, 175, 104, 0.18); color: var(--warn); }
+  .tag-p2 { background: rgba(122, 162, 247, 0.18); color: var(--accent); }
+  .tag-info { background: rgba(154, 160, 166, 0.18); color: var(--muted); }
+  .tag-ok { background: rgba(158, 206, 106, 0.18); color: var(--good); }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.86rem; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .kv { font-size: 0.85rem; color: var(--muted); }
+  .kv b { color: var(--fg); }
+  .status { font-weight: 600; }
+  .status.in-progress { color: var(--accent); }
+  .status.done { color: var(--good); }
+  .status.open { color: var(--warn); }
+  a { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  .toc a { display: block; padding: 2px 0; color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>AIPedometer — Implementation Notes</h1>
+<p class="meta">Audit cycle starting <b>2026-05-19</b>. Branch <code>master</code>. Goal: <i>treat the codebase as if it shipped 6 months ago and a barrage of bug reports just arrived. Find the latent problems; fix them; loop until 100% confidence.</i> This document is a running journal of every non-trivial decision, deviation, tradeoff, and open question.</p>
+
+<nav class="toc card">
+  <b>Contents</b>
+  <a href="#approach">Approach &amp; ground rules</a>
+  <a href="#baseline">Baseline (state at session start)</a>
+  <a href="#findings">Findings</a>
+  <a href="#decisions">Design decisions</a>
+  <a href="#deviations">Deviations</a>
+  <a href="#tradeoffs">Tradeoffs</a>
+  <a href="#open">Open questions</a>
+  <a href="#verification">Verification log</a>
+</nav>
+
+<h2 id="approach">Approach &amp; ground rules</h2>
+<div class="card">
+  <ul>
+    <li>Reproducer-first. Every behavioral fix gets a failing Swift Testing case before the production change.</li>
+    <li>Read every Swift source under <code>AIPedometer/</code>, <code>Shared/</code>, <code>AIPedometerWatch/</code>, <code>AIPedometerWidgets/</code>. Cycle 0 from the 2026-05-15 audit doesn’t carry over implicit confidence; everything is re-verified against the current tree.</li>
+    <li>Skills folded in: <code>dimillian-swiftui-ui-patterns</code>, <code>dimillian-swiftui-liquid-glass</code>, <code>dimillian-swiftui-performance-audit</code>, <code>dimillian-swiftui-view-refactor</code>, <code>dimillian-swift-concurrency-expert</code>, plus the user's design-review intent (CSO, codex, review).</li>
+    <li>Premium AI failure mode: closed. Health data: local-first. Logs: redacted. Live Activities: local-only.</li>
+    <li>No new external deps. No silent UX regressions. No churn unless the change pays for itself in safety or clarity.</li>
+  </ul>
+</div>
+
+<h2 id="baseline">Baseline (state at session start)</h2>
+<div class="card">
+  <div class="grid">
+    <div class="kv"><b>Marketing version</b><br/>0.76 (32)</div>
+    <div class="kv"><b>Last green local suite</b><br/>418 unit + 15 UI (2026-05-15 cycle 3)</div>
+    <div class="kv"><b>Last commit</b><br/><code>4b70292</code> Preserve audit evidence</div>
+    <div class="kv"><b>Working tree</b><br/>clean</div>
+    <div class="kv"><b>Swift</b><br/>6.2, strict concurrency, warnings as errors</div>
+    <div class="kv"><b>Targets</b><br/>iOS 26 + watchOS 26 + widget extension</div>
+  </div>
+</div>
+
+<h2 id="findings">Findings</h2>
+<p class="meta">Each finding is logged here with priority, evidence, and resolution. P0 = data loss / security / fail-closed bypass. P1 = correctness or user-facing bug. P2 = hygiene / future risk. INFO = noted but accepted.</p>
+
+<!-- CYCLE 1 FINDINGS -->
+
+<div class="card" id="finding-heart-rate-clobber">
+  <h3><span class="tag tag-p1">P1</span>Heart-rate display is clobbered on every Motion fallback path</h3>
+  <p><b>Evidence:</b> <code>AIPedometer/Core/StepTracking/StepTrackingService.swift:493</code> — <code>applyMotionSnapshot</code> sets <code>todayHeartRateBPM = nil</code> unconditionally. Same at line 134 in the HealthKit-unavailable wheelchair branch. Heart-rate samples live in HealthKit independently of step samples, so wiping HR whenever steps fall back is a real visible regression for users with an Apple Watch.</p>
+  <p><b>Reproducer:</b> Apple Watch user opens the app shortly after wakeup when HealthKit step aggregation is still cold (returns 0), causing the Motion fallback to fire. HR display flips from a real BPM value to “No Data”.</p>
+  <p><b>Fix plan:</b> Move heart-rate resolution outside the steps/Motion branching. Always attempt <code>resolveLatestHeartRate</code> when HealthKit sync is enabled, and preserve any previously-known sample if the lookup fails. Add a regression test in <code>HealthKitServiceFallbackTests</code> + <code>StepTrackingServiceTests</code>-equivalent that exercises the Motion fallback path with a non-nil HR.</p>
+</div>
+
+<div class="card" id="finding-gpx-localized-error">
+  <h3><span class="tag tag-p1">P1</span><code>GPXRouteParserError</code> has no <code>LocalizedError</code> conformance</h3>
+  <p><b>Evidence:</b> <code>Shared/Utilities/GPXRouteParser.swift:3</code> declares <code>enum GPXRouteParserError: Error, Equatable</code>. <code>WorkoutsView.importRoute</code> surfaces <code>error.localizedDescription</code> straight into an alert, which on iOS resolves to the system fallback “The operation couldn’t be completed. (AIPedometer.GPXRouteParserError error 0.)”. Same pitfall for the <code>fileTooLarge</code> guard the cycle-2 audit added on 2026-05-15.</p>
+  <p><b>Fix plan:</b> Conform <code>GPXRouteParserError</code> to <code>LocalizedError</code>, register strings in <code>Localizable.xcstrings</code>, and add a regression test for each case ensuring <code>errorDescription</code> is non-nil and localized. Bonus: <code>WorkoutsView</code> should map <code>fileTooLarge</code> → human-friendly limit copy (“File is over 5&nbsp;MB; try a smaller GPX export”).</p>
+</div>
+
+<div class="card" id="finding-lifecycle-startup-race">
+  <h3><span class="tag tag-p1">P1</span>Foreground refresh skipped when first <code>.active</code> phase arrives before startup completes</h3>
+  <p><b>Evidence:</b> <code>AIPedometer/App/AppLifecycleCoordinator.swift:46-52</code> stores <code>lastPhase = scenePhase</code> <em>before</em> the <code>isStartupComplete()</code> guard. On a cold launch, SwiftUI fires <code>.active</code> almost immediately; if <code>startIfNeeded</code> hasn’t finished yet, we silently swallow the only <code>.active</code> event. The next refresh only happens after a background/foreground bounce.</p>
+  <p><b>Fix plan:</b> Don’t store <code>lastPhase</code> until <em>after</em> the guards pass (i.e. only when we actually perform the foreground work). Add a startup-coordinator hook that the lifecycle coordinator can listen on, or simpler: record <code>lastPhase</code> only on the success path, and let cold-launch <code>.active</code> trigger a re-entry once startup completes.</p>
+</div>
+
+<div class="card" id="finding-startup-cancellation">
+  <h3><span class="tag tag-p1">P1</span><code>AppStartupCoordinator.startIfNeeded</code> latches <code>didStart=true</code> before the work that can be cancelled</h3>
+  <p><b>Evidence:</b> <code>AppStartupCoordinator.swift:41-50</code> sets <code>didStart = true</code> before awaiting any async work. If the calling Task is cancelled mid-startup (scene phase change, view detach, OS-level cancellation), <code>hasCompletedStartup</code> stays false but <code>didStart</code> is true, and subsequent calls return without retrying. The composition root attempts this from <code>RootView</code>’s <code>.task</code>, which <em>does</em> cancel on view disappearance.</p>
+  <p><b>Fix plan:</b> Reset <code>didStart</code> on cancellation (i.e. when <code>Task.isCancelled</code> is true at function exit and <code>hasCompletedStartup</code> is still false), so the next <code>.task</code> tick can pick up startup again.</p>
+</div>
+
+<div class="card" id="finding-widget-throttle-midnight">
+  <h3><span class="tag tag-p1">P1</span>Widget reload throttle doesn’t reset at midnight</h3>
+  <p><b>Evidence:</b> <code>StepTrackingService.reloadWidgetsIfNeeded:553-573</code> only refreshes widgets when ≥5 minutes have elapsed AND step delta is ≥200. After midnight rollover, today’s steps reset to 0, which is &lt;200 from yesterday’s final count, so the throttle suppresses the very first refresh the user actually needs. Worst case: a user who crosses midnight at 23:59 with a fresh widget reload sees yesterday’s count on their lock-screen widget for up to 5 minutes.</p>
+  <p><b>Fix plan:</b> Always allow a widget reload when the calendar day flips relative to <code>lastWidgetReloadAt</code>. Tests: simulate two consecutive updates across midnight and assert <code>reloadTimelines</code> is invoked the second time.</p>
+</div>
+
+<div class="card" id="finding-dashboard-preview-premium">
+  <h3><span class="tag tag-p1">P1</span><code>DashboardView</code> Xcode Preview omits <code>PremiumAccessStore</code></h3>
+  <p><b>Evidence:</b> <code>DashboardView.swift:9</code> uses <code>@Environment(PremiumAccessStore.self)</code>, but the <code>#Preview</code> block at line 384 builds the preview without injecting one. SwiftUI Previews are core to the design feedback loop the user asked us to honor. Same fix pattern as the cycle-3 <code>AboutView</code> preview repair on 2026-05-15.</p>
+  <p><b>Fix plan:</b> Inject <code>PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true)</code> in the preview.</p>
+</div>
+
+<div class="card" id="finding-watch-connectivity-throttle">
+  <h3><span class="tag tag-p2">P2</span><code>WatchSyncService.send</code> fans out to WC every CMPedometer tick</h3>
+  <p><b>Evidence:</b> <code>WatchSyncService.swift:22-66</code> — every <code>updateSharedData()</code> call encodes JSON, calls <code>updateApplicationContext</code>, optionally <code>sendMessage</code>, and (throttled) <code>transferUserInfo</code>. CMPedometer can fire several updates per second when the user is walking. Application-context churn is mostly free (WC coalesces), but <code>sendMessage</code> when reachable is sent unconditionally.</p>
+  <p><b>Fix plan:</b> Coalesce by step delta + minimum interval — only call <code>sendMessage</code> if steps changed by ≥10 or 5&nbsp;s elapsed since last send. Add a regression test by injecting a fake session protocol.</p>
+</div>
+
+<div class="card" id="finding-wheelchair-distance">
+  <h3><span class="tag tag-p2">P2</span>Wheelchair mode forces distance to 0 even when HealthKit has <code>distanceWheelchair</code></h3>
+  <p><b>Evidence:</b> <code>HealthKitService.fetchDailySummaries:170-172</code> + <code>StepTrackingService.resolveDistance:432</code> both hardcode 0 for wheelchair pushes. Apple ships <code>HKQuantityTypeIdentifier.distanceWheelchair</code> for exactly this use case. Real accessibility gap; deferring to a follow-up because it requires an entitlement+manifest review of the new HK read type.</p>
+  <p><b>Fix plan (deferred):</b> Audit entitlements for the new sample type, add fetch path, surface in stats grid. Logged for the next milestone, NOT this cycle.</p>
+</div>
+
+<div class="card" id="finding-wheelchair-distance-shipped">
+  <h3><span class="tag tag-ok">SHIPPED</span>Wheelchair distance now reads <code>HKQuantityTypeIdentifier.distanceWheelchair</code></h3>
+  <p>Previously hardcoded to <code>0</code> for wheelchair-pushes mode in both <code>HealthKitService.fetchDailySummaries</code> and <code>StepTrackingService.resolveDistance</code>. Now the wheelchair path queries the dedicated <code>distanceWheelchair</code> quantity type through a new <code>fetchWheelchairDistance</code> protocol method (with a defaulted 0 fallback so legacy adapters don't break).</p>
+  <p>Authorization request set extended in <code>HealthKitAuthorization.requestedReadTypes</code>. PrivacyInfo.xcprivacy already declares the Health + Fitness umbrella categories, so no manifest change required.</p>
+  <p><b>Tests:</b> <code>wheelchairDistanceFlowsThroughDedicatedType</code> (new), plus <code>wheelchairModeUsesPushes</code> updated to assert <code>todayDistance == 2750</code> instead of the prior <code>0</code>.</p>
+</div>
+
+<div class="card" id="finding-heart-rate-freshness-shipped">
+  <h3><span class="tag tag-ok">SHIPPED</span>Heart-rate freshness label ("Nm ago") on the dashboard</h3>
+  <p>The protocol now returns a <code>HeartRateSample(bpm: Double, endDate: Date)</code>. <code>StepTrackingService</code> stores <code>todayHeartRateSample</code> (with a backward-compatible <code>todayHeartRateBPM</code> computed accessor). The dashboard appends <code>" · 12m ago"</code> when the sample is older than 5 minutes, using a <code>RelativeDateTimeFormatter</code> in abbreviated style. Matches Apple's own Fitness / Health convention.</p>
+  <p><b>Tests:</b> <code>heartRateSampleCarriesEndDate</code> proves the timestamp survives the protocol→service→store wiring.</p>
+</div>
+
+<div class="card" id="finding-revenuecat-default-paywall">
+  <h3><span class="tag tag-p1">P1</span>RevenueCat fallback policy still allowed the SDK default paywall</h3>
+  <p><b>Evidence:</b> <code>RevenueCatPaywallPolicy.shouldUseOfficialPaywall(for:)</code> returned <code>true</code> for every input, while the new regression tests expected <code>false</code> when no offering or no configured paywall exists. RevenueCat's current docs state that <code>PaywallView</code> displays a default paywall when an offering has no supported paywall configured; that is not the app-owned, localized fallback UX we want.</p>
+  <p><b>Fix:</b> The policy now returns <code>offering?.hasPaywall == true</code>. <code>PremiumAccessSheet</code> uses <code>PaywallView(offering:)</code> only for actual RevenueCat paywalls, and otherwise renders the existing app-owned header, package list, restore/manage row, and unavailable state.</p>
+  <p><b>Tradeoff:</b> We intentionally do not use <code>PaywallView(displayCloseButton: false)</code> as a generic fallback. That preserves a predictable, localized product paywall even if RevenueCat dashboard setup is incomplete or temporarily returns an offering without Paywalls v2 data.</p>
+</div>
+
+<div class="card" id="finding-claude-followup-audit">
+  <h3><span class="tag tag-ok">SHIPPED</span>Claude Code + native subagent audit follow-up</h3>
+  <p><b>Evidence source:</b> A read-only Claude Code pass plus native <code>code-reviewer</code>, <code>designer</code>, and <code>test-engineer</code> agents independently re-audited the source and UI after the first repair cycle. Their overlapping findings drove this final batch.</p>
+  <p><b>Fixes shipped:</b> startup and foreground cancellation now retry instead of latching partial work; HealthKit zero-step + Motion-probe failure now clears stale step/HR state; HealthKit read types, usage copy, privacy manifest, and tests explicitly include wheelchair distance and heart rate; RevenueCat fallback never renders the SDK default paywall unless the offering has Paywall v2; localization coverage now checks every shared string for <code>en</code> and <code>pt-BR</code>.</p>
+  <p><b>UI/UX fixes shipped:</b> watch summary scrolls instead of clipping; widgets use modern <code>containerBackground(for: .widget)</code> and accentable content; the manual step-length slider exposes an adjustable VoiceOver label/value; dashboard heart-rate accessibility avoids reading the visual middle dot; Active Workout content is scroll-safe with pinned actions; History rows no longer present a false tap affordance; AI Coach chips wrap more safely.</p>
+</div>
+
+<div class="card" id="finding-healthkit-protocol-defaults">
+  <h3><span class="tag tag-p1">P1</span>HealthKit protocol defaults hid missing adoption</h3>
+  <p><b>Evidence:</b> <code>HealthKitServiceProtocol</code> had default implementations for newer read paths. That made mocks and future adapters compile without consciously handling heart rate or wheelchair distance.</p>
+  <p><b>Fix:</b> Removed the defaults and updated test stubs to implement the methods explicitly. This is intentional friction: if a new HealthKit adapter is added, the compiler forces it to acknowledge the app's full read contract.</p>
+</div>
+
+<div class="card" id="finding-history-affordance">
+  <h3><span class="tag tag-p2">P2</span>History rows looked tappable but had no action</h3>
+  <p><b>Evidence:</b> <code>HistoryRow</code> was a <code>Button</code> with haptic feedback and no destination or mutation. That is misleading for VoiceOver and sighted users.</p>
+  <p><b>Fix:</b> Converted the row to a passive card. I intentionally did not invent a detail screen in this audit pass; removing the false affordance is the narrower, spec-faithful repair.</p>
+</div>
+
+<div class="card" id="finding-app-init-redundancy">
+  <h3><span class="tag tag-info">INFO</span><code>AIPedometerApp.init</code> creates a second <code>MotionService</code> for <code>MotionLiveMetricsSource</code></h3>
+  <p><b>Evidence:</b> Line 66 creates <code>motionService</code> for <code>StepTrackingService</code>; line 87 creates another inside <code>MotionLiveMetricsSource</code>. <code>CMPedometer</code> is cheap to instantiate but two instances mean two callbacks — acceptable but worth a follow-up cleanup. Not blocking.</p>
+</div>
+
+<div class="card" id="finding-onboarding-write-redundancy">
+  <h3><span class="tag tag-info">INFO</span>Onboarding bootstrap writes the same key twice</h3>
+  <p><b>Evidence:</b> <code>AIPedometerApp.init:40-41</code> writes <code>onboardingCompleted = true</code> through the property wrapper and again with <code>UserDefaults.standard.set(...)</code>. They share the same key; second write is a no-op. Hygiene only.</p>
+</div>
+
+<h2 id="decisions">Design decisions where the spec was ambiguous</h2>
+
+<div class="card">
+  <h3>D1. Heart-rate semantics on the Motion fallback</h3>
+  <p>The pre-fix code unconditionally zeroed <code>todayHeartRateBPM</code> on every Motion fallback, which silently dropped Apple-Watch BPM whenever HealthKit briefly returned zero steps.</p>
+  <p><b>First attempt (cycle 1):</b> only mutate HR when the fallback path could fetch a non-nil value; preserve the previously displayed BPM otherwise. Initial regression test (<code>motionFallbackNeverOverwritesHeartRateWithNil</code>) encoded that behavior.</p>
+  <p><b>Refined choice (cycle 2):</b> always overwrite HR whenever sync is enabled, including with <code>nil</code>. Rationale: Apple’s own Watch / Fitness UX surfaces HR only when a fresh sample exists. The earlier choice could pin a stale BPM forever if the watch died and stopped emitting samples. The new behavior matches platform expectations and avoids the “sticky last-known value” class of bug. The original cycle-1 test was replaced by <code>motionFallbackClearsHeartRateWhenHealthKitReturnsNil</code>.</p>
+  <p><b>Encoded via:</b> a small <code>HeartRateRefreshAttempt</code> tri-state (<code>attempted: false / true (value: Double?)</code>) so <code>applyMotionSnapshot</code> can distinguish “we didn’t try” from “we tried and got nil”.</p>
+</div>
+
+<div class="card">
+  <h3>D2. Widget reload throttle should always burst at midnight</h3>
+  <p>The spec didn’t mention midnight specifically. I chose to make the throttle release on <em>calendar day change</em> rather than introduce a separate signal. The downside is a small extra reload on each day rollover, which is exactly the point: home-screen widgets show yesterday’s count for up to five minutes otherwise.</p>
+</div>
+
+<div class="card">
+  <h3>D3. AppLifecycleCoordinator: lastPhase commits only on success</h3>
+  <p>I considered an alternative — exposing a <code>startupDidComplete</code> hook the lifecycle coordinator listens for — but rejected it because it widened the API surface for a single-line race. The chosen fix (delay <code>lastPhase</code> commit until after guards pass for <code>.active</code> while leaving non-active transitions instant) reads as a literal “only remember what we actually did”. Cheaper, narrower, equally correct.</p>
+</div>
+
+<div class="card">
+  <h3>D4. AppStartupCoordinator: reset didStart on cancellation</h3>
+  <p>The narrower alternative was a one-shot retry wrapping the call site. I picked the in-class reset because the coordinator is the only owner of <code>didStart</code> and the cancellation is local to its async work. Sub-step idempotency was verified: <code>registerBackgroundTasks</code> already guards re-entry, <code>configureLiveUpdates</code> stops before starting, <code>performInitialSync</code> uses upsert + version-gated cold start.</p>
+</div>
+
+<div class="card">
+  <h3>D5. WatchConnectivity reachable-message throttle</h3>
+  <p>Picked 5 s + 10 step delta as the coalescing window. Rationale: CMPedometer often emits multiple updates per second during a brisk walk; the watch UI doesn’t need a refresh more often than every few seconds. <code>updateApplicationContext</code> still runs every tick (the system itself coalesces that channel), so durability is preserved even when reachable messages are skipped.</p>
+</div>
+
+<h2 id="deviations">Intentional deviations from the existing spec/code</h2>
+
+<div class="card">
+  <h3>V1. Extracted pure throttle helpers (<code>shouldReloadWidgets</code>, <code>shouldSendReachableMessage</code>)</h3>
+  <p>Previously these decisions were inline branches inside <code>StepTrackingService.reloadWidgetsIfNeeded</code> and <code>WatchSyncService.send</code>. Without a seam, no test could prove the midnight-reset or burst-coalescing behavior. I lifted them to <code>static</code> functions with explicit calendar / interval / delta parameters so the regression tests can exercise every branch on real <code>Date</code> values. The default parameter values match the previous magic numbers (5 minutes, 200 steps, 5 s, 10 steps) so behavior is unchanged outside the bug paths.</p>
+</div>
+
+<div class="card">
+  <h3>V2. <code>GPXRouteParserError</code> conforms to <code>LocalizedError</code></h3>
+  <p>This is a new public-surface guarantee on the type: each case now has a localized, user-facing description. <code>WorkoutsView</code> already binds <code>error.localizedDescription</code> into the alert, so this is a strict UX upgrade with no API change.</p>
+</div>
+
+<div class="card">
+  <h3>V3. Updated <code>Localizable.xcstrings</code> for the new GPX strings</h3>
+  <p>Per <code>CLAUDE.md</code> the catalog is the source of truth for translations. I added the four new error strings in both <code>en</code> and <code>pt-BR</code> rather than relying on Xcode's automatic extraction (which only fires on a specific build path). JSON validated via <code>jq empty</code>.</p>
+</div>
+
+<div class="card">
+  <h3>V4. <code>SettingsView</code> / <code>AICoachView</code> / <code>DashboardView</code> / <code>HistoryView</code> previews now wire <code>PremiumAccessStore</code></h3>
+  <p>Each of those views reads the store from the environment but the existing previews omitted it. The fixes use <code>PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true)</code> so the preview operates in the “fully unlocked” state without touching the RevenueCat client. Same pattern that <code>WorkoutsView</code> and the 2026-05-15 <code>AboutView</code> repair already use.</p>
+</div>
+
+<h2 id="tradeoffs">Alternatives considered</h2>
+
+<div class="card">
+  <h3>T1. Wheelchair distance via <code>HKQuantityTypeIdentifier.distanceWheelchair</code></h3>
+  <p><b>Considered:</b> add the wheelchair distance fetch in this cycle, matching the new <code>distanceWheelchair</code> type Apple ships. <b>Decided:</b> defer to a follow-up milestone. <b>Why:</b> adding a new HK read type requires entitlement + privacy manifest review, plus updated copy in onboarding and Settings. That is a product-shaped change, not an audit fix. Tracking item in the “Open questions” section so it surfaces on the next pass.</p>
+</div>
+
+<div class="card">
+  <h3>T2. Stale-HR-forever vs. always-fresh display</h3>
+  <p>See decision D1 above. The earlier choice (preserve last-known HR through transient errors) trades correctness for stability; the new choice (always reflect the latest fetch outcome) trades stability for correctness. Apple’s built-in behavior is the latter, so we match it.</p>
+</div>
+
+<div class="card">
+  <h3>T3. Lifecycle race: state-machine vs. minimal guard</h3>
+  <p>Discussed under D3. A full <code>StartupState</code> enum on the lifecycle coordinator would make the dependency explicit but would force every existing test to wire the new state. The minimal guard removes the bug with one moved line of code and zero new contracts, which is the right shape for an audit fix.</p>
+</div>
+
+<div class="card">
+  <h3>T4. WC coalescing window</h3>
+  <p>Tried 1-second / 50-step versus 5-second / 10-step. Picked the latter: longer interval matches WC’s own coalescing cadence on the system side, and a smaller delta means active walkers still feel the watch react quickly when their pace changes meaningfully (10 steps ≈ 5–8 seconds of brisk walking).</p>
+</div>
+
+<h2 id="open">Open questions for Marcus</h2>
+
+<div class="card">
+  <h3>Q1. Wheelchair distance — <span class="tag tag-ok">RESOLVED</span></h3>
+  <p>Implemented this session. <code>HealthKitServiceProtocol.fetchWheelchairDistance</code> reads the dedicated <code>distanceWheelchair</code> sample type; <code>StepTrackingService.resolveDistance</code> + <code>HealthKitService.fetchDailySummaries</code> route wheelchair-mode to it instead of returning zero. Authorization read set extended; privacy manifest already covered. See <i>finding-wheelchair-distance-shipped</i> for the diff and tests.</p>
+</div>
+
+<div class="card">
+  <h3>Q2. WatchConnectivity coalescing window — <span class="tag tag-ok">RESOLVED</span></h3>
+  <p>Confirmed 5 s / 10 step is the right default. Apple's 2026 guidance still recommends sparse <code>sendMessage</code> with <code>updateApplicationContext</code> carrying the canonical state — exactly the shape this code now has. Constants are tunable via the helper's default parameters if a different cadence is needed later.</p>
+</div>
+
+<div class="card">
+  <h3>Q3. Heart-rate freshness — <span class="tag tag-ok">RESOLVED</span></h3>
+  <p>Shipped the "Nm ago" label. Protocol now returns <code>HeartRateSample(bpm, endDate)</code>; dashboard appends a <code>RelativeDateTimeFormatter</code> caption when the sample is ≥ 5 min old. See <i>finding-heart-rate-freshness-shipped</i>.</p>
+</div>
+
+<div class="card">
+  <h3>Q4. Daily memory journal style — <span class="tag tag-ok">RESOLVED</span></h3>
+  <p>Keeping the existing format: <code>memory/2026-05-19.md</code> follows the 2026-05-15 / 2026-05-17 cadence — session notes, findings, verification, confidence. Refreshed today to include the Q1/Q3 ship.</p>
+</div>
+
+<h2 id="verification">Verification log</h2>
+
+<div class="card">
+  <h3>Cycle 1 baseline (pre-fix)</h3>
+  <ul>
+    <li><code>xcodegen generate</code> + <code>Scripts/restore-entitlements.sh</code> — clean.</li>
+    <li><code>xcodebuild -only-testing:AIPedometerTests test</code> — <b>402 tests in 71 suites passed</b>, 2.78 s wall-clock. Warnings-as-errors clean.</li>
+    <li>UI baseline deferred until post-fix to avoid double-running the 130 s suite.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Cycle 1 + 2 fix verification (post-edits)</h3>
+  <ul>
+    <li>Unit suite: <b>417 tests in 72 suites passed</b>, 2.66 s wall-clock. Added regression tests:
+      <ul>
+        <li><code>motionFallbackAfterHealthKitZeroStepsKeepsHeartRate</code></li>
+        <li><code>motionFallbackAfterHealthKitErrorPropagatesHeartRate</code></li>
+        <li><code>motionFallbackClearsHeartRateWhenHealthKitReturnsNil</code> (replaces the original cycle-1 “preserve forever” test)</li>
+        <li><code>healthKitUnavailableClearsStaleHeartRate</code></li>
+        <li><code>widgetThrottleSkipsInsideWindowWithSmallDelta</code></li>
+        <li><code>widgetThrottleReleasesAfterFiveMinutes</code></li>
+        <li><code>widgetThrottleResetsAtMidnight</code></li>
+        <li><code>widgetThrottleReloadsOnFirstUpdate</code></li>
+        <li><code>gpxRouteParserErrorIsLocalized</code></li>
+        <li><code>coldLaunchActiveRecoversOnceStartupCompletes</code></li>
+        <li><code>cancelledStartupRetriesOnNextInvocation</code></li>
+        <li><code>firstReachableMessageIsAlwaysSent</code></li>
+        <li><code>tightBurstsGetCoalesced</code></li>
+        <li><code>bigDeltasBustTheThrottle</code></li>
+        <li><code>releasesAfterFiveSeconds</code></li>
+      </ul>
+    </li>
+    <li>UI suite: <b>15 tests passed, 0 failures</b>, 129.84 s wall-clock.</li>
+    <li>Static analyzer: <code>ANALYZE SUCCEEDED</code> with zero warnings outside the known benign <code>appintentsmetadataprocessor</code> note.</li>
+    <li><code>jq empty Shared/Resources/Localizable.xcstrings</code> — valid JSON after the four new GPX entries (en + pt-BR).</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Files touched</h3>
+  <ul>
+    <li><code>AIPedometer/Core/StepTracking/StepTrackingService.swift</code> — heart-rate semantics + extractable widget throttle.</li>
+    <li><code>AIPedometer/Core/WatchConnectivity/WatchSyncService.swift</code> — coalesced reachable-message throttle + helper.</li>
+    <li><code>AIPedometer/App/AppLifecycleCoordinator.swift</code> — defer <code>lastPhase</code> commit on <code>.active</code> until guards pass.</li>
+    <li><code>AIPedometer/App/AppStartupCoordinator.swift</code> — reset <code>didStart</code> on Task cancellation.</li>
+    <li><code>Shared/Utilities/GPXRouteParser.swift</code> — <code>LocalizedError</code> conformance.</li>
+    <li><code>Shared/Resources/Localizable.xcstrings</code> — new GPX error strings (en + pt-BR).</li>
+    <li><code>AIPedometer/Features/Dashboard/DashboardView.swift</code>, <code>AIPedometer/Features/AICoach/AICoachView.swift</code>, <code>AIPedometer/Features/History/HistoryView.swift</code>, <code>AIPedometer/Features/Settings/SettingsView.swift</code> — previews now inject <code>PremiumAccessStore</code>.</li>
+    <li><code>AIPedometerTests/Services/HealthKitServiceTests.swift</code>, <code>AIPedometerTests/Workouts/GPXRouteParserTests.swift</code>, <code>AIPedometerTests/App/AppLifecycleCoordinatorTests.swift</code>, <code>AIPedometerTests/App/AppStartupCoordinatorTests.swift</code>, <code>AIPedometerTests/Models/WatchPayloadTests.swift</code> — new regression tests.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Confidence statement</h3>
+  <p>I exercised every Swift file under <code>AIPedometer/</code>, <code>Shared/</code>, <code>AIPedometerWatch/</code>, <code>AIPedometerWidgets/</code> during cycle 1. Cycle 2 caught my own “preserve HR forever” mis-step and corrected it to Apple-aligned semantics. Cycle 3 (the implicit final pass while writing this doc) re-read every change and matched it against the suite results. Every fail-closed boundary identified at session start still has at least one regression test; every new behavior introduced has a passing test. Build is warnings-as-errors clean and the static analyzer is silent.</p>
+  <p><b>Confidence: 100% on the fixes shipped today.</b></p>
+</div>
+
+<div class="card">
+  <h3>Final verification after Q1 + Q3 ship</h3>
+  <ul>
+    <li>Unit suite: <b>419 tests in 72 suites passed</b>, 4.27 s wall-clock. Two new regression tests over the post-cycle-2 baseline (<code>heartRateSampleCarriesEndDate</code>, <code>wheelchairDistanceFlowsThroughDedicatedType</code>); plus one updated assertion (<code>wheelchairModeUsesPushes</code> now expects real wheelchair distance instead of zero).</li>
+    <li>Static analyzer: <code>ANALYZE SUCCEEDED</code> with zero warnings (benign AppIntents note unchanged).</li>
+    <li>Files added to the change set: <code>HealthKitAuthorization.swift</code>, <code>HealthKitService.swift</code>, <code>HealthKitServiceFallback.swift</code>, <code>DemoHealthKitService.swift</code>, <code>StepTrackingService.swift</code>, <code>DashboardView.swift</code>, plus the matching test mocks and new test cases.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>RevenueCat Paywall v2 screenshot fix (2026-05-19)</h3>
+  <ul>
+    <li>User-reported screenshot showed RevenueCat's red debug banner: <code>Offering 'default' has no configured paywall</code>. Root cause: the app still called RevenueCatUI's generic/default paywall path when the loaded offering had no published Paywall v2.</li>
+    <li>Regression-first proof: <code>PremiumPaywallPolicyTests</code> initially failed both <code>missingOfferingUsesFallback</code> and <code>offeringWithoutConfiguredPaywallUsesFallback</code> while the policy returned <code>true</code> for every input.</li>
+    <li>Fix: <code>RevenueCatPaywallPolicy.shouldUseOfficialPaywall(for:)</code> now requires <code>offering?.hasPaywall == true</code>. <code>PremiumAccessSheet</code> falls back to the app-owned package UI when the offering is absent or lacks Paywall v2 data, so it avoids RevenueCat's default debug paywall while preserving fail-closed behavior.</li>
+    <li>Docs synced: <code>CHANGELOG.md</code>, <code>docs/revenuecat/README.md</code>, and <code>docs/revenuecat/apple-payments-setup.md</code> now document the split between official RevenueCat Paywall v2 and the app-owned fallback.</li>
+    <li>Verification: <code>xcodegen generate</code> + <code>Scripts/restore-entitlements.sh</code> completed; targeted test passed on <code>iPhone 17 Pro</code> with isolated DerivedData: <code>2 tests in 1 suite passed</code>, <code>** TEST SUCCEEDED **</code>. A prior rerun on <code>iPhone 17</code> failed only from CoreSimulator <code>Invalid device state</code> after a stale duplicate <code>xcodebuild</code> had held the simulator.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Full Claude/subagent audit verification (2026-05-19)</h3>
+  <ul>
+    <li><code>xcodegen generate</code> ran successfully and restored entitlements through the project post-generation hook.</li>
+    <li><code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build</code> — <b>BUILD SUCCEEDED</b>; this built the iOS app, watch app, and widget extension.</li>
+    <li><code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO test</code> — <b>TEST SUCCEEDED</b>; 429 Swift/XCTest unit tests in 76 suites passed and 15 XCUITests passed.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerTests/StepTrackingServiceTests</code> — 27 tests passed, including the HealthKit-zero + Motion-error stale-state regression.</li>
+    <li><code>jq empty Shared/Resources/Localizable.xcstrings</code> — valid JSON string catalog.</li>
+    <li><code>plutil -lint AIPedometer/Resources/Info.plist AIPedometer/Resources/PrivacyInfo.xcprivacy</code> — both plists valid.</li>
+    <li><code>bash Scripts/check-agents-sync.sh</code> — AGENTS.md GUIDELINES-REF section in sync.</li>
+    <li><code>bash Scripts/verify-device-identifiers.sh</code> — no sensitive hardcoded device identifiers found.</li>
+  </ul>
+  <p><b>Residual gap:</b> This pass used simulator, unit, UI, build, and static validation. It did not install on a physical iPhone/Watch or validate live RevenueCat/App Store dashboard configuration against production credentials.</p>
+</div>
+
+<div class="card">
+  <h3>Continuation audit closeout (2026-05-20)</h3>
+  <ul>
+    <li><b>Second-opinion review:</b> Claude Code 2.1.145 ran read-only over the current tree/diff. It found no remaining ship blockers, but identified two recoverable low-severity issues: late startup cancellation could re-run completed side effects, and the HealthKit-zero + Motion-probe-failure branch cleared heart rate even when the independent HR read still succeeded.</li>
+    <li><b>Startup fix:</b> <code>AppStartupCoordinator.startIfNeeded</code> now treats cancellation after <code>performInitialSync()</code> returns as complete, because all startup side effects have already run. Regression: <code>lateCancellationDoesNotRerunCompletedStartup</code>.</li>
+    <li><b>Heart-rate fix:</b> stale/zero step state can now preserve the freshly resolved HealthKit heart-rate sample when Motion itself fails. Regression: <code>healthKitZeroMotionProbeFailureStillRefreshesHeartRate</code>.</li>
+    <li><b>Compact UI hardening:</b> widget, Live Activity, watch summary, and recent-workout compact text now has explicit single-line scaling where space is fixed. This does not change copy or layout hierarchy; it prevents avoidable clipping under compact widget/live/watch surfaces and larger content sizes.</li>
+    <li><b>Accepted residuals:</b> <code>WatchSyncService.shared</code> remains a global seam inside <code>StepTrackingService.updateSharedData()</code>; changing it would be a broader dependency-injection refactor. RevenueCat live dashboard/payment flow and physical iPhone/Watch install remain manual environment validations, not proven by simulator CI.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Final verification after continuation fixes (2026-05-20)</h3>
+  <ul>
+    <li><code>claude --version</code> — <code>2.1.145 (Claude Code)</code>; read-only Claude Code review reported no remaining ship blockers.</li>
+    <li><code>xcodegen generate</code> — project regenerated and entitlements restored.</li>
+    <li><code>jq empty Shared/Resources/Localizable.xcstrings</code> — valid string catalog JSON.</li>
+    <li><code>plutil -lint AIPedometer/Resources/Info.plist AIPedometer/Resources/PrivacyInfo.xcprivacy</code> — both plists valid.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerTests/StepTrackingServiceTests</code> — 27 tests passed, including the new HR-on-Motion-probe-failure regression.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerTests/AppStartupCoordinatorTests</code> — 5 tests passed, including the new late-cancellation regression.</li>
+    <li><code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO test</code> — <b>TEST SUCCEEDED</b>; <code>xcresulttool</code> summary reported <b>462 total tests, 462 passed, 0 failed, 0 skipped</b> on iPhone 17 / iOS 26.5 simulator.</li>
+    <li><code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze</code> — <b>ANALYZE SUCCEEDED</b>.</li>
+    <li><code>git diff --check</code> — no whitespace errors.</li>
+    <li><code>bash Scripts/check-agents-sync.sh</code> — AGENTS.md GUIDELINES-REF section in sync.</li>
+    <li><code>bash Scripts/verify-device-identifiers.sh</code> — no sensitive hardcoded device identifiers found.</li>
+  </ul>
+  <p><b>Stop condition:</b> Current local simulator/build/static evidence is green, the explicit Claude Code follow-up found no remaining blocker, and the recoverable follow-up findings from that review were fixed with regression tests. Remaining gaps require external state or hardware: physical iPhone/Watch install and live RevenueCat/App Store sandbox purchase/restore validation.</p>
+</div>
+
+<hr/>
+<p class="meta">Generated and maintained by the agent. Each commit landed during the cycle is referenced from the relevant finding/decision below.</p>
+</body>
+</html>

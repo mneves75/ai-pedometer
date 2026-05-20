@@ -1,6 +1,14 @@
 import Foundation
 import HealthKit
 
+/// A single heart-rate sample plus the timestamp it was recorded at. Exposing the timestamp
+/// lets the UI display a freshness label ("12m ago") so a stale sample no longer reads as
+/// "live" when the watch hasn't measured anything recently.
+struct HeartRateSample: Sendable, Equatable {
+    let bpm: Double
+    let endDate: Date
+}
+
 @MainActor
 protocol HealthKitServiceProtocol: Sendable {
     func requestAuthorization() async throws
@@ -8,17 +16,15 @@ protocol HealthKitServiceProtocol: Sendable {
     func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double
+    /// Wheelchair-mode distance, mirroring `fetchDistance` but querying `distanceWheelchair`.
+    /// Apple ships this as a first-class quantity type and the previous code hard-coded zero,
+    /// which silently shipped a worse experience to wheelchair users.
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int
-    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double?
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample?
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
     func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
     func saveWorkout(_ session: WorkoutSession) async throws
-}
-
-extension HealthKitServiceProtocol {
-    func fetchLatestHeartRate(from _: Date, to _: Date) async throws -> Double? {
-        nil
-    }
 }
 
 @MainActor
@@ -58,11 +64,15 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         try await fetchSum(type: .distanceWalkingRunning, unit: .meter(), from: startDate, to: endDate)
     }
 
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double {
+        try await fetchSum(type: .distanceWheelchair, unit: .meter(), from: startDate, to: endDate)
+    }
+
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
         Int(try await fetchSum(type: .flightsClimbed, unit: .count(), from: startDate, to: endDate))
     }
 
-    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? {
         guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
             return nil
         }
@@ -87,7 +97,8 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                 }
 
                 let unit = HKUnit.count().unitDivided(by: .minute())
-                continuation.resume(returning: sample.quantity.doubleValue(for: unit))
+                let bpm = sample.quantity.doubleValue(for: unit)
+                continuation.resume(returning: HeartRateSample(bpm: bpm, endDate: sample.endDate))
             }
             healthStore.execute(query)
         }
@@ -148,9 +159,14 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         let endDay = calendar.startOfDay(for: endDate)
 
         let activityType: HKQuantityTypeIdentifier = activityMode == .steps ? .stepCount : .pushCount
+        // Pick the distance quantity type that matches the activity. Wheelchair users get real
+        // `distanceWheelchair` totals here instead of the previous hard-coded zero.
+        let distanceType: HKQuantityTypeIdentifier = activityMode == .steps
+            ? .distanceWalkingRunning
+            : .distanceWheelchair
 
         async let activityTotals = fetchDailyTotals(type: activityType, unit: .count(), from: startDay, to: endDate)
-        async let distanceTotals = fetchDailyTotalsOrNil(type: .distanceWalkingRunning, unit: .meter(), from: startDay, to: endDate)
+        async let distanceTotals = fetchDailyTotalsOrNil(type: distanceType, unit: .meter(), from: startDay, to: endDate)
         async let floorsTotals = fetchDailyTotalsOrNil(type: .flightsClimbed, unit: .count(), from: startDay, to: endDate)
 
         let activity = try await activityTotals
@@ -167,14 +183,15 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             case .manual:
                 dayDistance = Double(activityCount) * manualStepLength
             case .automatic:
-                if activityMode == .wheelchairPushes {
-                    dayDistance = 0
-                    break
-                }
                 if let distance {
                     dayDistance = distance[current] ?? 0
                 } else {
-                    dayDistance = Double(activityCount) * manualStepLength
+                    // The distance query failed entirely. For walking modes fall back to the
+                    // manual step-length estimate; for wheelchair mode there is no analogous
+                    // multiplier, so we surface zero rather than invent data.
+                    dayDistance = activityMode == .steps
+                        ? Double(activityCount) * manualStepLength
+                        : 0
                 }
             }
 

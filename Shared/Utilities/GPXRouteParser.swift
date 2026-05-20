@@ -1,10 +1,39 @@
 import Foundation
 
-enum GPXRouteParserError: Error, Equatable {
+enum GPXRouteParserError: LocalizedError, Equatable {
     case invalidDocument
     case noRoutePoints
     case fileTooLarge
     case tooManyElements
+
+    /// Convenience used in `WorkoutsView`'s file-importer alert. Keeps the GPX
+    /// failure modes localized — without this `LocalizedError` conformance the
+    /// system used to surface the meaningless
+    /// "The operation couldn't be completed. (AIPedometer.GPXRouteParserError error 0.)".
+    var errorDescription: String? {
+        switch self {
+        case .invalidDocument:
+            return L10n.localized(
+                "The GPX file isn’t valid. Try exporting it again from your route tool.",
+                comment: "GPX import error: malformed XML/GPX document"
+            )
+        case .noRoutePoints:
+            return L10n.localized(
+                "We couldn’t find any track or route points in this file.",
+                comment: "GPX import error: parse succeeded but no track/route points present"
+            )
+        case .fileTooLarge:
+            return L10n.localized(
+                "This GPX file is over the 5 MB import limit. Try a shorter route or simplify the track.",
+                comment: "GPX import error: file exceeds the parser size cap"
+            )
+        case .tooManyElements:
+            return L10n.localized(
+                "This GPX has too many track points or waypoints for offline import.",
+                comment: "GPX import error: file exceeds the parser element caps"
+            )
+        }
+    }
 }
 
 enum GPXRouteParser {

@@ -25,6 +25,9 @@ struct StepCountWidgetView: View {
                 StepCountPlaceholderView()
             }
         }
+        .containerBackground(for: .widget) {
+            DesignTokens.Colors.surface
+        }
     }
 }
 
@@ -37,61 +40,70 @@ struct StepCountContentView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                ContainerRelativeShape()
-                    .fill(.ultraThinMaterial)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
+                HStack {
+                    Label(L10n.localized("Steps", comment: "Widget label for steps"), systemImage: "figure.walk")
+                        .font(DesignTokens.Typography.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
-                    HStack {
-                        Label(L10n.localized("Steps", comment: "Widget label for steps"), systemImage: "figure.walk")
-                            .font(DesignTokens.Typography.caption.weight(.semibold))
-                            .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    Spacer()
 
-                        Spacer()
-
-                        Text("\(ProgressClamp.percent(data.goalProgress))%")
-                            .font(DesignTokens.Typography.caption.weight(.semibold))
-                            .foregroundStyle(DesignTokens.Colors.mint)
-                    }
-
-                    Text(data.todaySteps.formattedSteps)
-                        .font(.system(size: geometry.size.height > 140 ? DesignTokens.FontSize.widgetLg : DesignTokens.FontSize.widgetSm, weight: .heavy, design: .rounded))
-                        .foregroundStyle(DesignTokens.Colors.textPrimary)
-                        .monospacedDigit()
-
-                    ProgressView(value: clampedProgress)
-                        .tint(DesignTokens.Colors.mint)
-
-                    HStack {
-                        Label(L10n.localized("Streak", comment: "Widget label for streak"), systemImage: "flame.fill")
-                            .font(DesignTokens.Typography.caption2)
-                            .foregroundStyle(DesignTokens.Colors.textSecondary)
-
-                        Text(
-                            Localization.format(
-                                "%lld days",
-                                comment: "Widget value for streak in days",
-                                Int64(data.currentStreak)
-                            )
-                        )
-                            .font(DesignTokens.Typography.caption2.weight(.semibold))
-                            .foregroundStyle(DesignTokens.Colors.textPrimary)
-
-                        Spacer()
-
-                        Text(
-                            Localization.format(
-                                "Goal %lld",
-                                comment: "Widget label for daily goal",
-                                Int64(data.goalSteps)
-                            )
-                        )
-                            .font(DesignTokens.Typography.caption2)
-                            .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    }
+                    Text("\(ProgressClamp.percent(data.goalProgress))%")
+                        .font(DesignTokens.Typography.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.mint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-                .padding(DesignTokens.Spacing.md)
+
+                Text(data.todaySteps.formattedSteps)
+                    .font(.system(size: geometry.size.height > 140 ? DesignTokens.FontSize.widgetLg : DesignTokens.FontSize.widgetSm, weight: .heavy, design: .rounded))
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .widgetAccentable()
+
+                ProgressView(value: clampedProgress)
+                    .tint(DesignTokens.Colors.mint)
+                    .widgetAccentable()
+
+                HStack {
+                    Label(L10n.localized("Streak", comment: "Widget label for streak"), systemImage: "flame.fill")
+                        .font(DesignTokens.Typography.caption2)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Text(
+                        Localization.format(
+                            "%lld days",
+                            comment: "Widget value for streak in days",
+                            Int64(data.currentStreak)
+                        )
+                    )
+                        .font(DesignTokens.Typography.caption2.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Spacer()
+
+                    Text(
+                        Localization.format(
+                            "Goal %lld",
+                            comment: "Widget label for daily goal",
+                            Int64(data.goalSteps)
+                        )
+                    )
+                        .font(DesignTokens.Typography.caption2)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
+            .padding(DesignTokens.Spacing.md)
         }
     }
 
@@ -99,33 +111,35 @@ struct StepCountContentView: View {
 
 struct StepCountPlaceholderView: View {
     var body: some View {
-        ZStack {
-            ContainerRelativeShape()
-                .fill(.ultraThinMaterial)
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
-                Text(L10n.localized("Steps", comment: "Widget placeholder label for steps"))
-                    .font(DesignTokens.Typography.caption.weight(.semibold))
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
+            Text(L10n.localized("Steps", comment: "Widget placeholder label for steps"))
+                .font(DesignTokens.Typography.caption.weight(.semibold))
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
-                Text(8888.formattedSteps)
-                    .font(.system(size: DesignTokens.FontSize.widgetMd, weight: .heavy, design: .rounded))
+            Text(8888.formattedSteps)
+                .font(.system(size: DesignTokens.FontSize.widgetMd, weight: .heavy, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
-                ProgressView(value: 0.6)
-                    .tint(DesignTokens.Colors.mint)
+            ProgressView(value: 0.6)
+                .tint(DesignTokens.Colors.mint)
 
-                Text(
-                    Localization.format(
-                        "Goal %lld",
-                        comment: "Widget placeholder label for daily goal",
-                        Int64(10_000)
-                    )
+            Text(
+                Localization.format(
+                    "Goal %lld",
+                    comment: "Widget placeholder label for daily goal",
+                    Int64(10_000)
                 )
-                    .font(DesignTokens.Typography.caption2)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-            }
-            .padding(DesignTokens.Spacing.md)
-            .redacted(reason: .placeholder)
+            )
+                .font(DesignTokens.Typography.caption2)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
+        .padding(DesignTokens.Spacing.md)
+        .redacted(reason: .placeholder)
     }
 }
 

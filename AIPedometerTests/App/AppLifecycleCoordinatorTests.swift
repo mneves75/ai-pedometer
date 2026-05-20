@@ -133,4 +133,78 @@ struct AppLifecycleCoordinatorTests {
 
         #expect(calls == 0)
     }
+
+    @Test("Cold-launch .active recovers once startup completes (2026-05-19 regression)")
+    func coldLaunchActiveRecoversOnceStartupCompletes() async {
+        // Repro for finding-lifecycle-startup-race: SwiftUI fires `.active` immediately on
+        // cold launch. Previously the coordinator stamped `lastPhase = .active` before the
+        // `isStartupComplete()` guard, swallowing the only `.active` event of the session.
+        var calls = 0
+        var startupComplete = false
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { startupComplete },
+            refreshHealthAuthorization: { calls += 1 },
+            refreshMotionAuthorization: { calls += 1 },
+            refreshAIAvailability: { calls += 1 },
+            refreshCoachSession: { calls += 1 },
+            clearInsightCacheIfNeeded: { calls += 1 },
+            refreshTodayData: { calls += 1 },
+            refreshStreak: { calls += 1 },
+            performForegroundRefresh: { calls += 1 }
+        )
+
+        await coordinator.handle(scenePhase: .active)
+        #expect(calls == 0)
+
+        // Startup catches up — the very next .active call must now perform the work,
+        // proving we didn't commit `lastPhase` while the guards were still failing.
+        startupComplete = true
+        await coordinator.handle(scenePhase: .active)
+        #expect(calls == 8)
+    }
+
+    @Test("Cancelled active refresh is retried on the next active call")
+    func cancelledActiveRefreshRetries() async {
+        var healthAuthRefreshes = 0
+        var todayRefreshes = 0
+        var foregroundRefreshes = 0
+        var cancelTask: (() -> Void)?
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { true },
+            refreshHealthAuthorization: { healthAuthRefreshes += 1 },
+            refreshMotionAuthorization: {},
+            refreshAIAvailability: {},
+            refreshCoachSession: {},
+            clearInsightCacheIfNeeded: {},
+            refreshTodayData: {
+                todayRefreshes += 1
+                cancelTask?()
+            },
+            refreshStreak: {},
+            performForegroundRefresh: { foregroundRefreshes += 1 }
+        )
+
+        let firstAttempt = Task { @MainActor in
+            await coordinator.handle(scenePhase: .active)
+        }
+        cancelTask = { firstAttempt.cancel() }
+        await firstAttempt.value
+
+        #expect(healthAuthRefreshes == 1)
+        #expect(todayRefreshes == 1)
+        #expect(foregroundRefreshes == 0)
+
+        cancelTask = nil
+        await coordinator.handle(scenePhase: .active)
+
+        #expect(healthAuthRefreshes == 2)
+        #expect(todayRefreshes == 2)
+        #expect(foregroundRefreshes == 1)
+    }
 }

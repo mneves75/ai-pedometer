@@ -50,14 +50,22 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
         return Double(steps) * AppConstants.Metrics.averageStepLengthMeters
     }
 
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double {
+        // Demo data uses a rough estimate so the wheelchair-mode UI has something realistic to show.
+        let pushes = try await fetchWheelchairPushes(from: startDate, to: endDate)
+        return Double(pushes) * AppConstants.Metrics.averageStepLengthMeters
+    }
+
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
         let steps = try await fetchSteps(from: startDate, to: endDate)
         return max(steps / 500, 0)
     }
 
-    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? {
         guard startDate < endDate else { return nil }
-        return isDeterministic ? 72 : 68 + Double(calendar.component(.minute, from: now()) % 12)
+        let bpm = isDeterministic ? 72 : 68 + Double(calendar.component(.minute, from: now()) % 12)
+        // Anchor the sample to "now" so freshness logic in the UI treats demo data as live.
+        return HeartRateSample(bpm: bpm, endDate: now())
     }
 
     func fetchDailySummaries(
@@ -106,6 +114,9 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
             let distance: Double
             switch distanceMode {
             case .automatic:
+                // Demo data treats walking and wheelchair pushes with the same per-event distance
+                // factor — close enough for screenshots and UI testing without inventing a
+                // separate heuristic. The real implementation queries `distanceWheelchair`.
                 distance = Double(activityCount) * AppConstants.Metrics.averageStepLengthMeters
             case .manual:
                 distance = Double(activityCount) * manualStepLength

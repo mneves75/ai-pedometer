@@ -244,18 +244,12 @@ struct SettingsView: View {
                         }
                     )
                         .tint(DesignTokens.Colors.accent)
+                        .accessibilityLabel(L10n.localized("Step Length", comment: "Settings label for step length"))
+                        .accessibilityValue(Formatters.stepLengthString(meters: manualStepLength))
                         .onChange(of: manualStepLength) {
                             HapticService.shared.selection()
                         }
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(
-                    Localization.format(
-                        "Step length: %@",
-                        comment: "Accessibility label for manual step length",
-                        Formatters.stepLengthString(meters: manualStepLength)
-                    )
-                )
             }
         } header: {
             Text(L10n.localized("Distance Estimation", comment: "Settings section header for distance estimation"))
@@ -381,7 +375,7 @@ struct SettingsView: View {
             NavigationLink {
                 HealthKitDebugView()
             } label: {
-                Label("Debug do HealthKit", systemImage: "heart.text.square")
+                Label(L10n.localized("Debug do HealthKit", comment: "A title for this view."), systemImage: "heart.text.square")
             }
 
             Toggle(isOn: useFakeDataBinding) {
@@ -744,6 +738,9 @@ struct GoalEditorSheet: View {
     let badgeService = BadgeService(persistence: persistence)
     let demoModeStore = DemoModeStore()
     let healthAuthorization = HealthKitAuthorization()
+    let fmService = FoundationModelsService()
+    let demoHealthService = HealthKitServiceFallback(demoModeStore: demoModeStore)
+    let modelContext = persistence.container.mainContext
     return SettingsView()
         .environment(StepTrackingService(
             healthKitService: HealthKitService(),
@@ -756,6 +753,21 @@ struct GoalEditorSheet: View {
         ))
         .environment(healthAuthorization)
         .environment(demoModeStore)
+        // SettingsView reads six more services from the environment. Without them the
+        // preview crashes at runtime even though it builds successfully.
+        .environment(HealthKitSyncService(
+            healthKitService: demoHealthService,
+            modelContext: modelContext,
+            goalService: goalService
+        ))
+        .environment(NotificationService())
+        .environment(SmartNotificationService(
+            foundationModelsService: fmService,
+            healthKitService: demoHealthService,
+            goalService: goalService
+        ))
+        .environment(fmService)
+        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }
 
 #Preview("Goal Editor") {

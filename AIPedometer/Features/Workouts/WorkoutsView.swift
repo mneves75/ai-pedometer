@@ -772,9 +772,13 @@ struct WorkoutCard: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
             Text(workout.type.displayName)
                 .font(DesignTokens.Typography.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(formattedDate)
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
     }
 
@@ -793,7 +797,7 @@ struct WorkoutCard: View {
             Image(systemName: icon)
             Text(value)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.7)
         }
     }
 
