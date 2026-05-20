@@ -15,18 +15,24 @@ struct WorkoutLiveActivityWidget: Widget {
                     Label(context.attributes.workoutType, systemImage: "figure.run")
                         .font(DesignTokens.Typography.caption2.weight(.semibold))
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(distanceText(context.state.distance))
                         .font(DesignTokens.Typography.callout.monospacedDigit().weight(.bold))
                         .foregroundStyle(DesignTokens.Colors.cyan)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
 
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.steps.formattedSteps)
                         .font(DesignTokens.Typography.title2.monospacedDigit().weight(.heavy))
                         .foregroundStyle(DesignTokens.Colors.inverseText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
@@ -66,15 +72,21 @@ struct LockScreenWorkoutView: View {
                 Text(workoutType.uppercased())
                     .font(DesignTokens.Typography.caption.weight(.bold))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
 
                 Text(state.steps.formattedSteps)
                     .font(.system(size: DesignTokens.FontSize.xs, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.Colors.inverseText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
 
                 Text(LiveActivityUnits.steps)
                     .font(DesignTokens.Typography.caption2.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.cyan)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             Spacer()
@@ -127,11 +139,16 @@ struct LiveStatView: View {
                 Text(value)
                     .font(DesignTokens.Typography.headline.monospacedDigit())
                     .foregroundStyle(DesignTokens.Colors.inverseText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(label)
                     .font(DesignTokens.Typography.caption2.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }
 #endif

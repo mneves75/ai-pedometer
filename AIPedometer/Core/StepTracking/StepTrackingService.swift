@@ -48,7 +48,14 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private(set) var todayDistance: Double = 0
     private(set) var todayFloors: Int = 0
     private(set) var todayCalories: Double = 0
-    private(set) var todayHeartRateBPM: Double?
+    private(set) var todayHeartRateSample: HeartRateSample?
+
+    /// Convenience for callers that only want the BPM value (e.g. AI prompts). Kept as a
+    /// computed property so the `Observable` macro still observes through the underlying
+    /// `todayHeartRateSample` storage.
+    var todayHeartRateBPM: Double? {
+        todayHeartRateSample?.bpm
+    }
     private(set) var currentGoal: Int = AppConstants.defaultDailyGoal
     private(set) var currentStreak: Int = 0
     private(set) var lastUpdated: Date = .now
@@ -131,7 +138,10 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 todayDistance = 0
                 todayFloors = 0
                 todayCalories = 0
-                todayHeartRateBPM = nil
+                // HealthKit is unavailable for every read type, so the latest heart-rate value
+                // can no longer be trusted. Clear it explicitly here (the steps path clears it
+                // implicitly by failing earlier).
+                todayHeartRateSample = nil
                 lastUpdated = .now
                 updateSharedData()
             }
@@ -146,13 +156,32 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 // If HealthKit returns 0, attempt Motion as a heuristic: if Motion has steps,
                 // HealthKit is likely missing read access and would otherwise show "0".
                 if hkSteps == 0 {
-                    if let motionSnapshot = try? await motionService.query(from: startOfDay, to: .now),
-                       motionSnapshot.steps > 0 {
+                    do {
+                        let motionSnapshot = try await motionService.query(from: startOfDay, to: .now)
+                        if motionSnapshot.steps > 0 {
+                            Loggers.health.info("healthkit.steps_zero_using_motion", metadata: [
+                                "motionSteps": "\(motionSnapshot.steps)"
+                            ])
+                            isUsingMotionFallback = true
+                            // HR is independent of step samples. Always attempt a fresh fetch so we
+                            // honor the latest BPM (or fade to "No Data" when there is no recent sample).
+                            let sample = await resolveLatestHeartRate(start: startOfDay, end: .now)
+                            let attempt = HeartRateRefreshAttempt(attempted: true, sample: sample)
+                            applyMotionSnapshot(
+                                motionSnapshot,
+                                startOfDay: startOfDay,
+                                heartRate: attempt
+                            )
+                            return
+                        }
+                    } catch {
                         Loggers.health.info("healthkit.steps_zero_using_motion", metadata: [
-                            "motionSteps": "\(motionSnapshot.steps)"
+                            "motionError": String(describing: error)
                         ])
                         isUsingMotionFallback = true
-                        applyMotionSnapshot(motionSnapshot, startOfDay: startOfDay)
+                        let sample = await resolveLatestHeartRate(start: startOfDay, end: .now)
+                        let attempt = HeartRateRefreshAttempt(attempted: true, sample: sample)
+                        clearCurrentActivityData(markStale: true, heartRate: attempt)
                         return
                     }
                 }
@@ -165,7 +194,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 todayDistance = distance
                 todayFloors = floors
                 todayCalories = Double(hkSteps) * AppConstants.Metrics.caloriesPerStep
-                todayHeartRateBPM = heartRate
+                todayHeartRateSample = heartRate
                 lastUpdated = .now
                 seedLiveBaseline(
                     startOfDay: startOfDay,
@@ -187,7 +216,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 todayDistance = distance
                 todayFloors = floors
                 todayCalories = Double(pushes) * AppConstants.Metrics.caloriesPerStep
-                todayHeartRateBPM = heartRate
+                todayHeartRateSample = heartRate
                 lastUpdated = .now
                 liveBaseline = nil
                 pendingBaseline = nil
@@ -429,20 +458,29 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     }
 
     private func resolveDistance(steps: Int, start: Date, end: Date) async -> Double {
-        if activitySettings.activityMode == .wheelchairPushes {
-            return 0
-        }
         switch activitySettings.distanceMode {
         case .manual:
             return Double(steps) * activitySettings.manualStepLength
         case .automatic:
             do {
-                return try await healthKitService.fetchDistance(from: start, to: end)
+                switch activitySettings.activityMode {
+                case .steps:
+                    return try await healthKitService.fetchDistance(from: start, to: end)
+                case .wheelchairPushes:
+                    // Surface the real `distanceWheelchair` sample. Previous behavior hardcoded
+                    // zero and silently shipped a worse UX to wheelchair users.
+                    return try await healthKitService.fetchWheelchairDistance(from: start, to: end)
+                }
             } catch {
                 Loggers.health.warning("healthkit.distance_unavailable", metadata: [
-                    "error": error.localizedDescription
+                    "error": error.localizedDescription,
+                    "mode": activitySettings.activityMode.rawValue
                 ])
-                return Double(steps) * activitySettings.manualStepLength
+                // Walking mode has a meaningful manual fallback (steps × stride length); wheelchair
+                // mode has no analogous multiplier, so we return 0 rather than invent a number.
+                return activitySettings.activityMode == .steps
+                    ? Double(steps) * activitySettings.manualStepLength
+                    : 0
             }
         }
     }
@@ -458,9 +496,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
-    private func resolveLatestHeartRate(start: Date, end: Date) async -> Double? {
+    private func resolveLatestHeartRate(start: Date, end: Date) async -> HeartRateSample? {
         do {
-            return try await healthKitService.fetchLatestHeartRate(from: start, to: end)
+            return try await healthKitService.fetchLatestHeartRateSample(from: start, to: end)
         } catch {
             Loggers.health.warning("healthkit.heart_rate_unavailable", metadata: [
                 "error": error.localizedDescription
@@ -469,28 +507,54 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
+    private struct HeartRateRefreshAttempt {
+        let attempted: Bool
+        let sample: HeartRateSample?
+    }
+
     private func refreshTodayDataFromMotion(startOfDay: Date) async {
         guard activitySettings.activityMode == .steps else {
             Loggers.motion.info("motion.refresh_skipped", metadata: ["reason": "unsupported_mode"])
             clearCurrentActivityData(markStale: true)
             return
         }
+        // Heart-rate samples are independent of the step path. When sync is enabled we explicitly
+        // re-query HealthKit so a transient step-query failure never wipes a real Apple Watch BPM,
+        // and so the display naturally fades to "No Data" when there is no recent sample. Sync
+        // disabled means we must not query HealthKit, so clear any previously cached BPM.
+        let heartRateAttempt: HeartRateRefreshAttempt
+        if HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) {
+            let sample = await resolveLatestHeartRate(start: startOfDay, end: .now)
+            heartRateAttempt = HeartRateRefreshAttempt(attempted: true, sample: sample)
+        } else {
+            heartRateAttempt = HeartRateRefreshAttempt(attempted: true, sample: nil)
+        }
         do {
             let snapshot = try await motionService.query(from: startOfDay, to: .now)
-            applyMotionSnapshot(snapshot, startOfDay: startOfDay)
+            applyMotionSnapshot(snapshot, startOfDay: startOfDay, heartRate: heartRateAttempt)
         } catch {
             Loggers.motion.warning("motion.refresh_failed", metadata: ["error": String(describing: error)])
-            clearCurrentActivityData(markStale: true)
+            clearCurrentActivityData(markStale: true, heartRate: heartRateAttempt)
         }
     }
 
-    private func applyMotionSnapshot(_ snapshot: PedometerSnapshot, startOfDay: Date) {
+    private func applyMotionSnapshot(
+        _ snapshot: PedometerSnapshot,
+        startOfDay: Date,
+        heartRate: HeartRateRefreshAttempt = HeartRateRefreshAttempt(attempted: false, sample: nil)
+    ) {
         let distance = resolveMotionDistance(snapshot: snapshot)
         todaySteps = snapshot.steps
         todayDistance = distance
         todayFloors = snapshot.floorsAscended
         todayCalories = Double(snapshot.steps) * AppConstants.Metrics.caloriesPerStep
-        todayHeartRateBPM = nil
+        // Only mutate HR when we actually queried for it. That keeps a known-good sample on screen
+        // through transient step-query failures, while still flipping to "No Data" the moment a
+        // refresh attempt comes back empty (the Apple Watch app's behavior).
+        // See implementation-notes.html#finding-heart-rate-clobber.
+        if heartRate.attempted {
+            todayHeartRateSample = heartRate.sample
+        }
         lastUpdated = .now
         seedMotionBaseline(snapshot: snapshot, startOfDay: startOfDay)
         updateSharedData()
@@ -498,12 +562,17 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         Loggers.tracking.info("steps.refresh_today_motion", metadata: ["steps": "\(snapshot.steps)"])
     }
 
-    private func clearCurrentActivityData(markStale: Bool) {
+    private func clearCurrentActivityData(
+        markStale: Bool,
+        heartRate: HeartRateRefreshAttempt = HeartRateRefreshAttempt(attempted: true, sample: nil)
+    ) {
         todaySteps = 0
         todayDistance = 0
         todayFloors = 0
         todayCalories = 0
-        todayHeartRateBPM = nil
+        if heartRate.attempted {
+            todayHeartRateSample = heartRate.sample
+        }
         lastUpdated = markStale ? .distantPast : .now
         resetLiveState()
         updateSharedData()
@@ -553,13 +622,12 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private func reloadWidgetsIfNeeded(steps: Int) {
         #if canImport(WidgetKit)
         let now = Date.now
-        let minInterval: TimeInterval = 5 * 60
-        let minDeltaSteps = 200
-
-        if let last = lastWidgetReloadAt, now.timeIntervalSince(last) < minInterval {
-            return
-        }
-        if let lastSteps = lastWidgetReloadSteps, abs(steps - lastSteps) < minDeltaSteps {
+        guard Self.shouldReloadWidgets(
+            lastReloadAt: lastWidgetReloadAt,
+            lastReloadSteps: lastWidgetReloadSteps,
+            newSteps: steps,
+            now: now
+        ) else {
             return
         }
 
@@ -570,6 +638,40 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.progressRing)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.weeklyChart)
         #endif
+    }
+
+    /// Pure decision for the widget-reload throttle. Exposed at module scope so it can be
+    /// tested without standing up `WidgetCenter`.
+    ///
+    /// Rules (in order):
+    /// 1. Never reloaded yet → reload.
+    /// 2. Day changed since the last push → reload (defeats the post-midnight blackout where
+    ///    `0 - yesterdaysTotal < 0` and the delta guard suppresses the reload, leaving the
+    ///    home-screen widget stuck on yesterday's count for up to 5 minutes).
+    /// 3. Within 5-minute throttle AND step delta &lt; 200 → skip.
+    /// 4. Otherwise → reload.
+    static func shouldReloadWidgets(
+        lastReloadAt: Date?,
+        lastReloadSteps: Int?,
+        newSteps: Int,
+        now: Date,
+        calendar: Calendar = .autoupdatingCurrent,
+        minInterval: TimeInterval = 5 * 60,
+        minDeltaSteps: Int = 200
+    ) -> Bool {
+        guard let last = lastReloadAt else { return true }
+
+        if !calendar.isDate(last, inSameDayAs: now) {
+            return true
+        }
+
+        if now.timeIntervalSince(last) < minInterval {
+            if let lastSteps = lastReloadSteps, abs(newSteps - lastSteps) < minDeltaSteps {
+                return false
+            }
+        }
+
+        return true
     }
 
     private func mergeCurrentDaySummaryIfNeeded(

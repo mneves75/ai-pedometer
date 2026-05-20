@@ -8,6 +8,12 @@ enum PremiumSheetMode: String, Identifiable {
     var id: String { rawValue }
 }
 
+enum RevenueCatPaywallPolicy {
+    static func shouldUseOfficialPaywall(for offering: Offering?) -> Bool {
+        offering?.hasPaywall == true
+    }
+}
+
 struct PremiumFeatureGateCard: View {
     @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
@@ -339,7 +345,8 @@ struct PremiumAccessSheet: View {
 
     @ViewBuilder
     private var paywallView: some View {
-        if let offering = premiumAccessStore.currentOffering {
+        if RevenueCatPaywallPolicy.shouldUseOfficialPaywall(for: premiumAccessStore.currentOffering),
+           let offering = premiumAccessStore.currentOffering {
             PaywallView(offering: offering, displayCloseButton: false)
                 .onPurchaseCompleted { _ in
                     Task { @MainActor in
@@ -361,26 +368,23 @@ struct PremiumAccessSheet: View {
                     dismiss()
                 }
         } else {
-            PaywallView(displayCloseButton: false)
-                .onPurchaseCompleted { _ in
-                    Task { @MainActor in
-                        await premiumAccessStore.syncPurchases()
-                        if premiumAccessStore.isPremiumActive {
-                            dismiss()
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                    headerCard
+                    packageList
+                    actionRow
+
+                    if let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
+                        Text(lastError)
+                            .font(DesignTokens.Typography.caption)
+                            .foregroundStyle(DesignTokens.Colors.warning)
+                            .padding(DesignTokens.Spacing.md)
+                            .glassCard()
                     }
                 }
-                .onRestoreCompleted { _ in
-                    Task { @MainActor in
-                        await premiumAccessStore.syncPurchases()
-                        if premiumAccessStore.isPremiumActive {
-                            dismiss()
-                        }
-                    }
-                }
-                .onRequestedDismissal {
-                    dismiss()
-                }
+                .padding(DesignTokens.Spacing.lg)
+            }
+            .background(DesignTokens.Colors.surfaceGrouped)
         }
     }
 
@@ -451,9 +455,10 @@ private struct PremiumPackageCard: View {
 
             if let introPrice = package.localizedIntroductoryPriceString {
                 Text(
-                    String(
-                        localized: "Oferta introdutória: \(introPrice)",
-                        comment: "Premium introductory offer label"
+                    Localization.format(
+                        "Introductory offer: %@",
+                        comment: "Premium introductory offer label",
+                        introPrice
                     )
                 )
                 .font(DesignTokens.Typography.caption)

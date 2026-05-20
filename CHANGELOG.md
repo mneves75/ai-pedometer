@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.77] - 2026-05-20
+
 ### Added
 
 - Added Premium-gated Expedition Mode on the Workouts screen; when enabled for a session, live workout metrics refresh at a lower cadence to reduce battery impact during long walks and hikes.
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `MotionService.query`'s `CMPedometer.startUpdates(from:)` workaround (live-updates API used for a one-shot read, manually guarded by a dedupe lock and `defer { stopUpdates() }`) with Apple's purpose-built `queryPedometerData(from:to:withHandler:)` — same behavior, no manual teardown, no callback dedupe gymnastics.
 - Removed `AIPedometer/Core/Workouts/WorkoutService.swift`, which had no callers anywhere in production or tests after `WorkoutSessionController` superseded it; the leftover file was a maintenance hazard.
 - Hardened RevenueCat premium access so unrelated active entitlements, expired historical premium products, or failed Trusted Entitlements verification cannot unlock Premium AI.
+- Fixed the Premium sheet so an offering without a published RevenueCat Paywall v2 uses the app-owned package UI instead of showing RevenueCat's default debug paywall banner.
 - Aligned target privacy manifests with Apple's official Health/Fitness data type identifiers and the no-analytics privacy promise.
 - Removed invalid Health/Motion required-reason API categories and declared UserDefaults app-group access with the appropriate Apple reason code.
 - Made app structured logger metadata values redacted by default to avoid exposing health-related data, paths, or launch arguments in OS logs.
@@ -33,14 +36,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented the RevenueCat Trusted Entitlements fail-closed behavior in the premium setup and operations docs.
 - Added a dedicated RevenueCat + Apple payments setup runbook covering App Store Connect subscriptions, In-App Purchase Key setup, RevenueCat products/entitlements/offerings, local `xcconfig` wiring, sandbox/TestFlight validation, review notes, troubleshooting, and go-live checks.
 - Synced README, App Store, testing, security, tech-stack, RevenueCat, and project field-guide docs with the 2026 source/security review and ASC/Xcode verification flow.
-- Regenerated the Xcode project from `project.yml` so local ASC/Xcode version metadata matches `0.76 (32)`.
+- Regenerated the Xcode project from `project.yml` so local ASC/Xcode version metadata matches `0.77 (33)`.
 - Updated the PRD to reflect the current RevenueCat-backed Premium AI requirement instead of treating subscriptions as out of scope.
 - Documented the recurring `devicectl` warning `Failed to load provisioning paramter list ... No provider was found.` as a host-side CoreDevice/Xcode issue that can appear even when install/launch succeeds.
 - Clarified that `Scripts/install-on-device.sh` may hit a first launch denial when the iPhone is locked and then recover on the built-in retry path.
 
+### Changed
+
+- Release metadata bump: updated app version/build to `0.77 (33)`.
+- App Store publishing commands, metadata drafts, and top-level version references now point to `0.77`.
+
 ### Tests
 
-- Verified the premium hardening with targeted RevenueCat regressions, full unit coverage, static analyzer, and the full simulator E2E flow.
+- Verified the release with targeted RevenueCat, startup, step-tracking, HealthKit, localization, and UI regressions; full simulator test suite (`462` tests), static analyzer, project generation, plist/string-catalog validation, AGENTS sync, and device-identifier scan.
 
 ## [0.76] - 2026-03-25
 

@@ -30,7 +30,7 @@ extension View {
             .accessibilityHint(hint ?? "")
     }
 
-    func accessibleStatistic(title: String, value: String) -> some View {
+    func accessibleStatistic(title: String, value: String, accessibilityValue: String? = nil) -> some View {
         self
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(
@@ -38,7 +38,7 @@ extension View {
                     "%@: %@",
                     comment: "A pair of text elements that together describe a single piece of data. The first element is a label that describes the data. The second element is the actual data itself.",
                     title,
-                    value
+                    accessibilityValue ?? value
                 )
             )
     }

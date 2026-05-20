@@ -65,18 +65,8 @@ final class HealthKitAuthorization {
             throw HealthKitError.notAvailable
         }
 
-        let typesToRead: Set<HKObjectType> = [
-            HKQuantityType(.stepCount),
-            HKQuantityType(.distanceWalkingRunning),
-            HKQuantityType(.flightsClimbed),
-            HKQuantityType(.activeEnergyBurned),
-            HKQuantityType(.heartRate),
-            HKQuantityType(.pushCount),
-            HKObjectType.workoutType()
-        ]
-
-        // Only request write permissions for what we actually write.
-        let typesToWrite: Set<HKSampleType> = [HKWorkoutType.workoutType()]
+        let typesToRead = Self.requestedReadTypes
+        let typesToWrite = Self.requestedWriteTypes
 
         do {
             try await healthStore.requestAuthorization(toShare: typesToWrite, read: typesToRead)
@@ -91,18 +81,26 @@ final class HealthKitAuthorization {
         }
     }
 
-    private func authorizationRequestStatus() async throws -> HKAuthorizationRequestStatus {
-        let typesToRead: Set<HKObjectType> = [
-            HKQuantityType(.stepCount),
-            HKQuantityType(.distanceWalkingRunning),
-            HKQuantityType(.flightsClimbed),
-            HKQuantityType(.activeEnergyBurned),
-            HKQuantityType(.heartRate),
-            HKQuantityType(.pushCount),
-            HKObjectType.workoutType()
-        ]
+    /// Read types the app asks for. `distanceWheelchair` is included so the wheelchair-mode
+    /// distance metric can show real HealthKit data instead of a hardcoded zero. Keep this set
+    /// aligned with the app privacy manifest and Health usage copy.
+    static let requestedReadTypes: Set<HKObjectType> = [
+        HKQuantityType(.stepCount),
+        HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.flightsClimbed),
+        HKQuantityType(.activeEnergyBurned),
+        HKQuantityType(.heartRate),
+        HKQuantityType(.pushCount),
+        HKQuantityType(.distanceWheelchair),
+        HKObjectType.workoutType()
+    ]
 
-        let typesToWrite: Set<HKSampleType> = [HKWorkoutType.workoutType()]
+    /// Only request write permissions for what we actually write.
+    static let requestedWriteTypes: Set<HKSampleType> = [HKWorkoutType.workoutType()]
+
+    private func authorizationRequestStatus() async throws -> HKAuthorizationRequestStatus {
+        let typesToRead = Self.requestedReadTypes
+        let typesToWrite = Self.requestedWriteTypes
 
         return try await withCheckedThrowingContinuation { continuation in
             healthStore.getRequestStatusForAuthorization(toShare: typesToWrite, read: typesToRead) { status, error in

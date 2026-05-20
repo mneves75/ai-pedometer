@@ -245,7 +245,8 @@ O app configura RevenueCat assim:
 - `Purchases.shared.restorePurchases()`;
 - `Purchases.shared.syncPurchases()`;
 - `Purchases.shared.customerInfoStream`;
-- `RevenueCatUI.PaywallView(offering:)`;
+- `RevenueCatUI.PaywallView(offering:)` apenas quando o offering tem Paywall v2 publicado (`Offering.hasPaywall == true`);
+- fallback nativo do app quando o offering tem packages mas não tem Paywall v2 publicado;
 - `showManageSubscriptions()` com fallback para `managementURL`.
 
 Acesso premium é verdadeiro quando:
@@ -426,6 +427,7 @@ Verifique:
 - [ ] Entitlement `premium` criado.
 - [ ] Products anexados ao entitlement.
 - [ ] Offering `default` criado e com packages.
+- [ ] Paywall v2 publicado para o offering se a intenção for usar o editor visual da RevenueCat; sem isso, o app usa o fallback nativo próprio.
 - [ ] Public Apple API key colocada em `Config/Local.xcconfig` ou CI seguro.
 - [ ] Build Release/TestFlight validado.
 - [ ] Compra, restore e manage subscription testados.

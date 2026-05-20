@@ -41,12 +41,40 @@ final class AppStartupCoordinator {
         didStart = true
 
         await refreshHealthAuthorization()
+        guard !Task.isCancelled else {
+            didStart = false
+            return
+        }
         refreshMotionAuthorization()
+        guard !Task.isCancelled else {
+            didStart = false
+            return
+        }
         registerBackgroundTasks()
+        guard !Task.isCancelled else {
+            didStart = false
+            return
+        }
         scheduleAppRefresh()
+        guard !Task.isCancelled else {
+            didStart = false
+            return
+        }
         startWatchSync()
+        guard !Task.isCancelled else {
+            didStart = false
+            return
+        }
         await startStepTracking()
+        guard !Task.isCancelled else {
+            didStart = false
+            return
+        }
         await performInitialSync()
+
+        // After the final awaited step returns, every startup side effect has already run.
+        // Treat late cancellation as complete so a SwiftUI task teardown cannot re-run
+        // watch/background/pedometer startup on the next view attachment.
         hasCompletedStartup = true
     }
 }

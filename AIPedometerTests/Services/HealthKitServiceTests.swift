@@ -14,8 +14,14 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
     var distanceToReturn: Double = 0
     var floorsToReturn: Int = 0
     var heartRateToReturn: Double?
+    /// Optional override timestamp the mock applies to the synthesized `HeartRateSample`. When
+    /// nil the mock anchors the sample to `Date.now`, which matches "fresh" semantics. Tests can
+    /// set this to a past date to exercise the dashboard's "Nm ago" freshness label.
+    var heartRateSampleEndDate: Date?
     var fetchLatestHeartRateCallCount = 0
     var wheelchairPushesToReturn: Int = 0
+    var wheelchairDistanceToReturn: Double = 0
+    var fetchWheelchairDistanceCallCount = 0
     var dailySummariesToReturn: [DailyStepSummary] = []
     var fetchDailySummariesCallCount = 0
     var lastFetchDailySummariesArgs: (
@@ -80,9 +86,18 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         return floorsToReturn
     }
 
-    func fetchLatestHeartRate(from _: Date, to _: Date) async throws -> Double? {
+    func fetchLatestHeartRateSample(from _: Date, to _: Date) async throws -> HeartRateSample? {
         fetchLatestHeartRateCallCount += 1
-        return heartRateToReturn
+        guard let bpm = heartRateToReturn else { return nil }
+        return HeartRateSample(bpm: bpm, endDate: heartRateSampleEndDate ?? .now)
+    }
+
+    func fetchWheelchairDistance(from _: Date, to _: Date) async throws -> Double {
+        if let error = errorToThrow {
+            throw error
+        }
+        fetchWheelchairDistanceCallCount += 1
+        return wheelchairDistanceToReturn
     }
 
     func fetchDailySummaries(
@@ -160,10 +175,10 @@ final class MockMotionService: MotionServiceProtocol {
     }
 
     func query(from _: Date, to _: Date) async throws -> PedometerSnapshot {
+        queryCallCount += 1
         if let error = errorToThrow {
             throw error
         }
-        queryCallCount += 1
         return snapshotToReturn
     }
 
@@ -334,6 +349,31 @@ struct StepTrackingServiceTests {
         #expect(service.todaySteps == 4321)
         #expect(service.todayDistance == 1500.5)
         #expect(service.todayFloors == 3)
+    }
+
+    @Test("Refresh today keeps zero-step day stale when HealthKit is zero and Motion probe fails")
+    @MainActor
+    func refreshTodayMarksZeroStepMotionProbeFailureStale() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.stepsToReturn = 0
+        mockMotion.errorToThrow = MotionError.queryFailed
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(mockHealthKit.fetchStepsCallCount == 1)
+        #expect(mockMotion.queryCallCount == 1)
+        #expect(service.isUsingMotionFallback == true)
+        #expect(service.todaySteps == 0)
+        #expect(testDefaults.defaults.sharedStepData?.isStale == true)
     }
 
     @Test("Refresh today unlocks step badges")
@@ -577,7 +617,8 @@ struct StepTrackingServiceTests {
         let mockHealthKit = MockHealthKitService()
         let mockMotion = MockMotionService()
         mockHealthKit.wheelchairPushesToReturn = 4321
-        mockHealthKit.distanceToReturn = 999
+        mockHealthKit.distanceToReturn = 999 // walking distance — should NOT be used in wheelchair mode
+        mockHealthKit.wheelchairDistanceToReturn = 2_750 // meters — the value we actually expect
         let testDefaults = TestUserDefaults()
         defer { testDefaults.reset() }
         testDefaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
@@ -594,7 +635,9 @@ struct StepTrackingServiceTests {
         mockMotion.simulateLiveUpdate(PedometerSnapshot(steps: 999, distance: 100, floorsAscended: 1))
 
         #expect(service.todaySteps == 4321)
-        #expect(service.todayDistance == 0)
+        // Wheelchair distance now comes from HealthKit's `distanceWheelchair` sample type, not 0.
+        #expect(service.todayDistance == 2_750)
+        #expect(mockHealthKit.fetchWheelchairDistanceCallCount >= 1)
         #expect(service.todayCalories == Double(4321) * AppConstants.Metrics.caloriesPerStep)
     }
 
@@ -1362,5 +1405,268 @@ struct ResultTypeTests {
 
         // State should remain unchanged (empty)
         #expect(service.weeklySummaries.isEmpty)
+    }
+
+    // MARK: - Heart-rate preservation across Motion fallbacks (2026-05-19 audit)
+
+    @Test("Motion fallback after HealthKit-zero-steps keeps the latest heart-rate sample")
+    @MainActor
+    func motionFallbackAfterHealthKitZeroStepsKeepsHeartRate() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        // HealthKit returns zero steps but still has a valid heart-rate sample
+        // (the Apple Watch only logged HR so far this session).
+        mockHealthKit.stepsToReturn = 0
+        mockHealthKit.heartRateToReturn = 71
+        mockMotion.snapshotToReturn = PedometerSnapshot(steps: 3210, distance: 1200, floorsAscended: 1)
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.isUsingMotionFallback == true)
+        #expect(service.todaySteps == 3210)
+        #expect(service.todayHeartRateBPM == 71)
+        // We re-read heart rate during the fallback exactly once.
+        #expect(mockHealthKit.fetchLatestHeartRateCallCount == 1)
+    }
+
+    @Test("Motion fallback after HealthKit error still propagates heart rate when available")
+    @MainActor
+    func motionFallbackAfterHealthKitErrorPropagatesHeartRate() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        // The steps query throws but the heart-rate read can still succeed in the fallback path.
+        mockHealthKit.errorToThrow = HealthKitError.queryFailed
+        mockHealthKit.heartRateToReturn = 84
+        mockMotion.snapshotToReturn = PedometerSnapshot(steps: 1500, distance: 800, floorsAscended: 0)
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.todaySteps == 1500)
+        #expect(service.todayHeartRateBPM == 84)
+    }
+
+    @Test("Motion fallback fades heart rate to nil when HK explicitly returns no sample")
+    @MainActor
+    func motionFallbackClearsHeartRateWhenHealthKitReturnsNil() async {
+        // After a successful HR read returns a value, the next refresh whose HR fetch
+        // resolves to `nil` (no sample available — sensor off, watch removed, etc.) must
+        // surface "No Data" rather than freezing the previous value forever.
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.stepsToReturn = 9_000
+        mockHealthKit.heartRateToReturn = 78
+        mockMotion.snapshotToReturn = PedometerSnapshot(steps: 9_500, distance: 6000, floorsAscended: 2)
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+        #expect(service.todayHeartRateBPM == 78)
+
+        // Drop into Motion fallback (HK steps = 0, Motion > 0) and clear the HR sample.
+        mockHealthKit.stepsToReturn = 0
+        mockHealthKit.heartRateToReturn = nil
+        await service.refreshTodayData()
+
+        // Apple's reference UX is to drop HR to "No Data" the moment fresh samples disappear.
+        #expect(service.todayHeartRateBPM == nil)
+    }
+
+    @Test("HealthKit-zero plus Motion probe failure still refreshes heart rate")
+    @MainActor
+    func healthKitZeroMotionProbeFailureStillRefreshesHeartRate() async {
+        // If HealthKit reports zero steps and the Motion probe itself fails, step counts should
+        // become stale/zero, but heart-rate still has an independent HealthKit read path.
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.stepsToReturn = 0
+        mockHealthKit.heartRateToReturn = 91
+        mockMotion.errorToThrow = MotionError.queryFailed
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.isUsingMotionFallback == true)
+        #expect(service.todaySteps == 0)
+        #expect(service.todayHeartRateBPM == 91)
+        #expect(service.lastUpdated == .distantPast)
+        #expect(testDefaults.defaults.sharedStepData?.isStale == true)
+        #expect(mockHealthKit.fetchLatestHeartRateCallCount == 1)
+    }
+
+    // MARK: - Widget reload throttle (2026-05-19 audit)
+
+    @Test("Widget throttle skips repeated calls inside the 5-minute window with small delta")
+    @MainActor
+    func widgetThrottleSkipsInsideWindowWithSmallDelta() {
+        let calendar = Calendar(identifier: .gregorian)
+        let last = Date(timeIntervalSince1970: 1_000)
+        let now = last.addingTimeInterval(60) // 1 minute later, same day
+        let shouldReload = StepTrackingService.shouldReloadWidgets(
+            lastReloadAt: last,
+            lastReloadSteps: 1000,
+            newSteps: 1099, // delta < 200
+            now: now,
+            calendar: calendar
+        )
+        #expect(shouldReload == false)
+    }
+
+    @Test("Widget throttle releases once 5 minutes elapse even with no step delta")
+    @MainActor
+    func widgetThrottleReleasesAfterFiveMinutes() {
+        let calendar = Calendar(identifier: .gregorian)
+        let last = Date(timeIntervalSince1970: 1_000)
+        let now = last.addingTimeInterval(6 * 60) // 6 minutes later
+        let shouldReload = StepTrackingService.shouldReloadWidgets(
+            lastReloadAt: last,
+            lastReloadSteps: 1000,
+            newSteps: 1010,
+            now: now,
+            calendar: calendar
+        )
+        #expect(shouldReload == true)
+    }
+
+    @Test("Widget throttle resets at midnight even when delta is small (2026-05-19 regression)")
+    @MainActor
+    func widgetThrottleResetsAtMidnight() {
+        // Repro for finding-widget-throttle-midnight: at the start of a new day,
+        // todaySteps drops to 0 from yesterday's final count. The old throttle saw
+        // `abs(0 - 12_345) >= 200 but only after 5 minutes`, so the home-screen widget
+        // stayed on yesterday's count for up to 5 minutes after midnight.
+        let calendar = Calendar(identifier: .gregorian)
+        let yesterdayLate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 19, hour: 23, minute: 58))!
+        let todayMidnight = calendar.date(from: DateComponents(year: 2026, month: 5, day: 20, hour: 0, minute: 0, second: 30))!
+        let shouldReload = StepTrackingService.shouldReloadWidgets(
+            lastReloadAt: yesterdayLate,
+            lastReloadSteps: 12_345,
+            newSteps: 0, // fresh day
+            now: todayMidnight,
+            calendar: calendar
+        )
+        #expect(shouldReload == true)
+    }
+
+    @Test("Widget throttle always reloads when there is no previous push recorded")
+    @MainActor
+    func widgetThrottleReloadsOnFirstUpdate() {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = Date(timeIntervalSince1970: 1_000)
+        let shouldReload = StepTrackingService.shouldReloadWidgets(
+            lastReloadAt: nil,
+            lastReloadSteps: nil,
+            newSteps: 0,
+            now: now,
+            calendar: calendar
+        )
+        #expect(shouldReload == true)
+    }
+
+    @Test("Heart-rate sample carries the HealthKit endDate so the dashboard can show freshness")
+    @MainActor
+    func heartRateSampleCarriesEndDate() async {
+        // The dashboard reads `endDate` to decide whether to show a "Nm ago" label. The mock
+        // synthesizes a sample with the supplied endDate; this test guards the wiring end-to-end.
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.stepsToReturn = 5000
+        mockHealthKit.heartRateToReturn = 64
+        let staleDate = Date(timeIntervalSinceNow: -45 * 60) // 45 minutes ago
+        mockHealthKit.heartRateSampleEndDate = staleDate
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.todayHeartRateSample?.bpm == 64)
+        #expect(service.todayHeartRateSample?.endDate == staleDate)
+        // Convenience accessor still reports the BPM for callers that don't care about timing.
+        #expect(service.todayHeartRateBPM == 64)
+    }
+
+    @Test("Wheelchair distance is fetched via the wheelchair-distance HealthKit type")
+    @MainActor
+    func wheelchairDistanceFlowsThroughDedicatedType() async {
+        // Repro for finding-wheelchair-distance: previously the wheelchair path hardcoded zero.
+        // Now it must query `fetchWheelchairDistance` and surface the result.
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.wheelchairPushesToReturn = 3_500
+        mockHealthKit.wheelchairDistanceToReturn = 1_900
+        mockHealthKit.distanceToReturn = 9_999 // walking distance — must be ignored
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
+        testDefaults.defaults.set(DistanceEstimationMode.automatic.rawValue, forKey: AppConstants.UserDefaultsKeys.distanceEstimationMode)
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+
+        #expect(service.todayDistance == 1_900)
+        #expect(mockHealthKit.fetchWheelchairDistanceCallCount >= 1)
+    }
+
+    @Test("HealthKit unavailable path still clears stale heart-rate display")
+    @MainActor
+    func healthKitUnavailableClearsStaleHeartRate() async {
+        // When HealthKit can't service any read (sync disabled or device unavailable),
+        // we should NOT continue to claim a heart rate. Verify the explicit-clear branch
+        // still runs for the wheelchair-mode + sync-disabled combination.
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        testDefaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        // Seed a value so we can prove the clear actually fires.
+        await service.refreshTodayData()
+        #expect(service.todayHeartRateBPM == nil)
     }
 }

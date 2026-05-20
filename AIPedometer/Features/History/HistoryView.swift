@@ -464,30 +464,25 @@ struct HistoryRow: View {
     let activityMode: ActivityTrackingMode
 
     var body: some View {
-        Button {
-            HapticService.shared.selection()
-        } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Text(summary.dateString)
-                        .font(DesignTokens.Typography.headline)
-                    GoalStatusBadge(met: summary.goalMet)
-                }
-
-                Spacer()
-
-                HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xxs) {
-                    Text(summary.steps.formattedSteps)
-                        .font(DesignTokens.Typography.title3.bold().monospacedDigit())
-                    Text(activityMode.unitName)
-                        .font(DesignTokens.Typography.caption)
-                        .foregroundStyle(DesignTokens.Colors.textSecondary)
-                }
+        HStack {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(summary.dateString)
+                    .font(DesignTokens.Typography.headline)
+                GoalStatusBadge(met: summary.goalMet)
             }
-            .padding(DesignTokens.Spacing.md)
-            .glassCard(interactive: true)
+
+            Spacer()
+
+            HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xxs) {
+                Text(summary.steps.formattedSteps)
+                    .font(DesignTokens.Typography.title3.bold().monospacedDigit())
+                Text(activityMode.unitName)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(DesignTokens.Spacing.md)
+        .glassCard()
         .accessibleCard(
             label: "\(summary.dateString), \(summary.steps.formattedSteps) \(activityMode.unitName)",
             hint: summary.goalMet ? L10n.localized("Goal achieved") : L10n.localized("Goal not achieved")
@@ -550,6 +545,9 @@ struct GoalStatusBadge: View {
         .environment(insightService)
         .environment(foundationModelsService)
         .environment(demoModeStore)
+        // HistoryView gates the weekly AI trend card on PremiumAccessStore. Without it the
+        // preview crashes (same pattern as the Dashboard and AICoach previews).
+        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }
 
 #Preview("HistoryRow - Steps") {

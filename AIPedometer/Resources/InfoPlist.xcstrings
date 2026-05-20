@@ -42,13 +42,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Pedometer needs access to your step count and activity data to show your progress."
+            "value" : "AI Pedometer needs access to steps, wheelchair pushes, distance, heart rate, and activity data to show your progress."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Pedometer precisa acessar sua contagem de passos e dados de atividade para mostrar seu progresso."
+            "value" : "AI Pedometer precisa acessar passos, impulsos em cadeira de rodas, distância, frequência cardíaca e dados de atividade para mostrar seu progresso."
           }
         }
       }

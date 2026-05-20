@@ -87,3 +87,61 @@ struct WatchPayloadTests {
         #expect(decoded?.goalProgress == 2.0)
     }
 }
+
+// MARK: - WatchSyncService throttle (2026-05-19 audit)
+
+#if canImport(WatchConnectivity)
+@Suite("WatchSyncService throttle")
+@MainActor
+struct WatchSyncServiceThrottleTests {
+    @Test("First reachable message is always sent")
+    func firstReachableMessageIsAlwaysSent() {
+        let shouldSend = WatchSyncService.shouldSendReachableMessage(
+            lastSentAt: nil,
+            lastSentSteps: nil,
+            newSteps: 100,
+            now: Date(timeIntervalSince1970: 0)
+        )
+        #expect(shouldSend == true)
+    }
+
+    @Test("Tight CMPedometer bursts inside the 5s window get coalesced")
+    func tightBurstsGetCoalesced() {
+        let last = Date(timeIntervalSince1970: 100)
+        let now = last.addingTimeInterval(1)
+        let shouldSend = WatchSyncService.shouldSendReachableMessage(
+            lastSentAt: last,
+            lastSentSteps: 1000,
+            newSteps: 1003,
+            now: now
+        )
+        #expect(shouldSend == false)
+    }
+
+    @Test("Big step deltas inside the window still bust the throttle")
+    func bigDeltasBustTheThrottle() {
+        let last = Date(timeIntervalSince1970: 100)
+        let now = last.addingTimeInterval(1)
+        let shouldSend = WatchSyncService.shouldSendReachableMessage(
+            lastSentAt: last,
+            lastSentSteps: 1000,
+            newSteps: 1020,
+            now: now
+        )
+        #expect(shouldSend == true)
+    }
+
+    @Test("After 5 seconds we re-send even without a meaningful step delta")
+    func releasesAfterFiveSeconds() {
+        let last = Date(timeIntervalSince1970: 100)
+        let now = last.addingTimeInterval(6)
+        let shouldSend = WatchSyncService.shouldSendReachableMessage(
+            lastSentAt: last,
+            lastSentSteps: 1000,
+            newSteps: 1001,
+            now: now
+        )
+        #expect(shouldSend == true)
+    }
+}
+#endif

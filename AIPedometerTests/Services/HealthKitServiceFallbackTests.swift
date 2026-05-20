@@ -150,7 +150,7 @@ struct HealthKitServiceFallbackTests {
         }
     }
 
-    @Test("fetchLatestHeartRate forwards to primary instead of falling back to nil")
+    @Test("fetchLatestHeartRateSample forwards to primary instead of falling back to nil")
     func fetchLatestHeartRateForwardsToPrimary() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
         defer { cleanup() }
@@ -166,11 +166,11 @@ struct HealthKitServiceFallbackTests {
         )
 
         try await service.requestAuthorization()
-        let bpm = try await service.fetchLatestHeartRate(from: Date.now.addingTimeInterval(-3600), to: .now)
-        #expect(bpm == 88)
+        let sample = try await service.fetchLatestHeartRateSample(from: Date.now.addingTimeInterval(-3600), to: .now)
+        #expect(sample?.bpm == 88)
     }
 
-    @Test("fetchLatestHeartRate uses demo data when fake-data mode is on")
+    @Test("fetchLatestHeartRateSample uses demo data when fake-data mode is on")
     func fetchLatestHeartRateUsesFakeDataWhenEnabled() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: true)
         defer { cleanup() }
@@ -188,11 +188,11 @@ struct HealthKitServiceFallbackTests {
         )
 
         try await service.requestAuthorization()
-        let bpm = try await service.fetchLatestHeartRate(from: Date.now.addingTimeInterval(-3600), to: .now)
-        #expect(bpm != nil)
+        let sample = try await service.fetchLatestHeartRateSample(from: Date.now.addingTimeInterval(-3600), to: .now)
+        #expect(sample != nil)
     }
 
-    @Test("fetchLatestHeartRate returns nil when sync is disabled")
+    @Test("fetchLatestHeartRateSample returns nil when sync is disabled")
     func fetchLatestHeartRateRespectsSyncDisabled() async throws {
         let suiteName = "HealthKitServiceFallbackTests-sync-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
@@ -211,8 +211,8 @@ struct HealthKitServiceFallbackTests {
             userDefaults: defaults
         )
 
-        let bpm = try await service.fetchLatestHeartRate(from: Date.now.addingTimeInterval(-3600), to: .now)
-        #expect(bpm == nil)
+        let sample = try await service.fetchLatestHeartRateSample(from: Date.now.addingTimeInterval(-3600), to: .now)
+        #expect(sample == nil)
     }
 
     @Test("Authorization denial does not permanently latch empty reads after recovery")
@@ -283,7 +283,11 @@ private final class FailingHealthKitService: HealthKitServiceProtocol {
         throw queryError
     }
 
-    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? {
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? {
+        throw queryError
+    }
+
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double {
         throw queryError
     }
 
@@ -330,7 +334,9 @@ private final class SpyHealthKitService: HealthKitServiceProtocol {
     func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? { nil }
     func fetchDailySummaries(
         days: Int,
         activityMode: ActivityTrackingMode,
@@ -366,8 +372,12 @@ private final class MutableHealthKitService: HealthKitServiceProtocol {
     func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int { stepsToReturn }
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
-    func fetchLatestHeartRate(from startDate: Date, to endDate: Date) async throws -> Double? { heartRateToReturn }
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? {
+        guard let bpm = heartRateToReturn else { return nil }
+        return HeartRateSample(bpm: bpm, endDate: .now)
+    }
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
     func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
     func saveWorkout(_ session: WorkoutSession) async throws {}

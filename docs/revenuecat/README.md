@@ -285,7 +285,8 @@ Na implementação atual:
 
 - o app usa `PremiumAccessStore` como fonte única de verdade para `CustomerInfo`, `Offerings`, compra, restore, sync e gates premium
 - o About usa `CustomerCenter` oficial da RevenueCat
-- o paywall usa `PaywallView` oficial da RevenueCat sempre que há offering/config válidos
+- o paywall usa `PaywallView` oficial da RevenueCat somente quando o offering carregado tem Paywall v2 publicado (`Offering.hasPaywall == true`)
+- quando há packages mas não há Paywall v2 publicado, o app renderiza o fallback nativo próprio para evitar o paywall padrão/debug da RevenueCat
 
 Pontos importantes:
 
@@ -417,12 +418,12 @@ Fluxos implementados:
 - abrir gestão de assinatura
 - mostrar estado indisponível quando não há configuração válida
 
-O app usa `PaywallView` oficial da `RevenueCatUI` quando a configuração e o offering são válidos.
+O app usa `PaywallView` oficial da `RevenueCatUI` quando a configuração é válida e o offering carregado tem Paywall v2 publicado (`Offering.hasPaywall == true`). Se o offering existe e contém packages, mas não tem Paywall v2 publicado, o app mostra o fallback nativo próprio com compra/restore/manage subscription em vez de chamar o paywall padrão da RevenueCat.
 
 A lógica de acesso continua local e explícita:
 
 - `PremiumAccessStore` é a fonte única de verdade para entitlement, offerings e estado de compra
-- `PremiumAccessSheet` escolhe entre paywall oficial, ações de restore/manage e estado indisponível
+- `PremiumAccessSheet` escolhe entre paywall oficial, fallback nativo com packages, ações de restore/manage e estado indisponível
 - se RevenueCat não estiver configurado ou não retornar offerings válidos, a UI falha fechada
 
 ## Como os recursos premium são gated
@@ -507,6 +508,12 @@ Causas comuns:
 - produtos não vinculados ao entitlement
 - offering vazio
 - `REVENUECAT_OFFERING_ID` aponta para offering inexistente
+
+### Aparece banner vermelho "Offering 'default' has no configured paywall"
+
+Esse banner é da `RevenueCatUI` quando o app pede o paywall oficial para um offering sem Paywall v2 publicado. O app não deve chamar esse caminho nesse estado: `PremiumAccessSheet` usa `RevenueCatPaywallPolicy` e só renderiza `PaywallView(offering:)` quando `Offering.hasPaywall == true`.
+
+Se quiser usar o editor visual da RevenueCat, publique o Paywall v2 no dashboard para o offering configurado. Se quiser vender pelos cards nativos do app, mantenha os packages no offering; o fallback próprio continua comprando/restaurando pelo `PremiumAccessStore`.
 
 Verifique:
 

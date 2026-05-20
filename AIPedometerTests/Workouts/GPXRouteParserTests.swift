@@ -171,4 +171,29 @@ struct GPXRouteParserTests {
         ImportedRouteStorage.clear(defaults: defaults)
         #expect(ImportedRouteStorage.load(defaults: defaults) == nil)
     }
+
+    // MARK: - Localized error descriptions (2026-05-19 audit)
+
+    @Test("GPXRouteParserError surfaces human-readable, localized messages")
+    func gpxRouteParserErrorIsLocalized() {
+        // The file-importer alert in WorkoutsView reads `error.localizedDescription`.
+        // Without `LocalizedError` conformance Cocoa returned
+        // "The operation couldn't be completed. (AIPedometer.GPXRouteParserError error 0.)"
+        // and the user had no idea what failed. These checks make sure every case carries
+        // a non-default, non-empty description so the alert is actionable.
+        let cases: [GPXRouteParserError] = [
+            .invalidDocument,
+            .noRoutePoints,
+            .fileTooLarge,
+            .tooManyElements
+        ]
+
+        for error in cases {
+            let description = error.errorDescription ?? ""
+            #expect(!description.isEmpty)
+            #expect(!description.contains("couldn’t be completed"))
+            #expect(!description.contains("error 0."))
+            #expect(error.localizedDescription == description)
+        }
+    }
 }

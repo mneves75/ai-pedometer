@@ -18,15 +18,15 @@ struct ProgressRingWidgetView: View {
     let entry: WidgetStepEntry
 
     var body: some View {
-        ZStack {
-            ContainerRelativeShape()
-                .fill(.ultraThinMaterial)
-
+        Group {
             if let data = entry.data {
                 ProgressRingContent(data: data)
             } else {
                 ProgressRingPlaceholder()
             }
+        }
+        .containerBackground(for: .widget) {
+            DesignTokens.Colors.surface
         }
     }
 }
@@ -50,13 +50,19 @@ struct ProgressRingContent: View {
                         style: StrokeStyle(lineWidth: 10, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
+                    .widgetAccentable()
 
                 VStack(spacing: DesignTokens.Spacing.xxs) {
                     Text(data.todaySteps.formattedSteps)
                         .font(DesignTokens.Typography.headline.monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .widgetAccentable()
                     Text(L10n.localized("steps", comment: "Widget label for steps unit"))
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
             }
 
@@ -69,6 +75,8 @@ struct ProgressRingContent: View {
             )
                 .font(DesignTokens.Typography.caption2)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
         .padding(DesignTokens.Spacing.md)
     }
@@ -90,6 +98,8 @@ struct ProgressRingPlaceholder: View {
             )
                 .font(DesignTokens.Typography.caption2)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
         .padding(DesignTokens.Spacing.md)
         .redacted(reason: .placeholder)

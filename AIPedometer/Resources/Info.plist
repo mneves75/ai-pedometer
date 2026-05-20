@@ -26,7 +26,7 @@
 	<key>RevenueCatOfferingID</key>
 	<string>$(REVENUECAT_OFFERING_ID)</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>AI Pedometer needs access to your step count and activity data to show your progress.</string>
+	<string>AI Pedometer needs access to steps, wheelchair pushes, distance, heart rate, and activity data to show your progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>AI Pedometer saves workouts to Apple Health to keep your records consistent.</string>
 	<key>NSMotionUsageDescription</key>
