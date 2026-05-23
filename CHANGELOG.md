@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.78] - 2026-05-23
+
 ### Changed
 
+- Release metadata bump: updated app version/build to `0.78 (34)`.
+- App Store publishing commands and top-level version references now point to `0.78`.
 - Moved GPX route file-access and storage orchestration behind `GPXRouteImporter`, keeping Workouts focused on UI state while preserving local-only Routes & GPX behavior.
 - Moved active training-plan workout recommendation projection into `TrainingPlanRecord`, so Workouts consumes a model-owned current-week recommendation instead of duplicating plan mapping logic.
+
+### Docs
+
+- Synced README, App Store publishing playbook, build/testing agent docs, and local memory with the `0.78 (34)` release.
 
 ### Tests
 
