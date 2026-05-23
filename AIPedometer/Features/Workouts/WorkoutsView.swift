@@ -22,7 +22,7 @@ struct WorkoutsView: View {
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
     @State private var hasLoadedRecommendation = false
-    @State private var importedRoute: ImportedRoute? = ImportedRouteStorage.load()
+    @State private var importedRoute: ImportedRoute? = GPXRouteImporter.loadImportedRoute()
     @State private var isImportingRoute = false
     @State private var routeImportError: RouteImportError?
 
@@ -256,7 +256,7 @@ struct WorkoutsView: View {
 
                 if let importedRoute {
                     ImportedRouteSummary(route: importedRoute) {
-                        ImportedRouteStorage.clear()
+                        GPXRouteImporter.clearImportedRoute()
                         self.importedRoute = nil
                     }
                 } else {
@@ -511,25 +511,7 @@ struct WorkoutsView: View {
     private func importRoute(from result: Result<[URL], any Error>) {
         do {
             guard let url = try result.get().first else { return }
-            let didAccess = url.startAccessingSecurityScopedResource()
-            defer {
-                if didAccess {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
-
-            // Reject oversized payloads before allocating: `Data(contentsOf:)` would otherwise
-            // load the entire file into memory before the parser's size cap fires.
-            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-            if let fileSize = attributes[.size] as? NSNumber,
-               fileSize.intValue > GPXRouteParser.maxFileSizeBytes {
-                throw GPXRouteParserError.fileTooLarge
-            }
-
-            let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-            let route = try GPXRouteParser.parse(data: data, sourceFilename: url.lastPathComponent)
-            try ImportedRouteStorage.save(route)
-            importedRoute = route
+            importedRoute = try GPXRouteImporter.importRoute(from: url)
         } catch {
             routeImportError = RouteImportError(message: error.localizedDescription)
         }
@@ -545,14 +527,14 @@ struct WorkoutsView: View {
 
     private var displayedRecommendation: AIWorkoutRecommendation? {
         if let activePlan {
-            return recommendation(for: activePlan)
+            return activePlan.currentWorkoutRecommendation
         }
         return workoutRecommendation
     }
 
     private var displayedRecommendationSummary: String? {
         if let activePlan {
-            return activePlan.currentWeekTarget?.focusTip ?? activePlan.planDescription
+            return activePlan.currentWorkoutRecommendationSummary
         }
         return workoutRecommendation.map { $0.intent.localizedDescription }
     }
@@ -566,42 +548,6 @@ struct WorkoutsView: View {
             return activePlan.planDescription
         }
         return L10n.localized("Get personalized plans powered by AI", comment: "Training plans card subtitle")
-    }
-
-    private func recommendation(for plan: TrainingPlanRecord) -> AIWorkoutRecommendation? {
-        guard let target = plan.currentWeekTarget else { return nil }
-
-        return AIWorkoutRecommendation(
-            intent: intent(for: plan),
-            difficulty: difficulty(for: target.dailyStepTarget),
-            rationale: plan.planDescription,
-            targetSteps: target.dailyStepTarget,
-            estimatedMinutes: max(Int(Double(target.dailyStepTarget) / 110.0), 15),
-            suggestedTimeOfDay: .anytime
-        )
-    }
-
-    private func intent(for plan: TrainingPlanRecord) -> WorkoutIntent {
-        switch TrainingGoalType(rawValue: plan.primaryGoal) {
-        case .startWalking, .improveConsistency:
-            return .maintain
-        case .buildEndurance, .reach10k:
-            return .build
-        case .weightManagement:
-            return .explore
-        case .none:
-            return .maintain
-        }
-    }
-
-    private func difficulty(for targetSteps: Int) -> Int {
-        switch targetSteps {
-        case ..<3_500: return 1
-        case ..<6_000: return 2
-        case ..<9_000: return 3
-        case ..<12_000: return 4
-        default: return 5
-        }
     }
 
     static func recentCompletedWorkouts(
