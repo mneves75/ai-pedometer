@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Moved GPX route file-access and storage orchestration behind `GPXRouteImporter`, keeping Workouts focused on UI state while preserving local-only Routes & GPX behavior.
+- Moved active training-plan workout recommendation projection into `TrainingPlanRecord`, so Workouts consumes a model-owned current-week recommendation instead of duplicating plan mapping logic.
+
+### Tests
+
+- Full simulator suite passed on iPhone 17 after the architecture cleanup: 16 XCTest unit tests, 435 Swift Testing tests, and 15 UI tests.
+
 ## [0.77] - 2026-05-20
 
 ### Added
@@ -19,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a regression where the Dashboard heart-rate card never displayed data because the production `HealthKitServiceFallback` wrapper inherited the protocol's default `fetchLatestHeartRate` (returning `nil`) instead of forwarding to the primary or demo HealthKit service.
-- Hardened the GPX route importer against malformed or hostile input: file payloads are size-capped at 5 MiB before allocation (Workouts now checks file attributes before mapping into memory), parsing aborts after 50,000 track points / 5,000 waypoints, non-finite or out-of-range coordinates and elevations are rejected, and external XML entity resolution is explicitly disabled (XXE defense in depth).
+- Hardened the GPX route importer against malformed or hostile input: file payloads are size-capped at 5 MiB before allocation (`GPXRouteImporter` checks file attributes before mapping into memory), parsing aborts after 50,000 track points / 5,000 waypoints, non-finite or out-of-range coordinates and elevations are rejected, and external XML entity resolution is explicitly disabled (XXE defense in depth).
 - Made the test-only forced-premium / forced-HealthKit-sync launch overrides fail closed in App Store release builds, so a stray launch argument or environment variable on a tampered binary cannot unlock Premium AI or reshape user data.
 - Gated AI-generated badge celebrations behind the same Premium boundary as the rest of the AI surfaces (Foundation Models is no longer invoked from `BadgeService` for non-Premium users), and reset the smart-notification interruption level from `.timeSensitive` to `.active` so coaching reminders respect Focus modes.
 - Replaced `MotionService.query`'s `CMPedometer.startUpdates(from:)` workaround (live-updates API used for a one-shot read, manually guarded by a dedupe lock and `defer { stopUpdates() }`) with Apple's purpose-built `queryPedometerData(from:to:withHandler:)` — same behavior, no manual teardown, no callback dedupe gymnastics.

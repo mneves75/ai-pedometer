@@ -105,6 +105,48 @@ final class TrainingPlanRecord {
     }
 }
 
+extension TrainingPlanRecord {
+    var currentWorkoutRecommendation: AIWorkoutRecommendation? {
+        guard let target = currentWeekTarget else { return nil }
+
+        return AIWorkoutRecommendation(
+            intent: workoutIntent,
+            difficulty: Self.workoutDifficulty(for: target.dailyStepTarget),
+            rationale: planDescription,
+            targetSteps: target.dailyStepTarget,
+            estimatedMinutes: max(Int(Double(target.dailyStepTarget) / 110.0), 15),
+            suggestedTimeOfDay: .anytime
+        )
+    }
+
+    var currentWorkoutRecommendationSummary: String {
+        currentWeekTarget?.focusTip ?? planDescription
+    }
+
+    private var workoutIntent: WorkoutIntent {
+        switch TrainingGoalType(rawValue: primaryGoal) {
+        case .startWalking, .improveConsistency:
+            return .maintain
+        case .buildEndurance, .reach10k:
+            return .build
+        case .weightManagement:
+            return .explore
+        case .none:
+            return .maintain
+        }
+    }
+
+    private static func workoutDifficulty(for targetSteps: Int) -> Int {
+        switch targetSteps {
+        case ..<3_500: return 1
+        case ..<6_000: return 2
+        case ..<9_000: return 3
+        case ..<12_000: return 4
+        default: return 5
+        }
+    }
+}
+
 extension TrainingPlanRecord.PlanStatus {
     var localizedName: String {
         switch self {

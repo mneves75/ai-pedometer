@@ -55,6 +55,45 @@ struct TrainingPlanRecordTests {
         #expect(!record.isActive)
     }
 
+    @Test("current workout recommendation uses the active weekly target")
+    func currentWorkoutRecommendationUsesActiveWeeklyTarget() {
+        let record = makeRecord(startDate: Date(timeIntervalSince1970: 1_700_000_000), weeks: 1)
+        record.planDescription = "Build toward a stronger routine"
+        record.primaryGoal = TrainingGoalType.reach10k.rawValue
+        record.weeklyTargets = [
+            WeeklyTarget(
+                weekNumber: 1,
+                dailyStepTarget: 9_000,
+                activeDaysRequired: 5,
+                focusTip: "Keep your route steady"
+            )
+        ]
+
+        let recommendation = record.currentWorkoutRecommendation
+
+        #expect(recommendation?.intent == .build)
+        #expect(recommendation?.difficulty == 4)
+        #expect(recommendation?.rationale == "Build toward a stronger routine")
+        #expect(recommendation?.targetSteps == 9_000)
+        #expect(recommendation?.estimatedMinutes == 81)
+        #expect(recommendation?.suggestedTimeOfDay == .anytime)
+        #expect(record.currentWorkoutRecommendationSummary == "Keep your route steady")
+    }
+
+    @Test("current workout recommendation falls back safely when plan data is incomplete")
+    func currentWorkoutRecommendationFallsBackSafely() {
+        let emptyRecord = makeRecord(startDate: Date(timeIntervalSince1970: 1_700_000_000), weeks: 0)
+        emptyRecord.planDescription = "No current target yet"
+
+        #expect(emptyRecord.currentWorkoutRecommendation == nil)
+        #expect(emptyRecord.currentWorkoutRecommendationSummary == "No current target yet")
+
+        let unknownGoalRecord = makeRecord(startDate: Date(timeIntervalSince1970: 1_700_000_000), weeks: 1)
+        unknownGoalRecord.primaryGoal = "unknown"
+
+        #expect(unknownGoalRecord.currentWorkoutRecommendation?.intent == .maintain)
+    }
+
     private func makeRecord(startDate: Date, weeks: Int) -> TrainingPlanRecord {
         let record = TrainingPlanRecord()
         record.startDate = startDate

@@ -142,7 +142,9 @@ The docs now reflect this reality: `PRD.md`, `README.md`, `CHANGELOG.md`, and `d
 
 Expedition Mode follows the same rule. The visible toggle lives on Workouts and is only shown to Premium users, but the session controller also rechecks premium-gated `UserDefaults` state before changing live metrics cadence. That keeps battery-saver behavior from becoming an entitlement bypass.
 
-Routes & GPX is currently a local-first premium import surface with a MapKit preview, not full offline mapping. The parser lives in `Shared/Utilities/GPXRouteParser.swift`, stores only the last imported summary through `ImportedRouteStorage`, and keeps coordinates bounded for preview rendering. Do not claim live/offline maps or Apple Watch maps until those are actually built and verified.
+Routes & GPX is currently a local-first premium import surface with a MapKit preview, not full offline mapping. `Shared/Utilities/GPXRouteImporter.swift` owns the file import path: security-scoped URL access, file-size preflight, mapped file read, parser call, and storage. `Shared/Utilities/GPXRouteParser.swift` owns GPX validation and summary creation; `ImportedRouteStorage` stores only the last imported summary. Do not move file-ingest details back into `WorkoutsView`, and do not claim live/offline maps or Apple Watch maps until those are actually built and verified.
+
+Active training plans project into workout cards through `TrainingPlanRecord.currentWorkoutRecommendation` and `currentWorkoutRecommendationSummary`. Keep current-week target selection, goal-to-intent mapping, difficulty, and estimated-minutes logic behind that model interface instead of rebuilding it in `WorkoutsView`.
 
 Heart rate is read as the latest HealthKit sample for the current day and shown on the Dashboard. It is intentionally display-only for now; do not use it for medical advice, training-zone prescriptions, or AI claims without a separate safety review.
 

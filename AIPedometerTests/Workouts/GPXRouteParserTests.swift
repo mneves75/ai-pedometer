@@ -172,6 +172,52 @@ struct GPXRouteParserTests {
         #expect(ImportedRouteStorage.load(defaults: defaults) == nil)
     }
 
+    @Test("GPXRouteImporter saves a valid GPX route through one interface")
+    func importerSavesValidGPXRoute() throws {
+        let suiteName = "GPXRouteImporterTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let routeURL = try writeTemporaryGPX(
+            filename: "trail.gpx",
+            contents: """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <gpx version="1.1">
+              <metadata><name>Trail</name></metadata>
+              <trk><trkseg>
+                <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+                <trkpt lat="37.33282" lon="-122.03218"><ele>15</ele></trkpt>
+              </trkseg></trk>
+            </gpx>
+            """
+        )
+        defer { try? FileManager.default.removeItem(at: routeURL.deletingLastPathComponent()) }
+
+        let route = try GPXRouteImporter.importRoute(from: routeURL, defaults: defaults)
+
+        #expect(route.name == "Trail")
+        #expect(route.sourceFilename == "trail.gpx")
+        #expect(ImportedRouteStorage.load(defaults: defaults) == route)
+    }
+
+    @Test("GPXRouteImporter rejects oversized files before storage")
+    func importerRejectsOversizedFileBeforeStorage() throws {
+        let suiteName = "GPXRouteImporterTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let routeURL = try writeTemporaryGPX(
+            filename: "huge.gpx",
+            data: Data(count: GPXRouteParser.maxFileSizeBytes + 1)
+        )
+        defer { try? FileManager.default.removeItem(at: routeURL.deletingLastPathComponent()) }
+
+        #expect(throws: GPXRouteParserError.fileTooLarge) {
+            _ = try GPXRouteImporter.importRoute(from: routeURL, defaults: defaults)
+        }
+        #expect(ImportedRouteStorage.load(defaults: defaults) == nil)
+    }
+
     // MARK: - Localized error descriptions (2026-05-19 audit)
 
     @Test("GPXRouteParserError surfaces human-readable, localized messages")
@@ -195,5 +241,18 @@ struct GPXRouteParserTests {
             #expect(!description.contains("error 0."))
             #expect(error.localizedDescription == description)
         }
+    }
+
+    private func writeTemporaryGPX(filename: String, contents: String) throws -> URL {
+        try writeTemporaryGPX(filename: filename, data: Data(contents.utf8))
+    }
+
+    private func writeTemporaryGPX(filename: String, data: Data) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GPXRouteImporterTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent(filename)
+        try data.write(to: url)
+        return url
     }
 }

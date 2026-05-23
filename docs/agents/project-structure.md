@@ -13,3 +13,8 @@
 - `Config/` holds xcconfig build settings (warnings as errors, strict concurrency).
 - Minimum targets: iOS 26.0, watchOS 26.0 (see `project.yml`).
 - HealthKit entitlements live in each target's `Resources/*.entitlements`.
+
+## Ownership Notes
+- GPX file access, security-scoped reads, file-size preflight, parsing handoff, and persisted route storage are owned by `Shared/Utilities/GPXRouteImporter.swift`.
+- GPX XML validation and coordinate parsing are owned by `Shared/Utilities/GPXRouteParser.swift`.
+- Active training-plan workout recommendation projection is owned by `TrainingPlanRecord`; Workouts should consume the model projection instead of duplicating current-week mapping rules.
