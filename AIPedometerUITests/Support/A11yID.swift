@@ -63,6 +63,10 @@ enum A11yID {
         static let list = "badges_list"
     }
 
+    enum Onboarding {
+        static let goalSlider = "onboarding_goal_slider"
+    }
+
     enum Settings {
         static let marker = "settings_view"
         static let list = "settings_list"

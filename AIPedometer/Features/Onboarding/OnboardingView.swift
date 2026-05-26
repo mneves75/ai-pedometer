@@ -77,6 +77,16 @@ struct OnboardingView: View {
 
                 Slider(value: $dailyGoal, in: 1000...20000, step: 500)
                     .tint(DesignTokens.Colors.accent)
+                    .accessibilityIdentifier(A11yID.Onboarding.goalSlider)
+                    .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for daily step goal slider"))
+                    .accessibilityValue(
+                        Localization.format(
+                            "%lld steps",
+                            comment: "Step count with unit",
+                            Int64(dailyGoal)
+                        )
+                    )
+                    .accessibilityHint(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
             }
             .padding(DesignTokens.Spacing.md)
             .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
