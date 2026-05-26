@@ -88,9 +88,12 @@ struct MainTabView: View {
                         selectedTab = tab
                     } label: {
                         Label(tab.title, systemImage: tab.icon)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier(A11yID.tab(tab.rawValue))
+                    .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
                     .listRowBackground(
                         selectedTab == tab
                             ? DesignTokens.Colors.accentMuted

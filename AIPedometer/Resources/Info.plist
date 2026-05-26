@@ -5,7 +5,6 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.mneves.aipedometer.refresh</string>
-		<string>com.mneves.aipedometer.processing</string>
 	</array>
 	<key>CFBundleDisplayName</key>
 	<string>AI Pedometer</string>
@@ -34,7 +33,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
-		<string>processing</string>
 		<string>health-updates</string>
 	</array>
 	<key>UILaunchScreen</key>

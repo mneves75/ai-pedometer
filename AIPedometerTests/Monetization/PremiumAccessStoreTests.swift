@@ -97,6 +97,23 @@ struct PremiumAccessStoreTests {
         #expect(client.configureCallCount == 0)
     }
 
+    @Test("testing mode without explicit override does not unlock premium")
+    func testingModeWithoutExplicitOverrideDoesNotUnlockPremium() async {
+        let client = FakePurchasesClient()
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: nil, entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: true,
+            purchasesClient: client
+        )
+
+        await store.prepare()
+
+        #expect(store.state == .notConfigured)
+        #expect(store.canAccessAIFeatures == false)
+        #expect(client.configureCallCount == 0)
+    }
+
     @Test("prepare resolves access while customer info is loading")
     func prepareMarksResolvingAccessUntilCustomerInfoArrives() async {
         let client = FakePurchasesClient()
@@ -206,14 +223,20 @@ struct PremiumAccessStoreTests {
         #expect(store.canAccessAIFeatures == false)
     }
 
-    @Test("restore unlocks premium when RevenueCat returns a known premium product id but no matching entitlement slug")
-    func restoreUnlocksPremiumForKnownPremiumProductWithoutEntitlementSlug() async {
+    @Test("restore does not unlock premium from product ids without a matching entitlement")
+    func restoreDoesNotUnlockPremiumFromProductIDsWithoutMatchingEntitlement() async {
         let client = FakePurchasesClient()
         client.restoreResult = .success(
             makeCustomerInfo(
                 activeEntitlementIDs: [],
-                activeProductIDs: ["com.mneves.aipedometer.premium.yearly"],
-                purchasedProductIDs: ["com.mneves.aipedometer.premium.yearly"]
+                activeProductIDs: [
+                    "monthly",
+                    "com.mneves.aipedometer.premium.yearly"
+                ],
+                purchasedProductIDs: [
+                    "monthly",
+                    "com.mneves.aipedometer.premium.yearly"
+                ]
             )
         )
 
@@ -227,7 +250,7 @@ struct PremiumAccessStoreTests {
         await store.restorePurchases()
 
         #expect(store.state == .ready)
-        #expect(store.canAccessAIFeatures == true)
+        #expect(store.canAccessAIFeatures == false)
     }
 
     @Test("restore does not unlock premium for the tip jar product")

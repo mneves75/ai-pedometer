@@ -1,5 +1,6 @@
 #if os(iOS)
 import ActivityKit
+import Foundation
 import SwiftUI
 import WidgetKit
 
@@ -58,7 +59,7 @@ struct WorkoutLiveActivityWidget: Widget {
     }
 
     private func distanceText(_ distance: Double) -> String {
-        distance.formatted(.number.precision(.fractionLength(2)))
+        LiveActivityDistanceFormatter.string(kilometers: distance)
     }
 }
 
@@ -102,7 +103,17 @@ struct LockScreenWorkoutView: View {
     }
 
     private func distanceText(_ distance: Double) -> String {
-        distance.formatted(.number.precision(.fractionLength(2)))
+        LiveActivityDistanceFormatter.string(kilometers: distance)
+    }
+}
+
+private enum LiveActivityDistanceFormatter {
+    static func string(kilometers: Double) -> String {
+        let formatter = MeasurementFormatter()
+        formatter.unitStyle = .short
+        formatter.unitOptions = .naturalScale
+        let measurement = Measurement(value: kilometers * 1_000, unit: UnitLength.meters)
+        return formatter.string(from: measurement)
     }
 }
 
@@ -112,7 +123,7 @@ private enum LiveActivityUnits {
     }
 
     static var distance: String {
-        L10n.localized("km", comment: "Live Activity distance unit").uppercased()
+        L10n.localized("dist", comment: "Abbreviated Live Activity distance label").uppercased()
     }
 
     static var calories: String {

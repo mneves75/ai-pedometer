@@ -412,20 +412,24 @@ struct CreatePlanSheet: View {
                     AIDisclaimerText()
                 }
             }
+            .disabled(isGenerating)
+            .accessibilityHidden(isGenerating)
             .navigationTitle(L10n.localized("Create Plan", comment: "Create plan navigation title"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.localized("Cancel", comment: "Cancel button")) { dismiss() }
-                }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(L10n.localized("Cancel", comment: "Cancel button")) { dismiss() }
+                            .disabled(isGenerating)
+                    }
 
-                ToolbarItem(placement: .confirmationAction) {
+                    ToolbarItem(placement: .confirmationAction) {
                     Button(L10n.localized("Create", comment: "Create button")) {
                         Task { await createPlan() }
                     }
                     .disabled(isGenerating)
                 }
             }
+            .interactiveDismissDisabled(isGenerating)
             .overlay {
                 if isGenerating {
                     ZStack {
@@ -440,7 +444,10 @@ struct CreatePlanSheet: View {
                         }
                         .padding(DesignTokens.Spacing.lg)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(L10n.localized("Creating your personalized plan...", comment: "Training plan creation loading text"))
                     }
+                    .accessibilityAddTraits(.isModal)
                 }
             }
         }

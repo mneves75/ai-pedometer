@@ -151,7 +151,6 @@ enum AppConstants {
 
     enum BackgroundTaskIdentifiers {
         static let refresh = "com.mneves.aipedometer.refresh"
-        static let processing = "com.mneves.aipedometer.processing"
     }
 
     enum Notifications {

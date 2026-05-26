@@ -21,10 +21,16 @@ struct HealthKitAuthorizationTests {
         #expect(readTypes.contains(HKObjectType.workoutType()))
     }
 
-    @Test("Requested write types stay limited to workouts")
+    @Test("Requested write types match saved workout samples")
     @MainActor
-    func requestedWriteTypesStayLimitedToWorkouts() {
-        #expect(HealthKitAuthorization.requestedWriteTypes == [HKWorkoutType.workoutType()])
+    func requestedWriteTypesMatchSavedWorkoutSamples() {
+        let writeTypes = HealthKitAuthorization.requestedWriteTypes
+
+        #expect(writeTypes.contains(HKWorkoutType.workoutType()))
+        #expect(writeTypes.contains(HKQuantityType(.stepCount)))
+        #expect(writeTypes.contains(HKQuantityType(.distanceWalkingRunning)))
+        #expect(writeTypes.contains(HKQuantityType(.activeEnergyBurned)))
+        #expect(writeTypes.count == 4)
     }
 
     @Test("Privacy manifest declares Health and Fitness data categories")

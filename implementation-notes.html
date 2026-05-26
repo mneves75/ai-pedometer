@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>AIPedometer — Implementation Notes (Audit Cycle, 2026-05-19)</title>
+<title>AIPedometer — Implementation Notes (Audit Cycles)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root {
@@ -76,7 +76,7 @@
 </head>
 <body>
 <h1>AIPedometer — Implementation Notes</h1>
-<p class="meta">Audit cycle starting <b>2026-05-19</b>. Branch <code>master</code>. Goal: <i>treat the codebase as if it shipped 6 months ago and a barrage of bug reports just arrived. Find the latent problems; fix them; loop until 100% confidence.</i> This document is a running journal of every non-trivial decision, deviation, tradeoff, and open question.</p>
+<p class="meta">Audit cycles starting <b>2026-05-19</b>, with the current continuation cycle on <b>2026-05-25</b>. Branch <code>master</code>. Goal: <i>treat the codebase as if it shipped 6 months ago and users already found the failures. Find latent problems, fix justified issues, and reach the highest evidence-backed confidence possible without claiming literal certainty.</i> This document is a running journal of every non-trivial decision, deviation, tradeoff, validation result, and open question.</p>
 
 <nav class="toc card">
   <b>Contents</b>
@@ -104,17 +104,27 @@
 <h2 id="baseline">Baseline (state at session start)</h2>
 <div class="card">
   <div class="grid">
-    <div class="kv"><b>Marketing version</b><br/>0.76 (32)</div>
-    <div class="kv"><b>Last green local suite</b><br/>418 unit + 15 UI (2026-05-15 cycle 3)</div>
-    <div class="kv"><b>Last commit</b><br/><code>4b70292</code> Preserve audit evidence</div>
-    <div class="kv"><b>Working tree</b><br/>clean</div>
-    <div class="kv"><b>Swift</b><br/>6.2, strict concurrency, warnings as errors</div>
+    <div class="kv"><b>Marketing version</b><br/>0.78 (34)</div>
+    <div class="kv"><b>Last documented full suite</b><br/>16 XCTest unit + 435 Swift Testing + 15 UI (2026-05-23 release notes)</div>
+    <div class="kv"><b>Current cycle start</b><br/>2026-05-25</div>
+    <div class="kv"><b>Working tree at start</b><br/>pre-existing dirty memory files only: <code>memory/2026-05-20.md</code>, <code>memory/2026-05-24.md</code></div>
+    <div class="kv"><b>Toolchain</b><br/>Xcode 26.5, Swift 6.3.2, project Swift setting 6.2</div>
     <div class="kv"><b>Targets</b><br/>iOS 26 + watchOS 26 + widget extension</div>
   </div>
 </div>
 
 <h2 id="findings">Findings</h2>
 <p class="meta">Each finding is logged here with priority, evidence, and resolution. P0 = data loss / security / fail-closed bypass. P1 = correctness or user-facing bug. P2 = hygiene / future risk. INFO = noted but accepted.</p>
+
+<!-- 2026-05-25 CONTINUATION CYCLE -->
+
+<div class="card" id="cycle-2026-05-25-start">
+  <h3><span class="tag tag-info">CURRENT</span>2026-05-25 full UI/source/security review loop started</h3>
+  <p><b>Scope lock:</b> root confirmed as <code>/Users/mneves/dev/PROJETOS_MOBILE/ai-pedometer</code>. Repo instructions, local memory, field guide, pragmatic rules, security guidelines, README, tech stack, app flow, design system, frontend guidelines, and agent build/testing docs were read before source edits.</p>
+  <p><b>Dirty-state constraint:</b> pre-existing unrelated changes in <code>memory/2026-05-20.md</code> and untracked <code>memory/2026-05-24.md</code> are outside this task and must remain untouched. This cycle created <code>memory/2026-05-25.md</code> because today’s required journal was missing.</p>
+  <p><b>External/current guidance:</b> loaded modern web accessibility/performance guidance, iOS design guidance, SwiftUI Liquid Glass guidance, SwiftUI performance guidance, Swift concurrency guidance, and Xcode 26.5 AdditionalDocumentation for SwiftUI Liquid Glass, WidgetKit Liquid Glass, Foundation Models, Swift Concurrency, and Assistive Access.</p>
+  <p><b>Review lanes active:</b> Claude Code design review is authenticated and running. Native Codex subagents are running read-only UI/UX, source/security, architecture/security-boundary, and test-coverage reviews. No critical/high finding may be closed without implementation evidence plus reviewer recheck.</p>
+</div>
 
 <!-- CYCLE 1 FINDINGS -->
 
@@ -192,6 +202,22 @@
   <p><b>Evidence source:</b> A read-only Claude Code pass plus native <code>code-reviewer</code>, <code>designer</code>, and <code>test-engineer</code> agents independently re-audited the source and UI after the first repair cycle. Their overlapping findings drove this final batch.</p>
   <p><b>Fixes shipped:</b> startup and foreground cancellation now retry instead of latching partial work; HealthKit zero-step + Motion-probe failure now clears stale step/HR state; HealthKit read types, usage copy, privacy manifest, and tests explicitly include wheelchair distance and heart rate; RevenueCat fallback never renders the SDK default paywall unless the offering has Paywall v2; localization coverage now checks every shared string for <code>en</code> and <code>pt-BR</code>.</p>
   <p><b>UI/UX fixes shipped:</b> watch summary scrolls instead of clipping; widgets use modern <code>containerBackground(for: .widget)</code> and accentable content; the manual step-length slider exposes an adjustable VoiceOver label/value; dashboard heart-rate accessibility avoids reading the visual middle dot; Active Workout content is scroll-safe with pinned actions; History rows no longer present a false tap affordance; AI Coach chips wrap more safely.</p>
+</div>
+
+<div class="card" id="finding-2026-05-25-audit-batch">
+  <h3><span class="tag tag-ok">SHIPPED</span>2026-05-25/26 frontend, security, and source audit batch</h3>
+  <p><b>Evidence source:</b> modern-web/accessibility guidance, local Xcode 26.5 Apple documentation, Claude Code design review, Codex UI/source/security reviewers, and a full local simulator/test/build/static loop.</p>
+  <p><b>Fixes shipped:</b> Reduce Motion is now honored across dashboard, AI, badge, history, workout, and availability animation surfaces; onboarding is scroll-safe with a pinned final action and no async completion race; iPad sidebar rows expose selected state without using the unavailable native selection initializer; support and progress surfaces expose stronger accessibility summaries; training-plan generation blocks form interaction while loading and validates AI payloads more aggressively; Live Activity distance uses the user's measurement formatting instead of hardcoded km; locked badges no longer dim the entire card.</p>
+  <p><b>Security/trust-boundary fixes:</b> premium no longer auto-unlocks under UI testing and no longer falls back from unknown product identifiers; GPX route import is premium-gated at the import boundary; HealthKit workout saves now request every quantity type they write; the unused BGProcessing task entitlement/config path was removed; payment-device cleanup now validates paths before deleting any build artifact directory.</p>
+  <p><b>Regression coverage:</b> added or updated tests for HealthKit write-type authorization, premium fail-closed state, training-plan payload validation, GPX import gating, removed background processing, accessibility motion helpers, and payment script path safety.</p>
+</div>
+
+<div class="card" id="finding-onboarding-skip-consent">
+  <h3><span class="tag tag-ok">SHIPPED</span>Final reviewer blocker: Skip must not request Health/Motion access</h3>
+  <p><b>Finding:</b> the final UI reviewer found a high-severity consent regression: the <code>Skip</code> button reused <code>completeOnboarding()</code>, which now awaited Health/Motion permission requests before leaving onboarding.</p>
+  <p><b>Fix:</b> <code>skipOnboarding()</code> now persists the current goal and marks onboarding complete without calling <code>requestPermissionsIfNeeded()</code>. The explicit <code>Get Started</code> path keeps the permission request flow. This preserves user intent: Skip means skip setup, not trigger permission prompts.</p>
+  <p><b>Related medium fixes:</b> the custom onboarding dots now expose <code>Step X of 3</code> to VoiceOver; training-plan generation disables Cancel and interactive dismissal while modal generation is active; Live Activity distance uses the shorter localized <code>DIST</code> label because the value already carries the natural unit.</p>
+  <p><b>Regression:</b> <code>testOnboardingSkipReachesMainTabsWithoutPermissionStep</code> passed and is included in the final full UI suite.</p>
 </div>
 
 <div class="card" id="finding-healthkit-protocol-defaults">
@@ -272,7 +298,7 @@
 
 <div class="card">
   <h3>T1. Wheelchair distance via <code>HKQuantityTypeIdentifier.distanceWheelchair</code></h3>
-  <p><b>Considered:</b> add the wheelchair distance fetch in this cycle, matching the new <code>distanceWheelchair</code> type Apple ships. <b>Decided:</b> defer to a follow-up milestone. <b>Why:</b> adding a new HK read type requires entitlement + privacy manifest review, plus updated copy in onboarding and Settings. That is a product-shaped change, not an audit fix. Tracking item in the “Open questions” section so it surfaces on the next pass.</p>
+  <p><b>Considered:</b> initially deferred because adding a HealthKit read type required entitlement, privacy-manifest, and copy review. <b>Final decision:</b> shipped after that review showed the privacy manifest already covered the Health/Fitness categories and the authorization surface could be tested directly. This note stays here as the decision history, not an open risk.</p>
 </div>
 
 <div class="card">
@@ -368,7 +394,7 @@
 <div class="card">
   <h3>Confidence statement</h3>
   <p>I exercised every Swift file under <code>AIPedometer/</code>, <code>Shared/</code>, <code>AIPedometerWatch/</code>, <code>AIPedometerWidgets/</code> during cycle 1. Cycle 2 caught my own “preserve HR forever” mis-step and corrected it to Apple-aligned semantics. Cycle 3 (the implicit final pass while writing this doc) re-read every change and matched it against the suite results. Every fail-closed boundary identified at session start still has at least one regression test; every new behavior introduced has a passing test. Build is warnings-as-errors clean and the static analyzer is silent.</p>
-  <p><b>Confidence: 100% on the fixes shipped today.</b></p>
+  <p><b>Confidence:</b> high and evidence-backed for the simulator/build/static surfaces listed below. This is not a literal certainty claim; the remaining gaps require hardware or live payment/dashboard credentials.</p>
 </div>
 
 <div class="card">
@@ -433,6 +459,24 @@
     <li><code>bash Scripts/verify-device-identifiers.sh</code> — no sensitive hardcoded device identifiers found.</li>
   </ul>
   <p><b>Stop condition:</b> Current local simulator/build/static evidence is green, the explicit Claude Code follow-up found no remaining blocker, and the recoverable follow-up findings from that review were fixed with regression tests. Remaining gaps require external state or hardware: physical iPhone/Watch install and live RevenueCat/App Store sandbox purchase/restore validation.</p>
+</div>
+
+<div class="card">
+  <h3>Full audit continuation verification (2026-05-25/26)</h3>
+  <ul>
+    <li><code>pwd</code> and <code>git rev-parse --show-toplevel</code> — both confirmed <code>/Users/mneves/dev/PROJETOS_MOBILE/ai-pedometer</code>.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -parallel-testing-enabled NO -only-testing:AIPedometerTests/HealthKitAuthorizationTests -only-testing:AIPedometerTests/PremiumAccessStoreTests -only-testing:AIPedometerTests/TrainingPlanServiceTests -only-testing:AIPedometerTests/WorkoutsViewTests -only-testing:AIPedometerTests/BackgroundTaskServiceTests -only-testing:AIPedometerTests/AccessibilityModifiersTests</code> — <b>TEST SUCCEEDED</b>; targeted regressions passed.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -parallel-testing-enabled NO</code> — first run exposed one UI test expectation that still relied on implicit premium unlock. The app behavior was correct; the test was updated to request explicit forced premium.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerUITests/AIPedometerUITests/testTrainingPlansOpensFromWorkouts</code> — <b>TEST SUCCEEDED</b> after the explicit-premium UI-test repair.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerUITests/AIPedometerUITests/testOnboardingSkipReachesMainTabsWithoutPermissionStep</code> — <b>TEST SUCCEEDED</b>; the Skip path reached the main shell without a permission-prompt interruption.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -parallel-testing-enabled NO</code> — <b>TEST SUCCEEDED</b>; 470 total tests passed, 0 failed, 0 skipped. This includes 16 XCTest unit tests, 438 Swift Testing tests, and 16 XCUITests. UI tests captured dashboard, history, workouts, AI Coach, More, Badges, About/Tip Jar, onboarding, active workout, training plans, and Health Access Help screens. XCResult: <code>Test-AIPedometer-2026.05.26_00-24-15--0300.xcresult</code>.</li>
+    <li><code>xcodegen generate</code> and <code>Scripts/restore-entitlements.sh</code> — project generation and entitlement restoration succeeded.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build</code> — <b>BUILD SUCCEEDED</b>; app, watch app, widgets, strings, bundles, and signing validation completed after the final reviewer-driven fixes.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze</code> — <b>ANALYZE SUCCEEDED</b> after the final reviewer-driven fixes.</li>
+    <li><code>jq empty Shared/Resources/Localizable.xcstrings</code>, <code>git diff --check</code>, <code>bash Scripts/tests/test-payments-device.sh</code>, <code>bash Scripts/check-agents-sync.sh</code>, and <code>bash Scripts/verify-device-identifiers.sh</code> — all passed.</li>
+    <li><code>rg -n "com\.mneves\.aipedometer\.processing|BackgroundTaskIdentifiers\.processing|BGProcessingTask|BGProcessingTaskRequest|ProcessingTaskProtocol|handleProcessing" AIPedometer Shared AIPedometerTests project.yml AIPedometer.xcodeproj</code> — no matches, confirming the removed BGProcessing path is gone from source/config/tests.</li>
+  </ul>
+  <p><b>Residual gaps:</b> no physical iPhone/Apple Watch install was run in this continuation, and live RevenueCat/App Store sandbox purchase/restore remains credential/dashboard-state dependent. These are not simulator-provable.</p>
 </div>
 
 <hr/>

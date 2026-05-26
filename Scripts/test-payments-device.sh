@@ -21,17 +21,78 @@ require_env() {
   fi
 }
 
-require_cmd asc
-require_cmd xcodebuild
-require_cmd python3
-require_cmd rg
+OUTPUT_ROOT="${ROOT_DIR}/build/ipa"
+
+canonical_output_path() {
+  local raw_path="$1"
+  local absolute_path
+  if [[ "${raw_path}" = /* ]]; then
+    absolute_path="${raw_path}"
+  else
+    absolute_path="${ROOT_DIR}/${raw_path}"
+  fi
+
+  case "${absolute_path}" in
+    "${OUTPUT_ROOT}"|"${OUTPUT_ROOT}/"*) ;;
+    *)
+      echo "ERRO: caminho de saida fora de ${OUTPUT_ROOT}: ${raw_path}" >&2
+      exit 1
+      ;;
+  esac
+
+  local parent
+  parent="$(dirname "${absolute_path}")"
+  mkdir -p "${parent}"
+
+  local parent_real
+  parent_real="$(cd "${parent}" && pwd -P)"
+  local resolved="${parent_real}/$(basename "${absolute_path}")"
+
+  case "${resolved}" in
+    "${OUTPUT_ROOT}"|"${OUTPUT_ROOT}/"*)
+      printf '%s\n' "${resolved}"
+      ;;
+    *)
+      echo "ERRO: caminho de saida fora de ${OUTPUT_ROOT}: ${raw_path}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+safe_rm_rf() {
+  local target="$1"
+  if [[ -z "${target}" || "${target}" == "/" ]]; then
+    echo "ERRO: recusando remover caminho invalido: '${target}'" >&2
+    exit 1
+  fi
+
+  case "${target}" in
+    "${OUTPUT_ROOT}/"*)
+      rm -rf "${target}" >/dev/null 2>&1 || true
+      ;;
+    *)
+      echo "ERRO: recusando remover caminho fora de ${OUTPUT_ROOT}: ${target}" >&2
+      exit 1
+      ;;
+  esac
+}
 
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-com.mneves.aipedometer}"
 GROUP_NAME="${TESTFLIGHT_GROUP_NAME:-IAP Sandbox}"
 
-IPA_DIR="${IPA_DIR:-build/ipa}"
-ARCHIVE_PATH="${ARCHIVE_PATH:-${IPA_DIR}/AIPedometer.xcarchive}"
-IPA_PATH="${IPA_PATH:-${IPA_DIR}/AIPedometer.ipa}"
+IPA_DIR="$(canonical_output_path "${IPA_DIR:-build/ipa}")"
+ARCHIVE_PATH="$(canonical_output_path "${ARCHIVE_PATH:-${IPA_DIR}/AIPedometer.xcarchive}")"
+IPA_PATH="$(canonical_output_path "${IPA_PATH:-${IPA_DIR}/AIPedometer.ipa}")"
+
+if [[ "${AIPEDOMETER_TEST_PAYMENTS_VALIDATE_PATHS_ONLY:-0}" == "1" ]]; then
+  echo "Path validation OK"
+  exit 0
+fi
+
+require_cmd asc
+require_cmd xcodebuild
+require_cmd python3
+require_cmd rg
 
 mkdir -p "${IPA_DIR}"
 
@@ -113,7 +174,8 @@ cat > "${EXPORT_OPTIONS_PLIST}" <<'PLIST'
 </plist>
 PLIST
 
-rm -rf "${ARCHIVE_PATH}" "${IPA_DIR}/export" >/dev/null 2>&1 || true
+safe_rm_rf "${ARCHIVE_PATH}"
+safe_rm_rf "${IPA_DIR}/export"
 
 xcodebuild \
   -project AIPedometer.xcodeproj \

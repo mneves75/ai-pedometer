@@ -106,6 +106,7 @@ TestResults/
 agent_planning/
 .planning/
 .agent/
+.omc/
 .omx/
 .sisyphus/
 progress.md

@@ -3,6 +3,7 @@ import SwiftUI
 struct HistoryView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitSyncEnabled = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var foundationModelsService
@@ -41,7 +42,7 @@ struct HistoryView: View {
         .background(DesignTokens.Colors.surfaceGrouped)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
-            withAnimation(DesignTokens.Animation.smooth.delay(0.1)) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.1)) {
                 animateChart = true
             }
         }
@@ -445,7 +446,7 @@ struct BarChartColumn: View {
                         : DesignTokens.Colors.accentSoft.gradient
                 )
                 .frame(height: animate ? 120 * heightRatio : 0)
-                .animation(
+                .motionAwareAnimation(
                     DesignTokens.Animation.springy.delay(delay),
                     value: animate
                 )

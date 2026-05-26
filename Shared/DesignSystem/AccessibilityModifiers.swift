@@ -8,19 +8,23 @@ extension View {
             .accessibilityAddTraits(.isButton)
     }
 
-    func accessibleProgress(label: String, value: Double, total: Double = 1.0) -> some View {
+    func accessibleProgress(label: String, value: Double, total: Double = 1.0, valueDescription: String? = nil) -> some View {
         let safeTotal = total > 0 ? total : 1
         let rawPercentage = (value / safeTotal) * 100
         let percentage = max(0, min(Int(rawPercentage.rounded()), 100))
+        let percentageText = Localization.format(
+            "%lld percent",
+            comment: "A value that indicates the percentage of a task that has been completed.",
+            Int64(percentage)
+        )
+        let accessibilityValue = if let valueDescription, !valueDescription.isEmpty {
+            "\(valueDescription), \(percentageText)"
+        } else {
+            percentageText
+        }
         return self
             .accessibilityLabel(label)
-            .accessibilityValue(
-                Localization.format(
-                    "%lld percent",
-                    comment: "A value that indicates the percentage of a task that has been completed.",
-                    Int64(percentage)
-                )
-            )
+            .accessibilityValue(accessibilityValue)
     }
 
     func accessibleCard(label: String, hint: String? = nil) -> some View {

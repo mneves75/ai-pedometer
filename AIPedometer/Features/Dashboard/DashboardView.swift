@@ -40,6 +40,7 @@ enum HeartRateDisplayFormatter {
 struct DashboardView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitSyncEnabled = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
@@ -90,7 +91,7 @@ struct DashboardView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
-            withAnimation(DesignTokens.Animation.smooth.delay(0.2)) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.2)) {
                 animateProgress = true
             }
         }
@@ -264,7 +265,14 @@ struct DashboardView: View {
                 comment: "Accessibility label for daily progress, with unit name",
                 activityMode.unitName
             ),
-            value: progress
+            value: progress,
+            valueDescription: Localization.format(
+                "%@ of %@ %@",
+                comment: "Accessibility value for daily progress with current and goal counts",
+                trackingService.todaySteps.formatted(),
+                trackingService.currentGoal.formatted(),
+                activityMode.unitName
+            )
         )
         .uiTestMarker(A11yID.Dashboard.steps(trackingService.todaySteps))
         .uiTestMarker(A11yID.Dashboard.goal(trackingService.currentGoal))
@@ -401,7 +409,7 @@ struct StatCard: View {
             Image(systemName: icon)
                 .font(DesignTokens.Typography.title2)
                 .foregroundStyle(color)
-                .applyIfNotUITesting { view in
+                .applyIfMotionEnabled { view in
                     view.symbolEffect(.pulse, options: .repeating.speed(0.5))
                 }
 

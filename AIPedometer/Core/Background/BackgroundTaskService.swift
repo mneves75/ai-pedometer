@@ -31,7 +31,6 @@ protocol BackgroundTaskProtocol: AnyObject {
 }
 
 protocol AppRefreshTaskProtocol: BackgroundTaskProtocol {}
-protocol ProcessingTaskProtocol: BackgroundTaskProtocol {}
 
 private final class TaskCompletionGate: @unchecked Sendable {
     private let lock = NSLock()
@@ -54,7 +53,6 @@ private final class TaskCompletionGate: @unchecked Sendable {
 /// Safety invariant: tasks are only mutated through documented completion/expiration APIs.
 extension BGTask: BackgroundTaskProtocol, @retroactive @unchecked Sendable {}
 extension BGAppRefreshTask: AppRefreshTaskProtocol {}
-extension BGProcessingTask: ProcessingTaskProtocol {}
 
 @MainActor
 final class BackgroundTaskService {
@@ -84,16 +82,6 @@ final class BackgroundTaskService {
             }
         }
 
-        scheduler.register(forTaskWithIdentifier: AppConstants.BackgroundTaskIdentifiers.processing) { task in
-            guard let processingTask = task as? BGProcessingTask else {
-                Loggers.background.error("background.processing_task_cast_failed")
-                task.setTaskCompleted(success: false)
-                return
-            }
-            Task { @MainActor in
-                self.handleProcessing(task: processingTask)
-            }
-        }
     }
 
     func scheduleAppRefresh() {
@@ -117,16 +105,6 @@ final class BackgroundTaskService {
         task.expirationHandler = {
             operation.cancel()
             completionGate.complete(task, success: false)
-        }
-    }
-
-    func handleProcessing(task: any ProcessingTaskProtocol) {
-        let completionGate = TaskCompletionGate()
-        task.expirationHandler = {
-            completionGate.complete(task, success: false)
-        }
-        Task { @MainActor in
-            completionGate.complete(task, success: true)
         }
     }
 

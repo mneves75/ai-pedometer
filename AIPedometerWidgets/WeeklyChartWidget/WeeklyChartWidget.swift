@@ -38,6 +38,10 @@ struct WeeklyChartContent: View {
         max(data.weeklySteps.max() ?? 1, 1)
     }
 
+    private var weeklyTotal: Int {
+        data.weeklySteps.reduce(0, +)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             HStack {
@@ -77,6 +81,17 @@ struct WeeklyChartContent: View {
                 .minimumScaleFactor(0.75)
         }
         .padding(DesignTokens.Spacing.md)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.localized("Weekly steps", comment: "Accessibility label for weekly steps widget"))
+        .accessibilityValue(
+            Localization.format(
+                "%@ steps today, %@ steps this week, %lld day streak",
+                comment: "Accessibility value for weekly steps widget",
+                data.todaySteps.formatted(),
+                weeklyTotal.formatted(),
+                Int64(data.currentStreak)
+            )
+        )
     }
 }
 

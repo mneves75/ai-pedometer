@@ -3,6 +3,7 @@ import UIKit
 
 struct OnboardingView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.onboardingCompleted) private var onboardingCompleted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @Environment(MotionAuthorization.self) private var motionAuthorization
@@ -24,37 +25,21 @@ struct OnboardingView: View {
                 permissionsPage
                     .tag(2)
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .accessibilityIdentifier("onboarding_pages")
             .overlay(alignment: .topTrailing) {
                 if currentPage < 2 {
                     skipButton
                 }
             }
-
-            VStack {
-                Spacer()
-
-                Button(action: handleNext) {
-                    Text(currentPage == 2 ? L10n.localized("Get Started", comment: "Final onboarding button") : L10n.localized("Next", comment: "Onboarding navigation button"))
-                        .font(DesignTokens.Typography.headline)
-                        .frame(maxWidth: .infinity)
-                }
-                .glassButton()
-                .accessibilityIdentifier(primaryButtonIdentifier)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.bottom, DesignTokens.Spacing.xxl)
-                .accessibleButton(
-                    label: currentPage == 2 ? L10n.localized("Get Started", comment: "Final onboarding button") : L10n.localized("Next", comment: "Onboarding navigation button"),
-                    hint: currentPage == 2 ? L10n.localized("Finishes onboarding", comment: "Accessibility hint for Get Started button") : L10n.localized("Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
-                )
-            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            footer
         }
     }
     
     private var welcomePage: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
+        onboardingScrollPage {
             Image(systemName: "figure.walk")
                 .font(.system(size: DesignTokens.FontSize.xxl))
                 .foregroundStyle(DesignTokens.Colors.accent)
@@ -71,11 +56,10 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .padding(DesignTokens.Spacing.md)
     }
     
     private var goalPage: some View {
-        VStack(spacing: DesignTokens.Spacing.xl) {
+        onboardingScrollPage(spacing: DesignTokens.Spacing.xl) {
             Text(L10n.localized("Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
                 .font(DesignTokens.Typography.title)
                 .bold()
@@ -101,11 +85,10 @@ struct OnboardingView: View {
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .padding(DesignTokens.Spacing.md)
     }
 
     private var permissionsPage: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
+        onboardingScrollPage {
             Image(systemName: "hand.raised.fill")
                 .font(.system(size: DesignTokens.FontSize.lg))
                 .foregroundStyle(DesignTokens.Colors.accent)
@@ -155,17 +138,84 @@ struct OnboardingView: View {
                 }
             }
         }
-        .padding(DesignTokens.Spacing.md)
+    }
+
+    private var footer: some View {
+        VStack(spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
+                ForEach(0..<3, id: \.self) { index in
+                    Capsule()
+                        .fill(index == currentPage ? DesignTokens.Colors.accent : DesignTokens.Colors.textQuaternary)
+                        .frame(width: index == currentPage ? 20 : 8, height: 8)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(pageIndicatorAccessibilityLabel)
+
+            Button(action: handleNext) {
+                Text(primaryButtonTitle)
+                    .font(DesignTokens.Typography.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .glassButton()
+            .accessibilityIdentifier(primaryButtonIdentifier)
+            .disabled(currentPage == 2 && isRequestingPermissions)
+            .accessibleButton(
+                label: primaryButtonTitle,
+                hint: currentPage == 2 ? L10n.localized("Finishes onboarding", comment: "Accessibility hint for Get Started button") : L10n.localized("Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
+            )
+        }
+        .padding(.horizontal, DesignTokens.Spacing.md)
+        .padding(.top, DesignTokens.Spacing.sm)
+        .padding(.bottom, DesignTokens.Spacing.md)
+        .background(.bar)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func onboardingScrollPage<Content: View>(
+        spacing: CGFloat = DesignTokens.Spacing.lg,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ScrollView {
+            VStack(spacing: spacing) {
+                content()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(DesignTokens.Spacing.md)
+            .padding(.top, DesignTokens.Spacing.xl)
+            .padding(.bottom, 132)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var primaryButtonTitle: String {
+        if currentPage == 2 && isRequestingPermissions {
+            return L10n.localized("Requesting Access...", comment: "Onboarding permissions button while requesting access")
+        }
+
+        return currentPage == 2
+            ? L10n.localized("Get Started", comment: "Final onboarding button")
+            : L10n.localized("Next", comment: "Onboarding navigation button")
     }
 
     private var primaryButtonIdentifier: String {
         currentPage == 2 ? "onboarding_get_started_button" : "onboarding_next_button"
     }
 
+    private var pageIndicatorAccessibilityLabel: String {
+        Localization.format(
+            "Step %lld of %lld",
+            comment: "Accessibility label for onboarding page indicator",
+            Int64(currentPage + 1),
+            Int64(3)
+        )
+    }
+
     private var skipButton: some View {
         Button(L10n.localized("Skip", comment: "Onboarding skip button")) {
             HapticService.shared.tap()
-            completeOnboarding()
+            skipOnboarding()
         }
         .font(DesignTokens.Typography.footnote.weight(.semibold))
         .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -178,26 +228,33 @@ struct OnboardingView: View {
     private func handleNext() {
         HapticService.shared.tap()
         if currentPage < 2 {
-            withAnimation(DesignTokens.Animation.snappy) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.snappy) {
                 currentPage += 1
             }
         } else {
-            completeOnboarding()
+            Task { await completeOnboarding() }
         }
     }
 
-    private func completeOnboarding() {
+    private func skipOnboarding() {
+        trackingService.updateGoal(Int(dailyGoal))
+        withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
+            onboardingCompleted = true
+        }
+        UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
+        Loggers.app.info("onboarding.skipped")
+    }
+
+    private func completeOnboarding() async {
         if LaunchConfiguration.isUITesting() {
             trackingService.updateGoal(Int(dailyGoal))
             onboardingCompleted = true
             UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
             Loggers.app.info("onboarding.completed_set", metadata: ["value": "true"])
         } else {
-            Task {
-                await requestPermissionsIfNeeded()
-                await trackingService.updateGoalAndRefresh(Int(dailyGoal))
-            }
-            withAnimation(DesignTokens.Animation.smooth) {
+            await requestPermissionsIfNeeded()
+            await trackingService.updateGoalAndRefresh(Int(dailyGoal))
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
                 onboardingCompleted = true
             }
         }

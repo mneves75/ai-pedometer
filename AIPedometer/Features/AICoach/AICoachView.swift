@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AICoachView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(CoachService.self) private var coachService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(PremiumAccessStore.self) private var premiumAccessStore
@@ -9,6 +10,7 @@ struct AICoachView: View {
     @State private var inputText = ""
     @State private var isPinnedToBottom = true
     @State private var lastAutoScrollTime = Date.distantPast
+    @State private var showClearConfirmation = false
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -27,11 +29,23 @@ struct AICoachView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if !coachService.messages.isEmpty {
                         Button(L10n.localized("Clear", comment: "Clear conversation button")) {
-                            coachService.clearConversation()
+                            showClearConfirmation = true
                         }
                         .font(DesignTokens.Typography.subheadline)
                     }
                 }
+            }
+            .confirmationDialog(
+                L10n.localized("Clear conversation?", comment: "AI Coach clear conversation confirmation title"),
+                isPresented: $showClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(L10n.localized("Clear", comment: "Clear conversation button"), role: .destructive) {
+                    coachService.clearConversation()
+                }
+                Button(L10n.localized("Cancel", comment: "Cancel button"), role: .cancel) {}
+            } message: {
+                Text(L10n.localized("This removes the current AI Coach conversation from this device.", comment: "AI Coach clear conversation confirmation message"))
             }
     }
 
@@ -120,7 +134,7 @@ struct AICoachView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: DesignTokens.FontSize.md))
                 .foregroundStyle(DesignTokens.Colors.accent)
-                .applyIfNotUITesting { view in
+                .applyIfMotionEnabled { view in
                     view.symbolEffect(.pulse, options: .repeating.speed(0.5))
                 }
 
@@ -157,6 +171,7 @@ struct AICoachView: View {
                             .multilineTextAlignment(.leading)
                             .padding(.horizontal, DesignTokens.Spacing.md)
                             .padding(.vertical, DesignTokens.Spacing.sm)
+                            .frame(minHeight: DesignTokens.TouchTarget.minimum)
                             .background(.ultraThinMaterial, in: Capsule())
                     }
                     .buttonStyle(.plain)
@@ -216,7 +231,7 @@ struct AICoachView: View {
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(DesignTokens.Typography.title2)
-                        .foregroundStyle(canSend ? DesignTokens.Colors.accent : .gray)
+                        .foregroundStyle(canSend ? DesignTokens.Colors.accent : DesignTokens.Colors.textTertiary)
                 }
                 .frame(width: 44, height: 44)
                 .disabled(!canSend)
@@ -293,7 +308,7 @@ struct AICoachView: View {
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         isPinnedToBottom = true
         if animated {
-            withAnimation(DesignTokens.Animation.smooth) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
                 scrollToBottomTarget(proxy: proxy)
             }
         } else {

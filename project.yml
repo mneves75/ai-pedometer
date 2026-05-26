@@ -109,7 +109,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: AIPedometer/Resources/Info.plist
         ENABLE_BACKGROUND_MODES: YES
-        INFOPLIST_KEY_UIBackgroundModes: fetch processing health-updates
+        INFOPLIST_KEY_UIBackgroundModes: fetch health-updates
     dependencies:
       - target: AIPedometerWatch
       - target: AIPedometerWidgets

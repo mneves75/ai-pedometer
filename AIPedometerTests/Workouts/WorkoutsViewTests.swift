@@ -33,4 +33,10 @@ struct WorkoutsViewTests {
         #expect(!visible.contains { $0.steps == 1_002 })
         #expect(!visible.contains { $0.steps == 1_007 })
     }
+
+    @Test("route import is gated by premium access")
+    func routeImportIsGatedByPremiumAccess() {
+        #expect(WorkoutsView.canImportRoute(premiumEnabled: true))
+        #expect(!WorkoutsView.canImportRoute(premiumEnabled: false))
+    }
 }

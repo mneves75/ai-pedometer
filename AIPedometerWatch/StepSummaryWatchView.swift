@@ -41,6 +41,17 @@ struct StepSummaryWatchView: View {
                     }
                 }
                 .frame(height: 110)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.localized("Daily goal progress", comment: "Accessibility label for watch daily progress ring"))
+                .accessibilityValue(
+                    Localization.format(
+                        "%@ steps of %@ goal, %lld percent",
+                        comment: "Accessibility value for watch daily progress ring",
+                        steps.formatted(),
+                        goal.formatted(),
+                        Int64((progress * 100).rounded())
+                    )
+                )
 
                 HStack {
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {

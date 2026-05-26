@@ -348,7 +348,7 @@ struct WorkoutsView: View {
             Image(systemName: "figure.run.circle.fill")
                 .font(.system(size: DesignTokens.FontSize.xxl))
                 .foregroundStyle(DesignTokens.Colors.accent.gradient)
-                .applyIfNotUITesting { view in
+                .applyIfMotionEnabled { view in
                     view.symbolEffect(.breathe.pulse.byLayer)
                 }
 
@@ -509,6 +509,16 @@ struct WorkoutsView: View {
     }
 
     private func importRoute(from result: Result<[URL], any Error>) {
+        guard Self.canImportRoute(premiumEnabled: premiumAccessStore.canAccessAIFeatures) else {
+            routeImportError = RouteImportError(
+                message: L10n.localized(
+                    "Premium is required to import GPX routes.",
+                    comment: "Error shown when a GPX import is attempted without premium access"
+                )
+            )
+            return
+        }
+
         do {
             guard let url = try result.get().first else { return }
             importedRoute = try GPXRouteImporter.importRoute(from: url)
@@ -555,6 +565,10 @@ struct WorkoutsView: View {
         limit: Int = 6
     ) -> [WorkoutSession] {
         Array(workouts.filter { $0.endTime != nil }.prefix(limit))
+    }
+
+    static func canImportRoute(premiumEnabled: Bool) -> Bool {
+        premiumEnabled
     }
 }
 

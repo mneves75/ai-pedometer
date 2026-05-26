@@ -33,7 +33,7 @@ struct AIWorkoutCard: View {
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()
-        .animation(DesignTokens.Animation.smooth, value: isLoading)
+        .motionAwareAnimation(DesignTokens.Animation.smooth, value: isLoading)
     }
     
     private var header: some View {
@@ -56,6 +56,8 @@ struct AIWorkoutCard: View {
                 }
                 .frame(width: 44, height: 44)
                 .buttonStyle(.plain)
+                .accessibilityLabel(L10n.localized("Refresh workout plan", comment: "Accessibility label for AI workout refresh button"))
+                .accessibilityHint(L10n.localized("Generates a new workout recommendation", comment: "Accessibility hint for AI workout refresh button"))
             }
         }
     }
@@ -80,7 +82,7 @@ struct AIWorkoutCard: View {
                     .font(DesignTokens.Typography.subheadline)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(DesignTokens.Colors.orange)
+                    .foregroundStyle(DesignTokens.Colors.warning)
             }
             
             Button(action: onRefresh) {
