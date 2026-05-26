@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 
 @MainActor
@@ -56,8 +57,9 @@ final class AIPedometerUITests: XCTestCase {
         UITestWait.tapFirstExisting([d.app.buttons["onboarding_next_button"]], timeout: navigationTimeout)
         let goalSlider = d.app.descendants(matching: .any)[A11yID.Onboarding.goalSlider]
         XCTAssertTrue(goalSlider.waitForExistence(timeout: navigationTimeout))
+        let expectedGoalLabels = try localizedStringCatalogValues(for: "Daily step goal")
         XCTAssertTrue(
-            ["Daily step goal", "Meta diaria de passos", "Meta di\u{00E1}ria de passos"].contains(goalSlider.label),
+            expectedGoalLabels.contains(goalSlider.label),
             "Unexpected onboarding goal slider label: \(goalSlider.label)"
         )
         d.captureScreen(named: "Onboarding - Goal")
@@ -357,4 +359,48 @@ final class AIPedometerUITests: XCTestCase {
         d.tap(id: A11yID.Settings.aboutRow, timeout: navigationTimeout)
         d.assertAboutLoaded()
     }
+}
+
+private enum StringCatalogLookupError: Error {
+    case malformedCatalog
+    case missingKey(String)
+}
+
+private func localizedStringCatalogValues(for key: String, filePath: String = #filePath) throws -> Set<String> {
+    let testFile = URL(fileURLWithPath: filePath)
+    let repoRoot = testFile
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let catalogURL = repoRoot
+        .appendingPathComponent("Shared")
+        .appendingPathComponent("Resources")
+        .appendingPathComponent("Localizable.xcstrings")
+
+    let data = try Data(contentsOf: catalogURL)
+    guard
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let strings = json["strings"] as? [String: Any],
+        let entry = strings[key] as? [String: Any],
+        let localizations = entry["localizations"] as? [String: Any]
+    else {
+        throw StringCatalogLookupError.missingKey(key)
+    }
+
+    let values = localizations.values.compactMap { localeEntry -> String? in
+        guard
+            let localeEntry = localeEntry as? [String: Any],
+            let stringUnit = localeEntry["stringUnit"] as? [String: Any],
+            let value = stringUnit["value"] as? String,
+            !value.isEmpty
+        else {
+            return nil
+        }
+        return value
+    }
+
+    guard !values.isEmpty else {
+        throw StringCatalogLookupError.malformedCatalog
+    }
+
+    return Set(values)
 }
