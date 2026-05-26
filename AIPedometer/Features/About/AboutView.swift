@@ -82,7 +82,7 @@ struct AboutView: View {
                 Image(systemName: "figure.walk")
                     .font(.system(size: DesignTokens.FontSize.sm, weight: .medium))
                     .foregroundStyle(DesignTokens.Colors.inverseText)
-                    .applyIfNotUITesting { view in
+                    .applyIfMotionEnabled { view in
                         view.symbolEffect(.pulse.byLayer, options: .repeating.speed(0.3))
                     }
             }
@@ -202,7 +202,7 @@ struct AboutView: View {
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     private func tipJarUnavailableView(message: String) -> some View {

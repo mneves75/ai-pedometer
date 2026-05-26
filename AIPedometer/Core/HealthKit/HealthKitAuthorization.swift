@@ -95,8 +95,13 @@ final class HealthKitAuthorization {
         HKObjectType.workoutType()
     ]
 
-    /// Only request write permissions for what we actually write.
-    static let requestedWriteTypes: Set<HKSampleType> = [HKWorkoutType.workoutType()]
+    /// Only request write permissions for what saved workouts actually attach as samples.
+    static let requestedWriteTypes: Set<HKSampleType> = [
+        HKWorkoutType.workoutType(),
+        HKQuantityType(.stepCount),
+        HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.activeEnergyBurned)
+    ]
 
     private func authorizationRequestStatus() async throws -> HKAuthorizationRequestStatus {
         let typesToRead = Self.requestedReadTypes

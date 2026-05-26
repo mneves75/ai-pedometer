@@ -41,7 +41,7 @@ struct ProgressRingContent: View {
         VStack(spacing: DesignTokens.Spacing.smPlus) {
             ZStack {
                 Circle()
-                    .stroke(DesignTokens.Colors.inverseStroke, lineWidth: 10)
+                    .stroke(DesignTokens.Colors.textQuaternary, lineWidth: 10)
 
                 Circle()
                     .trim(from: 0, to: clampedProgress)
@@ -79,6 +79,17 @@ struct ProgressRingContent: View {
                 .minimumScaleFactor(0.75)
         }
         .padding(DesignTokens.Spacing.md)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.localized("Daily goal progress", comment: "Accessibility label for the goal ring widget"))
+        .accessibilityValue(
+            Localization.format(
+                "%@ steps of %@ goal, %lld percent",
+                comment: "Accessibility value for the goal ring widget",
+                data.todaySteps.formatted(),
+                data.goalSteps.formatted(),
+                Int64((clampedProgress * 100).rounded())
+            )
+        )
     }
 }
 
@@ -86,7 +97,7 @@ struct ProgressRingPlaceholder: View {
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.smPlus) {
             Circle()
-                .stroke(DesignTokens.Colors.inverseStroke, lineWidth: 10)
+                .stroke(DesignTokens.Colors.textQuaternary, lineWidth: 10)
                 .frame(width: 80, height: 80)
 
             Text(

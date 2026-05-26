@@ -28,15 +28,6 @@ final class FakeAppRefreshTask: AppRefreshTaskProtocol {
     }
 }
 
-final class FakeProcessingTask: ProcessingTaskProtocol {
-    var expirationHandler: (() -> Void)?
-    private(set) var completed: Bool?
-
-    func setTaskCompleted(success: Bool) {
-        completed = success
-    }
-}
-
 @MainActor
 final class MockStepTrackingService: StepTrackingServiceProtocol {
     private(set) var refreshCalled = false
@@ -63,7 +54,7 @@ struct BackgroundTaskServiceTests {
         service.registerTasks()
 
         #expect(scheduler.registeredIdentifiers.contains(AppConstants.BackgroundTaskIdentifiers.refresh))
-        #expect(scheduler.registeredIdentifiers.contains(AppConstants.BackgroundTaskIdentifiers.processing))
+        #expect(scheduler.registeredIdentifiers == [AppConstants.BackgroundTaskIdentifiers.refresh])
     }
 
     @Test("scheduleAppRefresh submits a refresh request")
@@ -120,19 +111,6 @@ struct BackgroundTaskServiceTests {
         try? await Task.sleep(nanoseconds: 70_000_000)
         task.expirationHandler?()
         try? await Task.sleep(nanoseconds: 20_000_000)
-
-        #expect(task.completed == true)
-    }
-
-    @Test("handleProcessing marks task complete")
-    func handleProcessingCompletesTask() async {
-        let scheduler = MockBackgroundScheduler()
-        let tracker = MockStepTrackingService()
-        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
-        let task = FakeProcessingTask()
-
-        service.handleProcessing(task: task)
-        try? await Task.sleep(nanoseconds: 10_000_000)
 
         #expect(task.completed == true)
     }

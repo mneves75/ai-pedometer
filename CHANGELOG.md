@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Honored Reduce Motion across animated dashboard, AI, badge, history, workout, and availability surfaces, and improved VoiceOver summaries for progress rings, widgets, watch summaries, support actions, and selected iPad sidebar rows.
+- Made onboarding scroll-safe on compact screens, restored VoiceOver page-position context for the custom dots, preserved Skip as a no-permission-request exit path, and prevented the final onboarding step from completing before permission/goal persistence work finishes.
+- Hardened Premium AI fail-closed behavior by removing UI-test auto-unlock and product-ID fallback access, requiring tests to opt into forced premium explicitly.
+- Gated GPX route import at the import boundary, so non-premium users cannot bypass the Workouts card gate through direct import actions.
+- Requested every HealthKit quantity type written with workout samples, including steps, distance, and active energy.
+- Removed the unused BGProcessing task registration/configuration path instead of carrying a no-op background entitlement.
+- Validated Foundation Models training-plan payload bounds before persistence and fall back to deterministic local plans when generated output is unsafe or incomplete.
+- Made the payment device validation script delete only canonical build-artifact paths under the repo's `build/ipa` directory.
+
+### Changed
+
+- Live Activity workout distance now uses the app's measurement formatter instead of a hardcoded kilometer label.
+- Live Activity workout distance uses a shorter `DIST` label because the formatted value already carries the natural unit.
+- Locked badge cards keep their card readability while dimming only the locked icon.
+- Training-plan generation now presents a blocking loading state instead of allowing concurrent form edits while a plan is being generated.
+
+### Tests
+
+- Added regression coverage for HealthKit write authorization, premium fail-closed behavior, training-plan validation, GPX import gating, removed background processing, motion-aware accessibility helpers, and payment-script path safety.
+- Full simulator verification passed on iPhone 17: 16 XCTest unit tests, 438 Swift Testing tests, and 16 UI tests. Build, static analyzer, project generation, string-catalog validation, AGENTS sync, device-identifier scan, and payment-script safety tests also passed.
+
 ## [0.78] - 2026-05-23
 
 ### Changed

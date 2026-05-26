@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AIInsightCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let insight: DailyInsight?
     let isLoading: Bool
     let error: AIServiceError?
@@ -28,8 +30,8 @@ struct AIInsightCard: View {
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()
-        .animation(DesignTokens.Animation.smooth, value: isExpanded)
-        .animation(DesignTokens.Animation.smooth, value: isLoading)
+        .motionAwareAnimation(DesignTokens.Animation.smooth, value: isExpanded)
+        .motionAwareAnimation(DesignTokens.Animation.smooth, value: isLoading)
     }
     
     private var header: some View {
@@ -52,6 +54,8 @@ struct AIInsightCard: View {
                 }
                 .frame(width: 44, height: 44)
                 .buttonStyle(.plain)
+                .accessibilityLabel(L10n.localized("Refresh AI insight", comment: "Accessibility label for AI insight refresh button"))
+                .accessibilityHint(L10n.localized("Generates a new daily insight", comment: "Accessibility hint for AI insight refresh button"))
             }
         }
     }
@@ -146,7 +150,7 @@ struct AIInsightCard: View {
     
     private var expandButton: some View {
         Button {
-            withAnimation(DesignTokens.Animation.smooth) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
                 isExpanded.toggle()
             }
         } label: {

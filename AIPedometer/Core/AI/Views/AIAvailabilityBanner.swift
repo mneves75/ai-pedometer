@@ -186,6 +186,8 @@ struct AILoadingView: View {
 
 /// View modifier to conditionally show AI unavailability banner
 struct AIAvailabilityModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let availability: AIModelAvailability
     @State private var isDismissed = false
     
@@ -193,7 +195,7 @@ struct AIAvailabilityModifier: ViewModifier {
         VStack(spacing: DesignTokens.Spacing.none) {
             if case .unavailable(let reason) = availability, !isDismissed {
                 AIAvailabilityBanner(reason: reason) {
-                    withAnimation(DesignTokens.Animation.smooth) {
+                    withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
                         isDismissed = true
                     }
                 }
@@ -204,7 +206,7 @@ struct AIAvailabilityModifier: ViewModifier {
             
             content
         }
-        .animation(DesignTokens.Animation.smooth, value: isDismissed)
+        .motionAwareAnimation(DesignTokens.Animation.smooth, value: isDismissed)
     }
 }
 

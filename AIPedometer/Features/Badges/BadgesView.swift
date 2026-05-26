@@ -250,8 +250,6 @@ struct BadgeCard: View {
             .frame(maxWidth: .infinity)
             .frame(height: 180)
             .glassCard(interactive: badge.isEarned)
-            .opacity(badge.isEarned ? 1.0 : 0.45)
-            .saturation(badge.isEarned ? 1.0 : 0.1)
             .overlay(alignment: .topTrailing) {
                 if !badge.isEarned {
                     Image(systemName: "lock.fill")
@@ -286,7 +284,9 @@ struct BadgeCard: View {
         Image(systemName: badge.icon)
             .font(.system(size: DesignTokens.FontSize.xs))
             .foregroundStyle(badge.isEarned ? AnyShapeStyle(DesignTokens.Colors.yellow.gradient) : AnyShapeStyle(DesignTokens.Colors.textSecondary))
-            .applyIfNotUITesting { view in
+            .opacity(badge.isEarned ? 1.0 : 0.65)
+            .saturation(badge.isEarned ? 1.0 : 0.15)
+            .applyIfMotionEnabled { view in
                 view.symbolEffect(.bounce, value: badge.isEarned)
             }
     }
@@ -383,7 +383,7 @@ struct BadgeCelebrationSheet: View {
             Image(systemName: badgeType.iconName)
                 .font(.system(size: DesignTokens.FontSize.xxl))
                 .foregroundStyle(DesignTokens.Colors.yellow.gradient)
-                .applyIfNotUITesting { view in
+                .applyIfMotionEnabled { view in
                     view.symbolEffect(.bounce.up.byLayer, options: .repeating.speed(0.5))
                 }
             

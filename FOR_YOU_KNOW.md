@@ -136,6 +136,8 @@ If RevenueCat is not configured, the app does not quietly leak premium capabilit
 
 That fail-closed rule also applies after RevenueCat returns data: unrelated active entitlements, expired historical premium products, and `CustomerInfo.entitlements.verification == .failed` must not unlock Premium AI. Trusted Entitlements currently runs in informational mode, but a failed verification result is still treated as untrusted input at the app boundary.
 
+Do not use UI-test convenience as a product entitlement shortcut. UI tests that need premium must pass the explicit forced-premium launch flag; the app must not infer premium access from `isUITesting`, product identifiers, or incomplete RevenueCat configuration.
+
 That is the right instinct. Billing bugs are trust bugs.
 
 The docs now reflect this reality: `PRD.md`, `README.md`, `CHANGELOG.md`, and `docs/revenuecat/README.md` all treat RevenueCat-backed premium access as part of the product, not a future add-on. Keep them aligned whenever the premium boundary changes.

@@ -36,6 +36,19 @@ final class AIPedometerUITests: XCTestCase {
         d.assertDashboardLoaded()
     }
 
+    func testOnboardingSkipReachesMainTabsWithoutPermissionStep() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: false)
+
+        UITestWait.tapFirstExisting(
+            [d.app.buttons["onboarding_skip_button"]],
+            timeout: navigationTimeout
+        )
+
+        XCTAssertTrue(d.waitForMainShell(timeout: navigationTimeout))
+        d.assertDashboardLoaded()
+    }
+
     func testOnboardingCapturesScreens() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: false)
@@ -231,7 +244,7 @@ final class AIPedometerUITests: XCTestCase {
 
     func testTrainingPlansOpensFromWorkouts() throws {
         let d = AppDriver(test: self)
-        d.launch(skipOnboarding: true)
+        d.launch(skipOnboarding: true, forcedPremiumEnabled: true)
 
         d.openTab(.workouts)
         d.assertWorkoutsLoaded()

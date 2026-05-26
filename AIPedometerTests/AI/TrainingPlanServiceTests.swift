@@ -257,6 +257,59 @@ struct TrainingPlanServiceTests {
         #expect(record.weeklyTargets.allSatisfy { !$0.focusTip.isEmpty })
     }
 
+    @Test("generatePlan falls back when the model returns unsafe target bounds")
+    func generatePlanFallsBackForUnsafeTargetBounds() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(
+            makeAITrainingPlan(
+                weeklyTargets: [
+                    WeeklyTarget(weekNumber: 1, dailyStepTarget: 75_000, activeDaysRequired: 0, focusTip: " ")
+                ],
+                durationWeeks: 1
+            )
+        )
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context
+        )
+
+        let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+
+        #expect(record.name == TrainingGoalType.reach10k.displayName)
+        #expect(record.weeklyTargets.count == 4)
+        #expect(record.weeklyTargets.allSatisfy { (1_000...50_000).contains($0.dailyStepTarget) })
+        #expect(record.weeklyTargets.allSatisfy { (1...5).contains($0.activeDaysRequired) })
+    }
+
+    @Test("generatePlan falls back when the model returns more than twelve weeks")
+    func generatePlanFallsBackForOverlongPlan() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        let targets = (1...13).map { week in
+            WeeklyTarget(weekNumber: week, dailyStepTarget: 6_000 + week * 100, activeDaysRequired: 5, focusTip: "Week \(week)")
+        }
+        foundationModels.respondResult = .success(makeAITrainingPlan(weeklyTargets: targets, durationWeeks: 13))
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context
+        )
+
+        let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+
+        #expect(record.name == TrainingGoalType.reach10k.displayName)
+        #expect(record.weeklyTargets.count == 4)
+    }
+
+
     @Test("generatePlan prompt includes language directive")
     func generatePlanPromptIncludesLanguageDirective() async throws {
         let persistence = PersistenceController(inMemory: true)
@@ -357,15 +410,23 @@ struct TrainingPlanServiceTests {
     }
 }
 
-private func makeAITrainingPlan() -> AITrainingPlan {
-    AITrainingPlan(
-        name: "Starter Plan",
-        planDescription: "Build a daily walking habit.",
-        durationWeeks: 2,
-        weeklyTargets: [
-            WeeklyTarget(weekNumber: 1, dailyStepTarget: 6000, activeDaysRequired: 5, focusTip: "Start steady."),
-            WeeklyTarget(weekNumber: 2, dailyStepTarget: 7000, activeDaysRequired: 5, focusTip: "Keep the momentum.")
-        ],
-        primaryGoal: .reach10k
+private func makeAITrainingPlan(
+    name: String = "Starter Plan",
+    planDescription: String = "Build a daily walking habit.",
+    weeklyTargets: [WeeklyTarget]? = nil,
+    durationWeeks: Int? = nil,
+    primaryGoal: TrainingGoal = .reach10k
+) -> AITrainingPlan {
+    let resolvedTargets = weeklyTargets ?? [
+        WeeklyTarget(weekNumber: 1, dailyStepTarget: 6000, activeDaysRequired: 5, focusTip: "Start steady."),
+        WeeklyTarget(weekNumber: 2, dailyStepTarget: 7000, activeDaysRequired: 5, focusTip: "Keep the momentum.")
+    ]
+
+    return AITrainingPlan(
+        name: name,
+        planDescription: planDescription,
+        durationWeeks: durationWeeks ?? resolvedTargets.count,
+        weeklyTargets: resolvedTargets,
+        primaryGoal: primaryGoal
     )
 }

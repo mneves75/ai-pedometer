@@ -142,15 +142,11 @@ final class PremiumAccessStore {
             return forcedPremiumEnabled
         }
 
-        if isTesting {
-            return true
-        }
-
         if customerInfo?.entitlements.verification == .failed {
             return false
         }
 
-        return resolvedActiveEntitlement?.isActive == true || hasKnownPremiumPurchase
+        return resolvedActiveEntitlement?.isActive == true
     }
 
     var canAccessAIFeatures: Bool {
@@ -169,7 +165,7 @@ final class PremiumAccessStore {
     }
 
     func prepare() async {
-        if forcedPremiumEnabled != nil || isTesting {
+        if forcedPremiumEnabled != nil {
             state = .ready
             return
         }
@@ -345,32 +341,10 @@ final class PremiumAccessStore {
         return nil
     }
 
-    private var hasKnownPremiumPurchase: Bool {
-        guard let customerInfo else { return false }
-
-        let configuredOfferingProductIDs = Set(availablePackages.map(\.storeProduct.productIdentifier))
-        let activeProductIDs = customerInfo.activeSubscriptions
-
-        return activeProductIDs.contains { productID in
-            configuredOfferingProductIDs.contains(productID) || Self.isKnownPremiumProductID(productID)
-        }
-    }
-
     private static func isKnownPremiumEntitlementID(_ rawValue: String) -> Bool {
         let normalized = normalizeEntitlementID(rawValue)
 
         return normalized == "premium" || normalized == "aipedometerpro"
-    }
-
-    private static func isKnownPremiumProductID(_ rawValue: String) -> Bool {
-        let normalized = normalizeEntitlementID(rawValue)
-
-        return normalized.hasSuffix("premiummonthly")
-            || normalized.hasSuffix("premiumyearly")
-            || normalized.hasSuffix("premiumlifetime")
-            || normalized == "monthly"
-            || normalized == "yearly"
-            || normalized == "lifetime"
     }
 
     private static func normalizeEntitlementID(_ rawValue: String) -> String {

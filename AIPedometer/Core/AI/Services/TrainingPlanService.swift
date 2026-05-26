@@ -450,7 +450,13 @@ private extension TrainingPlanService {
     }
 
     func validate(aiPlan: AITrainingPlan, expectedGoal: TrainingGoalType, daysPerWeek: Int) throws(AIServiceError) {
+        guard (1...7).contains(daysPerWeek) else {
+            throw .invalidResponse
+        }
         guard aiPlan.primaryGoal == expectedGoal.aiGoal else {
+            throw .invalidResponse
+        }
+        guard (1...12).contains(aiPlan.durationWeeks) else {
             throw .invalidResponse
         }
         guard aiPlan.durationWeeks == aiPlan.weeklyTargets.count else {
@@ -459,12 +465,25 @@ private extension TrainingPlanService {
         guard !aiPlan.weeklyTargets.isEmpty else {
             throw .invalidResponse
         }
+        guard !aiPlan.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              aiPlan.name.count <= 80,
+              !aiPlan.planDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              aiPlan.planDescription.count <= 280 else {
+            throw .invalidResponse
+        }
 
         for (expectedWeek, target) in aiPlan.weeklyTargets.enumerated() {
             guard target.weekNumber == expectedWeek + 1 else {
                 throw .invalidResponse
             }
-            guard target.activeDaysRequired <= daysPerWeek else {
+            guard (1...daysPerWeek).contains(target.activeDaysRequired) else {
+                throw .invalidResponse
+            }
+            guard (1_000...50_000).contains(target.dailyStepTarget) else {
+                throw .invalidResponse
+            }
+            let trimmedFocusTip = target.focusTip.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedFocusTip.isEmpty, trimmedFocusTip.count <= 240 else {
                 throw .invalidResponse
             }
         }
