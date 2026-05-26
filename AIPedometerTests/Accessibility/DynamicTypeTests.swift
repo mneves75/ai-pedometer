@@ -60,4 +60,21 @@ final class DynamicTypeTests: XCTestCase {
         let sheet = GoalEditorSheet(initialGoal: 10000, unitName: ActivityTrackingMode.steps.unitName) { _ in }
         XCTAssertNotNil(sheet)
     }
+
+    func testBadgeDetailSheetInstantiatesWithoutCrash() {
+        let earnedBadge = EarnedBadge(badgeType: .steps5K, earnedAt: Date())
+        let badge = BadgeDisplayItem(type: .steps5K, isEarned: true, earnedBadge: earnedBadge)
+        let sheet = BadgeDetailSheet(badge: badge) {}
+        XCTAssertNotNil(sheet)
+    }
+
+    func testBadgeCelebrationSheetInstantiatesWithoutCrash() {
+        let celebration = AchievementCelebration(
+            congratulation: "Great work reaching this milestone.",
+            significance: "This proves your consistency is improving.",
+            nextChallenge: "Keep your streak going tomorrow."
+        )
+        let sheet = BadgeCelebrationSheet(badgeType: .steps5K, celebration: celebration) {}
+        XCTAssertNotNil(sheet)
+    }
 }

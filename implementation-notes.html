@@ -479,6 +479,32 @@
   <p><b>Residual gaps:</b> no physical iPhone/Apple Watch install was run in this continuation, and live RevenueCat/App Store sandbox purchase/restore remains credential/dashboard-state dependent. These are not simulator-provable.</p>
 </div>
 
+<div class="card">
+  <h3>Frontend review follow-up fixes (2026-05-26)</h3>
+  <ul>
+    <li><b>Reviewer finding:</b> the onboarding daily-goal slider was visually clear but did not expose a stable accessibility identifier, localized label, value, or hint for UI automation and assistive technology.</li>
+    <li><b>Fix:</b> <code>OnboardingView</code> now labels the goal slider as the localized daily-step goal control, reports the current step value, and exposes <code>onboarding_goal_slider</code> through the shared/UI-test accessibility identifier maps.</li>
+    <li><b>Reviewer finding:</b> badge detail and celebration sheets were fixed-height <code>VStack</code> layouts with spacer-driven vertical positioning and a single <code>.medium</code> detent. At large Dynamic Type, long badge or AI celebration copy could push the Close/Continue action out of reach.</li>
+    <li><b>Fix:</b> both sheets now use scrollable content, pinned safe-area bottom actions, and <code>.medium</code>/<code>.large</code> detents. This preserves the compact default while allowing larger text and longer localized copy to remain reachable.</li>
+    <li><b>Tradeoff:</b> the buttons remain visually pinned rather than living in the scroll content. This keeps dismissal/action affordances stable while the descriptive content scrolls independently.</li>
+    <li><b>Regression coverage added:</b> <code>DynamicTypeTests</code> now instantiates both badge sheets; <code>testOnboardingCapturesScreens</code> now verifies the onboarding goal slider exists by identifier and has a supported localized accessibility label before capturing the Goal screen.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Follow-up validation evidence (2026-05-26)</h3>
+  <ul>
+    <li><code>xcodebuild ... -only-testing:AIPedometerTests/DynamicTypeTests -only-testing:AIPedometerUITests/AIPedometerUITests/testOnboardingCapturesScreens</code> — first run caught a test fixture compile error (<code>BadgeDisplayItem</code> expected <code>EarnedBadge</code>) and then a locale-specific label expectation. Both were fixed.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerUITests/AIPedometerUITests/testOnboardingCapturesScreens</code> — <b>TEST SUCCEEDED</b>; the UI test found <code>onboarding_goal_slider</code>, accepted the localized label, and captured Welcome, Goal, and Permissions screens.</li>
+    <li><code>xcodebuild ... -only-testing:AIPedometerTests/DynamicTypeTests -only-testing:AIPedometerUITests/AIPedometerUITests/testPrimaryTabsRenderAndCaptureScreens -only-testing:AIPedometerUITests/AIPedometerUITests/testTrainingPlansOpensFromWorkouts</code> — <b>TEST SUCCEEDED</b>; 12 Dynamic Type tests and both targeted UI regressions passed on iPhone 17 / iOS 26.5 simulator. XCResult: <code>Test-AIPedometer-2026.05.26_15-45-58--0300.xcresult</code>.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build</code> — <b>BUILD SUCCEEDED</b>.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze</code> — <b>ANALYZE SUCCEEDED</b>.</li>
+    <li><code>git diff --check</code>, <code>jq empty Shared/Resources/Localizable.xcstrings</code>, <code>plutil -lint</code> for app/watch/widget privacy manifests and app Info.plist, <code>bash Scripts/check-agents-sync.sh</code>, <code>bash Scripts/verify-device-identifiers.sh</code>, and <code>bash Scripts/tests/test-payments-device.sh</code> — all passed.</li>
+    <li><code>xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -parallel-testing-enabled NO</code> — <b>TEST SUCCEEDED</b>; xcresult summary reports 472 total tests, 472 passed, 0 failed, 0 skipped on iPhone 17 / iOS 26.5. XCResult: <code>Test-AIPedometer-2026.05.26_15-47-59--0300.xcresult</code>.</li>
+    <li><b>Remaining external gap:</b> live RevenueCat/App Store sandbox purchase/restore still requires credentialed dashboard/account state and is not simulator-provable from this local run.</li>
+  </ul>
+</div>
+
 <hr/>
 <p class="meta">Generated and maintained by the agent. Each commit landed during the cycle is referenced from the relevant finding/decision below.</p>
 </body>

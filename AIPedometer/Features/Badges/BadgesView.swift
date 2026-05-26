@@ -319,52 +319,60 @@ struct BadgeDetailSheet: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: DesignTokens.Spacing.lg) {
+                Image(systemName: badge.icon)
+                    .font(.system(size: DesignTokens.FontSize.xl))
+                    .foregroundStyle(badge.isEarned ? AnyShapeStyle(DesignTokens.Colors.yellow.gradient) : AnyShapeStyle(DesignTokens.Colors.textSecondary))
 
-            Image(systemName: badge.icon)
-                .font(.system(size: DesignTokens.FontSize.xl))
-                .foregroundStyle(badge.isEarned ? AnyShapeStyle(DesignTokens.Colors.yellow.gradient) : AnyShapeStyle(DesignTokens.Colors.textSecondary))
+                VStack(spacing: DesignTokens.Spacing.sm) {
+                    Text(L10n.localized("Badge Details", comment: "Badge detail sheet title"))
+                        .font(DesignTokens.Typography.title3.bold())
 
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(L10n.localized("Badge Details", comment: "Badge detail sheet title"))
-                    .font(DesignTokens.Typography.title3.bold())
+                    Text(badge.name)
+                        .font(DesignTokens.Typography.headline)
 
-                Text(badge.name)
-                    .font(DesignTokens.Typography.headline)
+                    Text(badge.description)
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
 
-                Text(badge.description)
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, DesignTokens.Spacing.lg)
-
-            if badge.isEarned, let earnedAt = badge.earnedAt {
-                Text(
-                    Localization.format(
-                        "Earned on %@",
-                        comment: "Badge detail earned date",
-                        earnedAt.formatted(date: .abbreviated, time: .omitted)
+                if badge.isEarned, let earnedAt = badge.earnedAt {
+                    Text(
+                        Localization.format(
+                            "Earned on %@",
+                            comment: "Badge detail earned date",
+                            earnedAt.formatted(date: .abbreviated, time: .omitted)
+                        )
                     )
-                )
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textTertiary)
-            } else {
-                Text(L10n.localized("Not earned yet", comment: "Badge detail locked message"))
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textTertiary)
+                } else {
+                    Text(L10n.localized("Not earned yet", comment: "Badge detail locked message"))
+                        .font(DesignTokens.Typography.caption)
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
+                }
             }
-
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
+            .padding(.top, DesignTokens.Spacing.xl)
+            .padding(.bottom, DesignTokens.Spacing.lg)
+        }
+        .safeAreaInset(edge: .bottom) {
             Button(L10n.localized("Close", comment: "Badge detail close button")) {
                 HapticService.shared.tap()
                 onDismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .padding(.bottom, DesignTokens.Spacing.xl)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
+            .padding(.top, DesignTokens.Spacing.sm)
+            .padding(.bottom, DesignTokens.Spacing.md)
+            .background(.regularMaterial)
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 }
@@ -377,54 +385,59 @@ struct BadgeCelebrationSheet: View {
     let onDismiss: () -> Void
     
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xl) {
-            Spacer()
-            
-            Image(systemName: badgeType.iconName)
-                .font(.system(size: DesignTokens.FontSize.xxl))
-                .foregroundStyle(DesignTokens.Colors.yellow.gradient)
-                .applyIfMotionEnabled { view in
-                    view.symbolEffect(.bounce.up.byLayer, options: .repeating.speed(0.5))
+        ScrollView {
+            VStack(spacing: DesignTokens.Spacing.xl) {
+                Image(systemName: badgeType.iconName)
+                    .font(.system(size: DesignTokens.FontSize.xxl))
+                    .foregroundStyle(DesignTokens.Colors.yellow.gradient)
+                    .applyIfMotionEnabled { view in
+                        view.symbolEffect(.bounce.up.byLayer, options: .repeating.speed(0.5))
+                    }
+
+                VStack(spacing: DesignTokens.Spacing.md) {
+                    Text(badgeType.localizedTitle)
+                        .font(DesignTokens.Typography.title.bold())
+
+                    Text(celebration.congratulation)
+                        .font(DesignTokens.Typography.body)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+                    Text(celebration.significance)
+                        .font(DesignTokens.Typography.subheadline)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
-            
-            VStack(spacing: DesignTokens.Spacing.md) {
-                Text(badgeType.localizedTitle)
-                    .font(DesignTokens.Typography.title.bold())
-                
-                Text(celebration.congratulation)
-                    .font(DesignTokens.Typography.body)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-                
-                Text(celebration.significance)
-                    .font(DesignTokens.Typography.subheadline)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+                VStack(spacing: DesignTokens.Spacing.sm) {
+                    Text(L10n.localized("Next Challenge", comment: "Badge celebration next challenge header"))
+                        .font(DesignTokens.Typography.caption)
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
+
+                    Text(celebration.nextChallenge)
+                        .font(DesignTokens.Typography.subheadline.weight(.medium))
+                        .multilineTextAlignment(.center)
+                }
             }
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, DesignTokens.Spacing.lg)
-            
-            Spacer()
-            
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(L10n.localized("Next Challenge", comment: "Badge celebration next challenge header"))
-                    .font(DesignTokens.Typography.caption)
-                    .foregroundStyle(DesignTokens.Colors.textTertiary)
-                
-                Text(celebration.nextChallenge)
-                    .font(DesignTokens.Typography.subheadline.weight(.medium))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, DesignTokens.Spacing.lg)
-            
+            .padding(.top, DesignTokens.Spacing.xl)
+            .padding(.bottom, DesignTokens.Spacing.lg)
+        }
+        .safeAreaInset(edge: .bottom) {
             Button(L10n.localized("Continue", comment: "Badge celebration continue button")) {
                 HapticService.shared.confirm()
                 onDismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .padding(.bottom, DesignTokens.Spacing.xl)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
+            .padding(.top, DesignTokens.Spacing.sm)
+            .padding(.bottom, DesignTokens.Spacing.md)
+            .background(.regularMaterial)
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 }

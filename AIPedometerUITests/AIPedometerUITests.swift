@@ -54,6 +54,12 @@ final class AIPedometerUITests: XCTestCase {
         d.launch(skipOnboarding: false)
         d.captureScreen(named: "Onboarding - Welcome")
         UITestWait.tapFirstExisting([d.app.buttons["onboarding_next_button"]], timeout: navigationTimeout)
+        let goalSlider = d.app.descendants(matching: .any)[A11yID.Onboarding.goalSlider]
+        XCTAssertTrue(goalSlider.waitForExistence(timeout: navigationTimeout))
+        XCTAssertTrue(
+            ["Daily step goal", "Meta diaria de passos", "Meta di\u{00E1}ria de passos"].contains(goalSlider.label),
+            "Unexpected onboarding goal slider label: \(goalSlider.label)"
+        )
         d.captureScreen(named: "Onboarding - Goal")
         UITestWait.tapFirstExisting([d.app.buttons["onboarding_next_button"]], timeout: navigationTimeout)
         d.captureScreen(named: "Onboarding - Permissions")
