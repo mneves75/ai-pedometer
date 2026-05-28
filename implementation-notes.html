@@ -506,6 +506,61 @@
 </div>
 
 <hr/>
+
+<h2 id="cycle-2026-05-28-start">Goal-mode source-layer audit cycle (2026-05-28 → 0.80)</h2>
+<p class="meta">Branch <code>master</code>, baseline <b>0.79 (35)</b>, clean worktree. Web-flavored <code>/goal</code> brief adapted to this native iOS/watchOS app: "frontend"→SwiftUI/accessibility, "browser automation"→iOS Simulator, "lint/typecheck/build"→<code>xcodebuild</code> + Swift 6.2 strict concurrency, "staging deploy"→TestFlight (credential-gated). The 2026-05-26 cycle already covered UI/UX + DesignTokens + accessibility, so this cycle targets the deeper source layer: concurrency, security/premium, correctness/state, performance, error handling, and test gaps.</p>
+
+<div class="card">
+  <h3>Method &amp; baseline</h3>
+  <ul>
+    <li>Scope locked: <code>pwd</code> + <code>git rev-parse --show-toplevel</code> confirmed root; worktree clean.</li>
+    <li><b>Baseline green before any change:</b> <code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build</code> → <b>BUILD SUCCEEDED</b>; <code>… test -only-testing:AIPedometerTests</code> → <b>TEST SUCCEEDED</b>, 0 failures.</li>
+    <li><b>Review method:</b> multi-agent fan-out (Workflow tool, then direct review subagents) was blocked by transient server-side failures (workflow subagents returned 0 tokens; direct agents hit server-side rate-limiting, not usage limits). After two orchestration failures the review was performed inline by reading current source (~25 highest-risk files), acting as the adversarial verifier — every finding is backed by a direct file:line read, not a subagent summary.</li>
+    <li><b>Overall verdict:</b> mature, defensively engineered code. Premium fails closed correctly (<code>PremiumAccessStore.isPremiumActive</code> blocks <code>verification == .failed</code> and requires an active entitlement; <code>LaunchConfiguration.isOverridable</code> gates forced-premium on the live process context, immune to arg spoofing in release; Expedition Mode wired with <code>&amp;&amp; premiumAccessStore.canAccessAIFeatures</code> at the composition root). GPX import hardened; <code>AIChatLinkPolicy</code> is a thorough SSRF/loopback defense; workout FSM + controller handle reentrancy via session-identity guards and a fresh machine per session. <b>No confirmed critical/high correctness or security defects.</b></li>
+  </ul>
+</div>
+
+<div class="card" id="finding-streak-serial-queries">
+  <h3><span class="tag tag-p1">HIGH (perf)</span> Streak calculation issued up to 400 serial HealthKit queries</h3>
+  <p><b>Evidence:</b> <code>StreakCalculator.calculateCurrentStreak()</code> (StreakCalculator.swift:33-44) looped up to 400 days, calling <code>StepDataAggregator.fetchSteps(from:to:)</code> — one <code>HKStatisticsQuery</code> — per day, serially awaited. Cost scales with streak length, so the most engaged users (long streaks) paid seconds of serial HealthKit latency + battery on every <code>refreshStreak()</code> (startup, settings change, goal change, lifecycle foreground). <code>HealthKitService</code> already proves the efficient pattern via <code>HKStatisticsCollectionQueryDescriptor</code> (one bucketed query per window).</p>
+  <p><b>Fix:</b> added a minimal <code>StepHistoryProviding</code> protocol (matches existing <code>HealthKitServiceProtocol</code>/<code>GoalServiceProtocol</code> conventions) and a bucketed <code>fetchDailySteps(from:to:)</code> on the <code>StepDataAggregator</code> actor; rewrote the streak loop to prefetch the whole window in one collection query and iterate in memory. Behavior is byte-for-byte equivalent (same per-day comparison, historical-goal fallback, today-included logic, 400-day cap). Query count: up to 401 → 2. <code>StreakCalculator</code> now depends on <code>any StepHistoryProviding</code> + <code>any GoalServiceProtocol</code> for testability; composition root passes the concrete types unchanged.</p>
+</div>
+
+<div class="card" id="finding-streak-untested">
+  <h3><span class="tag tag-p1">HIGH (tests)</span> StreakCalculator had zero direct test coverage</h3>
+  <p><b>Evidence:</b> no streak/aggregator test files existed; a core, date-sensitive, user-facing feature was untested.</p>
+  <p><b>Fix:</b> new <code>StreakCalculatorTests</code> covering today-included vs not, gap-breaks-streak, historical goal changes, empty data, the 400-day cap, and an explicit assertion that the daily-window query is issued exactly once (guards against a perf regression back to per-day querying).</p>
+</div>
+
+<div class="card" id="finding-gpx-entity-expansion">
+  <h3><span class="tag tag-p2">MEDIUM (sec hardening)</span> GPX parser text buffer was unbounded</h3>
+  <p><b>Evidence:</b> <code>GPXParserDelegate.foundCharacters</code> (GPXRouteParser.swift:207-210) appended to an unbounded <code>textBuffer</code>. <code>shouldResolveExternalEntities=false</code> blocks XXE, but Foundation still expands internal DTD entities; a ≤5&nbsp;MB file with nested entities ("billion laughs") could balloon a single element's text in memory before the element caps trigger.</p>
+  <p><b>Fix:</b> a per-parse text-accumulation cap; exceeding it aborts parsing and surfaces the existing localized <code>.tooManyElements</code> error. Regression test added.</p>
+</div>
+
+<div class="card">
+  <h3>Findings justified (not fixed)</h3>
+  <ul>
+    <li><b>MEDIUM — <code>StepTrackingService.refreshTodayData()</code> reentrancy:</b> many <code>await</code> points, no in-flight guard; overlapping refreshes can interleave. <b>Justified:</b> <code>@MainActor</code> serializes synchronous regions; interleaved ops are idempotent (last-writer-wins on identical values, widget reload throttled, badge unlock dedup-guarded). Worst case is a brief intermediate value. A coalescing guard risks dropping a needed refresh — not worth the behavior risk for a low-impact race.</li>
+    <li><b>LOW — <code>BadgeService</code> leaves duplicate rows in the store:</b> the cache is deduped and <code>unlock()</code> prevents new dupes, so there's no user-visible effect; the dedupe warning simply re-logs each launch. Deleting persisted rows is out of scope for a critical/high pass.</li>
+  </ul>
+</div>
+
+<div class="card" id="verification-2026-05-28">
+  <h3>Validation evidence (2026-05-28)</h3>
+  <ul>
+    <li><b>Baseline (pre-change):</b> <code>xcodebuild … build</code> → <b>BUILD SUCCEEDED</b>; <code>… test -only-testing:AIPedometerTests</code> → <b>TEST SUCCEEDED</b>, 0 failures.</li>
+    <li><b>First targeted run caught a real Swift 6 issue</b> in the new code: <code>StepDataAggregator.swift</code> — "sending 'totals' risks causing data races" because the <code>enumerateStatistics</code> block captured the actor's <code>self.calendar</code>. Fixed by binding <code>let bucketCalendar = calendar</code> so the block captures no actor-isolated state.</li>
+    <li><code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test -parallel-testing-enabled NO -only-testing:AIPedometerTests/StreakCalculatorTests -only-testing:AIPedometerTests/GPXRouteParserTests -only-testing:AIPedometerTests/HealthKitServiceFallbackTests</code> → <b>passed: 28 tests in 3 suites</b>, 0 failures, no warnings.</li>
+    <li><b>Full suite:</b> <code>xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test -parallel-testing-enabled NO</code> → <b>TEST SUCCEEDED</b>: 446 Swift Testing tests (77 suites) + 18 XCTest unit + 16 XCUITest UI = <b>480 tests, 0 failures, 0 unexpected</b> on iPhone 17 Pro / iOS 26.x simulator.</li>
+    <li><code>git diff --check</code> — no whitespace errors. <code>jq empty Shared/Resources/Localizable.xcstrings</code> — valid. <code>bash Scripts/check-agents-sync.sh</code> — in sync. <code>bash Scripts/verify-device-identifiers.sh</code> — no hardcoded device identifiers.</li>
+    <li><code>xcodegen generate</code> re-run after the <code>0.80 (36)</code> version bump (project.yml edited first, per repo rule) so the generated project carries the new metadata.</li>
+  </ul>
+  <p><b>Stop condition:</b> no confirmed critical/high correctness or security defects remain; the two HIGH findings (streak query fan-out, streak test gap) and the MEDIUM GPX hardening are fixed with regression tests; the remaining MEDIUM/LOW items are explicitly justified above; build + full test suite + static checks are green.</p>
+  <p><b>Residual gap (unchanged from prior cycles):</b> TestFlight/App Store "staging" deploy and live RevenueCat sandbox purchase/restore require credentialed ASC/account state and are not provable from this local environment. Physical iPhone/Watch install not run this cycle.</p>
+</div>
+
+<hr/>
 <p class="meta">Generated and maintained by the agent. Each commit landed during the cycle is referenced from the relevant finding/decision below.</p>
 </body>
 </html>
