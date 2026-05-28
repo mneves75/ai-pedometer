@@ -242,7 +242,7 @@ struct DashboardView: View {
             Image(systemName: "person.circle.fill")
                 .font(DesignTokens.Typography.title)
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 44, height: 44)
+                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
         }
         .glassCard(cornerRadius: DesignTokens.CornerRadius.xxl, interactive: true)
         .accessibilityIdentifier("profile_button")

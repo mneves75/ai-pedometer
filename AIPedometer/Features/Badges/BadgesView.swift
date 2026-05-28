@@ -248,7 +248,7 @@ struct BadgeCard: View {
             }
             .padding(DesignTokens.Spacing.md)
             .frame(maxWidth: .infinity)
-            .frame(height: 180)
+            .frame(minHeight: DesignTokens.Sizing.badgeCardMinHeight)
             .glassCard(interactive: badge.isEarned)
             .overlay(alignment: .topTrailing) {
                 if !badge.isEarned {

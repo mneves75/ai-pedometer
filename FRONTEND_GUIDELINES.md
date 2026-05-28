@@ -35,6 +35,12 @@ This document summarizes the current SwiftUI component and styling conventions u
 - Ensure touch targets are at least DesignTokens.TouchTarget.minimum.
 - Provide accessibility identifiers for UI tests on key interactive elements.
 
+## Sizing Tokens
+- Use DesignTokens.IconSize for all icon frames (xs/sm/md/lg/touchTarget/hero); do not hardcode `.frame(width: 32, height: 32)`.
+- Use DesignTokens.Sizing for component dimensions (workoutCardWidth, routePreviewHeight, badgeCardMinHeight, chartHeight, chartBarMaxHeight, chatBubbleGutter, onboardingPageBottomInset).
+- Prefer `.frame(minHeight:)` over `.frame(height:)` on text-bearing cards/charts so Dynamic Type does not clip content.
+- Use DesignTokens.CornerRadius (sm/md/lg/xl/xxl) for any `RoundedRectangle`; do not hardcode `cornerRadius: 8/10/12`.
+
 ## Localization
 - All user-facing strings use String(localized:) or Localization.format.
 - String catalog: Shared/Resources/Localizable.xcstrings (en, pt-BR).

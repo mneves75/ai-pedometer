@@ -183,7 +183,7 @@ struct WorkoutsView: View {
                     Image(systemName: "battery.100.bolt")
                         .font(DesignTokens.Typography.title2)
                         .foregroundStyle(DesignTokens.Colors.green)
-                        .frame(width: 44, height: 44)
+                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                         .background(DesignTokens.Colors.green.opacity(0.14), in: Circle())
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
@@ -234,7 +234,7 @@ struct WorkoutsView: View {
                     Image(systemName: "map.fill")
                         .font(DesignTokens.Typography.title2)
                         .foregroundStyle(DesignTokens.Colors.mint)
-                        .frame(width: 44, height: 44)
+                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                         .background(DesignTokens.Colors.mint.opacity(0.14), in: Circle())
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
@@ -313,7 +313,7 @@ struct WorkoutsView: View {
                 Image(systemName: "figure.walk.motion")
                     .font(DesignTokens.Typography.title2)
                     .foregroundStyle(DesignTokens.Colors.success)
-                    .frame(width: 44, height: 44)
+                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                     .background(DesignTokens.Colors.success.opacity(0.15), in: Circle())
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
@@ -402,7 +402,7 @@ struct WorkoutsView: View {
                         Image(systemName: "calendar.badge.plus")
                             .font(DesignTokens.Typography.title2)
                             .foregroundStyle(DesignTokens.Colors.accent)
-                            .frame(width: 44, height: 44)
+                            .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                             .background(DesignTokens.Colors.accentSoft, in: Circle())
 
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
@@ -584,7 +584,7 @@ private struct ImportedRouteSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             RoutePreview(points: route.previewPoints)
-                .frame(height: 104)
+                .frame(height: DesignTokens.Sizing.routePreviewHeight)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
             HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
@@ -606,7 +606,7 @@ private struct ImportedRouteSummary: View {
                     onRemove()
                 } label: {
                     Image(systemName: "trash")
-                        .frame(width: 44, height: 44)
+                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(L10n.localized("Remove Route", comment: "Button to remove imported route"))
@@ -627,7 +627,7 @@ private struct ImportedRouteSummary: View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
                 .foregroundStyle(DesignTokens.Colors.accent)
-                .frame(width: 24)
+                .frame(width: DesignTokens.IconSize.sm)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(value)
@@ -712,7 +712,7 @@ struct WorkoutCard: View {
             statsRow
         }
         .padding(DesignTokens.Spacing.md)
-        .frame(width: 190)
+        .frame(width: DesignTokens.Sizing.workoutCardWidth)
         .glassCard()
         .accessibleCard(label: "\(workout.type.displayName), \(formattedDate), \(formattedDuration)")
     }

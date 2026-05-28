@@ -34,8 +34,8 @@ struct PremiumFeatureGateCard: View {
                 Image(systemName: "crown.fill")
                     .font(DesignTokens.Typography.title3)
                     .foregroundStyle(DesignTokens.Colors.yellow)
-                    .frame(width: 32, height: 32)
-                    .background(DesignTokens.Colors.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
+                    .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+                    .background(DesignTokens.Colors.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(title)
@@ -124,8 +124,8 @@ struct PremiumSubscriptionCard: View {
                 Image(systemName: "crown.fill")
                     .font(DesignTokens.Typography.title3)
                     .foregroundStyle(DesignTokens.Colors.yellow)
-                    .frame(width: 32, height: 32)
-                    .background(DesignTokens.Colors.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+                    .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+                    .background(DesignTokens.Colors.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(L10n.localized("Premium", comment: "Premium section title"))
@@ -266,8 +266,8 @@ struct PremiumAccessSheet: View {
                 Image(systemName: "figure.walk.motion")
                     .font(DesignTokens.Typography.title2)
                     .foregroundStyle(DesignTokens.Colors.green)
-                    .frame(width: 44, height: 44)
-                    .background(DesignTokens.Colors.green.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
+                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                    .background(DesignTokens.Colors.green.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(L10n.localized("Premium", comment: "Premium section title"))

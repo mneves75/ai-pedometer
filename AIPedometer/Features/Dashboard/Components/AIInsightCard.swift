@@ -52,7 +52,7 @@ struct AIInsightCard: View {
                         .font(DesignTokens.Typography.subheadline)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 .buttonStyle(.plain)
                 .accessibilityLabel(L10n.localized("Refresh AI insight", comment: "Accessibility label for AI insight refresh button"))
                 .accessibilityHint(L10n.localized("Generates a new daily insight", comment: "Accessibility hint for AI insight refresh button"))

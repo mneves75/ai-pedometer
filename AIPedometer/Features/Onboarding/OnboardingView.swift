@@ -194,7 +194,7 @@ struct OnboardingView: View {
             .frame(maxWidth: .infinity)
             .padding(DesignTokens.Spacing.md)
             .padding(.top, DesignTokens.Spacing.xl)
-            .padding(.bottom, 132)
+            .padding(.bottom, DesignTokens.Sizing.onboardingPageBottomInset)
         }
         .scrollIndicators(.hidden)
     }

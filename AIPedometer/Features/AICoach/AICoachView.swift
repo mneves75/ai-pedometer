@@ -186,7 +186,7 @@ struct AICoachView: View {
             Image(systemName: "sparkles")
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.accent)
-                .frame(width: 24, height: 24)
+                .frame(width: DesignTokens.IconSize.sm, height: DesignTokens.IconSize.sm)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 if coachService.currentStreamedContent.isEmpty {
@@ -233,7 +233,7 @@ struct AICoachView: View {
                         .font(DesignTokens.Typography.title2)
                         .foregroundStyle(canSend ? DesignTokens.Colors.accent : DesignTokens.Colors.textTertiary)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 .disabled(!canSend)
                 .accessibilityLabel(L10n.localized("Send Message", comment: "AI Coach send button accessibility label"))
                 .accessibilityIdentifier("ai_coach_send_button")
@@ -336,13 +336,13 @@ struct ChatMessageView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
-            if isUser { Spacer(minLength: 40) }
+            if isUser { Spacer(minLength: DesignTokens.Sizing.chatBubbleGutter) }
 
             if !isUser {
                 Image(systemName: "sparkles")
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.accent)
-                    .frame(width: 24, height: 24)
+                    .frame(width: DesignTokens.IconSize.sm, height: DesignTokens.IconSize.sm)
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: DesignTokens.Spacing.xxs) {
@@ -369,7 +369,7 @@ struct ChatMessageView: View {
                     .foregroundStyle(DesignTokens.Colors.textTertiary)
             }
 
-            if !isUser { Spacer(minLength: 40) }
+            if !isUser { Spacer(minLength: DesignTokens.Sizing.chatBubbleGutter) }
         }
     }
 

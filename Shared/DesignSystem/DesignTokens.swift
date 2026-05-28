@@ -181,6 +181,22 @@ enum DesignTokens {
     enum Sizing {
         static let progressRing: CGFloat = 230
         static let progressRingLineWidth: CGFloat = 16
+        static let workoutCardWidth: CGFloat = 190
+        static let routePreviewHeight: CGFloat = 104
+        static let badgeCardMinHeight: CGFloat = 180
+        static let chartHeight: CGFloat = 150
+        static let chartBarMaxHeight: CGFloat = 120
+        static let chatBubbleGutter: CGFloat = 40
+        static let onboardingPageBottomInset: CGFloat = 132
+    }
+
+    enum IconSize {
+        static let xs: CGFloat = 20
+        static let sm: CGFloat = 24
+        static let md: CGFloat = 32
+        static let lg: CGFloat = 36
+        static let touchTarget: CGFloat = 44
+        static let hero: CGFloat = 100
     }
 
     enum TouchTarget {

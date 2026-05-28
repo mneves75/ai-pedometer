@@ -160,7 +160,7 @@ struct SettingsView: View {
                         Image(systemName: mode.iconName)
                             .font(DesignTokens.Typography.title2)
                             .foregroundStyle(activityMode == mode ? DesignTokens.Colors.accent : DesignTokens.Colors.textSecondary)
-                            .frame(width: 32)
+                            .frame(width: DesignTokens.IconSize.md)
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                             Text(mode.localizedName)
                                 .foregroundStyle(DesignTokens.Colors.textPrimary)
@@ -202,7 +202,7 @@ struct SettingsView: View {
                         Image(systemName: mode == .automatic ? "waveform.path.ecg" : "ruler")
                             .font(DesignTokens.Typography.title2)
                             .foregroundStyle(distanceMode == mode ? DesignTokens.Colors.accent : DesignTokens.Colors.textSecondary)
-                            .frame(width: 32)
+                            .frame(width: DesignTokens.IconSize.md)
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                             Text(mode.localizedName)
                                 .foregroundStyle(DesignTokens.Colors.textPrimary)
@@ -382,7 +382,7 @@ struct SettingsView: View {
                 HStack {
                     Image(systemName: "waveform.path.ecg.rectangle")
                         .foregroundStyle(DesignTokens.Colors.warning)
-                        .frame(width: 24)
+                        .frame(width: DesignTokens.IconSize.sm)
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                         Text(L10n.localized("Use Fake Data", comment: "Debug toggle for synthetic HealthKit data"))
                             .foregroundStyle(DesignTokens.Colors.textPrimary)

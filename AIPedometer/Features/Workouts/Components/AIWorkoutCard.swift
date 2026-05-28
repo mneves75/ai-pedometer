@@ -54,7 +54,7 @@ struct AIWorkoutCard: View {
                         .font(DesignTokens.Typography.subheadline)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 .buttonStyle(.plain)
                 .accessibilityLabel(L10n.localized("Refresh workout plan", comment: "Accessibility label for AI workout refresh button"))
                 .accessibilityHint(L10n.localized("Generates a new workout recommendation", comment: "Accessibility hint for AI workout refresh button"))
