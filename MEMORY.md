@@ -37,6 +37,7 @@ Also confirm repo scope first with:
 
 ## Technical Decisions Worth Remembering
 
+- The canonical `DEVELOPMENT_TEAM` for device installs lives in `Config/Local.xcconfig` (currently `Q96FUTC5G8`). Do not parse it out of `security find-identity` — that returns the Apple Development identity suffix (e.g. `SM92FHMYS3`) which is the personal team, not the project team, and provisioning profile lookup will fail.
 - Swift 6.2 and strict concurrency are enforced project-wide.
 - AI is on-device through Apple Foundation Models, not cloud inference.
 - Health data is read through HealthKit, with graceful fallback behavior when data or permissions are unavailable.
@@ -63,6 +64,8 @@ Also confirm repo scope first with:
 - When Xcode says the embedded watch app runtime is missing, inspect `xcrun simctl list runtimes --json` for watch build-version drift, not just presence/absence of a watchOS runtime.
 - For this repo, a matching watch simulator runtime plus a freshly paired watch device can be required before any `AIPedometer` scheme build/test/install path will start.
 - Because the repo uses XcodeGen, any new Swift source files require `xcodegen generate` before Xcode can see them.
+- Always bump `project.yml` BEFORE running `xcodegen generate`. The generated `.xcodeproj` snapshots the version fields, so a later edit to `project.yml` will not reach device or TestFlight builds until `xcodegen generate` is re-run. Symptom: the installed `Info.plist` still carries the previous `CFBundleShortVersionString`/`CFBundleVersion` even though `project.yml` and the commit look correct.
+- The project-level design system has `DesignTokens.IconSize` (`xs=20`, `sm=24`, `md=32`, `lg=36`, `touchTarget=44`, `hero=100`) and extended `DesignTokens.Sizing` (workoutCardWidth, routePreviewHeight, badgeCardMinHeight, chartHeight, chartBarMaxHeight, chatBubbleGutter, onboardingPageBottomInset). New SwiftUI UI should consume these tokens instead of literal frame/cornerRadius/spacer values; enforcement greps are `\.frame(width: [0-9]` and `cornerRadius: [0-9]`.
 - Swift `warnings as errors` applies to test doubles too; fake clients must be warning-clean before test results are meaningful.
 
 ## Memory Rules
