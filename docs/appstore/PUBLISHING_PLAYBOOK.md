@@ -50,7 +50,7 @@ Com upload dry-run já resolvendo localization:
 bash Scripts/appstore-publishing-preflight.sh \
   --run-upload-dry-run \
   --app-id "<APP_ID_ASC>" \
-  --version "0.81" \
+  --version "0.82" \
   --locale "pt-BR"
 ```
 
@@ -80,7 +80,7 @@ Opção B (resolver automaticamente por app/version/locale):
 ```bash
 bash Scripts/appstore-screenshots-upload.sh \
   --app-id "<APP_ID_ASC>" \
-  --version "0.81" \
+  --version "0.82" \
   --locale "pt-BR"
 ```
 
@@ -103,7 +103,7 @@ Preencher e revisar:
 Validação remota recomendada quando app/version/build já existem no ASC:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.81" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "0.82" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```

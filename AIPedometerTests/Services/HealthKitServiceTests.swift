@@ -9,6 +9,12 @@ import Foundation
 final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
     var authorizationRequested = false
     var fetchStepsCallCount = 0
+    /// Opt-in cooperative yields inside `fetchSteps` so a test can widen the interleaving
+    /// window when probing for concurrent execution. Defaults to 0, leaving existing tests'
+    /// timing unchanged.
+    var fetchStepsYieldCount = 0
+    private(set) var concurrentFetchSteps = 0
+    private(set) var maxConcurrentFetchSteps = 0
     var fetchWheelchairPushesCallCount = 0
     var stepsToReturn: Int = 0
     var distanceToReturn: Double = 0
@@ -61,6 +67,12 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
             throw error
         }
         fetchStepsCallCount += 1
+        concurrentFetchSteps += 1
+        maxConcurrentFetchSteps = max(maxConcurrentFetchSteps, concurrentFetchSteps)
+        for _ in 0..<fetchStepsYieldCount {
+            await Task.yield()
+        }
+        concurrentFetchSteps -= 1
         return stepsToReturn
     }
 
@@ -323,6 +335,34 @@ struct StepTrackingServiceTests {
         #expect(service.todayCalories == Double(8765) * AppConstants.Metrics.caloriesPerStep)
         #expect(service.todayHeartRateBPM == 72)
         #expect(mockHealthKit.fetchLatestHeartRateCallCount == 1)
+    }
+
+    @Test("Concurrent refreshTodayData calls are serialized to prevent step regression")
+    @MainActor
+    func refreshTodayDataSerializesConcurrentCalls() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockHealthKit.stepsToReturn = 9000
+        // Widen the interleaving window: without serialization, two overlapping refreshes
+        // would both be inside fetchSteps at once (maxConcurrentFetchSteps == 2) and could
+        // clobber each other's todaySteps/liveBaseline. Serialization must keep it to 1.
+        mockHealthKit.fetchStepsYieldCount = 5
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        async let first: Void = service.refreshTodayData()
+        async let second: Void = service.refreshTodayData()
+        _ = await (first, second)
+
+        #expect(mockHealthKit.maxConcurrentFetchSteps == 1)
+        #expect(mockHealthKit.fetchStepsCallCount == 2)
+        #expect(service.todaySteps == 9000)
     }
 
     @Test("Refresh today uses motion when HealthKit returns 0 but Motion has steps")
