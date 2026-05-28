@@ -30,7 +30,7 @@ Then read the task-relevant docs before editing:
 
 - Product: iOS + watchOS pedometer with widgets, Live Activities, HealthKit/CoreMotion tracking, and local Apple Foundation Models AI.
 - Tooling: Swift 6.2, Xcode 26.x, XcodeGen, SwiftUI, Observation, SwiftData, Swift Testing, XCUITest.
-- Source of truth: `project.yml`; regenerate `AIPedometer.xcodeproj` after target/package/entitlement/new Swift source changes.
+- Source of truth: `project.yml`; regenerate `AIPedometer.xcodeproj` after target/package/entitlement/new Swift source changes. When bumping `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`, **always edit `project.yml` first, then re-run `xcodegen generate`** — the generated `.xcodeproj` snapshots those fields, so a build started after the bump but before regeneration will ship the old version (the installed `Info.plist` will silently lag).
 - Premium behavior: RevenueCat-backed AI surfaces fail closed when not configured.
 - Payment setup: recurring premium uses RevenueCat + App Store Connect subscriptions; the Tip Jar remains separate through StoreKit 2.
 - Privacy posture: health and AI data stays local-first; do not add cloud AI calls unless explicitly requested.
@@ -48,10 +48,11 @@ bash Scripts/verify-device-identifiers.sh
 bash Scripts/test-payments-device.sh
 ```
 
-Physical-device install must use device names, not hardcoded identifiers:
+Physical-device install must use device names, not hardcoded identifiers. The canonical `DEVELOPMENT_TEAM` lives in `Config/Local.xcconfig` — read it from there, do not derive it from `security find-identity` output (that returns the Apple Development identity suffix, which is the personal team and breaks provisioning):
 
 ```bash
-bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --launch
+DEVELOPMENT_TEAM=$(grep '^DEVELOPMENT_TEAM' Config/Local.xcconfig | awk '{print $3}') \
+  bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --launch
 bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --watch-name "<Apple Watch Name>" --launch
 ```
 
@@ -70,6 +71,7 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 
 - Keep Swift 6.2 strict concurrency and warnings-as-errors clean.
 - Prefer existing services, shared models, and design/localization utilities before adding new abstractions.
+- Consume `DesignTokens` for every spacing, corner radius, color, typography, icon size, and component dimension. The relevant enums are `DesignTokens.Spacing`, `CornerRadius`, `Colors`, `Typography`, `IconSize` (xs/sm/md/lg/touchTarget/hero), and `Sizing` (progressRing, workoutCardWidth, routePreviewHeight, badgeCardMinHeight, chartHeight, chartBarMaxHeight, chatBubbleGutter, onboardingPageBottomInset). Do not reintroduce literal `.frame(width:height:)`, `cornerRadius:` integers, or magic-number paddings — enforcement greps are `\.frame(width: [0-9]` and `cornerRadius: [0-9]`.
 - Put cross-target code in `Shared/` when iOS, watchOS, widgets, or Live Activities need the same behavior.
 - Add user-facing strings to `Shared/Resources/Localizable.xcstrings`.
 - `pt-BR` devices use Portuguese; every other locale defaults to English.
