@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.80] - 2026-05-28
+
+### Performance
+
+- Streak calculation now prefetches its historical window in a single `HKStatisticsCollectionQuery` instead of issuing one `HKStatisticsQuery` per day (previously up to 400 serial HealthKit round-trips). The cost no longer scales with streak length, so engaged users with long streaks no longer pay seconds of serial query latency and battery on every startup, foreground, and goal change. Streak semantics are unchanged.
+
+### Security
+
+- Hardened the GPX importer against internal-entity expansion ("billion laughs"): a single element's accumulated text is now capped, so a small but hostile GPX cannot balloon memory before the existing element caps trigger. (`shouldResolveExternalEntities` already blocked XXE.)
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.80 (36)`.
+
+### Tests
+
+- Added `StreakCalculatorTests` (the streak engine previously had no direct coverage): consecutive-day counting, today-included vs. not, gap-breaks-streak, per-day historical goals, empty history, the 400-day lookback cap, and a query-count contract asserting a single bucketed daily query.
+- Added a GPX parser regression test for the element-text cap.
+
 ## [0.79] - 2026-05-28
 
 ### Changed

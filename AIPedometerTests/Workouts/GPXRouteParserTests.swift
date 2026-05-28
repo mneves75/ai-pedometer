@@ -142,6 +142,30 @@ struct GPXRouteParserTests {
         }
     }
 
+    @Test("aborts when a single element's text exceeds the accumulation cap (internal-entity expansion guard)")
+    func rejectsOversizedElementText() throws {
+        // shouldResolveExternalEntities=false blocks XXE, but Foundation still expands internal
+        // DTD entities. A small file whose text balloons past the cap must abort rather than
+        // accumulate unbounded memory. The payload stays under the 5 MB file cap so we exercise
+        // the text-accumulation guard specifically, not the file-size guard.
+        let hugeText = String(repeating: "A", count: GPXRouteParser.maxElementTextCharacters + 1)
+        let data = Data("""
+        <?xml version="1.0"?>
+        <gpx version="1.1">
+          <metadata><name>\(hugeText)</name></metadata>
+          <trk><trkseg>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>15</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        #expect(data.count <= GPXRouteParser.maxFileSizeBytes)
+        #expect(throws: GPXRouteParserError.tooManyElements) {
+            _ = try GPXRouteParser.parse(data: data, sourceFilename: "billion-laughs.gpx")
+        }
+    }
+
     @Test
     func savesLoadsAndClearsImportedRoute() throws {
         let suiteName = "ImportedRouteStorageTests.\(UUID().uuidString)"

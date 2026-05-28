@@ -45,6 +45,12 @@ enum GPXRouteParser {
     static let maxRoutePoints = 50_000
     /// Cap on waypoint elements parsed; matches `maxRoutePoints` order of magnitude.
     static let maxWaypoints = 5_000
+    /// Cap on characters accumulated for a single element's text node. `shouldResolveExternalEntities`
+    /// already blocks XXE, but Foundation still expands *internal* DTD entities — a small file with
+    /// nested entity definitions ("billion laughs") could otherwise balloon one element's text in
+    /// memory. Legitimate GPX text nodes (names, elevations, coordinates) are tiny, so this bound is
+    /// far above any real value while keeping hostile expansion in check.
+    static let maxElementTextCharacters = 1_000_000
 
     static func parse(
         data: Data,
@@ -58,7 +64,8 @@ enum GPXRouteParser {
 
         let delegate = GPXParserDelegate(
             maxRoutePoints: maxRoutePoints,
-            maxWaypoints: maxWaypoints
+            maxWaypoints: maxWaypoints,
+            maxElementTextCharacters: maxElementTextCharacters
         )
         let parser = XMLParser(data: data)
         parser.delegate = delegate
@@ -158,6 +165,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
 
     private let maxRoutePoints: Int
     private let maxWaypoints: Int
+    private let maxElementTextCharacters: Int
 
     private var textBuffer = ""
     private var currentPoint: MutablePoint?
@@ -168,9 +176,10 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
     private(set) var waypointCount = 0
     private(set) var aborted = false
 
-    init(maxRoutePoints: Int, maxWaypoints: Int) {
+    init(maxRoutePoints: Int, maxWaypoints: Int, maxElementTextCharacters: Int) {
         self.maxRoutePoints = maxRoutePoints
         self.maxWaypoints = maxWaypoints
+        self.maxElementTextCharacters = maxElementTextCharacters
     }
 
     func parser(
@@ -204,8 +213,15 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         }
     }
 
-    func parser(_: XMLParser, foundCharacters string: String) {
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
         if aborted { return }
+        // Bound text accumulation so internal-entity expansion cannot balloon a single element in
+        // memory. Tripping the cap is treated like the element caps: abort and surface `.tooManyElements`.
+        guard textBuffer.count + string.count <= maxElementTextCharacters else {
+            aborted = true
+            parser.abortParsing()
+            return
+        }
         textBuffer += string
     }
 
