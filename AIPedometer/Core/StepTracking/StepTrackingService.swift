@@ -43,6 +43,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     @ObservationIgnored private var liveSnapshotDayStart: Date?
     @ObservationIgnored private var lastWidgetReloadAt: Date?
     @ObservationIgnored private var lastWidgetReloadSteps: Int?
+    @ObservationIgnored private var refreshChain: Task<Void, Never>?
 
     private(set) var todaySteps: Int = 0
     private(set) var todayDistance: Double = 0
@@ -114,6 +115,23 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     }
 
     func refreshTodayData() async {
+        // Serialize overlapping refreshes. This method is `async` with many `await`
+        // suspension points, and several independent callers (app foreground, background
+        // refresh, pull-to-refresh, settings changes) can invoke it concurrently. Without
+        // serialization two interleaved runs can overwrite `todaySteps`/`liveBaseline` with an
+        // older-but-stale HealthKit read, making the displayed count visibly regress and
+        // corrupting the live baseline until the next clean refresh. Chaining each run after
+        // the previous one guarantees every invocation's body executes atomically, in order.
+        let previous = refreshChain
+        let task = Task { @MainActor [weak self] in
+            await previous?.value
+            await self?.performRefreshTodayData()
+        }
+        refreshChain = task
+        await task.value
+    }
+
+    private func performRefreshTodayData() async {
         refreshActivitySettings()
         let startOfDay = calculator.startOfDay(for: .now)
         guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else {

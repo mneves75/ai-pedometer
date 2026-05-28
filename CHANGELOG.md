@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.82] - 2026-05-28
+
+### Fixed
+
+- **Step count could visibly regress under concurrent refreshes.** `StepTrackingService.refreshTodayData()` had no in-flight guard, so overlapping callers (app foreground, background refresh, pull-to-refresh, settings changes) could interleave across its `await` points — an older, stale HealthKit read could overwrite a newer one and corrupt the live step baseline until the next clean refresh. Refreshes are now serialized so each runs to completion atomically, in call order. A prior cycle had justified this as idempotent; a concrete non-idempotent interleaving (live-baseline corruption) was found and fixed this cycle.
+- **AI coaching over-reported earned badges.** The AI context snapshot counted raw `EarnedBadge` rows; older stores can contain duplicate rows for the same badge (the rest of the badge code dedups defensively). The count now reflects distinct badge types, matching the deduped value shown in the Badges UI, so the AI prompt no longer inflates the total.
+
+### Tests
+
+- Added a regression test proving concurrent `refreshTodayData()` calls are serialized (verified failing without the guard: two callers reached the HealthKit fetch simultaneously).
+- Added a regression test proving the AI badge count de-duplicates by badge type.
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.82 (38)`.
+
+### Docs
+
+- Synced every version-referencing doc to `0.82`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`.
+
 ## [0.81] - 2026-05-28
 
 ### Changed

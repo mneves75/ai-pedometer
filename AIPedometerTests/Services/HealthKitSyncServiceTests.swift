@@ -252,6 +252,28 @@ struct HealthKitSyncServiceTests {
         #expect(snapshot?.last7DaysSteps.suffix(2) == [9000, 11000])
     }
 
+    @Test("AI context badge count counts distinct badge types, not duplicate rows")
+    func aiContextSnapshotDeduplicatesBadgeCount() async throws {
+        let (service, _, _, modelContext) = makeTestEnvironment()
+        let today = Calendar(identifier: .gregorian).startOfDay(for: .now)
+
+        // Two rows for the SAME badge type (as can occur in older stores) plus one distinct
+        // badge. The AI snapshot must report 2 distinct badges, not 3 raw rows.
+        modelContext.insert(EarnedBadge(badgeType: .steps5K, earnedAt: today))
+        modelContext.insert(EarnedBadge(badgeType: .steps5K, earnedAt: today.addingTimeInterval(60)))
+        modelContext.insert(EarnedBadge(badgeType: .streak7, earnedAt: today))
+        try modelContext.save()
+
+        try await service.updateAIContextSnapshot(referenceDate: today)
+
+        let descriptor = FetchDescriptor<AIContextSnapshot>(
+            sortBy: [SortDescriptor(\.lastUpdated, order: .reverse)]
+        )
+        let snapshot = try modelContext.fetch(descriptor).first
+
+        #expect(snapshot?.totalBadgesEarned == 2)
+    }
+
     @Test("AI context snapshot prefers the latest record when multiple records map to the same day")
     func aiContextSnapshotUsesLatestRecordForDay() async throws {
         let (service, _, _, modelContext) = makeTestEnvironment()

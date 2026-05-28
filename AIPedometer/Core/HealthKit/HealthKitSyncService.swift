@@ -490,7 +490,12 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             badge.deletedAt == nil
         }
         let descriptor = FetchDescriptor<EarnedBadge>(predicate: predicate)
-        
-        return try modelContext.fetchCount(descriptor)
+
+        // Count distinct badge types, not raw rows. Duplicate rows for the same badge can
+        // exist in older stores — the rest of the badge code dedups defensively (see
+        // BadgeService.deduplicateBadges / refreshEarnedBadges) — so a raw fetchCount here
+        // would over-report the total that gets fed verbatim into AI coaching prompts.
+        let badges = try modelContext.fetch(descriptor)
+        return Set(badges.map(\.badgeRaw)).count
     }
 }
