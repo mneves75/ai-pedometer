@@ -10,7 +10,7 @@
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' analyze`
 - `asc doctor`: verify local ASC CLI/keychain/auth health before remote App Store Connect work.
 - `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`: confirm generated Xcode metadata matches `project.yml`.
-- `asc validate --app "<APP_ID_ASC>" --version "0.80" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
+- `asc validate --app "<APP_ID_ASC>" --version "0.81" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
 - `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`: remote TestFlight readiness once a processed build exists.
 - Full simulator E2E (iOS tests + widget build + watch build + screenshots): `bash Scripts/e2e-simulator.sh`
 - Build/install on physical device by name (no hardcoded UDID): `bash Scripts/install-on-device.sh --device-name <DeviceName>`
