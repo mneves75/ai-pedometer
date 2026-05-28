@@ -77,7 +77,7 @@ struct AboutView: View {
             ZStack {
                 Circle()
                     .fill(DesignTokens.Colors.accent.gradient)
-                    .frame(width: 100, height: 100)
+                    .frame(width: DesignTokens.IconSize.hero, height: DesignTokens.IconSize.hero)
                 
                 Image(systemName: "figure.walk")
                     .font(.system(size: DesignTokens.FontSize.sm, weight: .medium))
@@ -179,8 +179,8 @@ struct AboutView: View {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(DesignTokens.Typography.title3)
                     .foregroundStyle(.brown)
-                    .frame(width: 32, height: 32)
-                    .background(.brown.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+                    .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+                    .background(.brown.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
                 Text(L10n.localized("Support AI Pedometer", comment: "Support section title in About screen"))
                     .font(DesignTokens.Typography.headline)
@@ -367,13 +367,13 @@ private struct FeatureRow: View {
             Image(systemName: icon)
                 .font(DesignTokens.Typography.title3)
                 .foregroundStyle(color)
-                .frame(width: 36, height: 36)
-                .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
-            
+                .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
+                .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(title)
                     .font(DesignTokens.Typography.subheadline.weight(.medium))
-                
+
                 Text(subtitle)
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -402,8 +402,8 @@ private struct LinkRow: View {
                 Image(systemName: icon)
                     .font(DesignTokens.Typography.title3)
                     .foregroundStyle(color)
-                    .frame(width: 36, height: 36)
-                    .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+                    .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
+                    .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
                 
                 Text(title)
                     .font(DesignTokens.Typography.subheadline.weight(.medium))

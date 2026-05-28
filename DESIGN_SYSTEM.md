@@ -67,6 +67,24 @@ This file captures the design tokens and component styling currently implemented
 ## Touch Targets
 - minimum: 44
 
+## Icon Sizes
+- xs: 20 (small inline accents)
+- sm: 24 (chat avatars, accessory icons, list-row glyphs)
+- md: 32 (settings rows, premium crown)
+- lg: 36 (About feature/link badges)
+- touchTarget: 44 (circular tappable badges, refresh buttons)
+- hero: 100 (About hero circle)
+
+## Component Sizing
+- progressRing: 230, progressRingLineWidth: 16
+- workoutCardWidth: 190
+- routePreviewHeight: 104
+- badgeCardMinHeight: 180 (uses minHeight for Dynamic Type)
+- chartHeight: 150 (uses minHeight for Dynamic Type)
+- chartBarMaxHeight: 120
+- chatBubbleGutter: 40
+- onboardingPageBottomInset: 132
+
 ## Surfaces and Components
 - glassCard(cornerRadius, interactive):
   - iOS 26+: .glassEffect(.regular) or .glassEffect(.regular.interactive())

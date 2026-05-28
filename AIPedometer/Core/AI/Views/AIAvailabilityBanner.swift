@@ -13,7 +13,7 @@ struct AIAvailabilityBanner: View {
             Image(systemName: iconName)
                 .font(DesignTokens.Typography.title2)
                 .foregroundStyle(iconColor)
-                .frame(width: 32)
+                .frame(width: DesignTokens.IconSize.md)
             
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text(reason.userFacingMessage)
@@ -38,7 +38,7 @@ struct AIAvailabilityBanner: View {
                         .font(DesignTokens.Typography.title3)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 .buttonStyle(.plain)
             }
         }

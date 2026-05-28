@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.79] - 2026-05-28
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.79 (35)`.
+- Centralized icon sizing, component dimensions, and corner radii into `DesignTokens.IconSize` and extended `DesignTokens.Sizing`; replaced literal `.frame(width: 32/36/44/100, height: …)`, `cornerRadius: 8/10/12`, and chart/card magic numbers across Dashboard, History, Badges, Workouts, AI Coach, Settings, About, Premium gating, and AI availability surfaces.
+- Switched fixed `.frame(height:)` to Dynamic-Type-safe `.frame(minHeight:)` on the History weekly chart and badge cards so large accessibility text sizes no longer clip content.
+- Resolved the onboarding scroll-page bottom inset and AI Coach chat-bubble gutter to named tokens (`onboardingPageBottomInset`, `chatBubbleGutter`) instead of inline literals.
+
+### Docs
+
+- Updated `DESIGN_SYSTEM.md` and `FRONTEND_GUIDELINES.md` with the new icon-size, component-sizing, and corner-radius rules.
+- Synced README, App Store publishing playbook, and agent build/testing docs with the `0.79 (35)` release.
+
+### Tests
+
+- Full simulator verification passed on iPhone 17 (iOS 26.5 Simulator): `480` tests passed, `0` failures, `0` skipped (XCTest unit + Swift Testing + 16 XCUITest UI). Build succeeded with `xcodegen generate` + entitlement restore.
+
 ### Fixed
 
 - Honored Reduce Motion across animated dashboard, AI, badge, history, workout, and availability surfaces, and improved VoiceOver summaries for progress rings, widgets, watch summaries, support actions, and selected iPad sidebar rows.

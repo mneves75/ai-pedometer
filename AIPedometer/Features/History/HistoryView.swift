@@ -413,7 +413,7 @@ struct HistoryView: View {
                 )
             }
         }
-        .frame(height: 150)
+        .frame(minHeight: DesignTokens.Sizing.chartHeight)
     }
 
     private var historyRows: some View {
@@ -445,7 +445,7 @@ struct BarChartColumn: View {
                         ? DesignTokens.Colors.accent.gradient
                         : DesignTokens.Colors.accentSoft.gradient
                 )
-                .frame(height: animate ? 120 * heightRatio : 0)
+                .frame(height: animate ? DesignTokens.Sizing.chartBarMaxHeight * heightRatio : 0)
                 .motionAwareAnimation(
                     DesignTokens.Animation.springy.delay(delay),
                     value: animate
