@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.81] - 2026-05-28
+
+### Changed
+
+- Release metadata bump: updated app version/build to `0.81 (37)`.
+
+### Docs
+
+- Synced every version-referencing doc to `0.81`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md` (which had drifted to `0.76`).
+- Recorded the streak data-access seam in `MEMORY.md`: `StreakCalculator` now reads its historical window through `StepHistoryProviding.fetchDailySteps` (one bucketed `HKStatisticsCollectionQuery`) instead of one query per day.
+
 ## [0.80] - 2026-05-28
 
 ### Performance

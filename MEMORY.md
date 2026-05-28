@@ -48,6 +48,7 @@ Also confirm repo scope first with:
 - `TrainingPlanRecord` owns active training-plan workout projection through `currentWorkoutRecommendation` and `currentWorkoutRecommendationSummary`; keep goal-to-intent, difficulty, estimated-minutes, and current-week fallback logic out of `WorkoutsView`.
 - Heart rate support is current-day latest-sample display only; keep it out of medical/training-zone claims unless a later safety pass explicitly expands scope.
 - Watch and widgets rely on shared models plus app-group-backed shared state.
+- `StreakCalculator` reads its historical window through the `StepHistoryProviding` seam (conformed by the `StepDataAggregator` actor). `fetchDailySteps(from:to:)` returns one bucketed `HKStatisticsCollectionQuery` result keyed by start-of-day; the streak loop iterates that in memory instead of issuing one `HKStatisticsQuery` per day (the old path made up to 400 serial round-trips that scaled with streak length). Keep the bucketed-query approach — `HealthKitService.fetchDailyTotalsCollection` is the sibling pattern. Inside an `actor`, bind `calendar` to a local `let` before the `enumerateStatistics` block; capturing `self.calendar` trips Swift 6 "sending '<local>' risks causing data races".
 
 ## Known Documentation Drift
 
