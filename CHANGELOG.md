@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.84] - 2026-05-31
+
+### Changed
+
+- Release metadata bump to `0.84 (40)` and on-device verification milestone for the 0.83 audit-cycle fixes (goal-change gap, zero-week trend, streak start date, off-main GPX parse, DesignTokens cleanup). No source changes beyond the version bump; built, installed, and launched on the `iMarcus` physical device (iPhone 17 Pro Max) with the embedded watch app auto-delivered to the paired Apple Watch.
+
+### Docs
+
+- Synced every version-referencing doc to `0.84`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`. (`CLAUDE.md`/`AGENTS.md` intentionally carry no hardcoded app version — `project.yml` is the source of truth.)
+
 ## [0.83] - 2026-05-31
 
 ### Fixed
