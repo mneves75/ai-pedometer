@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Release metadata bump to `0.84 (40)` and on-device verification milestone for the 0.83 audit-cycle fixes (goal-change gap, zero-week trend, streak start date, off-main GPX parse, DesignTokens cleanup). No source changes beyond the version bump; built, installed, and launched on the `iMarcus` physical device (iPhone 17 Pro Max) with the embedded watch app auto-delivered to the paired Apple Watch.
+- Release metadata bump to `0.84 (40)` and on-device install milestone for the 0.83 audit-cycle fixes (goal-change gap, zero-week trend, streak start date, off-main GPX parse, DesignTokens cleanup). No source changes beyond the version bump. Built and **installed** on the `iMarcus` physical device (iPhone 17 Pro Max) — verified `0.84 (40)` present via `devicectl device info apps`, with the embedded watch app auto-delivered to the paired Apple Watch. Post-install **launch was deferred**: the device was locked at install time (`FBSOpenApplicationErrorDomain error 7`), and a physical iPhone cannot be unlocked remotely; the app launches normally once the device is unlocked (tap the icon or re-run the install script's `--launch`).
 
 ### Docs
 
