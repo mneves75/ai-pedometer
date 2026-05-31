@@ -697,7 +697,13 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         activityMode: ActivityTrackingMode
     ) -> DailyStepSummary {
         guard activityMode == .steps else { return summary }
-        guard Calendar.current.isDate(summary.date, inSameDayAs: .now) else { return summary }
+        // Use the service's `calculator` (same calendar instance as every other day-boundary
+        // decision here) instead of a one-off `Calendar.current`, so the current-day merge stays
+        // consistent with `seedLiveBaseline`/`currentBaseline` and is exercisable under a fixed
+        // test calendar.
+        guard !calculator.didCrossMidnight(previousDate: summary.date, currentDate: .now) else {
+            return summary
+        }
 
         let mergedSteps = max(summary.steps, todaySteps)
         guard mergedSteps != summary.steps else { return summary }

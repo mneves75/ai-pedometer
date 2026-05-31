@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.85] - 2026-05-31
+
+### Changed
+
+- **Full-review audit cycle (0.85 (41)).** A fresh multi-agent review (concurrency/data-races, state/data correctness, security/privacy, SwiftUI UX/accessibility, test quality) with adversarial verification against the real source found **0 critical, 0 high, 0 medium** correctness defects. Several reviewer findings were already fixed in 0.83 (zero-length streak start, zero-week trend) and were verified as such rather than re-applied.
+
+### Fixed
+
+- **Current-day summary merge now uses the service's shared day-boundary calculator.** `StepTrackingService.mergeCurrentDaySummaryIfNeeded` decided "is this today?" with a one-off `Calendar.current.isDate(_:inSameDayAs:)` — the only spot in the service that bypassed the injected `DailyStepCalculator` used by every other day-boundary decision (`seedLiveBaseline`, `currentBaseline`, `seedPendingBaselineIfNeeded`). It now routes through `calculator.didCrossMidnight`, keeping the merge consistent with the rest of the live-baseline logic and exercisable under a fixed test calendar. Behavior-preserving (both reflect the live time zone); no user-visible change.
+
+### Notes
+
+- **Live pedometer updates bypass the `refreshChain` serialization** (verified real, accepted not fixed): live CMPedometer ticks mutate the same `todaySteps`/`liveBaseline` state the refresh chain protects. The refresh's synchronous tail keeps the final state self-consistent, so the only artifact is a self-healing sub-second flicker; chaining live updates onto the refresh would break the synchronous live-update contract and add a hot-path cost on every tick. See `implementation-notes.html#finding-085-live-interleave`.
+
+### Docs
+
+- Synced every version-referencing doc to `0.85`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`. (`CLAUDE.md`/`AGENTS.md` intentionally carry no hardcoded app version — `project.yml` is the source of truth.)
+
 ## [0.84] - 2026-05-31
 
 ### Changed
