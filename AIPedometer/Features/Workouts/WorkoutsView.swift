@@ -519,11 +519,28 @@ struct WorkoutsView: View {
             return
         }
 
+        let url: URL
         do {
-            guard let url = try result.get().first else { return }
-            importedRoute = try GPXRouteImporter.importRoute(from: url)
+            guard let selected = try result.get().first else { return }
+            url = selected
         } catch {
             routeImportError = RouteImportError(message: error.localizedDescription)
+            return
+        }
+
+        // Parse off the main actor. A GPX file can be up to GPXRouteParser.maxFileSizeBytes
+        // (5 MiB) and XML parsing plus coordinate decoding is CPU-bound; doing it inline in the
+        // fileImporter callback hitched the dismissal animation on large routes. `ImportedRoute`
+        // is Sendable, so the parsed value crosses back to the main actor safely.
+        Task {
+            do {
+                let route = try await Task.detached(priority: .userInitiated) {
+                    try GPXRouteImporter.importRoute(from: url)
+                }.value
+                importedRoute = route
+            } catch {
+                routeImportError = RouteImportError(message: error.localizedDescription)
+            }
         }
     }
 

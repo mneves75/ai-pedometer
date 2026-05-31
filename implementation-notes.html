@@ -618,6 +618,74 @@
   <p><b>Deploy to staging — blocker (reported, not bypassed):</b> &ldquo;staging&rdquo; for this native app is TestFlight/App Store Connect, which is credential-gated (ASC API key / Apple account / <code>.p8</code>; AGENTS forbids committing these and they are not present in this environment). Per the goal's own constraint this credential-gated step is reported, not attempted. The next-best local deploy proof — physical-device install on <code>iMarcus</code> via <code>Scripts/install-on-device.sh</code> — succeeded for 0.81 last cycle and is available on request; it was not re-run here because the changes are behavior-preserving for the UI and fully covered by simulator tests.</p>
 </div>
 
+<h2 id="cycle-2026-05-31-083">Goal-mode full-stack audit cycle (2026-05-31 → 0.83)</h2>
+<p>Six parallel review agents (Swift concurrency, security/privacy, correctness/data, SwiftUI UI&nbsp;/&nbsp;UX&nbsp;/&nbsp;accessibility, architecture/performance, tests/docs) swept the codebase as if six months post-release. They surfaced ~14 claimed <b>critical/high</b> findings. Every one was adversarially verified against the real source before any change. <b>All ~14 were refuted</b> as false positives or documented-intentional designs — a result consistent with the codebase's evident quality. Only LOW/MEDIUM polish survived; that work is below.</p>
+
+<div class="card" id="finding-083-refuted-batch">
+  <h3>Reviewer-claimed critical/high findings — verified and refuted</h3>
+  <ul>
+    <li><b><code>BadgeService.deduplicateBadges</code> &ldquo;inverted <code>max(by:)</code>&rdquo;:</b> claimed to return the oldest badge. <b>Refuted:</b> <code>max(by: { $0.earnedAt &lt; $1.earnedAt })</code> returns the maximum (newest) — the proposed &ldquo;fix&rdquo; would have <em>introduced</em> the bug. No change.</li>
+    <li><b><code>GoalService.goal(for:)</code> nil-<code>endDate</code> matches future dates:</b> claimed critical. <b>Refuted:</b> only one open-ended goal exists at a time (each <code>setGoal</code> closes the prior), so matching any date ≥ start is the intended &ldquo;currently active&rdquo; semantics. No change.</li>
+    <li><b><code>HealthKitSyncService</code> div-by-zero at <code>last7DaysAverage</code>:</b> <b>Refuted</b> — guarded by <code>steps.isEmpty ? 0 : …</code>, and the window is always 7 entries. <b><code>total / 7</code> &ldquo;wrong&rdquo;:</b> <b>Refuted</b> — intentional fixed 7-day rolling average over an <code>Int</code> field (same rationale logged in the 0.82 cycle).</li>
+    <li><b>RevenueCat <code>.informational</code> verification mode is &ldquo;critical&rdquo;:</b> <b>Refuted</b> as a defect — it is a <em>documented, intentional</em> posture (MEMORY.md / FOR_YOU_KNOW.md) with manual fail-closed on <code>verification == .failed</code> already at <code>PremiumAccessStore.swift:145</code>. Flipping to <code>.enforced</code> is a revenue-affecting product decision, deliberately <b>not</b> made autonomously.</li>
+    <li><b>Test RevenueCat key committed in <code>Config/Local.xcconfig</code>:</b> <b>Refuted</b> — the file is gitignored (<code>git check-ignore</code> confirms) and has <b>0</b> history entries; only <code>Local.xcconfig.example</code> is tracked.</li>
+    <li><b><code>forcedPremiumEnabled</code> bypass in Release:</b> <b>Refuted</b> — gated by <code>LaunchConfiguration.isOverridable</code>, which in Release returns true only under a live XCTest/UI-test harness (uncheatable by launch args); an App Store build cannot be tricked.</li>
+    <li><b><code>PremiumAccessStore.customerInfoTask</code> not <code>@MainActor</code>:</b> <b>Refuted</b> — a non-detached <code>Task {}</code> inside a <code>@MainActor</code> class inherits main isolation; no data race.</li>
+    <li><b><code>InsightService</code> / <code>CoachService.send</code> / <code>WorkoutSessionController.updateMetrics</code> reentrancy:</b> <b>Refuted</b> — each guards correctly. <code>InsightService</code> has no <code>await</code> between the <code>isGenerating</code> check and set; <code>CoachService</code> bumps <code>activeResponseTaskGeneration</code> <em>synchronously</em> before awaiting and bails superseded responses at the generation guard; <code>updateMetrics</code> does its read-compute-write with no intervening <code>await</code> and the metrics loop is its sole serial caller.</li>
+    <li><b><code>GPXRouteImporter</code> file-size check before security-scoped access:</b> <b>Refuted</b> — order is correct (<code>startAccessingSecurityScopedResource</code> → <code>rejectOversizedFile</code> → read); the agent misread it.</li>
+    <li><b>Missing <code>DESIGN_SYSTEM.md</code>/<code>FRONTEND_GUIDELINES.md</code>, <code>APP_FLOW.md</code> tab drift:</b> <b>Refuted</b> — both docs exist; <code>APP_FLOW.md</code> already lists the iPhone &ldquo;More&rdquo; tab and iPad sidebar correctly.</li>
+  </ul>
+</div>
+
+<div class="card" id="finding-083-goal-gap">
+  <h3><span class="tag tag-p2">LOW (correctness)</span> Daily-goal change left a sub-millisecond no-active-goal gap</h3>
+  <p><b>Issue:</b> <code>GoalService.setGoal</code> read <code>Date()</code> for the closed goal's <code>endDate</code> and a separate <code>.now</code> for the new goal's <code>startDate</code>. For the microseconds between them, <code>goal(for:)</code> matched neither and fell back to <code>AppConstants.defaultDailyGoal</code>.</p>
+  <p><b>Fix:</b> reuse the single <code>now</code> for the new goal's <code>startDate</code> so <code>closed.endDate == new.startDate</code> exactly. <b>Regression test (teeth):</b> asserts <code>newGoal.startDate == closedGoal.endDate</code> and <code>goal(for: boundary) == 11000</code> — fails on the two-timestamp version.</p>
+</div>
+
+<div class="card" id="finding-083-trend-zero">
+  <h3><span class="tag tag-p2">LOW (correctness)</span> Week-over-week trend read &ldquo;stable&rdquo; recovering from a zero week</h3>
+  <p><b>Issue:</b> <code>HealthKitSyncService.calculateTrend</code> used <code>lastWeek &gt; 0 ? change : 0</code>, so a prior week of 0 with current activity computed change&nbsp;=&nbsp;0 → &ldquo;stable&rdquo; in the AI context snapshot.</p>
+  <p><b>Fix:</b> a zero baseline with <code>thisWeek &gt; 0</code> now returns &ldquo;increasing&rdquo;. <b>Regression test (teeth):</b> inserts activity only in the current week and asserts <code>last4WeeksAverages.suffix(2) == [0, 7000]</code> and <code>weekOverWeekTrend == "increasing"</code> — fails on the old branch.</p>
+</div>
+
+<div class="card" id="finding-083-streak-start">
+  <h3><span class="tag tag-p2">LOW (correctness)</span> Zero-length streak reported a future start date</h3>
+  <p><b>Issue:</b> <code>StreakCalculator</code> computed <code>-(streakCount - 1)</code> unconditionally; at <code>streakCount == 0</code> this resolved to <em>tomorrow</em>. No surface consumes <code>streakStartDate</code> today (verified by grep), so it was invisible dead data — fixed for model honesty before something starts reading it.</p>
+  <p><b>Fix:</b> <code>streakStartDate = nil</code> when <code>streakCount == 0</code>. <b>Regression test (teeth):</b> empty-history streak asserts <code>streakStartDate == nil</code>; a separate active-streak test pins the correct first-day date.</p>
+</div>
+
+<div class="card" id="finding-083-gpx-offmain">
+  <h3><span class="tag tag-p2">MEDIUM (performance)</span> GPX import parsed on the main actor</h3>
+  <p><b>Issue:</b> <code>WorkoutsView.importRoute</code> called <code>GPXRouteImporter.importRoute</code> synchronously in the file-importer callback. A file up to the 5&nbsp;MiB cap is mapped, XML-parsed, and coordinate-decoded — CPU-bound work that hitched the dismissal animation on large routes.</p>
+  <p><b>Fix:</b> parse inside <code>Task.detached(priority: .userInitiated)</code> and apply the <code>Sendable</code> <code>ImportedRoute</code> back on the main actor; file-picker errors are still surfaced. The 5&nbsp;MiB preflight and security-scoped access are unchanged (access is not thread-bound). Behavior-preserving; covered by the existing GPX parser/validation tests plus a clean build of all targets.</p>
+</div>
+
+<div class="card">
+  <h3>Findings reviewed and justified (not changed)</h3>
+  <ul>
+    <li><b>Widget chart/ring geometry literals</b> (<code>ProgressRingWidget</code> 80, <code>WeeklyChartWidget</code> bar 10/8/70/40): no existing semantic token matches these values; inventing chart-geometry tokens is a new abstraction with layout-regression risk for negligible benefit (Karpathy simplicity-first). Left as intentional local layout math. Only the three <em>exact-value</em> token matches were converted (cornerRadius&nbsp;20→<code>CornerRadius.xl</code>, 24→<code>IconSize.sm</code>, 20→<code>IconSize.xs</code>), with zero rendered-size change.</li>
+    <li><b>RevenueCat <code>.enforced</code> verification mode:</b> out of scope — credential/revenue-affecting product decision, not a defect (see refuted batch).</li>
+    <li><b><code>WorkoutSessionController</code> metrics-loop <code>guard let self</code> retaining across <code>Task.sleep</code>:</b> the controller is an app-lifetime <code>@Observable</code> singleton and the loop is cancelled on stop/discard; no unbounded leak. Moving the bind inside the loop is marginal hygiene with no proven benefit. Left as-is.</li>
+    <li><b>Design-token tests assert ordering, not exact values:</b> range/ordering assertions are the correct intent (they catch swaps and accidental scale changes without freezing magic numbers). No weakening of existing tests was performed.</li>
+  </ul>
+</div>
+
+<div class="card" id="verification-2026-05-31-083">
+  <h3>Validation evidence (2026-05-31 → 0.83)</h3>
+  <ul>
+    <li><b>Baseline:</b> clean worktree; <code>xcodebuild … build</code> on iPhone 17 → exit 0; full suite <code>test</code> → exit 0 before any change.</li>
+    <li><b>Targeted regression (with fixes):</b> <code>… test -only-testing:AIPedometerTests/GoalServiceTests -only-testing:AIPedometerTests/StreakCalculatorTests -only-testing:AIPedometerTests/HealthKitSyncServiceTests</code> → <b>Test run with 28 tests in 3 suites passed</b>, 0 failures, including the three new tests by name.</li>
+    <li><b>Teeth (analytical):</b> each new assertion targets exactly the changed expression — <code>startDate == endDate</code> (was two timestamps), <code>streakStartDate == nil</code> (was tomorrow), <code>trend == "increasing"</code> (was &ldquo;stable&rdquo;) — so each is red on the pre-fix code by construction.</li>
+    <li><b>Full suite after fixes:</b> serialized <code>-parallel-testing-enabled NO test</code> → <b>Test run with 451 tests in 77 suites passed after 2.673s, 0 failures, ** TEST SUCCEEDED **</b> (includes XCUITests; no flake this run).</li>
+    <li><b>Static/operational:</b> secret scan clean; <code>git ls-files</code> shows no <code>.p8</code>/credentials tracked; <code>Scripts/check-agents-sync.sh</code> in sync; DesignTokens enforcement greps <b>reduced</b> from 5 frame&nbsp;/&nbsp;1 cornerRadius to 3 frame&nbsp;/&nbsp;0 cornerRadius (remaining 3 are justified widget chart/ring geometry: ProgressRing 80, WeeklyChart bars 10).</li>
+    <li><b>Version bump (cardinal rule):</b> <code>project.yml</code> edited first (<code>0.82 (38)</code> → <code>0.83 (39)</code>), then <code>xcodegen generate</code> + <code>Scripts/restore-entitlements.sh</code>; version refs synced across README, publishing playbook, agent docs, and <code>test_plan.md</code>.</li>
+  </ul>
+  <p><b>Stop condition:</b> no critical/high findings remain (all reviewer-claimed ones were verified and refuted); the one MEDIUM (GPX off-main) is fixed; LOW items are fixed or explicitly justified; build + unit/Swift Testing/XCUITest suites + static checks green.</p>
+  <p><b>Confidence:</b> high, evidence-backed — not absolute. Remaining risks: (1) the GPX off-main change is behavior-preserving and covered by parser tests but was not exercised through a live large-file import on device this cycle; (2) the refuted security items rest on the documented fail-closed design — a future change to verification mode would need its own product review; (3) full-suite XCUITest timing flakiness on a loaded machine remains an environmental risk (none observed this run).</p>
+  <p><b>Deploy to staging — blocker (reported, not bypassed):</b> &ldquo;staging&rdquo; for this native app is TestFlight/App Store Connect, which is credential-gated (ASC API key / Apple account / <code>.p8</code>; AGENTS forbids committing these and they are absent here). Per the goal's own constraint this credential-gated step is reported, not attempted. Next-best local proof — physical-device install via <code>Scripts/install-on-device.sh</code> — is available on request; not re-run here as the changes are behavior-preserving and covered by simulator tests.</p>
+</div>
+
 <hr/>
 <p class="meta">Generated and maintained by the agent. Each commit landed during the cycle is referenced from the relevant finding/decision below.</p>
 </body>

@@ -56,7 +56,12 @@ final class StreakCalculator {
             streakCount += 1
         }
 
-        let startDate = calendar.date(byAdding: .day, value: -(streakCount - 1), to: today)
+        // A zero-length streak has no start date. Computing `-(streakCount - 1)` when
+        // `streakCount == 0` would resolve to *tomorrow*, an incoherent value for an
+        // inactive streak.
+        let startDate = streakCount > 0
+            ? calendar.date(byAdding: .day, value: -(streakCount - 1), to: today)
+            : nil
         return StreakResult(count: streakCount, todayIncluded: todayGoalMet, streakStartDate: startDate)
     }
 }

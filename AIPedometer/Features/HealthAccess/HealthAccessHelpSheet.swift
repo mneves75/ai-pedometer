@@ -135,7 +135,7 @@ struct HealthAccessHelpSheet: View {
             Text("\(number).")
                 .font(DesignTokens.Typography.subheadline.weight(.semibold))
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
-                .frame(width: 20, alignment: .leading)
+                .frame(width: DesignTokens.IconSize.xs, alignment: .leading)
             Text(text)
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textPrimary)

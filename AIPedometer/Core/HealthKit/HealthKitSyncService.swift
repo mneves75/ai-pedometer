@@ -442,8 +442,15 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         guard let lastWeek = recent.first, let thisWeek = recent.last else { return "stable" }
         
         let threshold = 0.1 // 10% change threshold
-        let change = lastWeek > 0 ? Double(thisWeek - lastWeek) / Double(lastWeek) : 0
-        
+
+        // A zero prior week means there is no baseline to compute a percentage against.
+        // Recovering from no activity to any activity is an increase, not "stable".
+        guard lastWeek > 0 else {
+            return thisWeek > 0 ? "increasing" : "stable"
+        }
+
+        let change = Double(thisWeek - lastWeek) / Double(lastWeek)
+
         if change > threshold {
             return "increasing"
         } else if change < -threshold {

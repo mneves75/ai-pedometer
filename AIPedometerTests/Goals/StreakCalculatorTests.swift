@@ -107,6 +107,24 @@ struct StreakCalculatorTests {
         #expect(result.count == 0)
         #expect(result.isActive == false)
         #expect(result.todayIncluded == false)
+        // A zero-length streak has no start date. The previous implementation computed a date
+        // one day in the *future* here (`-(0 - 1)` = +1 day).
+        #expect(result.streakStartDate == nil)
+    }
+
+    @Test("Active streak reports the first day of the streak as its start date")
+    func activeStreakReportsStartDate() async throws {
+        let (calculator, _) = makeCalculator(
+            todaySteps: 12_000,
+            daily: [day(-1): 11_000, day(-2): 10_000, day(-3): 3_000],
+            currentGoal: 10_000
+        )
+
+        let result = try await calculator.calculateCurrentStreak()
+
+        #expect(result.count == 3) // today + day-1 + day-2
+        let expectedStart = calendar.startOfDay(for: day(-2))
+        #expect(result.streakStartDate.map { calendar.startOfDay(for: $0) } == expectedStart)
     }
 
     @Test("Streak walk is bounded by maxLookbackDays even with an unbroken history")
