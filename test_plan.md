@@ -20,7 +20,7 @@
   - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO -only-testing:AIPedometerUITests test`
 - Run static analysis: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze`
 - If ASC credentials are configured, run remote readiness:
-  - `asc validate --app "<APP_ID_ASC>" --version "0.84" --platform IOS --output table`
+  - `asc validate --app "<APP_ID_ASC>" --version "0.85" --platform IOS --output table`
   - `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`
 - If build/test instability appears, use the repo’s canonical harness: `bash Scripts/e2e-simulator.sh`.
 
