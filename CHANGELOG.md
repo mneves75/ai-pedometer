@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.86] - 2026-05-31
+
+### Changed
+
+- Release-metadata bump to `0.86 (42)` for the on-device install milestone of the 0.85 review-cycle change (current-day summary merge now uses the shared `DailyStepCalculator`). No source changes beyond the version bump.
+
+### Docs
+
+- Synced every version-referencing doc to `0.86`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`. (`CLAUDE.md`/`AGENTS.md` intentionally carry no hardcoded app version — `project.yml` is the source of truth.)
+
 ## [0.85] - 2026-05-31
 
 ### Changed
