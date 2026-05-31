@@ -42,6 +42,32 @@ struct GoalServiceTests {
         #expect(activeGoals.first?.dailySteps == 11000)
     }
 
+    @Test("setGoal leaves no gap between the closed goal and the new active goal")
+    func setGoalLeavesNoGapBetweenGoals() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let service = GoalService(persistence: persistence)
+
+        service.setGoal(9000)
+        service.setGoal(11000)
+
+        let context = persistence.container.mainContext
+        let descriptor = FetchDescriptor<StepGoal>(
+            predicate: #Predicate { $0.deletedAt == nil },
+            sortBy: [SortDescriptor(\.startDate, order: .reverse)]
+        )
+        let goals = try context.fetch(descriptor)
+        let newGoal = goals.first { $0.endDate == nil }
+        let closedGoal = goals.first { $0.endDate != nil }
+
+        // The closed goal's endDate must equal the new goal's startDate so `goal(for:)`
+        // matches exactly one goal at the transition instant — no sub-millisecond window
+        // where it falls back to the default daily goal.
+        #expect(newGoal?.startDate == closedGoal?.endDate)
+        if let boundary = newGoal?.startDate {
+            #expect(service.goal(for: boundary) == 11000)
+        }
+    }
+
     @Test("goal(for:) returns goal that matches date range")
     func goalForDateReturnsMatchingGoal() throws {
         let persistence = PersistenceController(inMemory: true)

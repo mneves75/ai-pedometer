@@ -387,6 +387,43 @@ struct HealthKitSyncServiceTests {
         #expect(snapshot?.last4WeeksAverages[3] == 1714)
     }
 
+    @Test("Week-over-week trend reads as increasing when recovering from a zero prior week")
+    func aiContextSnapshotTrendIncreasesFromZeroBaseline() async throws {
+        let (service, _, _, modelContext) = makeTestEnvironment()
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: .now)
+
+        // This week (0-6 days ago) has activity; the prior week (7-13 days ago) has none.
+        // With no baseline, a percentage change is undefined — but going from no activity to
+        // activity is an increase, not "stable" (the prior `lastWeek > 0 ? ... : 0` returned 0).
+        for offset in 0...6 {
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            modelContext.insert(
+                DailyStepRecord(
+                    date: date,
+                    steps: 7000,
+                    distance: 1500,
+                    floorsAscended: 1,
+                    floorsDescended: 0,
+                    activeCalories: 250,
+                    goalSteps: 10000,
+                    source: .combined
+                )
+            )
+        }
+        try modelContext.save()
+
+        try await service.updateAIContextSnapshot(referenceDate: today)
+
+        let descriptor = FetchDescriptor<AIContextSnapshot>(
+            sortBy: [SortDescriptor(\.lastUpdated, order: .reverse)]
+        )
+        let snapshot = try modelContext.fetch(descriptor).first
+
+        #expect(snapshot?.last4WeeksAverages.suffix(2) == [0, 7000])
+        #expect(snapshot?.weekOverWeekTrend == "increasing")
+    }
+
     @Test("AI context snapshot ignores records older than 28 days")
     func aiContextSnapshotIgnoresOldRecords() async throws {
         let (service, _, _, modelContext) = makeTestEnvironment()

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83] - 2026-05-31
+
+### Fixed
+
+- **Daily-goal change left a sub-millisecond gap with no active goal.** `GoalService.setGoal` read `Date()` twice — once to close the previous goal and once (`.now`) to start the new one — so for the instant between them `goal(for:)` matched neither goal and silently fell back to the default daily goal. Both timestamps now share one value, so the closed goal's `endDate` equals the new goal's `startDate` exactly.
+- **Week-over-week trend read "stable" when recovering from a zero week.** `HealthKitSyncService` computed no percentage change against a zero prior week, so going from no activity to active still reported "stable" in the AI context snapshot. A zero baseline with current activity now reports "increasing".
+- **Streak start date was a future day for a zero-length streak.** `StreakCalculator` computed `-(streakCount - 1)` even when the streak was 0, resolving to *tomorrow*. An inactive streak now reports `streakStartDate == nil`. (No user-visible surface consumed this yet; corrected for model honesty.)
+
+### Changed
+
+- **GPX route import now parses off the main actor.** A selected GPX file (up to the 5 MiB cap) was parsed synchronously in the file-importer callback, hitching the dismissal animation on large routes. Parsing now runs on a background task and the `Sendable` result is applied back on the main actor.
+- **DesignTokens enforcement cleanup.** Replaced literal visual constants with existing tokens where an exact-value token exists: Live Activity card `cornerRadius` → `CornerRadius.xl`, Live Activity stat icon frame → `IconSize.sm`, Health Access help-sheet number column → `IconSize.xs`. Zero rendered-size change. Remaining widget chart/ring geometry literals are intentional local layout math with no semantic token (documented in implementation notes).
+- Release metadata bump: updated app version/build to `0.83 (39)`.
+
+### Tests
+
+- Added regression tests (each proven to fail before its fix): goal-change leaves no gap between goals, week-over-week trend increases from a zero baseline, and an active streak reports its first day while a zero streak reports `nil`.
+
+### Docs
+
+- Recorded a full goal-mode audit cycle in `implementation-notes.html`: ~14 reviewer-claimed critical/high findings were adversarially verified against the real code and **all were refuted** (false positives or documented-intentional designs); only LOW/MEDIUM polish remained, which is fixed or justified here.
+- Synced every version-referencing doc to `0.83`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`.
+
 ## [0.82] - 2026-05-28
 
 ### Fixed

@@ -80,7 +80,11 @@ final class GoalService: GoalServiceProtocol, Sendable {
             goal.endDate = now
             goal.updatedAt = now
         }
-        let goal = StepGoal(dailySteps: value, startDate: .now)
+        // Reuse the single `now` for the new goal's start so the previous goal's `endDate`
+        // and the new goal's `startDate` are identical. Two separate `Date()` reads leave a
+        // sub-millisecond window in which `goal(for:)` matches neither goal and falls back to
+        // the default daily goal.
+        let goal = StepGoal(dailySteps: value, startDate: now)
         context.insert(goal)
         do {
             try context.save()

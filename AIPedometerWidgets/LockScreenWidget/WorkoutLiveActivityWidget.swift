@@ -99,7 +99,7 @@ struct LockScreenWorkoutView: View {
         }
         .padding(DesignTokens.Spacing.lg)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xl, style: .continuous))
     }
 
     private func distanceText(_ distance: Double) -> String {
@@ -142,7 +142,7 @@ struct LiveStatView: View {
             Image(systemName: icon)
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(tint)
-                .frame(width: 24, height: 24)
+                .frame(width: DesignTokens.IconSize.sm, height: DesignTokens.IconSize.sm)
                 .background(tint.opacity(0.15))
                 .clipShape(Circle())
 
