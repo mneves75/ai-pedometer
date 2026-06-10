@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.88] - 2026-06-10
+
+### Changed
+
+- Release-metadata bump to `0.88 (44)` for the first TestFlight/App Store submission attempt of the 0.87 review-cycle changes (Release override lockdown, stale-insight fix, goal/plan caches, Enhanced Security compiler hardening). No source changes beyond the version bump.
+
+### Docs
+
+- Synced every version-referencing doc to `0.88`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`. (`CLAUDE.md`/`AGENTS.md` intentionally carry no hardcoded app version — `project.yml` is the source of truth.)
+
 ## [0.87] - 2026-06-10
 
 ### Security
