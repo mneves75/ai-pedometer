@@ -166,42 +166,6 @@ final class InsightService {
         }
     }
     
-    func generateGoalRecommendation() async throws(AIServiceError) -> GoalRecommendation {
-        lastError = nil
-
-        let signpostState = Signposts.ai.begin("GoalRecommendation")
-        defer { Signposts.ai.end("GoalRecommendation", signpostState) }
-
-        do {
-            let recentData = try await fetchRecentActivityData(days: 14)
-            let currentGoal = goalService.currentGoal
-            let unitName = ActivitySettings.current(userDefaults: userDefaults).activityMode.unitName
-            let prompt = buildGoalRecommendationPrompt(
-                data: recentData,
-                currentGoal: currentGoal,
-                unitName: unitName
-            )
-
-            let recommendation: GoalRecommendation = try await foundationModelsService.respond(
-                to: prompt,
-                as: GoalRecommendation.self
-            )
-
-            Loggers.ai.info("ai.goal_recommendation_generated", metadata: [
-                "recommended": "\(recommendation.recommendedGoal)",
-                "current": "\(currentGoal)"
-            ])
-            return recommendation
-        } catch let error as AIServiceError {
-            lastError = error
-            throw error
-        } catch {
-            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
-            lastError = mappedError
-            throw mappedError
-        }
-    }
-    
     func generateWorkoutRecommendation(forceRefresh: Bool = false) async throws(AIServiceError) -> AIWorkoutRecommendation {
         lastError = nil
 
@@ -386,11 +350,15 @@ private extension InsightService {
         let syncEnabled = HealthKitSyncSettings.isEnabled(userDefaults: userDefaults)
         dataStore.refresh()
         let sharedData = dataStore.sharedData
-        let liveSteps = sharedData?.todaySteps ?? 0
         let liveGoal = goalService.currentGoal
 
-        // Check if SharedDataStore has fresh data (non-nil and not stale)
+        // Check if SharedDataStore has fresh data (non-nil, same-day, and not stale)
         let hasRecentSharedData = sharedData?.isStale == false
+
+        // A stale snapshot is typically YESTERDAY's total surviving past midnight; merging
+        // it into today would congratulate the user on steps they have not taken yet.
+        // SmartNotificationService.fetchTodayProgress applies the same freshness gate.
+        let liveSteps = hasRecentSharedData ? (sharedData?.todaySteps ?? 0) : 0
 
         if !syncEnabled {
             Loggers.sync.info("healthkit.fetch_skipped", metadata: [
@@ -817,41 +785,6 @@ private extension InsightService {
         - If data is limited, acknowledge uncertainty and suggest simple next steps.
 
         Provide a concise weekly analysis with actionable recommendations.
-        """
-    }
-    
-    func buildGoalRecommendationPrompt(
-        data: [DailyStepSummary],
-        currentGoal: Int,
-        unitName: String
-    ) -> String {
-        let unitLabel = unitName
-        let languageInstruction = AppLanguage.promptInstruction()
-        let averageSteps = data.isEmpty ? 0 : data.reduce(0) { $0 + $1.steps } / data.count
-        let goalMetCount = data.filter { $0.steps >= $0.goal }.count
-        let goalMetPercentage = data.isEmpty ? 0 : (goalMetCount * 100) / data.count
-        let dataReliabilityNote = data.isEmpty
-            ? """
-
-            DATA RELIABILITY WARNING:
-            Recent activity data is unavailable. Avoid aggressive goal increases and suggest enabling HealthKit sync for better recommendations.
-            """
-            : ""
-        
-        return """
-        Recommend a daily step goal adjustment:
-
-        Language:
-        - \(languageInstruction)
-        
-        Current Status:
-        - Current goal: \(currentGoal.formatted()) \(unitLabel)
-        - 14-day average: \(averageSteps.formatted()) \(unitLabel)
-        - Goal achievement rate: \(goalMetPercentage)% (\(goalMetCount)/\(data.count) days)
-        \(dataReliabilityNote)
-
-        Provide a goal recommendation that is challenging but achievable.
-        Consider gradual progression (5-10% increases are ideal).
         """
     }
     

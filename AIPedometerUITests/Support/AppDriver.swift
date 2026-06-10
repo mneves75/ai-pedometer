@@ -69,8 +69,8 @@ final class AppDriver {
     func waitForOnboardingShell(timeout: TimeInterval) -> Bool {
         // We don't rely on localized strings. Buttons are stable IDs in the app.
         let candidates: [XCUIElement] = [
-            app.buttons["onboarding_next_button"],
-            app.buttons["onboarding_get_started_button"],
+            app.buttons[A11yID.Onboarding.nextButton],
+            app.buttons[A11yID.Onboarding.getStartedButton],
         ]
         return UITestWait.firstExisting(candidates, timeout: timeout) != nil
     }

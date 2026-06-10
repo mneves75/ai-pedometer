@@ -1,7 +1,15 @@
 import SwiftUI
 
+@MainActor
 enum HeartRateDisplayFormatter {
     static let freshnessThreshold: TimeInterval = 5 * 60
+
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        formatter.dateTimeStyle = .numeric
+        return formatter
+    }()
 
     static func visualText(sample: HeartRateSample?, now: Date = .now) -> String {
         guard let sample else {
@@ -30,10 +38,7 @@ enum HeartRateDisplayFormatter {
     }
 
     private static func localizedAgeText(for date: Date, relativeTo now: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        formatter.dateTimeStyle = .numeric
-        return formatter.localizedString(for: date, relativeTo: now)
+        relativeDateFormatter.localizedString(for: date, relativeTo: now)
     }
 }
 

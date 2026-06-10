@@ -66,7 +66,9 @@ Never claim a bug is fixed without proof from the reproducer.
 
 ## Build and Test Commands
 
-Regenerate the project after target, package, entitlement, or new Swift source changes:
+Toolchain pin: if `xcode-select` points at an Xcode beta (this machine defaults to Xcode 27 beta), prefix every `xcodebuild` with `DEVELOPER_DIR=/Applications/Xcode.app` — the project contract is Xcode 26.x and the pinned RevenueCat revision fails test builds under the beta toolchain. If the stable Xcode reports "iOS X.Y is not installed" while `simctl` lists the runtime, run `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
+
+Regenerate the project after target, package, entitlement, or new Swift source changes (`Scripts/restore-entitlements.sh` runs as the postGen hook and is the ONLY place entitlements may be edited; the iOS app's Enhanced Security hardened-process keys are staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1` pending a one-time interactive provisioning-profile refresh — see `xcode-security-settings.md`):
 
 ```bash
 xcodegen generate
@@ -76,14 +78,14 @@ Scripts/restore-entitlements.sh
 Default simulator commands:
 
 ```bash
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-Targeted test example:
+Targeted test example (Swift Testing functions need the trailing `()` — without it the run reports a green "0 tests"):
 
 ```bash
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -only-testing:AIPedometerTests/DailyStepCalculatorTests
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test '-only-testing:AIPedometerTests/DailyStepCalculatorTests'
 ```
 
 Full simulator E2E:
@@ -208,6 +210,15 @@ Essentials (apply to every task):
 - Treat this as a private repo: no public disclosure, use `SECURITY.md` for vulnerability reporting.
 - Follow `.github/pull_request_template.md` and keep review routing aligned with `OWNERS.md`/`.github/CODEOWNERS`.
 
+Mandatory change workflow:
+- After every change, verify all changes with agent-browser (`/browser gstack`) and fix any UI/UX issues. Do not stop until all changes have been verified.
+- When there is a bug report, do not start by trying to fix it. Start by writing a test that reproduces the bug. Then have subagents try to fix the bug and prove it with a passing test.
+- When all done, use the `autoreview` skill and fix all justified findings.
+
+Security:
+- NÃO tenha a página `/admin`; sempre peça pro admin ser um acesso via string aleatória.
+- NÃO tenha uma senha que brute force quebra em 1 minuto.
+
 Common commands:
 - `bun --bun tools/kb-check-all.ts`
 - `bun --bun tools/kb-check-all.ts --critical-only`
@@ -231,7 +242,7 @@ Additional kb-tools commands:
 - `TODO: promote a generic targeted Biome lint command after more run-note evidence (current single-run example: bunx biome check lib/adapters/typescript.ts lib/__tests__/typescript-adapter.test.ts --formatter-enabled=false from notes/run-2026-02-20.txt)`
 - `TODO: evaluate/promote targeted staleness lint command after repeated post-Biome-2.4 evidence beyond notes/run-2026-04-24-full-refresh.txt.`
 - `TODO: no further command promotions until a newer notes/run-*.txt (newer than 2026-04-26) captures repeated execution evidence beyond the currently promoted command set.`
-- `TODO: as of 2026-05-04, run-note inventory still ends at notes/run-2026-04-26-guideline-surface-review.txt; keep command/workflow promotions frozen until newer repeated evidence exists.`
+- `TODO: as of 2026-06-01, run-note inventory now includes notes/run-2026-06-01-full-refresh.txt (full 2026+ guideline refresh); this is a single run, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`

@@ -5,7 +5,6 @@ final class AppStartupCoordinator {
     private let isTesting: () -> Bool
     private let refreshHealthAuthorization: () async -> Void
     private let refreshMotionAuthorization: () -> Void
-    private let registerBackgroundTasks: () -> Void
     private let scheduleAppRefresh: () -> Void
     private let startWatchSync: () -> Void
     private let startStepTracking: () async -> Void
@@ -18,7 +17,6 @@ final class AppStartupCoordinator {
         isTesting: @escaping () -> Bool,
         refreshHealthAuthorization: @escaping () async -> Void,
         refreshMotionAuthorization: @escaping () -> Void,
-        registerBackgroundTasks: @escaping () -> Void,
         scheduleAppRefresh: @escaping () -> Void,
         startWatchSync: @escaping () -> Void,
         startStepTracking: @escaping () async -> Void,
@@ -27,7 +25,6 @@ final class AppStartupCoordinator {
         self.isTesting = isTesting
         self.refreshHealthAuthorization = refreshHealthAuthorization
         self.refreshMotionAuthorization = refreshMotionAuthorization
-        self.registerBackgroundTasks = registerBackgroundTasks
         self.scheduleAppRefresh = scheduleAppRefresh
         self.startWatchSync = startWatchSync
         self.startStepTracking = startStepTracking
@@ -46,11 +43,6 @@ final class AppStartupCoordinator {
             return
         }
         refreshMotionAuthorization()
-        guard !Task.isCancelled else {
-            didStart = false
-            return
-        }
-        registerBackgroundTasks()
         guard !Task.isCancelled else {
             didStart = false
             return

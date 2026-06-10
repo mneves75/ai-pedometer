@@ -9,6 +9,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private var lastQueuedTransferAt: Date?
     private var lastReachableSendAt: Date?
     private var lastReachableSentSteps: Int?
+    private var lastContextUpdateAt: Date?
+    private var lastContextSentSteps: Int?
 
     private override init() {
         super.init()
@@ -34,28 +36,51 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
             weeklySteps: stepData.weeklySteps
         )
         do {
-            let encoded = try JSONEncoder().encode(payload)
-            // Always update application context with the latest snapshot (overwrites previous).
-            do {
-                try session.updateApplicationContext([WatchPayload.transferKey: encoded])
-            } catch {
-                Loggers.sync.warning("watch.update_application_context_failed", metadata: [
-                    "error": error.localizedDescription
-                ])
-            }
-
             let now = Date.now
+
+            // The context is a latest-wins snapshot, so it gets the same time/step-delta
+            // throttle as `sendMessage` — without it, every CMPedometer tick (several per
+            // second during a brisk walk) paid a JSON encode + plist serialization + XPC
+            // hop to the WatchConnectivity daemon.
+            let shouldUpdateContext = Self.shouldSendReachableMessage(
+                lastSentAt: lastContextUpdateAt,
+                lastSentSteps: lastContextSentSteps,
+                newSteps: stepData.todaySteps,
+                now: now
+            )
 
             // If reachable, push the snapshot immediately for best UX — but throttle to avoid
             // saturating the WC channel during a brisk walk where CMPedometer fires several
             // updates per second. See implementation-notes.html#finding-watch-connectivity-throttle.
-            if session.isReachable,
-               Self.shouldSendReachableMessage(
-                   lastSentAt: lastReachableSendAt,
-                   lastSentSteps: lastReachableSentSteps,
-                   newSteps: stepData.todaySteps,
-                   now: now
-               ) {
+            let shouldSendMessage = session.isReachable && Self.shouldSendReachableMessage(
+                lastSentAt: lastReachableSendAt,
+                lastSentSteps: lastReachableSentSteps,
+                newSteps: stepData.todaySteps,
+                now: now
+            )
+
+            // Queue userInfo as a durability mechanism, but throttle to avoid an unbounded queue.
+            let queueMinInterval: TimeInterval = 10 * 60
+            let shouldQueueTransfer = lastQueuedTransferAt == nil
+                || now.timeIntervalSince(lastQueuedTransferAt ?? .distantPast) >= queueMinInterval
+
+            // Nothing due on any channel: skip the encode entirely (hot pedometer tick path).
+            guard shouldUpdateContext || shouldSendMessage || shouldQueueTransfer else { return }
+
+            let encoded = try JSONEncoder().encode(payload)
+            if shouldUpdateContext {
+                do {
+                    try session.updateApplicationContext([WatchPayload.transferKey: encoded])
+                    lastContextUpdateAt = now
+                    lastContextSentSteps = stepData.todaySteps
+                } catch {
+                    Loggers.sync.warning("watch.update_application_context_failed", metadata: [
+                        "error": error.localizedDescription
+                    ])
+                }
+            }
+
+            if shouldSendMessage {
                 session.sendMessage([WatchPayload.transferKey: encoded], replyHandler: nil) { error in
                     Loggers.sync.warning("watch.send_message_failed", metadata: [
                         "error": error.localizedDescription
@@ -65,9 +90,7 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 lastReachableSentSteps = stepData.todaySteps
             }
 
-            // Queue userInfo as a durability mechanism, but throttle to avoid an unbounded queue.
-            let minInterval: TimeInterval = 10 * 60
-            if lastQueuedTransferAt == nil || now.timeIntervalSince(lastQueuedTransferAt ?? .distantPast) >= minInterval {
+            if shouldQueueTransfer {
                 session.transferUserInfo([WatchPayload.transferKey: encoded])
                 lastQueuedTransferAt = now
             }
@@ -98,6 +121,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private func resetReachableThrottle() {
         lastReachableSendAt = nil
         lastReachableSentSteps = nil
+        lastContextUpdateAt = nil
+        lastContextSentSteps = nil
     }
 
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {}
@@ -112,26 +137,5 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         }
         session.activate()
     }
-}
-#else
-import Foundation
-
-struct SharedStepData: Codable, Sendable {
-    let todaySteps: Int
-    let goalSteps: Int
-    let goalProgress: Double
-    let currentStreak: Int
-    let lastUpdated: Date
-    let weeklySteps: [Int]
-}
-
-@MainActor
-final class WatchSyncService {
-    static let shared = WatchSyncService()
-
-    private init() {}
-
-    func start() {}
-    func send(stepData: SharedStepData) {}
 }
 #endif

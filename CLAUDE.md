@@ -37,16 +37,20 @@ Then read the task-relevant docs before editing:
 
 ## Common Commands
 
+If `xcode-select` points at an Xcode beta (this machine has Xcode 27 beta as default), pin every build/test to the stable Xcode 26.x with `DEVELOPER_DIR=/Applications/Xcode.app` — the pinned RevenueCat revision does not compile in test builds under the beta's Swift toolchain. If the stable Xcode reports "iOS X.Y is not installed" with the runtime present in `simctl`, fix the SDK/runtime build drift with `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
+
 ```bash
 xcodegen generate
 Scripts/restore-entitlements.sh
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
 bash Scripts/e2e-simulator.sh
 bash Scripts/check-agents-sync.sh
 bash Scripts/verify-device-identifiers.sh
 bash Scripts/test-payments-device.sh
 ```
+
+Entitlements are rewritten on every `xcodegen generate` by `Scripts/restore-entitlements.sh` — entitlement changes go in that script, never in the `.entitlements` files. Enhanced Security compiler hardening (`ENABLE_ENHANCED_SECURITY` + pointer auth) is always on; the hardened-process *entitlements* are staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1` because signing them needs the team profile regenerated with the capability (one-time interactive Xcode sign-in). Security build-setting decisions live in `xcode-security-settings.md`.
 
 Physical-device install must use device names, not hardcoded identifiers. The canonical `DEVELOPMENT_TEAM` lives in `Config/Local.xcconfig` — read it from there, do not derive it from `security find-identity` output (that returns the Apple Development identity suffix, which is the personal team and breaks provisioning):
 

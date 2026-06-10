@@ -108,10 +108,14 @@ struct LockScreenWorkoutView: View {
 }
 
 private enum LiveActivityDistanceFormatter {
-    static func string(kilometers: Double) -> String {
+    @MainActor static let formatter: MeasurementFormatter = {
         let formatter = MeasurementFormatter()
         formatter.unitStyle = .short
         formatter.unitOptions = .naturalScale
+        return formatter
+    }()
+
+    @MainActor static func string(kilometers: Double) -> String {
         let measurement = Measurement(value: kilometers * 1_000, unit: UnitLength.meters)
         return formatter.string(from: measurement)
     }

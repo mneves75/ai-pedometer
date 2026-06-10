@@ -337,6 +337,8 @@ Há três estratégias de teste relevantes.
 - `PREMIUM_ENABLED=1`
 - `PREMIUM_ENABLED=0`
 
+Esses overrides funcionam apenas em builds **Debug**. Builds Release ignoram launch arguments e variáveis de ambiente por segurança (argumentos de launch são input controlável por atacante via `devicectl`).
+
 Arquivos:
 
 - [Shared/Utilities/LaunchConfiguration.swift](../../Shared/Utilities/LaunchConfiguration.swift)

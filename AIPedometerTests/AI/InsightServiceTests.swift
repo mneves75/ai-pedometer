@@ -54,6 +54,57 @@ struct InsightServiceTests {
         #expect(goalValue(from: prompt) == 10_000)
     }
 
+    @Test("Daily insight ignores stale shared step data from a previous day")
+    func dailyInsightIgnoresStaleSharedData() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(DailyInsight(
+            greeting: "Hello",
+            highlight: "Highlight",
+            suggestion: "Suggestion",
+            encouragement: "Encourage"
+        ))
+
+        // HealthKit says today has 100 steps; the shared snapshot still carries
+        // YESTERDAY's 9000-step total. The stale snapshot must not inflate today.
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(
+                date: .now,
+                steps: 100,
+                distance: 80,
+                floors: 0,
+                calories: 5,
+                goal: 10_000
+            )
+        ])
+
+        let dataStore = SharedDataStore(userDefaults: testDefaults.defaults)
+        dataStore.update(SharedStepData(
+            todaySteps: 9000,
+            goalSteps: 10_000,
+            goalProgress: 0.9,
+            currentStreak: 3,
+            lastUpdated: Date(timeIntervalSinceNow: -86_400),
+            weeklySteps: []
+        ))
+
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: dataStore,
+            userDefaults: testDefaults.defaults
+        )
+
+        _ = try await service.generateDailyInsight(forceRefresh: true)
+
+        let unitName = ActivityTrackingMode.steps.unitName
+        let prompt = foundationModels.lastPrompt ?? ""
+        #expect(prompt.contains("\(unitName.capitalized): 100"))
+        #expect(!prompt.contains("9000"))
+    }
+
     @Test("Daily insight skips HealthKit when sync disabled")
     func dailyInsightSkipsHealthKitWhenSyncDisabled() async throws {
         let testDefaults = TestUserDefaults()

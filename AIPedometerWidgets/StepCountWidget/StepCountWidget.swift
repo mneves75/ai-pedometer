@@ -32,7 +32,7 @@ struct StepCountWidgetView: View {
 }
 
 struct StepCountContentView: View {
-    let data: WidgetStepData
+    let data: SharedStepData
 
     private var clampedProgress: Double {
         ProgressClamp.unitInterval(data.goalProgress)

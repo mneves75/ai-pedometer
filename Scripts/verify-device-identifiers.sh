@@ -21,6 +21,12 @@ patterns=(
   "--device[[:space:]]+(${physical_udid}|${uuid}|${ecid})"
   "(ECID|DEVICE_ID|DEVICE_UUID|DEVICE_UDID)[^[:alnum:]]+(${physical_udid}|${uuid}|${ecid})"
   "MyDevice[^[:alnum:]]+(${physical_udid}|${uuid}|${ecid})"
+  # Bare physical UDID anywhere, prose included: the 8+16 hex shape is unique to
+  # physical Apple device identifiers, so no contextual prefix is required. Catches
+  # leaks in memory/docs that the command-flag patterns above cannot see.
+  "(^|[^A-Fa-f0-9-])${physical_udid}([^A-Fa-f0-9-]|$)"
+  # UUID-shaped identifier mentioned right after a device-identity word in prose.
+  "(UDID|Device ID)[^[:alnum:]][^|]{0,20}${uuid}"
 )
 
 fail=0

@@ -6,7 +6,10 @@ struct TestUserDefaults {
 
     init() {
         suiteName = "AIPedometerTests.\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        guard let suiteDefaults = UserDefaults(suiteName: suiteName) else {
+            preconditionFailure("Failed to create UserDefaults suite '\(suiteName)'; refusing to fall back to .standard so tests never pollute real defaults")
+        }
+        defaults = suiteDefaults
         defaults.removePersistentDomain(forName: suiteName)
     }
 
