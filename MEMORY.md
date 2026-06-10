@@ -37,7 +37,7 @@ Also confirm repo scope first with:
 
 ## Technical Decisions Worth Remembering
 
-- The canonical `DEVELOPMENT_TEAM` for device installs lives in `Config/Local.xcconfig` (currently `Q96FUTC5G8`). Do not parse it out of `security find-identity` — that returns the Apple Development identity suffix (e.g. `SM92FHMYS3`) which is the personal team, not the project team, and provisioning profile lookup will fail.
+- The canonical `DEVELOPMENT_TEAM` for device installs lives in `Config/Local.xcconfig` (currently `<LOCAL_DEVELOPMENT_TEAM_ID>`). Do not parse it out of `security find-identity` — that returns the Apple Development identity suffix (e.g. `<PERSONAL_TEAM_ID>`) which is the personal team, not the project team, and provisioning profile lookup will fail.
 - Swift 6.2 and strict concurrency are enforced project-wide.
 - AI is on-device through Apple Foundation Models, not cloud inference.
 - Health data is read through HealthKit, with graceful fallback behavior when data or permissions are unavailable.
@@ -57,6 +57,17 @@ Also confirm repo scope first with:
 - `README.md` references `AGENTS.md` and `CLAUDE.md`; these are now present locally.
 - `PRD.md` says subscriptions are out of scope, but the current codebase clearly includes RevenueCat-backed premium gating.
 - Some architecture references can drift as files move; verify actual file paths before quoting docs as truth.
+
+## Toolchain (2026-06-10)
+
+- `xcode-select` desta máquina aponta para o Xcode 27 beta (Swift 6.4); o projeto exige Xcode 26.x → use `DEVELOPER_DIR=/Applications/Xcode.app` em todo build/test/analyze.
+- O RevenueCat pinado não compila em TEST builds sob Swift 6.4 (PaywallColor memberwise init); o build normal passa — não confundir com bug do repo.
+- Se o Xcode 26.x não enxergar NENHUM simulador ("iOS X.Y is not installed") com runtimes presentes no simctl: é SDK/runtime build drift — `xcrun simctl runtime match list` e `xcrun simctl runtime match set iphoneosX.Y <buildInstalado>`.
+- Seletores `-only-testing:` para Swift Testing precisam de `()` no nome da função; sem isso o run termina verde com `0 tests` (não é evidência).
+- Device builds/installs também DEVEM usar `DEVELOPER_DIR=/Applications/Xcode.app`: sob o beta, RevenueCat falha a compilação fresh também no build de device. O profile da equipe em cache assina normalmente sem conta no Xcode, DESDE que nenhuma capability nova seja exigida.
+- Entitlements hardened-process (Enhanced Security) estão STAGED atrás de `ENHANCED_SECURITY_ENTITLEMENTS=1` no restore-entitlements.sh — exigem login interativo no Xcode para regenerar o profile com a capability. Não promova a default sem isso.
+- Entitlements são reescritos a cada `xcodegen generate` por `Scripts/restore-entitlements.sh` — mudanças de entitlement (incl. Enhanced Security/hardened-process) vivem NESSE script, nunca nos `.entitlements` diretamente. O mesmo script re-asserta `iOSPackagesShouldBuildARM64e` no WorkspaceSettings (pointer auth + SPM).
+- Em Release, `LaunchConfiguration.isOverridable` é `false` incondicional (2026-06-10): launch args/env são input de atacante via `devicectl`; a justificativa antiga "uncheatable by launch args" estava errada. Não reintroduzir overrides de Release.
 
 ## Operator Lessons
 

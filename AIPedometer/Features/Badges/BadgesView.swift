@@ -2,7 +2,8 @@ import SwiftUI
 
 struct BadgesView: View {
     @Environment(BadgeService.self) private var badgeService
-    @Environment(\.presentationMode) private var presentationMode
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.isPresented) private var isPresented
     @State private var activeSheet: BadgeSheet?
     
     private let columns = [
@@ -23,7 +24,7 @@ struct BadgesView: View {
     }
 
     private var showsCustomBackButton: Bool {
-        presentationMode.wrappedValue.isPresented && LaunchConfiguration.isUITesting()
+        isPresented && LaunchConfiguration.isUITesting()
     }
 
     var body: some View {
@@ -45,7 +46,7 @@ struct BadgesView: View {
                 if showsCustomBackButton {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
-                            presentationMode.wrappedValue.dismiss()
+                            dismiss()
                         } label: {
                             Label(L10n.localized("Back", comment: "Back button label"), systemImage: "chevron.backward")
                         }

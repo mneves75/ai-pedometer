@@ -86,14 +86,16 @@ enum LaunchConfiguration {
     /// Whether forced test-only launch overrides should be honored in this binary.
     ///
     /// DEBUG builds always allow overrides for engineering convenience. Release builds
-    /// only honor them while running under an actual UI test or XCTest harness — the
-    /// check uses the live process environment so caller-supplied arguments cannot
-    /// spoof a test context.
+    /// never honor them: launch arguments and environment variables are attacker-supplied
+    /// input (anyone with Developer Mode can launch the app via `devicectl` with arbitrary
+    /// arguments), so a Release binary that trusted `-ui-testing`/`XCTestConfigurationFilePath`
+    /// would let `-force-premium-on` unlock premium without a purchase. All test harnesses
+    /// (UI tests, e2e script, CI) run Debug builds, so nothing legitimate needs Release overrides.
     private static var isOverridable: Bool {
         #if DEBUG
         return true
         #else
-        return isUITesting() || isRunningXCTest()
+        return false
         #endif
     }
 

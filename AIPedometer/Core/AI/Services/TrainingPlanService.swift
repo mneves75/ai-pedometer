@@ -86,6 +86,15 @@ final class TrainingPlanService {
     private(set) var isGenerating = false
     private(set) var lastError: AIServiceError?
 
+    /// Plan-list caches. `WorkoutsView` reads `fetchActivePlans()`/`fetchAllPlans()` from
+    /// computed properties evaluated several times per body pass; without these caches each
+    /// read was a synchronous SwiftData fetch on the main actor. All plan mutations go
+    /// through this service (`generatePlan` insert + `applyPlanMutation`), which are the
+    /// invalidation points. `TrainingPlanRecord.isActive` has no date component, so a cached
+    /// active list cannot expire between mutations.
+    @ObservationIgnored private var cachedActivePlans: [TrainingPlanRecord]?
+    @ObservationIgnored private var cachedAllPlans: [TrainingPlanRecord]?
+
     init(
         foundationModelsService: any FoundationModelsServiceProtocol,
         healthKitService: any HealthKitServiceProtocol,
@@ -159,8 +168,9 @@ final class TrainingPlanService {
 
             let record = try createPlanRecord(from: resolvedPlan, goal: goal)
             modelContext.insert(record)
+            defer { invalidatePlanCaches() }
             try saveModelContext(modelContext)
-            
+
             Loggers.ai.info("ai.training_plan_generated", metadata: [
                 "goal": goal.rawValue,
                 "level": level.rawValue,
@@ -231,35 +241,50 @@ final class TrainingPlanService {
     }
     
     func fetchActivePlans() -> [TrainingPlanRecord] {
-        let descriptor = FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate { $0.deletedAt == nil && $0.status == "active" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        do {
+        cachedOrFetch(&cachedActivePlans, scope: "active") {
+            let descriptor = FetchDescriptor<TrainingPlanRecord>(
+                predicate: #Predicate { $0.deletedAt == nil && $0.status == "active" },
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
             return try modelContext.fetch(descriptor).filter(\.isActive)
+        }
+    }
+
+    func fetchAllPlans() -> [TrainingPlanRecord] {
+        cachedOrFetch(&cachedAllPlans, scope: "all") {
+            let descriptor = FetchDescriptor<TrainingPlanRecord>(
+                predicate: #Predicate { $0.deletedAt == nil },
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
+            return try modelContext.fetch(descriptor)
+        }
+    }
+
+    private func cachedOrFetch(
+        _ cache: inout [TrainingPlanRecord]?,
+        scope: String,
+        fetch: () throws -> [TrainingPlanRecord]
+    ) -> [TrainingPlanRecord] {
+        if let cache {
+            return cache
+        }
+        do {
+            let plans = try fetch()
+            cache = plans
+            return plans
         } catch {
+            // Do not cache the failure result; the next call should retry the fetch.
             Loggers.ai.error("ai.training_plan_fetch_failed", metadata: [
-                "scope": "active",
+                "scope": scope,
                 "error": error.localizedDescription
             ])
             return []
         }
     }
 
-    func fetchAllPlans() -> [TrainingPlanRecord] {
-        let descriptor = FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate { $0.deletedAt == nil },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        do {
-            return try modelContext.fetch(descriptor)
-        } catch {
-            Loggers.ai.error("ai.training_plan_fetch_failed", metadata: [
-                "scope": "all",
-                "error": error.localizedDescription
-            ])
-            return []
-        }
+    private func invalidatePlanCaches() {
+        cachedActivePlans = nil
+        cachedAllPlans = nil
     }
     
     func pausePlan(_ plan: TrainingPlanRecord) {
@@ -300,6 +325,9 @@ final class TrainingPlanService {
         let previousEndDate = plan.endDate
         let previousUpdatedAt = plan.updatedAt
         let previousDeletedAt = plan.deletedAt
+        // Invalidate on success and on rollback alike — the cached arrays may hold the
+        // plan whose fields just changed either way.
+        defer { invalidatePlanCaches() }
         mutation()
         do {
             try saveModelContext(modelContext)

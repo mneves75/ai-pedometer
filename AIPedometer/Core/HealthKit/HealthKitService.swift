@@ -215,6 +215,34 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         return summaries
     }
 
+    /// Shared tail of `saveWorkout`: both the empty-samples and post-`add` paths must end
+    /// collection and finish the builder identically; error-path fixes belong in one place.
+    nonisolated private static func endCollectionAndFinish(
+        builder: HKWorkoutBuilder,
+        end: Date,
+        continuation: CheckedContinuation<UUID, any Error>
+    ) {
+        builder.endCollection(withEnd: end) { _, endError in
+            if let endError {
+                Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
+                continuation.resume(throwing: endError)
+                return
+            }
+            builder.finishWorkout { workout, finishError in
+                if let finishError {
+                    Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
+                    continuation.resume(throwing: finishError)
+                    return
+                }
+                guard let workout else {
+                    continuation.resume(throwing: HealthKitError.queryFailed)
+                    return
+                }
+                continuation.resume(returning: workout.uuid)
+            }
+        }
+    }
+
     func saveWorkout(_ session: WorkoutSession) async throws {
         let config = HKWorkoutConfiguration()
         config.activityType = session.type.healthKitType
@@ -236,25 +264,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                 }
 
                 guard !samples.isEmpty else {
-                    builder.endCollection(withEnd: end) { _, endError in
-                        if let endError {
-                            Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
-                            continuation.resume(throwing: endError)
-                            return
-                        }
-                        builder.finishWorkout { workout, finishError in
-                            if let finishError {
-                                Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
-                                continuation.resume(throwing: finishError)
-                                return
-                            }
-                            guard let workout else {
-                                continuation.resume(throwing: HealthKitError.queryFailed)
-                                return
-                            }
-                            continuation.resume(returning: workout.uuid)
-                        }
-                    }
+                    Self.endCollectionAndFinish(builder: builder, end: end, continuation: continuation)
                     return
                 }
 
@@ -270,25 +280,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                         continuation.resume(throwing: HealthKitError.queryFailed)
                         return
                     }
-                    builder.endCollection(withEnd: end) { _, endError in
-                        if let endError {
-                            Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
-                            continuation.resume(throwing: endError)
-                            return
-                        }
-                        builder.finishWorkout { workout, finishError in
-                            if let finishError {
-                                Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
-                                continuation.resume(throwing: finishError)
-                                return
-                            }
-                            guard let workout else {
-                                continuation.resume(throwing: HealthKitError.queryFailed)
-                                return
-                            }
-                            continuation.resume(returning: workout.uuid)
-                        }
-                    }
+                    Self.endCollectionAndFinish(builder: builder, end: end, continuation: continuation)
                 }
             }
         }

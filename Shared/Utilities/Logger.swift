@@ -24,18 +24,23 @@ struct AppLogger: Sendable {
         Self.renderPayload(event: event, level: level, metadata: metadata, timestamp: .now)
     }
 
+    // Apple documents ISO8601DateFormatter as thread-safe, so sharing one instance across threads is sound despite the missing Sendable annotation.
+    nonisolated(unsafe) private static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
     static func renderPayload(
         event: String,
         level: String,
         metadata: [String: String],
         timestamp: Date
     ) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         var payload: [String: String] = [
             "event": event,
             "level": level,
-            "timestamp": formatter.string(from: timestamp)
+            "timestamp": iso8601Formatter.string(from: timestamp)
         ]
         for key in metadata.keys {
             payload[key] = "[private]"

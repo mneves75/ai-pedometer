@@ -203,8 +203,19 @@ cp -f "${IPA_DIR}/export/AIPedometer.ipa" "${IPA_PATH}"
 echo "==> 5) Garantindo grupo do TestFlight: ${GROUP_NAME}"
 GROUPS_JSON="$(asc testflight beta-groups list --app "${APP_ID}" --output json)"
 GROUP_ID="$(
-  GROUP_NAME="${GROUP_NAME}" python3 -c 'import json,os,sys; name=os.environ.get("GROUP_NAME","").strip(); data=json.loads(sys.stdin.read() or "[]"); gid="";\n\nfor g in (data if isinstance(data,list) else []):\n  if (g.get("name") or "").strip()==name:\n    gid=g.get("id") or \"\"; break\nprint(gid)' \
-    <<<"${GROUPS_JSON}"
+  GROUPS_JSON="${GROUPS_JSON}" GROUP_NAME="${GROUP_NAME}" python3 - <<'PY'
+import json
+import os
+
+name = os.environ.get("GROUP_NAME", "").strip()
+data = json.loads(os.environ.get("GROUPS_JSON") or "[]")
+gid = ""
+for g in (data if isinstance(data, list) else []):
+    if (g.get("name") or "").strip() == name:
+        gid = g.get("id") or ""
+        break
+print(gid)
+PY
 )"
 
 if [[ -z "${GROUP_ID}" ]]; then

@@ -1065,6 +1065,79 @@ struct StepTrackingServiceTests {
         #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [9500, 11000])
     }
 
+    @Test("Weekly summaries do not inflate past days with today live total")
+    @MainActor
+    func weeklySummariesDoNotInflatePastDaysWithLiveTotal() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        // Yesterday's recorded total is LOWER than today's live total. Without the
+        // day-boundary guard in mergeCurrentDaySummaryIfNeeded, the max() merge would
+        // inflate yesterday to 9500.
+        mockHealthKit.stepsToReturn = 9500
+        mockHealthKit.dailySummariesToReturn = [
+            DailyStepSummary(date: .now, steps: 8000, distance: 6000, floors: 5, calories: 300, goal: 10000),
+            DailyStepSummary(date: Date().addingTimeInterval(-86400), steps: 5000, distance: 3500, floors: 2, calories: 180, goal: 10000)
+        ]
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+        let result = await service.refreshWeeklySummaries()
+
+        if case .failure = result {
+            Issue.record("Expected success but got failure")
+        }
+
+        #expect(service.weeklySummaries.count == 2)
+        #expect(service.weeklySummaries[0].steps == 9500)
+        #expect(service.weeklySummaries[1].steps == 5000)
+        #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [9500, 5000])
+    }
+
+    @Test("Weekly summaries leave current day untouched outside steps mode")
+    @MainActor
+    func weeklySummariesSkipCurrentDayMergeOutsideStepsMode() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        // In wheelchair mode the summary pipeline reports pushes; the steps-based
+        // live-total merge must not touch the current-day summary.
+        mockHealthKit.wheelchairPushesToReturn = 250
+        mockHealthKit.dailySummariesToReturn = [
+            DailyStepSummary(date: .now, steps: 100, distance: 0, floors: 0, calories: 0, goal: 1000)
+        ]
+        testDefaults.defaults.set(
+            ActivityTrackingMode.wheelchairPushes.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshTodayData()
+        #expect(service.todaySteps == 250)
+
+        let result = await service.refreshWeeklySummaries()
+        if case .failure = result {
+            Issue.record("Expected success but got failure")
+        }
+
+        #expect(service.weeklySummaries.count == 1)
+        #expect(service.weeklySummaries[0].steps == 100)
+    }
+
     @Test("Weekly summaries returns failure on HealthKit error")
     @MainActor
     func weeklySummariesReturnsFailureOnError() async {

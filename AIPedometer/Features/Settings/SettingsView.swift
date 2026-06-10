@@ -18,7 +18,8 @@ struct SettingsView: View {
     @Environment(SmartNotificationService.self) private var smartNotificationService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(PremiumAccessStore.self) private var premiumAccessStore
-    @Environment(\.presentationMode) private var presentationMode
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.isPresented) private var isPresented
     private let appVersion = AppVersion()
     @State private var showGoalEditor = false
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -47,7 +48,7 @@ struct SettingsView: View {
     }
 
     private var showsCustomBackButton: Bool {
-        presentationMode.wrappedValue.isPresented && LaunchConfiguration.isUITesting()
+        isPresented && LaunchConfiguration.isUITesting()
     }
 
     var body: some View {
@@ -69,7 +70,7 @@ struct SettingsView: View {
             if showsCustomBackButton {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                     } label: {
                         Label(L10n.localized("Back", comment: "Back button label"), systemImage: "chevron.backward")
                     }

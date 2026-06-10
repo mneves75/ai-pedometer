@@ -168,7 +168,6 @@ struct AIPedometerApp: App {
             isTesting: { LaunchConfiguration.isTesting() },
             refreshHealthAuthorization: { await healthAuth.refreshStatus() },
             refreshMotionAuthorization: { motionAuth.refreshStatus() },
-            registerBackgroundTasks: { backgroundTaskService.registerTasks() },
             scheduleAppRefresh: { backgroundTaskService.scheduleAppRefresh() },
             startWatchSync: { WatchSyncService.shared.start() },
             startStepTracking: { await trackingService.start() },

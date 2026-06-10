@@ -271,7 +271,7 @@ PREMIUM_ENABLED=1
 PREMIUM_ENABLED=0
 ```
 
-Isso não valida Apple payments nem RevenueCat. Serve só para UI, snapshots e regressão local.
+Isso não valida Apple payments nem RevenueCat. Serve só para UI, snapshots e regressão local. Funciona apenas em builds Debug: builds Release ignoram esses overrides por segurança.
 
 ### RevenueCat Test Store
 

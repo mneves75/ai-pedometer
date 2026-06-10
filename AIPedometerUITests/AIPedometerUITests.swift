@@ -21,15 +21,15 @@ final class AIPedometerUITests: XCTestCase {
 
         // Flow: Welcome -> Goal -> Permissions -> Get Started.
         UITestWait.tapFirstExisting(
-            [d.app.buttons["onboarding_next_button"]],
+            [d.app.buttons[A11yID.Onboarding.nextButton]],
             timeout: navigationTimeout
         )
         UITestWait.tapFirstExisting(
-            [d.app.buttons["onboarding_next_button"]],
+            [d.app.buttons[A11yID.Onboarding.nextButton]],
             timeout: navigationTimeout
         )
         UITestWait.tapFirstExisting(
-            [d.app.buttons["onboarding_get_started_button"]],
+            [d.app.buttons[A11yID.Onboarding.getStartedButton]],
             timeout: navigationTimeout
         )
 
@@ -42,7 +42,7 @@ final class AIPedometerUITests: XCTestCase {
         d.launch(skipOnboarding: false)
 
         UITestWait.tapFirstExisting(
-            [d.app.buttons["onboarding_skip_button"]],
+            [d.app.buttons[A11yID.Onboarding.skipButton]],
             timeout: navigationTimeout
         )
 
@@ -54,7 +54,7 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: false)
         d.captureScreen(named: "Onboarding - Welcome")
-        UITestWait.tapFirstExisting([d.app.buttons["onboarding_next_button"]], timeout: navigationTimeout)
+        UITestWait.tapFirstExisting([d.app.buttons[A11yID.Onboarding.nextButton]], timeout: navigationTimeout)
         let goalSlider = d.app.descendants(matching: .any)[A11yID.Onboarding.goalSlider]
         XCTAssertTrue(goalSlider.waitForExistence(timeout: navigationTimeout))
         let expectedGoalLabels = try localizedStringCatalogValues(for: "Daily step goal")
@@ -63,7 +63,7 @@ final class AIPedometerUITests: XCTestCase {
             "Unexpected onboarding goal slider label: \(goalSlider.label)"
         )
         d.captureScreen(named: "Onboarding - Goal")
-        UITestWait.tapFirstExisting([d.app.buttons["onboarding_next_button"]], timeout: navigationTimeout)
+        UITestWait.tapFirstExisting([d.app.buttons[A11yID.Onboarding.nextButton]], timeout: navigationTimeout)
         d.captureScreen(named: "Onboarding - Permissions")
     }
 

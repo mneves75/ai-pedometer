@@ -1,26 +1,13 @@
 import Foundation
 import WidgetKit
 
-struct WidgetStepData: Codable, Hashable, Sendable {
-    let todaySteps: Int
-    let goalSteps: Int
-    let goalProgress: Double
-    let currentStreak: Int
-    let lastUpdated: Date
-    let weeklySteps: [Int]
-
-    var isStale: Bool {
-        Date.now.timeIntervalSince(lastUpdated) > 3600
-    }
-}
-
 struct WidgetStepEntry: TimelineEntry {
     let date: Date
-    let data: WidgetStepData?
+    let data: SharedStepData?
 }
 
 enum WidgetDataLoader {
-    static func loadSharedData() -> WidgetStepData? {
+    static func loadSharedData() -> SharedStepData? {
         guard let defaults = UserDefaults(suiteName: AppConstants.appGroupID) else {
             return nil
         }
@@ -28,7 +15,7 @@ enum WidgetDataLoader {
             return nil
         }
         do {
-            return try JSONDecoder().decode(WidgetStepData.self, from: rawData)
+            return try JSONDecoder().decode(SharedStepData.self, from: rawData)
         } catch {
             Loggers.widgets.error("widget.shared_data_decode_failed", metadata: [
                 "error": error.localizedDescription
@@ -37,8 +24,8 @@ enum WidgetDataLoader {
         }
     }
 
-    static func placeholderData() -> WidgetStepData {
-        WidgetStepData(
+    static func placeholderData() -> SharedStepData {
+        SharedStepData(
             todaySteps: 6420,
             goalSteps: AppConstants.defaultDailyGoal,
             goalProgress: 0.642,

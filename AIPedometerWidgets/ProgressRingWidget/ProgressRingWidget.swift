@@ -32,7 +32,7 @@ struct ProgressRingWidgetView: View {
 }
 
 struct ProgressRingContent: View {
-    let data: WidgetStepData
+    let data: SharedStepData
     private var clampedProgress: Double {
         ProgressClamp.unitInterval(data.goalProgress)
     }

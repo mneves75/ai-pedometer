@@ -12,11 +12,19 @@ struct WorkoutsView: View {
     @Environment(WorkoutSessionController.self) private var workoutController
     @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
-    @Query(
-        filter: #Predicate<WorkoutSession> { $0.deletedAt == nil },
-        sort: \WorkoutSession.startTime,
-        order: .reverse
-    ) private var recentWorkouts: [WorkoutSession]
+    // Bounded fetch: the carousel shows at most 6 completed sessions, but an unbounded
+    // query would fetch and observe every workout ever recorded (soft-deleted rows are
+    // never pruned), growing without limit for long-term users.
+    @Query(WorkoutsView.recentCompletedWorkoutsDescriptor()) private var recentWorkouts: [WorkoutSession]
+
+    private static func recentCompletedWorkoutsDescriptor(limit: Int = 6) -> FetchDescriptor<WorkoutSession> {
+        var descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate { $0.deletedAt == nil && $0.endTime != nil },
+            sortBy: [SortDescriptor(\.startTime, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        return descriptor
+    }
 
     @State private var workoutRecommendation: AIWorkoutRecommendation?
     @State private var recommendationError: AIServiceError?

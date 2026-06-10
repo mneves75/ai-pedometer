@@ -32,7 +32,7 @@ struct WeeklyChartWidgetView: View {
 }
 
 struct WeeklyChartContent: View {
-    let data: WidgetStepData
+    let data: SharedStepData
 
     private var maxSteps: Int {
         max(data.weeklySteps.max() ?? 1, 1)

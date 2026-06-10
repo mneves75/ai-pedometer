@@ -65,6 +65,9 @@ enum A11yID {
 
     enum Onboarding {
         static let goalSlider = "onboarding_goal_slider"
+        static let nextButton = "onboarding_next_button"
+        static let skipButton = "onboarding_skip_button"
+        static let getStartedButton = "onboarding_get_started_button"
     }
 
     enum Settings {

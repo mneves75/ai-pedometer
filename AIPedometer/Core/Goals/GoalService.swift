@@ -12,49 +12,45 @@ protocol GoalServiceProtocol: AnyObject, Sendable {
 final class GoalService: GoalServiceProtocol, Sendable {
     private let persistence: PersistenceController
 
+    /// Non-deleted goals sorted by `startDate` descending. Every `StepGoal` read and write
+    /// in the app goes through this service, so `setGoal` is the only invalidation point.
+    /// Without this cache each `goal(for:)`/`currentGoal` call ran a full-table fetch —
+    /// `StreakCalculator` calls `goal(for:)` once per streak day (up to 400× per refresh).
+    private var cachedGoals: [StepGoal]?
+
     init(persistence: PersistenceController) {
         self.persistence = persistence
     }
 
-    var currentGoal: Int {
+    private func sortedGoals() -> [StepGoal] {
+        if let cachedGoals {
+            return cachedGoals
+        }
         let context = persistence.container.mainContext
         let descriptor = FetchDescriptor<StepGoal>(
             predicate: #Predicate { $0.deletedAt == nil },
             sortBy: [SortDescriptor(\.startDate, order: .reverse)]
         )
-        let goals: [StepGoal]
         do {
-            goals = try context.fetch(descriptor)
+            let goals = try context.fetch(descriptor)
+            cachedGoals = goals
+            return goals
         } catch {
+            // Do not cache the failure result; the next call should retry the fetch.
             Loggers.tracking.error("goal.fetch_failed", metadata: [
-                "scope": "current",
+                "scope": "goals",
                 "error": error.localizedDescription
             ])
-            goals = []
+            return []
         }
-        if let goal = goals.first {
-            return goal.dailySteps
-        }
-        return AppConstants.defaultDailyGoal
+    }
+
+    var currentGoal: Int {
+        sortedGoals().first?.dailySteps ?? AppConstants.defaultDailyGoal
     }
 
     func goal(for date: Date) -> Int? {
-        let context = persistence.container.mainContext
-        let descriptor = FetchDescriptor<StepGoal>(
-            predicate: #Predicate { $0.deletedAt == nil },
-            sortBy: [SortDescriptor(\.startDate, order: .reverse)]
-        )
-        let goals: [StepGoal]
-        do {
-            goals = try context.fetch(descriptor)
-        } catch {
-            Loggers.tracking.error("goal.fetch_failed", metadata: [
-                "scope": "date",
-                "error": error.localizedDescription
-            ])
-            goals = []
-        }
-        return goals.first(where: { goal in
+        sortedGoals().first(where: { goal in
             goal.startDate <= date && (goal.endDate ?? date) >= date
         })?.dailySteps
     }
@@ -91,5 +87,7 @@ final class GoalService: GoalServiceProtocol, Sendable {
         } catch {
             Loggers.tracking.error("goal.save_failed", metadata: ["error": error.localizedDescription])
         }
+        // The context changed regardless of save success; drop the cache either way.
+        cachedGoals = nil
     }
 }

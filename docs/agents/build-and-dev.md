@@ -2,15 +2,18 @@
 
 ## Project Generation
 - `xcodegen generate`: regenerate `AIPedometer.xcodeproj` from `project.yml` (required after config/target changes).
+- Entitlements are rewritten by the postGen hook `Scripts/restore-entitlements.sh`; edit that script, never the `.entitlements` files. The iOS app's Enhanced Security hardened-process keys are staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1` (they need the team profile regenerated with the capability — one-time interactive Xcode sign-in). Security build-setting decisions: `xcode-security-settings.md`.
 
 ## Xcode
+- Toolchain pin: when `xcode-select` points at an Xcode beta, prefix `xcodebuild` with `DEVELOPER_DIR=/Applications/Xcode.app` (project contract is Xcode 26.x; the pinned RevenueCat revision fails test builds under the 27-beta toolchain).
+- Simulator runtime drift ("iOS X.Y is not installed" with the runtime present in `simctl`): `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
 ## CLI Build and Test
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' build`
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' test`
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' analyze`
 - `asc doctor`: verify local ASC CLI/keychain/auth health before remote App Store Connect work.
 - `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`: confirm generated Xcode metadata matches `project.yml`.
-- `asc validate --app "<APP_ID_ASC>" --version "0.86" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
+- `asc validate --app "<APP_ID_ASC>" --version "0.87" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
 - `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`: remote TestFlight readiness once a processed build exists.
 - Full simulator E2E (iOS tests + widget build + watch build + screenshots): `bash Scripts/e2e-simulator.sh`
 - Build/install on physical device by name (no hardcoded UDID): `bash Scripts/install-on-device.sh --device-name <DeviceName>`

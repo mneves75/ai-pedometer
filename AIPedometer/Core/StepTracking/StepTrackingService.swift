@@ -35,7 +35,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private let streakCalculator: any StreakCalculating
     private let userDefaults: UserDefaults
     @ObservationIgnored private let healthAuthorization: HealthKitAuthorization
-    private let calculator = DailyStepCalculator()
+    private let calculator: DailyStepCalculator
+    @ObservationIgnored private let sendToWatch: @MainActor (SharedStepData) -> Void
     @ObservationIgnored private var activitySettings: ActivitySettings
     @ObservationIgnored private var liveBaseline: LiveStepBaseline?
     @ObservationIgnored private var pendingBaseline: LiveBaselineSeed?
@@ -71,7 +72,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         badgeService: BadgeService,
         dataStore: SharedDataStore,
         streakCalculator: any StreakCalculating,
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        calculator: DailyStepCalculator = DailyStepCalculator(),
+        sendToWatch: @escaping @MainActor (SharedStepData) -> Void = { WatchSyncService.shared.send(stepData: $0) }
     ) {
         self.healthKitService = healthKitService
         self.motionService = motionService
@@ -81,6 +84,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         self.dataStore = dataStore
         self.streakCalculator = streakCalculator
         self.userDefaults = userDefaults
+        self.calculator = calculator
+        self.sendToWatch = sendToWatch
         self.activitySettings = ActivitySettings.current(userDefaults: userDefaults)
         self.currentGoal = goalService.currentGoal
     }
@@ -466,15 +471,6 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
-    private func fetchTodayActivityCount(from startOfDay: Date) async throws -> Int {
-        switch activitySettings.activityMode {
-        case .steps:
-            return try await healthKitService.fetchSteps(from: startOfDay, to: .now)
-        case .wheelchairPushes:
-            return try await healthKitService.fetchWheelchairPushes(from: startOfDay, to: .now)
-        }
-    }
-
     private func resolveDistance(steps: Int, start: Date, end: Date) async -> Double {
         switch activitySettings.distanceMode {
         case .manual:
@@ -630,7 +626,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             weeklySteps: weeklySummaries.map(\.steps)
         )
         dataStore.update(shared)
-        WatchSyncService.shared.send(stepData: shared)
+        sendToWatch(shared)
 
         // Widgets should reflect new data, but StepTrackingService can update very frequently.
         // Throttle reloads to avoid spamming WidgetKit (and to reduce battery impact).

@@ -3,6 +3,7 @@ import Testing
 
 @testable import AIPedometer
 
+@MainActor
 @Suite("Dashboard heart-rate display")
 struct DashboardHeartRateDisplayTests {
     @Test("Stale visual text shows freshness while accessibility text avoids punctuation artifacts")

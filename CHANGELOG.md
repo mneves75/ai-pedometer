@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.87] - 2026-06-10
+
+### Security
+
+- **Release builds no longer honor test launch overrides.** `LaunchConfiguration.isOverridable` returned true in Release when `-ui-testing`/`XCTestConfigurationFilePath` markers were present — both are attacker-suppliable launch inputs via `devicectl` on any Developer-Mode device, so `-force-premium-on` could unlock Premium in a store binary without a purchase. Release now returns `false` unconditionally; every legitimate harness (UI tests, e2e script, CI) runs Debug builds. RevenueCat docs updated to state the overrides are Debug-only.
+- **Enhanced Security compiler hardening enabled** via the `audit-xcode-security-settings` audit: project-level `ENABLE_ENHANCED_SECURITY` (security compiler warnings, typed allocators, stack zero-init cascades) plus pointer authentication (arm64e) with an explicit opt-out on watchOS (no arm64e) and SPM arm64e opt-in for RevenueCat (source-only package, verified 0 binary targets) — device build verified. The hardened-process **entitlements** are staged but not default: signing them requires the team provisioning profile to gain the Enhanced Security capability, which needs a one-time interactive Xcode sign-in (`ENHANCED_SECURITY_ENTITLEMENTS=1 Scripts/restore-entitlements.sh` opts in afterwards). Decisions recorded in `xcode-security-settings.md`.
+- **Identifier hygiene + guardrail teeth.** Developer team IDs and physical-device identifiers were redacted from tracked docs/memory, and `Scripts/verify-device-identifiers.sh` gained patterns for bare physical UDIDs and UDID-labelled UUIDs in prose (the old patterns only matched command-flag contexts).
+
+### Fixed
+
+- **Daily AI insight no longer inflated by yesterday's steps.** `InsightService.fetchTodayActivityData` merged the app-group shared snapshot into "today" without a freshness gate, so right after midnight (or when the insight task raced the tracking refresh) yesterday's total could be reported — and congratulated — as today's. The merge and both fallback paths now ignore stale snapshots, matching `SmartNotificationService`'s existing gate. Regression test: `dailyInsightIgnoresStaleSharedData`.
+- **`Scripts/test-payments-device.sh` TestFlight-group step was dead code**: the embedded `python3 -c` one-liner contained literal `\n` escapes (guaranteed `SyntaxError`), aborting the script after the expensive Release archive on every run. Rewritten as a heredoc.
+
+### Performance
+
+- **Goal lookups are cached.** `GoalService.currentGoal`/`goal(for:)` ran a full-table SwiftData fetch per call, and `StreakCalculator` calls `goal(for:)` once per streak day (up to 400× per refresh, on the main actor, at startup and every foregrounding). Goals are now fetched once and invalidated on `setGoal`.
+- **Training-plan lists are cached.** `WorkoutsView` computed properties triggered ~8–10 synchronous plan fetches per body evaluation; `TrainingPlanService.fetchActivePlans()/fetchAllPlans()` now cache with invalidation at the plan mutation points.
+- **Workouts carousel query is bounded** (`fetchLimit` 6, completed-only predicate) instead of fetching every workout ever recorded.
+- **Watch sync tick path slimmed.** `updateApplicationContext` (plist + XPC per CMPedometer tick) now shares the existing time/step-delta throttle, and the payload encode is skipped entirely when no channel is due.
+- Per-render formatter allocations hoisted to cached statics (Dashboard relative-date formatter, Live Activity distance formatter, logger ISO8601 formatter).
+
+### Changed
+
+- Dead code removed: the caller-less AI goal-recommendation path (`generateGoalRecommendation`, prompt builder, `GoalRecommendation` model), `StepTrackingService.fetchTodayActivityCount`, the permanently no-op `registerBackgroundTasks` startup-coordinator step (registration correctly happens in `App.init`), the uncompilable `#else` duplicate of `SharedStepData` in `WatchSyncService`, and the widgets' drifted `WidgetStepData` duplicate (widgets now decode the canonical `SharedStepData`, schema-version aware).
+- `saveWorkout`'s duplicated end/finish completion pyramid extracted to one helper; soft-deprecated `presentationMode` replaced with `dismiss`/`isPresented`; `StepTrackingService` gained injectable `calculator`/`sendToWatch` seams.
+
+### Tests
+
+- The 0.85 current-day-merge guard is now mutation-covered: new tests prove a past day is not inflated by today's live total (verified red with the guard removed) and that non-steps mode skips the merge. Suite grew to 460 tests / 79 suites, all passing.
+- XCTest stragglers converted to Swift Testing; 11 tautological tests (`XCTAssertTrue(true)`, `XCTAssertNotNil` on non-optionals) deleted; first use of `@Test(arguments: zip(...))` for the DesignTokens monotonicity chains; onboarding accessibility IDs centralized in `A11yID`; `TestUserDefaults` now fails loudly instead of silently falling back to `.standard`.
+
+### Docs
+
+- Synced every version-referencing doc to `0.87`: `README.md`, App Store publishing playbook, agent build/testing docs, and `test_plan.md`. New decision document `xcode-security-settings.md`. Toolchain notes (Xcode 27 beta as machine default, `DEVELOPER_DIR` pinning, simulator runtime `match set`) recorded in `MEMORY.md`.
+
 ## [0.86] - 2026-05-31
 
 ### Changed

@@ -39,21 +39,6 @@ enum TrendDirection: String, Codable, Sendable {
 }
 
 @Generable
-struct GoalRecommendation: Sendable {
-    @Guide(description: "Recommended daily step goal", .range(1000...50000))
-    let recommendedGoal: Int
-    
-    @Guide(description: "Clear reasoning for this recommendation in 1-2 sentences")
-    let reasoning: String
-    
-    @Guide(description: "Whether this goal is more challenging than current")
-    let isChallenge: Bool
-    
-    @Guide(description: "Percentage change from current goal", .range(-50...100))
-    let percentageChange: Int
-}
-
-@Generable
 enum WorkoutIntent: String, Codable, Sendable, CaseIterable {
     case maintain
     case build
