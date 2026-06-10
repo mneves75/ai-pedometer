@@ -38,23 +38,40 @@ final class MotionService: MotionServiceProtocol {
             // Use the purpose-built one-shot query API. Unlike `startUpdates`, this fires the
             // handler exactly once with the historical totals between `startDate` and `endDate`
             // and tears itself down automatically — no manual `stopUpdates`/dedupe lock required.
-            queryPedometer.queryPedometerData(from: startDate, to: endDate) { data, error in
-                if let error {
-                    Loggers.motion.error("motion.query_failed", metadata: ["error": String(describing: error)])
-                    continuation.resume(throwing: MotionError.queryFailed)
-                    return
-                }
-                guard let data else {
-                    continuation.resume(throwing: MotionError.noData)
-                    return
-                }
-                let snapshot = PedometerSnapshot(
-                    steps: data.numberOfSteps.intValue,
-                    distance: data.distance?.doubleValue ?? 0,
-                    floorsAscended: data.floorsAscended?.intValue ?? 0
-                )
-                continuation.resume(returning: snapshot)
+            //
+            // The handler MUST be built through the `nonisolated` helper below. `query` satisfies
+            // a `@MainActor` protocol requirement, so an inline closure here would inherit MainActor
+            // isolation. `CMPedometerHandler` is a plain ObjC block (NOT `@Sendable`), and CoreMotion
+            // invokes it on its own background queue — a MainActor-isolated closure then trips
+            // `swift_task_isCurrentExecutor` (EXC_BREAKPOINT) the moment it runs off-main. This was the
+            // 0.88 launch crash. Mirror the `startLiveUpdates`/`makePedometerCallback` pattern.
+            queryPedometer.queryPedometerData(
+                from: startDate,
+                to: endDate,
+                withHandler: Self.makeQueryCallback(continuation: continuation)
+            )
+        }
+    }
+
+    nonisolated static func makeQueryCallback(
+        continuation: CheckedContinuation<PedometerSnapshot, any Error>
+    ) -> @Sendable (CMPedometerData?, (any Error)?) -> Void {
+        { data, error in
+            if let error {
+                Loggers.motion.error("motion.query_failed", metadata: ["error": String(describing: error)])
+                continuation.resume(throwing: MotionError.queryFailed)
+                return
             }
+            guard let data else {
+                continuation.resume(throwing: MotionError.noData)
+                return
+            }
+            let snapshot = PedometerSnapshot(
+                steps: data.numberOfSteps.intValue,
+                distance: data.distance?.doubleValue ?? 0,
+                floorsAscended: data.floorsAscended?.intValue ?? 0
+            )
+            continuation.resume(returning: snapshot)
         }
     }
 

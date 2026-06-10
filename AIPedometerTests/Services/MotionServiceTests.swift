@@ -21,6 +21,46 @@ struct MotionServiceTests {
         #expect(probe.wasCalled)
         #expect(probe.lastSteps == 1)
     }
+
+    // Regression guard for the 0.88 launch crash (EXC_BREAKPOINT in
+    // MotionService.query → swift_task_isCurrentExecutor). `query` is a `@MainActor`
+    // protocol witness, but `CMPedometerHandler` is a non-`@Sendable` ObjC block that
+    // CoreMotion invokes on a background queue. `makeQueryCallback` returns a
+    // `@Sendable` (nonisolated) closure, so resuming the continuation off-main must NOT
+    // trip the main-executor assertion. Driving it from a detached task mimics CoreMotion.
+    @Test
+    func queryCallbackResumesErrorOffMainWithoutIsolationTrap() async throws {
+        do {
+            _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PedometerSnapshot, any Error>) in
+                let callback = MotionService.makeQueryCallback(continuation: continuation)
+                Task.detached {
+                    callback(nil, MotionError.queryFailed)
+                }
+            }
+            Issue.record("Expected MotionError.queryFailed to be thrown")
+        } catch MotionError.queryFailed {
+            // Expected: callback ran off-main and resumed without a main-executor trap.
+        } catch {
+            Issue.record("Expected MotionError.queryFailed, got \(error)")
+        }
+    }
+
+    @Test
+    func queryCallbackResumesNoDataOffMain() async throws {
+        do {
+            _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PedometerSnapshot, any Error>) in
+                let callback = MotionService.makeQueryCallback(continuation: continuation)
+                Task.detached {
+                    callback(nil, nil)
+                }
+            }
+            Issue.record("Expected MotionError.noData to be thrown")
+        } catch MotionError.noData {
+            // Expected.
+        } catch {
+            Issue.record("Expected MotionError.noData, got \(error)")
+        }
+    }
 }
 
 @MainActor

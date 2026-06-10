@@ -81,11 +81,17 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
             }
 
             if shouldSendMessage {
-                session.sendMessage([WatchPayload.transferKey: encoded], replyHandler: nil) { error in
-                    Loggers.sync.warning("watch.send_message_failed", metadata: [
-                        "error": error.localizedDescription
-                    ])
-                }
+                // The errorHandler MUST come from the `nonisolated` helper below. `send` runs on
+                // `@MainActor`, and `WCSession`'s errorHandler block is NOT `@Sendable`
+                // (WCSession.h), so an inline closure would inherit MainActor isolation — and the
+                // WatchConnectivity daemon invokes the errorHandler on its own background queue,
+                // which would trip `swift_task_isCurrentExecutor` (EXC_BREAKPOINT) on a failed
+                // send. Same crash class as `MotionService.query`.
+                session.sendMessage(
+                    [WatchPayload.transferKey: encoded],
+                    replyHandler: nil,
+                    errorHandler: Self.makeSendMessageErrorHandler()
+                )
                 lastReachableSendAt = now
                 lastReachableSentSteps = stepData.todaySteps
             }
@@ -116,6 +122,18 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         if now.timeIntervalSince(lastSentAt) >= minInterval { return true }
         if let lastSentSteps, abs(newSteps - lastSentSteps) >= minDeltaSteps { return true }
         return false
+    }
+
+    /// Builds the `WCSession.sendMessage` errorHandler as a `@Sendable` (nonisolated) closure.
+    /// WatchConnectivity invokes it on a background queue and the SDK block is not `@Sendable`,
+    /// so it must not inherit this class's `@MainActor` isolation. `AppLogger` is `Sendable` with
+    /// `nonisolated` methods, so logging from the background queue is safe.
+    nonisolated static func makeSendMessageErrorHandler() -> @Sendable (any Error) -> Void {
+        { error in
+            Loggers.sync.warning("watch.send_message_failed", metadata: [
+                "error": error.localizedDescription
+            ])
+        }
     }
 
     private func resetReachableThrottle() {
