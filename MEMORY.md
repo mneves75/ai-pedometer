@@ -69,6 +69,13 @@ Also confirm repo scope first with:
 - Entitlements são reescritos a cada `xcodegen generate` por `Scripts/restore-entitlements.sh` — mudanças de entitlement (incl. Enhanced Security/hardened-process) vivem NESSE script, nunca nos `.entitlements` diretamente. O mesmo script re-asserta `iOSPackagesShouldBuildARM64e` no WorkspaceSettings (pointer auth + SPM).
 - Em Release, `LaunchConfiguration.isOverridable` é `false` incondicional (2026-06-10): launch args/env são input de atacante via `devicectl`; a justificativa antiga "uncheatable by launch args" estava errada. Não reintroduzir overrides de Release.
 
+## Concurrency Landmine: isolated closures + non-`@Sendable` ObjC callbacks (0.89)
+
+- The 0.88 launch crash (EXC_BREAKPOINT/SIGTRAP, crash type 309, `swift_task_isCurrentExecutor`/`dispatch_assert_queue`) was `MotionService.query`: it satisfies a `@MainActor` protocol requirement, so its inline completion closure inherited MainActor isolation. `CMPedometerHandler` is a plain ObjC block (NOT `@Sendable`) and CoreMotion calls it on a background queue → MainActor-isolated closure runs off-main → iOS 26 runtime traps. Latent since v0.1; only crashed once the motion-fallback path was actually exercised on device.
+- RULE: any completion-handler/callback from a C/ObjC framework whose block is NOT `@Sendable`, invoked from a `@MainActor` (or `actor`) context, that the framework calls on a background queue, WILL trap at runtime on iOS 26. The fix pattern (already used for `startLiveUpdates`): extract a `nonisolated static func makeXCallback(continuation:) -> @Sendable (…) -> Void` so the closure is formally nonisolated; `CheckedContinuation` is Sendable so it captures cleanly. Mirror `MotionService.makeQueryCallback`/`makePedometerCallback`.
+- Why HealthKit paths never crashed despite `@MainActor HealthKitService`: HealthKit's modern query handlers are `@Sendable`/`@preconcurrency`-imported, so those closures are nonisolated. CoreMotion's `CMPedometerHandler` typedef has no `@Sendable` (verified in the iOS SDK header). When auditing, check the SDK swiftinterface/header for `@Sendable` on the specific handler param — that annotation is the dividing line between safe and crash.
+- "Smart reminders crashing" was the SAME bug seen from a different entry point: the background-refresh path (BackgroundTaskService → `refreshTodayData` → motion fallback → `MotionService.query`), not a separate SmartNotificationService defect.
+
 ## Operator Lessons
 
 - For bug reports, the reproducer test is the contract.

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.89] - 2026-06-10
+
+### Fixed
+
+- **Launch crash on device (EXC_BREAKPOINT / SIGTRAP, crash type 309).** `MotionService.query(from:to:)` satisfies a `@MainActor` protocol requirement, so its inline completion closure inherited MainActor isolation. `CMPedometerHandler` is a plain Objective-C block (not `@Sendable`), and CoreMotion invokes it on its own background queue — under the iOS 26 Swift runtime a MainActor-isolated closure running off-main trips `swift_task_isCurrentExecutor` (`dispatch_assert_queue`) and traps. This fired through the step-tracking motion fallback (`StepTrackingService.refreshTodayData`), reached on launch and from the background-refresh path that backs smart reminders, so the app crashed on launch on iMarcus. The completion handler is now built by a `nonisolated static func makeQueryCallback(...) -> @Sendable …`, mirroring the already-correct `startLiveUpdates`/`makePedometerCallback` pattern in the same file, so it runs nonisolated and resumes the continuation safely off-main. Regression tests `queryCallbackResumesErrorOffMainWithoutIsolationTrap` and `queryCallbackResumesNoDataOffMain` drive the callback from a detached (off-main) task; verified by a clean launch on iMarcus.
+
+### Audit
+
+- Reviewed every CoreMotion / HealthKit / WatchConnectivity / notification completion-handler and `withCheckedContinuation` site for the same isolated-closure-on-non-`@Sendable`-callback class. The audit surfaced one more latent instance, now also fixed: **`WatchSyncService.sendMessage`'s `errorHandler`**. `send` runs on `@MainActor` and `WCSession`'s errorHandler block is not `@Sendable` (per `WCSession.h`), so the inline closure inherited MainActor isolation while WatchConnectivity invokes it on a background queue — the same trap, latent because it only fires on a *failed* reachable send. It now uses a `nonisolated static func makeSendMessageErrorHandler() -> @Sendable …`. HealthKit query closures are safe because Apple ships those handlers `NS_SWIFT_SENDABLE` in the iOS 26 SDK; the `StepDataAggregator` actor captures no isolated state; all notification paths use the Swift `async` APIs.
+
 ## [0.88] - 2026-06-10
 
 ### Changed
