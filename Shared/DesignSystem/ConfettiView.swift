@@ -117,8 +117,14 @@ private struct Particle {
     }
 
     /// Returns a value in 0..<1 from an integer and salt.
+    ///
+    /// Uses `UInt32` wrapping arithmetic so the multiplicative-hash constant is
+    /// well-defined on 32-bit-`Int` platforms (watchOS/arm64_32), where a plain
+    /// `Int` literal of `2_654_435_761` would overflow.
     static func jitter(_ value: Int, salt: Int) -> Double {
-        let mixed = (value &* 2_654_435_761 &+ salt &* 40_503) & 0xFFFF
+        let v = UInt32(truncatingIfNeeded: value)
+        let s = UInt32(truncatingIfNeeded: salt)
+        let mixed = (v &* 2_654_435_761 &+ s &* 40_503) & 0xFFFF
         return Double(mixed) / Double(0xFFFF)
     }
 }
