@@ -151,3 +151,39 @@ Regra por fase: build + testes relevantes verdes → verificação visual no sim
 - AMBIENTE: simulador instável + DISPUTADO por uma sessão paralela (outro app "Paquera", sims
   SV-Redesign/AIR-Redesign/CV-TestRunner/AIR-RD3 não criados por mim) que derruba meus simuladores
   (SIGKILL 137 em test runs). Capturas exigiram sim dedicado e retries.
+
+### Segunda passada (atendendo "do it all / try everything")
+
+- **autoreview (Codex) rodou até limpo** (3 ciclos): achou (1) remoção temp do watch no project.yml
+  [restaurado], (2) numericText do StatCard sem gate de Reduce Motion [gateado], (3) TimelineView do
+  ConfettiView a 60fps após o burst [pausado com `isFinished`]. Re-review final: "patch is correct".
+- **Bug REAL pego pelo build de DEVICE (não pelo sim nem pelo autoreview):** `ConfettiView` em
+  `Shared/` compila no watchOS (arm64_32, Int 32-bit); a constante de Knuth `2_654_435_761` estoura
+  Int32. Fix: aritmética `UInt32` com wrapping. Commit `77879fb`.
+- **e2e (XCUITests) pegou 2 regressões REAIS do redesign:** o `scrollFadeIn` deixava o CTA "Iniciar
+  treino" do Workouts sob a tab bar (`assertWorkoutsLoaded`, y≈855 > 792). Fix: removido o `.offset`
+  do `scrollFadeIn` (movia o frame de acessibilidade/hit-test) + tornado no-op sob UI testing +
+  removido o scrollFadeIn dos sections do Workouts (Dashboard/History mantêm, passam no e2e). Commit
+  `4a57f11`. A suíte XCUITest completa NÃO pôde ser confirmada 100% verde nesta sessão por causa da
+  contenção severa (SIGKILL 137 + flake `tab_workouts`-not-found, classe documentada no MEMORY) —
+  re-rodar em máquina ociosa.
+
+### Deploys (tentados, com erros exatos capturados)
+
+- **App record EXISTE no ASC** (ID `6778785816`→ na verdade `6778799265`, "AIPedometer - aipedometer").
+  A nota de 2026-06-10 de que não existia está obsoleta. `asc doctor` ok.
+- **BLOQUEIO de toolchain pincer** impede QUALQUER build distribuível com o watch:
+  - Xcode 26.6: `xcodebuild archive` falha no actool do watch (runtime watchOS 26.x removido).
+  - Xcode 27 beta: archive falha no RevenueCat sob Swift 6.4 (`PaywallColor`/`CustomerCenterConfigData`).
+  - → **staging (TestFlight), prod (App Store) e iMarcus** todos bloqueados igualmente.
+- **iMarcus**: device conectado (iPhone 17 Pro Max) + Apple Watch Ultra 2 pareado; o build falhou —
+  PRIMEIRO no bug de 32-bit do ConfettiView (corrigido), e em seguida cairia no mesmo actool do watch.
+- **Unblock recomendado (decisão do usuário):** (a) restaurar runtime watchOS 26.x (fora do controle —
+  Apple não disponibiliza), OU (b) bumpar o RevenueCat para revisão compatível com Swift 6.4 e
+  arquivar com o Xcode 27 beta. (b) é revenue-critical → NÃO feito autonomamente.
+
+### F4 (refactor de arquitetura) — pronto, não executado
+
+- Spec completa e commitada em `docs/refactor/codex-spec-f4.md`. Não despachado nesta sessão: o
+  ambiente não builda o watch e está sob contenção severa, então a verificação autônoma do Codex
+  seria não confiável. Rodar quando o build estiver saudável.
