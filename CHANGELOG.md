@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard hero redesign.** The progress ring now uses a living mint→cyan→accent angular gradient with a breathing glow and a luminous tip that rides the leading edge of the arc. Step and stat numbers roll with `contentTransition(.numericText)`; the stats grid reveals with a staggered entrance and a scroll-edge fade. Added milestone haptics (`sensoryFeedback`) at each quarter of the goal and a success haptic when the goal is met. New pure `DashboardView.milestoneBucket(progress:)` covered by unit tests (`DashboardMilestoneTests`).
 - **History chart redesign.** Goal-met bars use a mint→cyan gradient with a glowing peak cap; history rows fade in on scroll and roll their step counts with numeric transitions.
 - **Badges celebration.** The celebration sheet now shows confetti and a breathing glow on the badge icon.
-- **Onboarding / Workouts / AI Coach motion polish.** Onboarding welcome icon breathes and bounces; the goal number rolls as the slider moves. Workout sections fade in on scroll. Chat messages slide-and-fade in as they arrive.
+- **Onboarding / AI Coach motion polish.** Onboarding welcome icon breathes and bounces; the goal number rolls as the slider moves. Chat messages slide-and-fade in as they arrive.
 
 ### Notes
 

@@ -52,20 +52,13 @@ struct WorkoutsView: View {
                 headerSection
                 if workoutController.isActive {
                     activeWorkoutBanner
-                        .scrollFadeIn()
                 }
                 aiWorkoutSection
-                    .scrollFadeIn()
                 expeditionModeSection
-                    .scrollFadeIn()
                 routeImportSection
-                    .scrollFadeIn()
                 startWorkoutSection
-                    .scrollFadeIn()
                 trainingPlansSection
-                    .scrollFadeIn()
                 recentWorkoutsSection
-                    .scrollFadeIn()
             }
         }
         .tabBarAwareScrollContentBottomInset()
