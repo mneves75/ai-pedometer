@@ -45,6 +45,10 @@ struct OnboardingView: View {
                 .foregroundStyle(DesignTokens.Colors.accent)
                 .padding(DesignTokens.Spacing.md)
                 .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
+                .breathingGlow(DesignTokens.Colors.accent)
+                .applyIfMotionEnabled { view in
+                    view.symbolEffect(.bounce, options: .repeating.speed(0.4))
+                }
 
             Text(L10n.localized("Welcome to AI Pedometer", comment: "Onboarding welcome title"))
                 .font(DesignTokens.Typography.largeTitle)
@@ -74,6 +78,8 @@ struct OnboardingView: View {
                 )
                     .font(.system(size: DesignTokens.FontSize.md, weight: .bold))
                     .foregroundStyle(DesignTokens.Colors.accent)
+                    .contentTransition(.numericText(value: dailyGoal))
+                    .animation(reduceMotion ? nil : DesignTokens.Animation.snappy, value: dailyGoal)
 
                 Slider(value: $dailyGoal, in: 1000...20000, step: 500)
                     .tint(DesignTokens.Colors.accent)

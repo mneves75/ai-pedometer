@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.90] - 2026-06-13
+
+### Added
+
+- **Living motion design system (`Shared/DesignSystem/MotionEffects.swift`).** New reduce-motion-aware view modifiers shared across the app: `breathingGlow` (a slow `phaseAnimator` pulse), `goalCelebration` (a one-shot scale pop on goal completion), `scrollFadeIn` (a `scrollTransition` fade/scale for cards in scroll views), and `staggeredReveal` (a per-index rise-and-fade entrance). Every effect collapses to a static, identity-stable state under `accessibilityReduceMotion` and under UI testing, so toggling the setting never resets descendant state.
+- **Confetti burst (`Shared/DesignSystem/ConfettiView.swift`).** A self-contained celebration layer drawn with `Canvas` + `TimelineView`. Particle parameters are derived deterministically from the index (no `Math.random`), so there is no retained simulation state. Renders nothing under Reduce Motion / UI testing.
+- **Hidden easter egg.** Tapping the Dashboard progress-ring center several times in a row throws a confetti burst with a success haptic. No UI affordance hints at it; it is fully local and disabled under Reduce Motion.
+
+### Changed
+
+- **Dashboard hero redesign.** The progress ring now uses a living mint→cyan→accent angular gradient with a breathing glow and a luminous tip that rides the leading edge of the arc. Step and stat numbers roll with `contentTransition(.numericText)`; the stats grid reveals with a staggered entrance and a scroll-edge fade. Added milestone haptics (`sensoryFeedback`) at each quarter of the goal and a success haptic when the goal is met. New pure `DashboardView.milestoneBucket(progress:)` covered by unit tests (`DashboardMilestoneTests`).
+- **History chart redesign.** Goal-met bars use a mint→cyan gradient with a glowing peak cap; history rows fade in on scroll and roll their step counts with numeric transitions.
+- **Badges celebration.** The celebration sheet now shows confetti and a breathing glow on the badge icon.
+- **Onboarding / Workouts / AI Coach motion polish.** Onboarding welcome icon breathes and bounces; the goal number rolls as the slider moves. Workout sections fade in on scroll. Chat messages slide-and-fade in as they arrive.
+
+### Notes
+
+- All new motion honors `accessibilityReduceMotion` and is suppressed under UI testing; no design-token literals were introduced (effects consume `DesignTokens` spacing/color/animation).
+- Design direction follows 2026 mobile UI trends (Liquid Glass as a living material, narrative motion, kinetic typography, spatial depth) researched at the start of the cycle; tracked in `docs/refactor/refactor-ai-pedometer.md`.
+
 ## [0.89] - 2026-06-10
 
 ### Fixed

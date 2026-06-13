@@ -100,6 +100,11 @@ struct AICoachView: View {
                     ForEach(coachService.messages) { message in
                         ChatMessageView(message: message)
                             .id(message.id)
+                            .transition(
+                                reduceMotion
+                                    ? .opacity
+                                    : .move(edge: .bottom).combined(with: .opacity)
+                            )
                     }
 
                     if coachService.isGenerating {
@@ -112,6 +117,7 @@ struct AICoachView: View {
                     }
                 }
                 .padding(DesignTokens.Spacing.md)
+                .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: coachService.messages.count)
             }
             .simultaneousGesture(
                 DragGesture().onChanged { _ in

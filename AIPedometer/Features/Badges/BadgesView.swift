@@ -391,6 +391,7 @@ struct BadgeCelebrationSheet: View {
                 Image(systemName: badgeType.iconName)
                     .font(.system(size: DesignTokens.FontSize.xxl))
                     .foregroundStyle(DesignTokens.Colors.yellow.gradient)
+                    .breathingGlow(DesignTokens.Colors.yellow)
                     .applyIfMotionEnabled { view in
                         view.symbolEffect(.bounce.up.byLayer, options: .repeating.speed(0.5))
                     }
@@ -424,6 +425,10 @@ struct BadgeCelebrationSheet: View {
             .padding(.horizontal, DesignTokens.Spacing.lg)
             .padding(.top, DesignTokens.Spacing.xl)
             .padding(.bottom, DesignTokens.Spacing.lg)
+        }
+        .overlay {
+            ConfettiView()
+                .ignoresSafeArea()
         }
         .safeAreaInset(edge: .bottom) {
             Button(L10n.localized("Continue", comment: "Badge celebration continue button")) {

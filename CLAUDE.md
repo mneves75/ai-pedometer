@@ -76,6 +76,7 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 - Keep Swift 6.2 strict concurrency and warnings-as-errors clean.
 - Prefer existing services, shared models, and design/localization utilities before adding new abstractions.
 - Consume `DesignTokens` for every spacing, corner radius, color, typography, icon size, and component dimension. The relevant enums are `DesignTokens.Spacing`, `CornerRadius`, `Colors`, `Typography`, `IconSize` (xs/sm/md/lg/touchTarget/hero), and `Sizing` (progressRing, workoutCardWidth, routePreviewHeight, badgeCardMinHeight, chartHeight, chartBarMaxHeight, chatBubbleGutter, onboardingPageBottomInset). Do not reintroduce literal `.frame(width:height:)`, `cornerRadius:` integers, or magic-number paddings — enforcement greps are `\.frame(width: [0-9]` and `cornerRadius: [0-9]`.
+- For motion, reuse the shared reduce-motion-aware modifiers in `Shared/DesignSystem/MotionEffects.swift` (`breathingGlow`, `goalCelebration`, `scrollFadeIn`, `staggeredReveal`) and `Shared/DesignSystem/ConfettiView.swift` before adding new animation code. They already collapse to a static, identity-stable state under `accessibilityReduceMotion` and UI testing — do not reinvent per-view motion that skips those gates. New continuous animations belong behind the same guards.
 - Put cross-target code in `Shared/` when iOS, watchOS, widgets, or Live Activities need the same behavior.
 - Add user-facing strings to `Shared/Resources/Localizable.xcstrings`.
 - `pt-BR` devices use Portuguese; every other locale defaults to English.
