@@ -84,18 +84,26 @@ private struct GoalCelebrationModifier: ViewModifier {
 
 // MARK: - Scroll-driven entrance
 
-/// Standard scroll-edge treatment: content gently fades and recedes as it
-/// leaves the visible area. Under Reduce Motion only opacity is applied.
+/// Standard scroll-edge treatment: content gently fades and shrinks as it
+/// leaves the visible area.
+///
+/// Deliberately does NOT translate the view: an offset would move the
+/// accessibility/hit-test frame and could push an interactive control (e.g. the
+/// Workouts "Start" CTA) under the tab bar mid-scroll. The shrink is centered,
+/// so frames only ever contract inward. The whole effect collapses to identity
+/// under Reduce Motion and under UI testing so layout measurements stay
+/// deterministic; `scrollTransition` itself stays installed to keep view
+/// identity stable.
 private struct ScrollFadeModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
-        let reduceMotion = self.reduceMotion
+        let suppressed = reduceMotion || LaunchConfiguration.isUITesting()
         return content.scrollTransition(.interactive) { view, phase in
-            view
-                .opacity(phase.isIdentity ? 1 : 0.35)
-                .scaleEffect(phase.isIdentity || reduceMotion ? 1 : 0.94)
-                .offset(y: phase.isIdentity || reduceMotion ? 0 : phase.value * DesignTokens.Spacing.smPlus)
+            let active = !phase.isIdentity && !suppressed
+            return view
+                .opacity(active ? 0.45 : 1)
+                .scaleEffect(active ? 0.96 : 1)
         }
     }
 }
