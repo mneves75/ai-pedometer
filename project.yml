@@ -63,7 +63,7 @@ settings:
 packages:
   RevenueCat:
     url: https://github.com/RevenueCat/purchases-ios-spm
-    revision: 89c9d144d4414bb0e1aac292f0438fa058393d50
+    revision: 72ab166846656b33a8d1a80c541cf7359e467f4d
 schemes:
   AIPedometer:
     shared: true
