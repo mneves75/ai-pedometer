@@ -420,6 +420,7 @@ struct HistoryView: View {
         ForEach(trackingService.weeklySummaries.sortedByDateDescending) { summary in
             HistoryRow(summary: summary, activityMode: activityMode)
                 .padding(.horizontal, DesignTokens.Spacing.md)
+                .scrollFadeIn()
         }
     }
 }
@@ -435,17 +436,38 @@ struct BarChartColumn: View {
         CGFloat(summary.steps) / CGFloat(max(maxSteps, 1))
     }
 
+    private var barFill: LinearGradient {
+        summary.goalMet
+            ? LinearGradient(
+                colors: [DesignTokens.Colors.mint, DesignTokens.Colors.cyan],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+            : LinearGradient(
+                colors: [DesignTokens.Colors.accentSoft, DesignTokens.Colors.accentMuted],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+    }
+
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.xs) {
             Spacer()
 
             RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs)
-                .fill(
-                    summary.goalMet
-                        ? DesignTokens.Colors.accent.gradient
-                        : DesignTokens.Colors.accentSoft.gradient
-                )
+                .fill(barFill)
                 .frame(height: animate ? DesignTokens.Sizing.chartBarMaxHeight * heightRatio : 0)
+                .overlay(alignment: .top) {
+                    // A bright cap that reads as the "peak" of a goal-met day.
+                    if summary.goalMet {
+                        Circle()
+                            .fill(DesignTokens.Colors.inverseText)
+                            .frame(width: DesignTokens.Spacing.xs, height: DesignTokens.Spacing.xs)
+                            .padding(.top, DesignTokens.Spacing.xxs)
+                            .opacity(animate ? 1 : 0)
+                            .shadow(color: DesignTokens.Colors.cyan.opacity(0.6), radius: DesignTokens.Spacing.xs)
+                    }
+                }
                 .motionAwareAnimation(
                     DesignTokens.Animation.springy.delay(delay),
                     value: animate
@@ -477,6 +499,7 @@ struct HistoryRow: View {
             HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xxs) {
                 Text(summary.steps.formattedSteps)
                     .font(DesignTokens.Typography.title3.bold().monospacedDigit())
+                    .contentTransition(.numericText())
                 Text(activityMode.unitName)
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)

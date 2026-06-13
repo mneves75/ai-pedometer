@@ -53,9 +53,17 @@ struct DashboardView: View {
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
 
     @State private var animateProgress = false
+    @State private var revealStats = false
     @State private var dailyInsight: DailyInsight?
     @State private var insightError: AIServiceError?
     @State private var showHealthHelp = false
+
+    // Hidden easter egg: tapping the ring's center a few times in a row throws a
+    // confetti burst. No UI affordance hints at it; it is purely local and
+    // renders nothing under Reduce Motion (ConfettiView self-disables).
+    @State private var secretTapCount = 0
+    @State private var celebrateSecret = false
+    private static let secretTapThreshold = 7
 
     private let progressRingSize: CGFloat = DesignTokens.Sizing.progressRing
     private let progressRingLineWidth: CGFloat = DesignTokens.Sizing.progressRingLineWidth
@@ -80,6 +88,33 @@ struct DashboardView: View {
         return min(Double(trackingService.todaySteps) / Double(goal), 1.0)
     }
 
+    private var goalReached: Bool {
+        progress >= 1
+    }
+
+    /// Quarter-goal bucket (0...4) used to fire a light haptic at 25/50/75%.
+    /// Static and pure so the threshold behavior is unit-testable.
+    static func milestoneBucket(progress: Double) -> Int {
+        guard progress > 0 else { return 0 }
+        return min(Int(progress * 4), 4)
+    }
+
+    private func registerSecretTap() {
+        secretTapCount += 1
+        guard secretTapCount >= Self.secretTapThreshold else { return }
+        secretTapCount = 0
+        HapticService.shared.success()
+        withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
+            celebrateSecret = true
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(2.4))
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
+                celebrateSecret = false
+            }
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: DesignTokens.Spacing.lg) {
@@ -88,6 +123,13 @@ struct DashboardView: View {
                 aiInsightSection
                 progressRingSection
                 statsGridSection
+            }
+        }
+        .overlay {
+            if celebrateSecret {
+                ConfettiView()
+                    .ignoresSafeArea()
+                    .transition(.opacity)
             }
         }
         .tabBarAwareScrollContentBottomInset()
@@ -99,6 +141,13 @@ struct DashboardView: View {
             withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.2)) {
                 animateProgress = true
             }
+            revealStats = true
+        }
+        .sensoryFeedback(.success, trigger: goalReached) { _, newValue in newValue }
+        .sensoryFeedback(trigger: Self.milestoneBucket(progress: progress)) { oldValue, newValue in
+            // Light tick at each quarter of the goal; the goal itself is
+            // celebrated by the `.success` feedback above.
+            (newValue > oldValue && newValue < 4) ? .impact(weight: .light) : nil
         }
         .sheet(isPresented: $showHealthHelp) {
             HealthAccessHelpSheet()
@@ -260,9 +309,15 @@ struct DashboardView: View {
         ZStack {
             progressRingBackground
             progressRingForeground
+            progressRingTip
             progressRingContent
+                .contentShape(Circle())
+                .onTapGesture {
+                    registerSecretTap()
+                }
         }
         .frame(width: progressRingSize, height: progressRingSize)
+        .goalCelebration(trigger: goalReached)
         .padding(.vertical, DesignTokens.Spacing.md)
         .accessibleProgress(
             label: Localization.format(
@@ -295,9 +350,10 @@ struct DashboardView: View {
             .stroke(
                 AngularGradient(
                     colors: [
+                        DesignTokens.Colors.mint,
+                        DesignTokens.Colors.cyan,
                         DesignTokens.Colors.accent,
-                        DesignTokens.Colors.accentMuted,
-                        DesignTokens.Colors.accent
+                        DesignTokens.Colors.mint
                     ],
                     center: .center,
                     startAngle: .degrees(-90),
@@ -306,7 +362,26 @@ struct DashboardView: View {
                 style: StrokeStyle(lineWidth: progressRingLineWidth, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
-            .shadow(color: DesignTokens.Colors.accent.opacity(0.3), radius: 10)
+            .breathingGlow(DesignTokens.Colors.accent, isActive: animateProgress && progress > 0)
+    }
+
+    /// A bright dot riding the leading edge of the progress arc. It reads as the
+    /// "live" head of the ring and intensifies the closer the goal gets.
+    private var progressRingTip: some View {
+        let radius = (progressRingSize - progressRingLineWidth) / 2
+        let angle = Angle.degrees((animateProgress ? progress : 0) * 360 - 90)
+        return Circle()
+            .fill(DesignTokens.Colors.inverseText)
+            .frame(width: progressRingLineWidth * 0.7, height: progressRingLineWidth * 0.7)
+            .overlay(
+                Circle()
+                    .fill(DesignTokens.Colors.accent)
+                    .frame(width: progressRingLineWidth * 0.34, height: progressRingLineWidth * 0.34)
+            )
+            .shadow(color: DesignTokens.Colors.accent.opacity(0.6), radius: DesignTokens.Spacing.sm)
+            .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
+            .opacity(progress > 0 ? 1 : 0)
+            .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: animateProgress)
     }
 
     private var progressRingContent: some View {
@@ -347,37 +422,37 @@ struct DashboardView: View {
         }
     }
 
-    private var statsGrid: some View {
-        LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: DesignTokens.Spacing.md
-        ) {
-            StatCard(
+    private var statItems: [StatItem] {
+        [
+            StatItem(
                 icon: activityMode.iconName,
                 title: L10n.localized("Distance"),
                 value: trackingService.todayDistance.formattedDistance(),
-                color: DesignTokens.Colors.accent
-            )
-            StatCard(
+                color: DesignTokens.Colors.accent,
+                accessibilityValue: nil
+            ),
+            StatItem(
                 icon: "flame.fill",
                 title: L10n.localized("Calories", comment: "Dashboard stat card title"),
                 value: "\(trackingService.todayCalories.formattedCalories()) \(L10n.localized("kcal", comment: "Calories unit"))",
-                color: DesignTokens.Colors.orange
-            )
-            StatCard(
+                color: DesignTokens.Colors.orange,
+                accessibilityValue: nil
+            ),
+            StatItem(
                 icon: "figure.stairs",
                 title: L10n.localized("Floors", comment: "Dashboard stat card title"),
                 value: "\(trackingService.todayFloors)",
-                color: DesignTokens.Colors.green
-            )
-            StatCard(
+                color: DesignTokens.Colors.green,
+                accessibilityValue: nil
+            ),
+            StatItem(
                 icon: "heart.fill",
                 title: L10n.localized("Heart Rate", comment: "Dashboard stat card title"),
                 value: heartRateText,
                 color: DesignTokens.Colors.red,
                 accessibilityValue: heartRateAccessibilityText
-            )
-            StatCard(
+            ),
+            StatItem(
                 icon: "flame.circle",
                 title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
                 value: Localization.format(
@@ -385,8 +460,28 @@ struct DashboardView: View {
                     comment: "The value of the stat card for the current streak.",
                     Int64(trackingService.currentStreak)
                 ),
-                color: DesignTokens.Colors.accent
+                color: DesignTokens.Colors.accent,
+                accessibilityValue: nil
             )
+        ]
+    }
+
+    private var statsGrid: some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible()), GridItem(.flexible())],
+            spacing: DesignTokens.Spacing.md
+        ) {
+            ForEach(Array(statItems.enumerated()), id: \.element.id) { index, item in
+                StatCard(
+                    icon: item.icon,
+                    title: item.title,
+                    value: item.value,
+                    color: item.color,
+                    accessibilityValue: item.accessibilityValue
+                )
+                .staggeredReveal(index: index, isRevealed: revealStats)
+                .scrollFadeIn()
+            }
         }
     }
 
@@ -400,9 +495,25 @@ struct DashboardView: View {
 
 }
 
+// MARK: - Stat Item
+
+private struct StatItem: Identifiable {
+    let icon: String
+    let title: String
+    let value: String
+    let color: Color
+    let accessibilityValue: String?
+
+    // Stable identity for ForEach: the title is unique per card and does not
+    // change as the value updates, so reveal/transition state is preserved.
+    var id: String { title }
+}
+
 // MARK: - Stat Card
 
 struct StatCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let icon: String
     let title: String
     let value: String
@@ -422,6 +533,8 @@ struct StatCard: View {
                 Text(value)
                     .font(DesignTokens.Typography.title3.bold())
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: value)
                 Text(title)
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
