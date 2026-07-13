@@ -9,6 +9,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
+set +e
+HELP_OUTPUT="$(/bin/bash "${ROOT_DIR}/Scripts/install-on-device.sh" --help 2>&1)"
+HELP_STATUS=$?
+set -e
+
+if [[ ${HELP_STATUS} -ne 0 ]]; then
+  echo "Expected --help to exit successfully under the system Bash." >&2
+  echo "${HELP_OUTPUT}" >&2
+  exit 1
+fi
+
+if [[ "${HELP_OUTPUT}" == *"unbound variable"* ]]; then
+  echo "Expected --help cleanup to avoid empty-array errors under Bash 3.2." >&2
+  exit 1
+fi
+
 FAKE_BIN="${TMP_DIR}/bin"
 mkdir -p "${FAKE_BIN}"
 
@@ -19,45 +35,8 @@ WATCH_APP_DIR="${TMP_DIR}/DerivedData/Build/Products/Debug-watchos/FakeWatch.app
 mkdir -p "$(dirname "${APP_DIR}")"
 mkdir -p "$(dirname "${WATCH_APP_DIR}")"
 
-cat > "${FAKE_BIN}/xcodebuild" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-echo "$*" >> "${XCODEBUILD_LOG}"
-if [[ "$*" == *"-showBuildSettings"* ]]; then
-  if [[ "$*" == *"-scheme FakeWatch"* ]]; then
-    cat <<SETTINGS
-    BUILT_PRODUCTS_DIR = ${WATCH_PRODUCTS_DIR}
-    FULL_PRODUCT_NAME = FakeWatch.app
-    PRODUCT_BUNDLE_IDENTIFIER = com.example.fake.watch
-SETTINGS
-    exit 0
-  fi
-  cat <<SETTINGS
-    BUILT_PRODUCTS_DIR = ${APP_PRODUCTS_DIR}
-    FULL_PRODUCT_NAME = Fake.app
-    PRODUCT_BUNDLE_IDENTIFIER = com.example.fake
-SETTINGS
-  exit 0
-fi
-if [[ "$*" == *"-scheme FakeWatch"* ]]; then
-  mkdir -p "${WATCH_PRODUCTS_DIR}/FakeWatch.app"
-  exit 0
-fi
-mkdir -p "${APP_PRODUCTS_DIR}/Fake.app"
-exit 0
-EOF
-
-cat > "${FAKE_BIN}/xcrun" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-echo "$*" >> "${XCRUN_LOG}"
-if [[ "$*" == *"device info apps"* ]] && [[ "$*" == *"--bundle-id"* ]]; then
-  echo "$*"
-fi
-exit 0
-EOF
-
-chmod +x "${FAKE_BIN}/xcodebuild" "${FAKE_BIN}/xcrun"
+ln -s "${ROOT_DIR}/Scripts/tests/fixtures/mock-xcodebuild.sh" "${FAKE_BIN}/xcodebuild"
+ln -s "${ROOT_DIR}/Scripts/tests/fixtures/mock-xcrun.sh" "${FAKE_BIN}/xcrun"
 
 PATH="${FAKE_BIN}:${PATH}" \
 XCODEBUILD_LOG="${XCODEBUILD_LOG}" \

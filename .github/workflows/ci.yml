@@ -25,14 +25,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Select Xcode 26
-        run: sudo xcode-select -s /Applications/Xcode_26.app
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Guardrail (no hardcoded device identifiers)
         run: bash Scripts/verify-device-identifiers.sh
+
+      - name: Run script tests
+        run: |
+          for test_script in Scripts/tests/*.sh; do
+            echo "==> ${test_script}"
+            /bin/bash "${test_script}"
+          done
 
       - name: Generate Xcode project
         run: |

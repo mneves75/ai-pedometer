@@ -53,4 +53,17 @@ git -C "${TEST_REPO}" commit -m "Remove hardcoded IDs" >/dev/null
 
 ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
 
+# A large allowlisted match set must be drained by the filter instead of being
+# replayed through a here-string, which can fill Bash's heredoc pipe.
+: > "${TEST_REPO}/allowlisted.txt"
+for _ in {1..3000}; do
+  printf 'ECID: %s\n' "${ecid}" >> "${TEST_REPO}/allowlisted.txt"
+done
+git -C "${TEST_REPO}" add allowlisted.txt
+git -C "${TEST_REPO}" commit -m "Add large allowlisted fixture" >/dev/null
+
+ROOT_DIR="${TEST_REPO}" \
+ALLOWLIST_PATH_REGEX='^allowlisted\.txt$' \
+bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
+
 echo "verify-device-identifiers.sh tests passed."

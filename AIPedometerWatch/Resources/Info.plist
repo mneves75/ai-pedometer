@@ -16,7 +16,5 @@
     <true/>
     <key>WKCompanionAppBundleIdentifier</key>
     <string>com.mneves.aipedometer</string>
-    <key>NSHealthShareUsageDescription</key>
-    <string>AI Pedometer needs access to your step count and activity data to show your progress.</string>
 </dict>
 </plist>

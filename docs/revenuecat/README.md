@@ -46,6 +46,8 @@ No estado atual do produto, o entitlement premium controla:
 - Smart Reminders
 - criação de Training Plans
 - recomendações AI de workout em Workouts
+- Expedition Mode em Workouts
+- importação de rotas GPX em Workouts
 - telas/CTAs de upgrade e gerenciamento de assinatura
 
 O `Tip Jar` não faz parte da RevenueCat. Ele continua separado via StoreKit e usa `com.mneves.aipedometer.coffee`.
@@ -470,6 +472,7 @@ Você também deve validar:
 - Settings: Smart Reminders habilitam apenas com premium
 - Training Plans: criação de plano abre paywall quando necessário
 - Workouts: recomendação AI e card de plano respeitam entitlement
+- Workouts: Expedition Mode e importação GPX ficam fechados sem entitlement e liberados com premium
 - About: estado de assinatura e ações estão corretos
 
 ### Testes automatizados do repo

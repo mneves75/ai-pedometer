@@ -61,6 +61,7 @@ final class WorkoutSessionController {
     private var lastPersistedAt: Date?
     private var accumulatedSteps: Int = 0
     private var accumulatedDistance: Double = 0
+    private var isTerminatingSession = false
 
     private(set) var state: WorkoutState = .idle
     private(set) var metrics: WorkoutMetrics?
@@ -123,6 +124,7 @@ final class WorkoutSessionController {
         do {
             try saveModelContext(modelContext)
         } catch {
+            modelContext.delete(session)
             lastError = .saveFailed(error.localizedDescription)
             transition(.error(.unableToSave))
             return
@@ -185,34 +187,40 @@ final class WorkoutSessionController {
 
     func resumeWorkout() {
         guard case .paused = state else { return }
-        if let pauseStartedAt {
-            totalPausedDuration += now().timeIntervalSince(pauseStartedAt)
-            self.pauseStartedAt = nil
-        }
+        let resumedAt = now()
 
         do {
-            try metricsSource.start(from: now())
+            try metricsSource.start(from: resumedAt)
         } catch {
             lastError = .unableToStart(error.localizedDescription)
-            transition(.error(.unableToStart))
             return
         }
 
+        if let pauseStartedAt {
+            totalPausedDuration += resumedAt.timeIntervalSince(pauseStartedAt)
+            self.pauseStartedAt = nil
+        }
+        lastError = nil
         transition(.resume)
         startMetricsLoop()
     }
 
     func finishWorkout() async {
+        guard !isTerminatingSession else { return }
         guard let session = activeSession else {
             lastError = .sessionUnavailable
             transition(.error(.unableToSave))
             return
         }
-
-        await endLiveMetrics()
-        pauseStartedAt = nil
+        isTerminatingSession = true
+        defer { isTerminatingSession = false }
 
         let endTime = now()
+        let previousEndTime = session.endTime
+        let previousUpdatedAt = session.updatedAt
+        let previousSteps = session.steps
+        let previousDistance = session.distance
+        let previousActiveCalories = session.activeCalories
         session.endTime = endTime
         session.updatedAt = endTime
 
@@ -221,22 +229,42 @@ final class WorkoutSessionController {
             session.distance = metrics.distance
             session.activeCalories = metrics.calories
         }
+        session.healthKitExportState = .pending
+        _ = session.stableHealthKitExportIdentifier
+        session.healthKitExportLastFailureAt = nil
+        session.healthKitExportLastErrorCode = nil
 
         do {
             try saveModelContext(modelContext)
         } catch {
+            session.endTime = previousEndTime
+            session.updatedAt = previousUpdatedAt
+            session.steps = previousSteps
+            session.distance = previousDistance
+            session.activeCalories = previousActiveCalories
             lastError = .saveFailed(error.localizedDescription)
-            transition(.error(.unableToSave))
             return
         }
 
+        await endLiveMetrics()
+        pauseStartedAt = nil
+        lastError = nil
+
         do {
             try await healthKitService.saveWorkout(session)
+            session.healthKitExportState = .exported
+            session.healthKitExportFailureCount = 0
+            session.healthKitExportLastFailureAt = nil
+            session.healthKitExportLastErrorCode = nil
         } catch {
             Loggers.health.warning("workout.healthkit_save_failed", metadata: ["error": error.localizedDescription])
+            session.healthKitExportState = .pending
+            session.healthKitExportFailureCount += 1
+            session.healthKitExportLastFailureAt = now()
+            session.healthKitExportLastErrorCode = Self.errorCode(for: error)
         }
 
-        if session.healthKitWorkoutID != nil {
+        if session.healthKitExportState == .exported || session.healthKitExportFailureCount > 0 {
             do {
                 try saveModelContext(modelContext)
             } catch {
@@ -259,24 +287,38 @@ final class WorkoutSessionController {
         resetSession()
     }
 
+    nonisolated private static func errorCode(for error: any Error) -> String {
+        let nsError = error as NSError
+        return "\(nsError.domain):\(nsError.code)"
+    }
+
     func discardWorkout() async {
+        guard !isTerminatingSession else { return }
         guard let session = activeSession else {
             lastError = .sessionUnavailable
             transition(.error(.unableToSave))
             return
         }
+        isTerminatingSession = true
+        defer { isTerminatingSession = false }
 
-        await endLiveMetrics()
-        session.deletedAt = now()
-        session.updatedAt = now()
+        let discardedAt = now()
+        let previousDeletedAt = session.deletedAt
+        let previousUpdatedAt = session.updatedAt
+        session.deletedAt = discardedAt
+        session.updatedAt = discardedAt
 
         do {
             try saveModelContext(modelContext)
         } catch {
+            session.deletedAt = previousDeletedAt
+            session.updatedAt = previousUpdatedAt
             lastError = .discardFailed(error.localizedDescription)
             return
         }
 
+        await endLiveMetrics()
+        lastError = nil
         transition(.discard)
         resetSession()
     }

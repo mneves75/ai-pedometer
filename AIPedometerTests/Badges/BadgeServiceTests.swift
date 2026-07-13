@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 
 @testable import AIPedometer
@@ -32,6 +33,22 @@ struct BadgeServiceTests {
         #expect(secondUnlock == false)
         let earned = service.earnedBadges().filter { $0.badgeType == .steps10K }
         #expect(earned.count == 1)
+    }
+
+    @Test("Failed unlock does not persist a badge on a later save")
+    func failedUnlockDoesNotPersistBadgeOnLaterSave() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let service = BadgeService(
+            persistence: persistence,
+            saveModelContext: { _ in throw CocoaError(.fileWriteUnknown) }
+        )
+
+        #expect(service.unlock(.steps10K) == false)
+        try context.save()
+
+        let badges = try context.fetch(FetchDescriptor<EarnedBadge>())
+        #expect(badges.isEmpty)
     }
 
     @Test("earnedBadges excludes deleted badges")

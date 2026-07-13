@@ -94,6 +94,8 @@ playground.xcworkspace
 *.xcresult
 coverage/
 TestResults/
+__pycache__/
+*.py[cod]
 
 # Provisioning profiles
 *.mobileprovision

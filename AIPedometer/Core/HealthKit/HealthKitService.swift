@@ -9,6 +9,13 @@ struct HeartRateSample: Sendable, Equatable {
     let endDate: Date
 }
 
+struct HealthKitQuantityQuerySpec: @unchecked Sendable {
+    let type: HKQuantityTypeIdentifier
+    let unit: HKUnit
+    let options: HKStatisticsOptions
+    let predicateOptions: HKQueryOptions
+}
+
 @MainActor
 protocol HealthKitServiceProtocol: Sendable {
     func requestAuthorization() async throws
@@ -29,18 +36,47 @@ protocol HealthKitServiceProtocol: Sendable {
 
 @MainActor
 final class HealthKitService: HealthKitServiceProtocol, Sendable {
+    typealias StatisticsSumExecutor = @MainActor (
+        _ spec: HealthKitQuantityQuerySpec,
+        _ startDate: Date,
+        _ endDate: Date
+    ) async throws -> Double?
+    typealias DailyTotalsExecutor = @MainActor (
+        _ spec: HealthKitQuantityQuerySpec,
+        _ startDate: Date,
+        _ endDate: Date
+    ) async throws -> [Date: Double]
+    typealias WorkoutLookupExecutor = @MainActor (_ externalIdentifier: String) async throws -> UUID?
+    typealias WorkoutCreationExecutor = @MainActor (
+        _ session: WorkoutSession,
+        _ externalIdentifier: String
+    ) async throws -> UUID
+
     private let healthStore: HKHealthStore
     private let calendar: Calendar
     private let authorization: HealthKitAuthorization
+    private let statisticsSumExecutor: StatisticsSumExecutor?
+    private let dailyTotalsExecutor: DailyTotalsExecutor?
+    private let workoutLookupExecutor: WorkoutLookupExecutor?
+    private let workoutCreationExecutor: WorkoutCreationExecutor?
+    private var inFlightWorkoutExports: [UUID: Task<UUID, any Error>] = [:]
 
     init(
         healthStore: HKHealthStore = HKHealthStore(),
         calendar: Calendar = .autoupdatingCurrent,
-        authorization: HealthKitAuthorization? = nil
+        authorization: HealthKitAuthorization? = nil,
+        statisticsSumExecutor: StatisticsSumExecutor? = nil,
+        dailyTotalsExecutor: DailyTotalsExecutor? = nil,
+        workoutLookupExecutor: WorkoutLookupExecutor? = nil,
+        workoutCreationExecutor: WorkoutCreationExecutor? = nil
     ) {
         self.healthStore = healthStore
         self.calendar = calendar
         self.authorization = authorization ?? HealthKitAuthorization(healthStore: healthStore)
+        self.statisticsSumExecutor = statisticsSumExecutor
+        self.dailyTotalsExecutor = dailyTotalsExecutor
+        self.workoutLookupExecutor = workoutLookupExecutor
+        self.workoutCreationExecutor = workoutCreationExecutor
     }
 
     func requestAuthorization() async throws {
@@ -243,7 +279,88 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         }
     }
 
+    nonisolated private static func addSamplesAndFinish(
+        _ samples: [HKQuantitySample],
+        builder: HKWorkoutBuilder,
+        end: Date,
+        continuation: CheckedContinuation<UUID, any Error>
+    ) {
+        guard !samples.isEmpty else {
+            endCollectionAndFinish(builder: builder, end: end, continuation: continuation)
+            return
+        }
+        builder.add(samples) { success, error in
+            if let error {
+                Loggers.health.error("healthkit.workout_samples_add_failed", metadata: [
+                    "error": String(describing: error)
+                ])
+                continuation.resume(throwing: error)
+                return
+            }
+            guard success else {
+                continuation.resume(throwing: HealthKitError.queryFailed)
+                return
+            }
+            endCollectionAndFinish(builder: builder, end: end, continuation: continuation)
+        }
+    }
+
+    private func existingWorkoutID(externalIdentifier: String) async throws -> UUID? {
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: HKMetadataKeyExternalUUID,
+            allowedValues: [externalIdentifier]
+        )
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: .workoutType(),
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: Self.mapQueryError(error))
+                    return
+                }
+                continuation.resume(returning: (samples?.first as? HKWorkout)?.uuid)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     func saveWorkout(_ session: WorkoutSession) async throws {
+        let exportIdentifier = session.stableHealthKitExportIdentifier
+        if let inFlightExport = inFlightWorkoutExports[exportIdentifier] {
+            session.healthKitWorkoutID = try await inFlightExport.value
+            return
+        }
+
+        let externalIdentifier = exportIdentifier.uuidString
+        let export = Task { @MainActor [self] in
+            try await exportWorkout(session, externalIdentifier: externalIdentifier)
+        }
+        inFlightWorkoutExports[exportIdentifier] = export
+        defer { inFlightWorkoutExports.removeValue(forKey: exportIdentifier) }
+        session.healthKitWorkoutID = try await export.value
+    }
+
+    private func exportWorkout(_ session: WorkoutSession, externalIdentifier: String) async throws -> UUID {
+        let existingID = if let workoutLookupExecutor {
+            try await workoutLookupExecutor(externalIdentifier)
+        } else {
+            try await existingWorkoutID(externalIdentifier: externalIdentifier)
+        }
+        if let existingID {
+            return existingID
+        }
+
+        return if let workoutCreationExecutor {
+            try await workoutCreationExecutor(session, externalIdentifier)
+        } else {
+            try await createWorkout(session, externalIdentifier: externalIdentifier)
+        }
+    }
+
+    private func createWorkout(_ session: WorkoutSession, externalIdentifier: String) async throws -> UUID {
         let config = HKWorkoutConfiguration()
         config.activityType = session.type.healthKitType
         config.locationType = .unknown
@@ -263,28 +380,28 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                     return
                 }
 
-                guard !samples.isEmpty else {
-                    Self.endCollectionAndFinish(builder: builder, end: end, continuation: continuation)
-                    return
-                }
-
-                builder.add(samples) { success, addError in
-                    if let addError {
-                        Loggers.health.error("healthkit.workout_samples_add_failed", metadata: [
-                            "error": String(describing: addError)
+                builder.addMetadata([HKMetadataKeyExternalUUID: externalIdentifier]) { metadataSuccess, metadataError in
+                    if let metadataError {
+                        Loggers.health.error("healthkit.workout_metadata_add_failed", metadata: [
+                            "error": String(describing: metadataError)
                         ])
-                        continuation.resume(throwing: addError)
+                        continuation.resume(throwing: metadataError)
                         return
                     }
-                    guard success else {
+                    guard metadataSuccess else {
                         continuation.resume(throwing: HealthKitError.queryFailed)
                         return
                     }
-                    Self.endCollectionAndFinish(builder: builder, end: end, continuation: continuation)
+                    Self.addSamplesAndFinish(
+                        samples,
+                        builder: builder,
+                        end: end,
+                        continuation: continuation
+                    )
                 }
             }
         }
-        session.healthKitWorkoutID = workoutID
+        return workoutID
     }
 
     nonisolated static func makeWorkoutSamples(
@@ -374,14 +491,23 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     ) async throws -> Double {
         guard startDate < endDate else { return 0 }
 
-        let quantityType = HKQuantityType(type)
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
+        let spec = Self.statisticsQuerySpec(for: type, unit: unit)
+        if let statisticsSumExecutor {
+            return try await statisticsSumExecutor(spec, startDate, endDate) ?? 0
+        }
+
+        let quantityType = HKQuantityType(spec.type)
+        let predicate = HKQuery.predicateForSamples(
+            withStart: startDate,
+            end: endDate,
+            options: spec.predicateOptions
+        )
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double, any Error>) in
             let query = HKStatisticsQuery(
                 quantityType: quantityType,
                 quantitySamplePredicate: predicate,
-                options: .cumulativeSum
+                options: spec.options
             ) { _, statistics, error in
                 if let error {
                     Loggers.health.error("healthkit.sum_failed", metadata: [
@@ -392,7 +518,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                     return
                 }
 
-                let value = statistics?.sumQuantity()?.doubleValue(for: unit) ?? 0
+                let value = statistics?.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
                 continuation.resume(returning: value)
             }
 
@@ -408,13 +534,22 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     ) async throws -> [Date: Double] {
         guard startDate < endDate else { return [:] }
 
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
+        let spec = Self.statisticsQuerySpec(for: type, unit: unit)
+        if let dailyTotalsExecutor {
+            return try await dailyTotalsExecutor(spec, startDate, endDate)
+        }
+
+        let predicate = HKQuery.predicateForSamples(
+            withStart: startDate,
+            end: endDate,
+            options: spec.predicateOptions
+        )
         let anchorDate = calendar.startOfDay(for: startDate)
         let interval = DateComponents(day: 1)
 
         let descriptor = HKStatisticsCollectionQueryDescriptor(
-            predicate: .quantitySample(type: HKQuantityType(type), predicate: predicate),
-            options: [.cumulativeSum],
+            predicate: .quantitySample(type: HKQuantityType(spec.type), predicate: predicate),
+            options: spec.options,
             anchorDate: anchorDate,
             intervalComponents: interval
         )
@@ -423,8 +558,35 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         var totals: [Date: Double] = [:]
         collection.enumerateStatistics(from: startDate, to: endDate) { statistics, _ in
             let day = self.calendar.startOfDay(for: statistics.startDate)
-            totals[day] = statistics.sumQuantity()?.doubleValue(for: unit) ?? 0
+            totals[day] = statistics.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
         }
         return totals
+    }
+
+    nonisolated static func statisticsQuerySpec(
+        for type: HKQuantityTypeIdentifier,
+        unit: HKUnit? = nil
+    ) -> HealthKitQuantityQuerySpec {
+        let resolvedUnit: HKUnit
+        if let unit {
+            resolvedUnit = unit
+        } else {
+            switch type {
+            case .stepCount, .pushCount, .flightsClimbed:
+                resolvedUnit = .count()
+            case .distanceWalkingRunning, .distanceWheelchair:
+                resolvedUnit = .meter()
+            case .activeEnergyBurned:
+                resolvedUnit = .kilocalorie()
+            default:
+                resolvedUnit = .count()
+            }
+        }
+        return HealthKitQuantityQuerySpec(
+            type: type,
+            unit: resolvedUnit,
+            options: .cumulativeSum,
+            predicateOptions: .strictStartDate
+        )
     }
 }

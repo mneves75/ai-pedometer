@@ -33,14 +33,6 @@ struct SyncPolicyTests {
         #expect(SyncPolicy.foregroundMinInterval == expectedInterval)
     }
     
-    @Test("Background refresh interval is 12 hours")
-    func backgroundRefreshIntervalIs12Hours() {
-        let expectedHours = 12.0
-        let expectedInterval = expectedHours * 60 * 60
-        
-        #expect(SyncPolicy.backgroundRefreshInterval == expectedInterval)
-    }
-    
     @Test("Pull to refresh window is 7 days")
     func pullToRefreshWindowIs7Days() {
         let expectedDays = 7.0
@@ -57,13 +49,6 @@ struct SyncPolicyTests {
         #expect(SyncPolicy.staleDataPruneThreshold == expectedInterval)
     }
     
-    @Test("AI context stale threshold is 1 hour")
-    func aiContextStaleThresholdIs1Hour() {
-        let expectedHours = 1.0
-        let expectedInterval = expectedHours * 60 * 60
-        
-        #expect(SyncPolicy.aiContextStaleThreshold == expectedInterval)
-    }
 }
 
 // MARK: - SyncStateKey Tests
@@ -84,6 +69,193 @@ struct SyncStateKeyTests {
 @Suite("HealthKitSyncService Tests")
 @MainActor
 struct HealthKitSyncServiceTests {
+    @Test("Incremental sync retries durable pending workouts and marks success")
+    func incrementalSyncRetriesPendingWorkout() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let workout = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-1_800),
+            endTime: .now,
+            steps: 2_000
+        )
+        workout.healthKitExportState = .pending
+        modelContext.insert(workout)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        mockHealthKit.workoutIDToAssign = UUID()
+
+        try await service.performIncrementalSync()
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 1)
+        #expect(workout.healthKitExportState == .exported)
+        #expect(workout.healthKitWorkoutID == mockHealthKit.workoutIDToAssign)
+        #expect(workout.healthKitExportLastFailureAt == nil)
+    }
+
+    @Test("Retry after remote commit reuses the stable identifier instead of duplicating")
+    func retryAfterRemoteCommitIsIdempotent() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let workout = WorkoutSession(type: .outdoorWalk, startTime: .now.addingTimeInterval(-600), endTime: .now)
+        workout.healthKitExportState = .pending
+        modelContext.insert(workout)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+
+        try await service.performIncrementalSync()
+        let firstID = workout.healthKitWorkoutID
+        workout.healthKitWorkoutID = nil
+        workout.healthKitExportState = .pending
+        try modelContext.save()
+        try await service.performIncrementalSync()
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 2)
+        #expect(mockHealthKit.createdWorkoutCount == 1)
+        #expect(workout.healthKitWorkoutID == firstID)
+        #expect(workout.healthKitExportState == .exported)
+    }
+
+    @Test("Revoked authorization preserves pending workout without local data loss")
+    func revokedAuthorizationPreservesPendingWorkout() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let workout = WorkoutSession(type: .outdoorWalk, startTime: .now.addingTimeInterval(-600), endTime: .now)
+        workout.healthKitExportState = .pending
+        modelContext.insert(workout)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        mockHealthKit.errorToThrow = HealthKitError.authorizationFailed
+
+        await #expect(throws: HealthKitError.self) {
+            try await service.performIncrementalSync()
+        }
+
+        #expect(workout.healthKitExportState == .pending)
+        #expect(workout.healthKitWorkoutID == nil)
+        #expect(workout.deletedAt == nil)
+        #expect(mockHealthKit.saveWorkoutCallCount == 0)
+    }
+
+    @Test("Reconciliation skips deleted and already exported workouts")
+    func reconciliationSkipsIneligibleWorkouts() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let deleted = WorkoutSession(type: .outdoorWalk, startTime: .now.addingTimeInterval(-600), endTime: .now)
+        deleted.healthKitExportState = .pending
+        deleted.deletedAt = .now
+        let exported = WorkoutSession(type: .outdoorWalk, startTime: .now.addingTimeInterval(-1_200), endTime: .now)
+        exported.healthKitWorkoutID = UUID()
+        exported.healthKitExportState = .exported
+        modelContext.insert(deleted)
+        modelContext.insert(exported)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+
+        try await service.performIncrementalSync()
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 0)
+    }
+
+    @Test("Failed workout batches rotate fairly instead of starving newer pending exports")
+    func reconciliationRotatesFailedWorkoutBatches() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let referenceDate = Date.now
+        var newestWorkout: WorkoutSession?
+        for index in 0...20 {
+            let timestamp = referenceDate.addingTimeInterval(Double(index))
+            let workout = WorkoutSession(
+                type: .outdoorWalk,
+                startTime: timestamp.addingTimeInterval(-600),
+                endTime: timestamp,
+                healthKitExportState: .pending,
+                createdAt: timestamp,
+                updatedAt: timestamp
+            )
+            modelContext.insert(workout)
+            newestWorkout = workout
+        }
+        try modelContext.save()
+        userDefaults.set(referenceDate.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        mockHealthKit.saveWorkoutErrorToThrow = HealthKitError.queryFailed
+
+        try await service.performIncrementalSync()
+        try await service.performIncrementalSync()
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 40)
+        #expect(newestWorkout?.healthKitExportFailureCount == 1)
+        #expect(newestWorkout.map { mockHealthKit.saveWorkoutIdentifiers.contains($0.stableHealthKitExportIdentifier) } == true)
+    }
+
+    @Test("Cancelled reconciliation stops the batch without recording export failures")
+    func reconciliationPropagatesCancellation() async throws {
+        let (service, mockHealthKit, _, modelContext) = makeTestEnvironment()
+        let first = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-1_200),
+            endTime: .now.addingTimeInterval(-600),
+            healthKitExportState: .pending
+        )
+        let second = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-600),
+            endTime: .now,
+            healthKitExportState: .pending
+        )
+        modelContext.insert(first)
+        modelContext.insert(second)
+        try modelContext.save()
+        mockHealthKit.saveWorkoutErrorToThrow = CancellationError()
+
+        await #expect(throws: CancellationError.self) {
+            try await service.reconcilePendingWorkoutExports()
+        }
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 1)
+        #expect(first.healthKitExportFailureCount == 0)
+        #expect(second.healthKitExportFailureCount == 0)
+    }
+
+    @Test("Batch upsert does not resurrect a soft-deleted daily record")
+    func batchUpsertPreservesSoftDelete() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let day = Calendar.current.startOfDay(for: .now)
+        let deleted = DailyStepRecord(
+            date: day,
+            steps: 500,
+            distance: 10,
+            floorsAscended: 0,
+            floorsDescended: 0,
+            activeCalories: 10,
+            goalSteps: 10_000,
+            source: .combined,
+            deletedAt: .now
+        )
+        modelContext.insert(deleted)
+        try modelContext.save()
+        mockHealthKit.dailySummariesToReturn = [DailyStepSummary(date: day, steps: 9_000, distance: 5_000, floors: 2, calories: 300, goal: 10_000)]
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+
+        try await service.performIncrementalSync()
+
+        let records = try modelContext.fetch(FetchDescriptor<DailyStepRecord>())
+        #expect(records.count == 1)
+        #expect(records[0].deletedAt != nil)
+        #expect(records[0].steps == 500)
+    }
+
+    @Test("Daily sync resolves all persisted records with one range fetch")
+    func dailySyncUsesOneRangeFetch() async throws {
+        let (service, mockHealthKit, userDefaults, _) = makeTestEnvironment()
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: .now)
+        mockHealthKit.dailySummariesToReturn = (0..<30).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            return DailyStepSummary(date: date, steps: 1_000 + offset, distance: 100, floors: 1, calories: 20, goal: 10_000)
+        }
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+
+        try await service.performIncrementalSync()
+
+        #expect(service.dailyRecordFetchCount == 1)
+    }
+
     
     private func makeTestEnvironment(calendar: Calendar = .autoupdatingCurrent) -> (
         service: HealthKitSyncService,

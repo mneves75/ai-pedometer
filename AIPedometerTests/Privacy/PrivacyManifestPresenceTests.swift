@@ -38,6 +38,33 @@ struct PrivacyManifestPresenceTests {
         #expect(plist?["NSLocationWhenInUseUsageDescription"] == nil)
     }
 
+    @Test("Info.plist supports every iPhone and iPad interface orientation")
+    func infoPlistSupportsEveryInterfaceOrientation() throws {
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let repoRoot = testFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+
+        let infoURL = repoRoot.appendingPathComponent("AIPedometer/Resources/Info.plist")
+        let data = try Data(contentsOf: infoURL)
+        let plist = try #require(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
+        let expectedOrientations: Set<String> = [
+            "UIInterfaceOrientationPortrait",
+            "UIInterfaceOrientationPortraitUpsideDown",
+            "UIInterfaceOrientationLandscapeLeft",
+            "UIInterfaceOrientationLandscapeRight"
+        ]
+
+        let phoneOrientations = Set(plist["UISupportedInterfaceOrientations"] as? [String] ?? [])
+        let padOrientations = Set(plist["UISupportedInterfaceOrientations~ipad"] as? [String] ?? [])
+
+        #expect(phoneOrientations == expectedOrientations)
+        #expect(padOrientations == expectedOrientations)
+    }
+
     @Test("Privacy manifest does not claim location collection without location APIs")
     func privacyManifestDoesNotClaimLocation() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)

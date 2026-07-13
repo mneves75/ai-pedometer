@@ -58,14 +58,17 @@ extension BGAppRefreshTask: AppRefreshTaskProtocol {}
 final class BackgroundTaskService {
     private let stepTrackingService: any StepTrackingServiceProtocol
     private let scheduler: any BackgroundTaskScheduling
+    private let performHealthKitReconciliation: @MainActor @Sendable () async -> Void
     private var didRegisterTasks = false
 
     init(
         stepTrackingService: any StepTrackingServiceProtocol,
-        scheduler: any BackgroundTaskScheduling = BGTaskSchedulerAdapter()
+        scheduler: any BackgroundTaskScheduling = BGTaskSchedulerAdapter(),
+        performHealthKitReconciliation: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.stepTrackingService = stepTrackingService
         self.scheduler = scheduler
+        self.performHealthKitReconciliation = performHealthKitReconciliation
     }
 
     func registerTasks() {
@@ -108,8 +111,12 @@ final class BackgroundTaskService {
         }
     }
 
+    @MainActor
     func performRefresh() async {
+        defer { stepTrackingService.flushSharedData() }
         await stepTrackingService.refreshTodayData()
+        guard !Task.isCancelled else { return }
+        await performHealthKitReconciliation()
     }
 }
 #endif

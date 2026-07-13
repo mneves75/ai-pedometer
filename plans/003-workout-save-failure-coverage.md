@@ -3,6 +3,9 @@
 **Written against commit** `d4a2958`. Category: test coverage (data-mutation critical path).
 Confidence: HIGH (coverage gap confirmed). Effort: M. Fix risk: LOW (test-only). **Land plan 001 first.**
 
+**Status:** DONE on 2026-07-13. Start, resume, finish, and discard save failures have retry-safety
+coverage; the reproducers exposed real mutation-order bugs that were fixed in production code.
+
 ## Why this matters
 
 `WorkoutSessionControllerTests.swift` (12 tests) covers happy-path start/pause/resume/finish/discard

@@ -12,7 +12,8 @@
 - `project.yml` is the XcodeGen source of truth for the Xcode project.
 - `Config/` holds xcconfig build settings (warnings as errors, strict concurrency).
 - Minimum targets: iOS 26.0, watchOS 26.0 (see `project.yml`).
-- HealthKit entitlements live in each target's `Resources/*.entitlements`.
+- The iOS app owns HealthKit. The app and widgets share the app-group container; the watch companion
+  receives data through WatchConnectivity and intentionally has no HealthKit or app-group entitlement.
 
 ## Ownership Notes
 - GPX file access, security-scoped reads, file-size preflight, parsing handoff, and persisted route storage are owned by `Shared/Utilities/GPXRouteImporter.swift`.

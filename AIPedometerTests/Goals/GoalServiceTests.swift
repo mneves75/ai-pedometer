@@ -68,6 +68,34 @@ struct GoalServiceTests {
         }
     }
 
+    @Test("setGoal removes pending changes when save fails")
+    func setGoalRemovesPendingChangesWhenSaveFails() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let originalUpdatedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let original = StepGoal(
+            dailySteps: 9_000,
+            startDate: Date(timeIntervalSince1970: 1_600_000_000),
+            updatedAt: originalUpdatedAt
+        )
+        context.insert(original)
+        try context.save()
+
+        let service = GoalService(
+            persistence: persistence,
+            saveModelContext: { _ in throw CocoaError(.fileWriteUnknown) }
+        )
+
+        service.setGoal(11_000)
+        try context.save()
+
+        let goals = try context.fetch(FetchDescriptor<StepGoal>())
+        #expect(goals.count == 1)
+        #expect(goals.first?.dailySteps == 9_000)
+        #expect(goals.first?.endDate == nil)
+        #expect(goals.first?.updatedAt == originalUpdatedAt)
+    }
+
     @Test("goal(for:) returns goal that matches date range")
     func goalForDateReturnsMatchingGoal() throws {
         let persistence = PersistenceController(inMemory: true)

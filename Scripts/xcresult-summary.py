@@ -21,6 +21,20 @@ class TestSummary:
     failures: list[str]
 
 
+SUCCESS_RESULTS = frozenset({"passed", "success", "succeeded"})
+
+
+def validation_errors(summary: TestSummary) -> list[str]:
+    errors: list[str] = []
+    if summary.total <= 0:
+        errors.append("nenhum teste foi executado")
+    if summary.failed != 0:
+        errors.append(f"{summary.failed} teste(s) falharam")
+    if summary.result.strip().lower() not in SUCCESS_RESULTS:
+        errors.append(f"resultado nao indica sucesso: {summary.result!r}")
+    return errors
+
+
 def _run(cmd: list[str]) -> str:
     return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
 
@@ -96,6 +110,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Gera um resumo em Markdown a partir de um .xcresult.")
     parser.add_argument("bundle", type=Path, help="Caminho para o .xcresult")
     parser.add_argument("--kind", default="Testes", help="Nome do grupo (ex: Unit Tests, UI Tests)")
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Falha se nenhum teste executou, houver falhas ou o resultado nao indicar sucesso",
+    )
     args = parser.parse_args()
 
     bundle = args.bundle
@@ -114,9 +133,16 @@ def main() -> int:
         return 4
 
     sys.stdout.write(to_markdown(args.kind, bundle, summary))
+    if args.validate:
+        errors = validation_errors(summary)
+        if errors:
+            print(
+                f"Erro: {args.kind} nao passou na validacao: {'; '.join(errors)}",
+                file=sys.stderr,
+            )
+            return 5
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -30,6 +30,7 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
     var fetchWheelchairDistanceCallCount = 0
     var dailySummariesToReturn: [DailyStepSummary] = []
     var fetchDailySummariesCallCount = 0
+    var fetchDailySummariesHandler: (@MainActor @Sendable (Int) async throws -> [DailyStepSummary])?
     var lastFetchDailySummariesArgs: (
         days: Int,
         activityMode: ActivityTrackingMode,
@@ -47,6 +48,12 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         dailyGoal: Int
     )?
     var errorToThrow: (any Error)?
+    var saveWorkoutErrorToThrow: (any Error)?
+    var saveWorkoutCallCount = 0
+    private(set) var saveWorkoutIdentifiers: [UUID] = []
+    var workoutIDToAssign: UUID?
+    var createdWorkoutCount = 0
+    private var workoutIDsByExternalIdentifier: [UUID: UUID] = [:]
 
     func requestAuthorization() async throws {
         if let error = errorToThrow {
@@ -130,6 +137,9 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
             manualStepLength: manualStepLength,
             dailyGoal: dailyGoal
         )
+        if let fetchDailySummariesHandler {
+            return try await fetchDailySummariesHandler(fetchDailySummariesCallCount)
+        }
         return dailySummariesToReturn
     }
 
@@ -156,10 +166,24 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         return dailySummariesToReturn
     }
 
-    func saveWorkout(_: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws {
         if let error = errorToThrow {
             throw error
         }
+        saveWorkoutCallCount += 1
+        let externalIdentifier = session.stableHealthKitExportIdentifier
+        saveWorkoutIdentifiers.append(externalIdentifier)
+        if let error = saveWorkoutErrorToThrow {
+            throw error
+        }
+        if let existing = workoutIDsByExternalIdentifier[externalIdentifier] {
+            session.healthKitWorkoutID = existing
+            return
+        }
+        let assigned = workoutIDToAssign ?? UUID()
+        workoutIDsByExternalIdentifier[externalIdentifier] = assigned
+        session.healthKitWorkoutID = assigned
+        createdWorkoutCount += 1
     }
 }
 
@@ -204,6 +228,7 @@ final class MockStreakCalculator: StreakCalculating {
     var result: StreakResult
     var errorToThrow: (any Error)?
     var callCount = 0
+    var handler: (@MainActor @Sendable (Int) async throws -> StreakResult)?
 
     init(result: StreakResult = StreakResult(count: 0, todayIncluded: false, streakStartDate: nil)) {
         self.result = result
@@ -211,10 +236,43 @@ final class MockStreakCalculator: StreakCalculating {
 
     func calculateCurrentStreak() async throws -> StreakResult {
         callCount += 1
+        if let handler {
+            return try await handler(callCount)
+        }
         if let error = errorToThrow {
             throw error
         }
         return result
+    }
+}
+
+private actor ControlledAsyncResults<Value: Sendable> {
+    private var enteredCalls: Set<Int> = []
+    private var entryWaiters: [Int: [CheckedContinuation<Void, Never>]] = [:]
+    private var resultContinuations: [Int: CheckedContinuation<Value, any Error>] = [:]
+
+    func value(for call: Int) async throws -> Value {
+        enteredCalls.insert(call)
+        let waiters = entryWaiters.removeValue(forKey: call) ?? []
+        for waiter in waiters {
+            waiter.resume()
+        }
+        return try await withCheckedThrowingContinuation { continuation in
+            resultContinuations[call] = continuation
+        }
+    }
+
+    func waitUntilEntered(_ call: Int) async {
+        if enteredCalls.contains(call) {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            entryWaiters[call, default: []].append(continuation)
+        }
+    }
+
+    func succeed(_ call: Int, with value: Value) {
+        resultContinuations.removeValue(forKey: call)?.resume(returning: value)
     }
 }
 
@@ -1439,6 +1497,102 @@ struct DependencyInjectionTests {
         // Both services should see the updated value
         #expect(service1.todaySteps == 9999)
         #expect(service2.todaySteps == 9999)
+    }
+}
+
+// MARK: - Refresh Ordering Tests
+
+@Suite("Refresh Ordering Tests")
+struct RefreshOrderingTests {
+    @Test("Newest weekly refresh wins when an older request finishes last")
+    @MainActor
+    func newestWeeklyRefreshWins() async {
+        let healthKit = MockHealthKitService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let results = ControlledAsyncResults<[DailyStepSummary]>()
+        healthKit.fetchDailySummariesHandler = { call in
+            try await results.value(for: call)
+        }
+        let (service, _) = makeService(
+            healthKit: healthKit,
+            motion: MockMotionService(),
+            userDefaults: testDefaults.defaults
+        )
+        let olderSummary = DailyStepSummary(
+            date: Date(timeIntervalSince1970: 1_700_000_000),
+            steps: 1_000,
+            distance: 800,
+            floors: 1,
+            calories: 40,
+            goal: 10_000
+        )
+        let newerSummary = DailyStepSummary(
+            date: Date(timeIntervalSince1970: 1_700_086_400),
+            steps: 9_000,
+            distance: 7_200,
+            floors: 9,
+            calories: 360,
+            goal: 10_000
+        )
+
+        let olderTask = Task { await service.refreshWeeklySummaries() }
+        await results.waitUntilEntered(1)
+        let newerTask = Task { await service.refreshWeeklySummaries() }
+        await results.waitUntilEntered(2)
+
+        await results.succeed(2, with: [newerSummary])
+        _ = await newerTask.value
+        await results.succeed(1, with: [olderSummary])
+        _ = await olderTask.value
+
+        #expect(service.weeklySummaries.map(\.steps) == [9_000])
+        #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [9_000])
+    }
+
+    @Test("Newest streak refresh wins and stale completion does not unlock badges")
+    @MainActor
+    func newestStreakRefreshWins() async {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let persistence = PersistenceController(inMemory: true)
+        let badgeService = BadgeService(persistence: persistence)
+        let streakCalculator = MockStreakCalculator()
+        let results = ControlledAsyncResults<StreakResult>()
+        streakCalculator.handler = { call in
+            try await results.value(for: call)
+        }
+        let service = StepTrackingService(
+            healthKitService: MockHealthKitService(),
+            motionService: MockMotionService(),
+            healthAuthorization: HealthKitAuthorization(),
+            goalService: GoalService(persistence: persistence),
+            badgeService: badgeService,
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            streakCalculator: streakCalculator,
+            userDefaults: testDefaults.defaults
+        )
+
+        let olderTask = Task { await service.refreshStreak() }
+        await results.waitUntilEntered(1)
+        let newerTask = Task { await service.refreshStreak() }
+        await results.waitUntilEntered(2)
+
+        await results.succeed(
+            2,
+            with: StreakResult(count: 3, todayIncluded: true, streakStartDate: nil)
+        )
+        await newerTask.value
+        await results.succeed(
+            1,
+            with: StreakResult(count: 30, todayIncluded: true, streakStartDate: nil)
+        )
+        await olderTask.value
+
+        #expect(service.currentStreak == 3)
+        #expect(testDefaults.defaults.sharedStepData?.currentStreak == 3)
+        #expect(badgeService.earnedBadgeTypes().contains(.streak3))
+        #expect(!badgeService.earnedBadgeTypes().contains(.streak30))
     }
 }
 

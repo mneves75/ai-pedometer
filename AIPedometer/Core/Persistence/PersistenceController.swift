@@ -22,7 +22,7 @@ final class PersistenceController {
         allowAppSupportFallback: Bool = true,
         allowInMemoryFallback: Bool = true
     ) {
-        let schema = Schema(SchemaV1.models)
+        let schema = Schema(SchemaV2.models)
 
         do {
             let configuration: ModelConfiguration

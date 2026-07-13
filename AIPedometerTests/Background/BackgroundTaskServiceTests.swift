@@ -31,6 +31,7 @@ final class FakeAppRefreshTask: AppRefreshTaskProtocol {
 @MainActor
 final class MockStepTrackingService: StepTrackingServiceProtocol {
     private(set) var refreshCalled = false
+    private(set) var flushCallCount = 0
     var refreshDelayNanoseconds: UInt64 = 0
 
     func refreshTodayData() async {
@@ -38,6 +39,10 @@ final class MockStepTrackingService: StepTrackingServiceProtocol {
             try? await Task.sleep(nanoseconds: refreshDelayNanoseconds)
         }
         refreshCalled = true
+    }
+
+    func flushSharedData() {
+        flushCallCount += 1
     }
 }
 
@@ -75,7 +80,12 @@ struct BackgroundTaskServiceTests {
     func handleAppRefreshCompletesTask() async {
         let scheduler = MockBackgroundScheduler()
         let tracker = MockStepTrackingService()
-        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
+        var reconciliationCount = 0
+        let service = BackgroundTaskService(
+            stepTrackingService: tracker,
+            scheduler: scheduler,
+            performHealthKitReconciliation: { reconciliationCount += 1 }
+        )
         let task = FakeAppRefreshTask()
 
         service.handleAppRefresh(task: task)
@@ -83,6 +93,8 @@ struct BackgroundTaskServiceTests {
 
         #expect(task.completed == true)
         #expect(tracker.refreshCalled == true)
+        #expect(reconciliationCount == 1)
+        #expect(tracker.flushCallCount == 1)
     }
 
     @Test("handleAppRefresh expiration does not get overwritten by late success")
@@ -90,7 +102,12 @@ struct BackgroundTaskServiceTests {
         let scheduler = MockBackgroundScheduler()
         let tracker = MockStepTrackingService()
         tracker.refreshDelayNanoseconds = 80_000_000
-        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
+        var reconciliationCount = 0
+        let service = BackgroundTaskService(
+            stepTrackingService: tracker,
+            scheduler: scheduler,
+            performHealthKitReconciliation: { reconciliationCount += 1 }
+        )
         let task = FakeAppRefreshTask()
 
         service.handleAppRefresh(task: task)
@@ -98,6 +115,8 @@ struct BackgroundTaskServiceTests {
         try? await Task.sleep(nanoseconds: 120_000_000)
 
         #expect(task.completed == false)
+        #expect(reconciliationCount == 0)
+        #expect(tracker.flushCallCount == 1)
     }
 
     @Test("handleAppRefresh does not overwrite completed success when expiration fires later")

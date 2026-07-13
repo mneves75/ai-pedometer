@@ -13,17 +13,12 @@ enum SyncPolicy {
     /// Minimum interval between automatic foreground syncs
     static let foregroundMinInterval: TimeInterval = 6 * 60 * 60
     
-    /// Target interval for background refresh tasks
-    static let backgroundRefreshInterval: TimeInterval = 12 * 60 * 60
-    
     /// Window for pull-to-refresh operations
     static let pullToRefreshWindow: TimeInterval = 7 * 24 * 60 * 60
     
     /// Threshold for pruning orphaned cache entries
     static let staleDataPruneThreshold: TimeInterval = 30 * 24 * 60 * 60
     
-    /// Maximum age for considering AI context snapshot stale
-    static let aiContextStaleThreshold: TimeInterval = 1 * 60 * 60
 }
 
 // MARK: - Sync State
@@ -42,6 +37,7 @@ protocol HealthKitSyncServiceProtocol: AnyObject {
     func performColdStartSync() async throws
     func performIncrementalSync() async throws
     func performPullToRefresh() async throws
+    func reconcilePendingWorkoutExports() async throws
     func updateAIContextSnapshot() async throws
     func shouldPerformForegroundSync() -> Bool
 }
@@ -58,7 +54,9 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     private let goalService: GoalService
     
     /// Current sync version - increment when sync logic changes materially
-    private static let currentSyncVersion = 1
+    private static let currentSyncVersion = 2
+    private static let workoutExportBatchLimit = 20
+    private(set) var dailyRecordFetchCount = 0
     
     init(
         healthKitService: any HealthKitServiceProtocol,
@@ -155,6 +153,16 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         userDefaults.set(now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
         
         Loggers.sync.info("sync.pull_to_refresh_complete")
+    }
+
+    /// Retries only durable workout exports, suitable for a short background refresh.
+    func reconcilePendingWorkoutExports() async throws {
+        guard isSyncEnabled else {
+            Loggers.sync.info("sync.workout_reconciliation_skipped", metadata: ["reason": "sync_disabled"])
+            return
+        }
+        try await ensureAuthorization()
+        try await syncWorkouts(from: .distantPast, to: .now)
     }
     
     // MARK: - Foreground Sync Check
@@ -282,17 +290,28 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             dailyGoal: currentGoal
         )
 
+        let normalizedStart = calendar.startOfDay(for: startDate)
+        let normalizedEnd = calendar.startOfDay(for: endDate)
+        let endExclusive = calendar.date(byAdding: .day, value: 1, to: normalizedEnd) ?? endDate
+        let predicate = #Predicate<DailyStepRecord> { record in
+            record.date >= normalizedStart && record.date < endExclusive
+        }
+        dailyRecordFetchCount += 1
+        let existingRecords = try modelContext.fetch(FetchDescriptor<DailyStepRecord>(predicate: predicate))
+        let recordsByDay = Dictionary(grouping: existingRecords) { calendar.startOfDay(for: $0.date) }
+
         for summary in summaries {
             let goalForDay = goalService.goal(for: summary.date) ?? currentGoal
             let calories = Double(summary.steps) * AppConstants.Metrics.caloriesPerStep
 
-            try upsertDailyRecord(
+            upsertDailyRecord(
                 date: summary.date,
                 steps: summary.steps,
                 distance: summary.distance,
                 floors: summary.floors,
                 calories: calories,
-                goal: goalForDay
+                goal: goalForDay,
+                existingRecords: recordsByDay[calendar.startOfDay(for: summary.date)] ?? []
             )
         }
 
@@ -305,17 +324,14 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         distance: Double,
         floors: Int,
         calories: Double,
-        goal: Int
-    ) throws {
+        goal: Int,
+        existingRecords: [DailyStepRecord]
+    ) {
         let normalizedDate = calendar.startOfDay(for: date)
-        
-        // Try to find existing record
-        let predicate = #Predicate<DailyStepRecord> { record in
-            record.date == normalizedDate && record.deletedAt == nil
-        }
-        let descriptor = FetchDescriptor<DailyStepRecord>(predicate: predicate)
-        
-        if let existing = try modelContext.fetch(descriptor).first {
+
+        if let existing = existingRecords
+            .filter({ $0.deletedAt == nil })
+            .max(by: { $0.updatedAt < $1.updatedAt }) {
             // Update existing - HealthKit always wins
             existing.steps = steps
             existing.distance = distance
@@ -323,7 +339,7 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             existing.activeCalories = calories
             existing.goalSteps = goal
             existing.updatedAt = Date.now
-        } else {
+        } else if existingRecords.isEmpty {
             // Create new
             let record = DailyStepRecord(
                 date: normalizedDate,
@@ -340,10 +356,68 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     }
     
     private func syncWorkouts(from startDate: Date, to endDate: Date) async throws {
-        _ = startDate
-        _ = endDate
-        // Workout sessions are authored locally. Without a trustworthy reconciliation key from
-        // HealthKit, pruning old sessions based on a missing `healthKitWorkoutID` risks data loss.
+        let predicate = #Predicate<WorkoutSession> { session in
+            session.deletedAt == nil &&
+            session.healthKitWorkoutID == nil
+        }
+        let descriptor: FetchDescriptor<WorkoutSession> = FetchDescriptor(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.updatedAt)]
+        )
+        let candidates: [WorkoutSession] = try modelContext.fetch(descriptor)
+        let pending: [WorkoutSession] = candidates.filter { session in
+            session.endTime != nil && session.healthKitExportState == .pending
+        }.sorted { lhs, rhs in
+            switch (lhs.healthKitExportLastFailureAt, rhs.healthKitExportLastFailureAt) {
+            case (nil, nil):
+                return lhs.updatedAt < rhs.updatedAt
+            case (nil, _):
+                return true
+            case (_, nil):
+                return false
+            case let (lhsFailure?, rhsFailure?):
+                if lhsFailure != rhsFailure { return lhsFailure < rhsFailure }
+                return lhs.updatedAt < rhs.updatedAt
+            }
+        }.prefix(Self.workoutExportBatchLimit).map { $0 }
+        var exportedCount = 0
+        var failedCount = 0
+
+        for session in pending {
+            try Task.checkCancellation()
+            session.healthKitExportState = HealthKitWorkoutExportState.pending
+            _ = session.stableHealthKitExportIdentifier
+            try modelContext.save()
+
+            do {
+                try await healthKitService.saveWorkout(session)
+                guard session.healthKitWorkoutID != nil else {
+                    throw HealthKitError.queryFailed
+                }
+                session.healthKitExportState = HealthKitWorkoutExportState.exported
+                session.healthKitExportFailureCount = 0
+                session.healthKitExportLastFailureAt = nil
+                session.healthKitExportLastErrorCode = nil
+                exportedCount += 1
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                session.healthKitExportState = HealthKitWorkoutExportState.pending
+                session.healthKitExportFailureCount += 1
+                session.healthKitExportLastFailureAt = Date.now
+                let nsError = error as NSError
+                session.healthKitExportLastErrorCode = "\(nsError.domain):\(nsError.code)"
+                failedCount += 1
+            }
+            try modelContext.save()
+        }
+
+        Loggers.sync.info("sync.workout_exports_reconciled", metadata: [
+            "pending": "\(pending.count)",
+            "exported": "\(exportedCount)",
+            "failed": "\(failedCount)",
+            "range_requested": startDate < endDate ? "true" : "false"
+        ])
     }
     
     private func fetchRecentRecords(referenceDate: Date, days: Int) throws -> [Date: DailyStepRecord] {

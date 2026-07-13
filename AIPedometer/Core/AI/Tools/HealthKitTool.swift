@@ -52,7 +52,21 @@ struct HealthKitDataTool: Tool, Sendable {
             manualStepLength: settings.manualStepLength,
             dailyGoal: dailyGoal
         )
-        return await formatSummaries(summaries, unitName: settings.activityMode.unitName)
+        let summariesWithHistoricalGoals = await MainActor.run {
+            summaries.map { summary in
+                let resolvedGoal = goalService.goal(for: summary.date) ?? dailyGoal
+                guard resolvedGoal != summary.goal else { return summary }
+                return DailyStepSummary(
+                    date: summary.date,
+                    steps: summary.steps,
+                    distance: summary.distance,
+                    floors: summary.floors,
+                    calories: summary.calories,
+                    goal: resolvedGoal
+                )
+            }
+        }
+        return await formatSummaries(summariesWithHistoricalGoals, unitName: settings.activityMode.unitName)
     }
     
     private func formatSummaries(_ summaries: [DailyStepSummary], unitName: String) async -> String {

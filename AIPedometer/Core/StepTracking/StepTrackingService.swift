@@ -8,6 +8,7 @@ import WidgetKit
 @MainActor
 protocol StepTrackingServiceProtocol: AnyObject {
     func refreshTodayData() async
+    func flushSharedData()
 }
 
 @Observable
@@ -45,6 +46,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     @ObservationIgnored private var lastWidgetReloadAt: Date?
     @ObservationIgnored private var lastWidgetReloadSteps: Int?
     @ObservationIgnored private var refreshChain: Task<Void, Never>?
+    @ObservationIgnored private var streakRefreshGeneration = 0
+    @ObservationIgnored private var weeklyRefreshGeneration = 0
 
     private(set) var todaySteps: Int = 0
     private(set) var todayDistance: Double = 0
@@ -262,18 +265,24 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     }
 
     func refreshStreak() async {
+        streakRefreshGeneration += 1
+        let generation = streakRefreshGeneration
         do {
             let result = try await streakCalculator.calculateCurrentStreak()
+            guard generation == streakRefreshGeneration else { return }
             currentStreak = result.count
             updateSharedData()
             evaluateBadges(steps: nil, streak: result.count)
         } catch {
+            guard generation == streakRefreshGeneration else { return }
             Loggers.tracking.error("streak.refresh_failed", metadata: ["error": String(describing: error)])
         }
     }
 
     @discardableResult
     func refreshWeeklySummaries() async -> Result<Void, any Error> {
+        weeklyRefreshGeneration += 1
+        let generation = weeklyRefreshGeneration
         guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else {
             weeklySummaries = []
             updateSharedData()
@@ -282,6 +291,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
         if !LaunchConfiguration.isUITesting() {
             let healthAvailable = await ensureHealthAuthorizationIfNeeded()
+            guard generation == weeklyRefreshGeneration else { return .success(()) }
             guard healthAvailable else {
                 weeklySummaries = []
                 updateSharedData()
@@ -305,6 +315,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 manualStepLength: settings.manualStepLength,
                 dailyGoal: effectiveGoal
             )
+            guard generation == weeklyRefreshGeneration else { return .success(()) }
             weeklySummaries = summaries.map { summary in
                 let resolvedGoal = goalService.goal(for: summary.date) ?? effectiveGoal
                 let mergedSummary = mergeCurrentDaySummaryIfNeeded(summary, activityMode: settings.activityMode)
@@ -324,6 +335,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             Loggers.tracking.info("weekly.refresh_success", metadata: ["count": "\(summaries.count)"])
             return .success(())
         } catch {
+            guard generation == weeklyRefreshGeneration else { return .success(()) }
             Loggers.tracking.error("weekly.refresh_failed", metadata: ["error": String(describing: error)])
             return .failure(error)
         }
@@ -656,6 +668,10 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         reloadWidgetsIfNeeded(steps: todaySteps)
     }
 
+    func flushSharedData() {
+        dataStore.flush()
+    }
+
     private func reloadWidgetsIfNeeded(steps: Int) {
         #if canImport(WidgetKit)
         let now = Date.now
@@ -668,12 +684,15 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             return
         }
 
+        // WidgetKit may service the reload immediately, so make the latest payload durable first.
+        dataStore.flush()
         lastWidgetReloadAt = now
         lastWidgetReloadSteps = steps
 
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.stepCount)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.progressRing)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.weeklyChart)
+        Signposts.sync.event("WidgetTimelinesReloaded")
         #endif
     }
 

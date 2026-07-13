@@ -183,6 +183,57 @@ struct TrainingPlanServiceTests {
         #expect(foundationModels.lastPrompt?.contains(unitName) ?? false)
     }
 
+    @Test("generatePlan evaluates recent activity against historical goals")
+    func generatePlanUsesHistoricalGoals() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let summaryDate = Date(timeIntervalSince1970: 1_700_000_000)
+        context.insert(
+            StepGoal(
+                dailySteps: 6_000,
+                startDate: summaryDate.addingTimeInterval(-86_400),
+                endDate: summaryDate.addingTimeInterval(86_400)
+            )
+        )
+        context.insert(
+            StepGoal(
+                dailySteps: 12_000,
+                startDate: summaryDate.addingTimeInterval(172_800)
+            )
+        )
+        try context.save()
+
+        let goalService = GoalService(persistence: persistence)
+        let healthKit = MockHealthKitService()
+        healthKit.dailySummariesToReturn = [
+            DailyStepSummary(
+                date: summaryDate,
+                steps: 7_000,
+                distance: 5_600,
+                floors: 2,
+                calories: 350,
+                goal: 12_000
+            )
+        ]
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: goalService,
+            modelContext: context
+        )
+
+        _ = try await service.generatePlan(
+            goal: .reach10k,
+            level: .beginner,
+            daysPerWeek: 5
+        )
+
+        #expect(goalService.currentGoal == 12_000)
+        #expect(foundationModels.lastPrompt?.contains("Goal achievement rate: 100%") ?? false)
+    }
+
     @Test("generatePlan skips HealthKit when sync disabled")
     func generatePlanSkipsHealthKitWhenSyncDisabled() async throws {
         let testDefaults = TestUserDefaults()
@@ -363,6 +414,33 @@ struct TrainingPlanServiceTests {
         }
     }
 
+    @Test("generatePlan removes its inserted record when save fails")
+    func generatePlanRemovesInsertedRecordWhenSaveFails() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context,
+            saveModelContext: { _ in throw CocoaError(.fileWriteUnknown) }
+        )
+
+        await #expect(throws: AIServiceError.self) {
+            _ = try await service.generatePlan(
+                goal: .reach10k,
+                level: .beginner,
+                daysPerWeek: 5
+            )
+        }
+        try context.save()
+
+        let plans = try context.fetch(FetchDescriptor<TrainingPlanRecord>())
+        #expect(plans.isEmpty)
+    }
+
     @Test("pausePlan rolls back state when save fails")
     func pausePlanRollsBackOnSaveFailure() throws {
         let persistence = PersistenceController(inMemory: true)
@@ -373,7 +451,7 @@ struct TrainingPlanServiceTests {
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
             modelContext: context,
-            saveModelContext: { _ in throw CocoaError(.validationMultipleErrors) }
+            saveModelContext: { _ in throw CocoaError(.fileWriteUnknown) }
         )
 
         let plan = TrainingPlanRecord()

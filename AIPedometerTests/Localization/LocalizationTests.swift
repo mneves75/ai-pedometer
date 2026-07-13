@@ -157,15 +157,18 @@ struct LocalizationTests {
     }
 
     @Test("Partial response notices are translated in pt-BR")
-    func partialResponseNoticesAreTranslatedInPortugueseBrazil() {
+    func partialResponseNoticesAreTranslatedInPortugueseBrazil() throws {
         let keys = [
             "The response was interrupted and may be incomplete. Try again to continue.",
             "The response hit the conversation limit and may be incomplete. Start a new conversation to continue."
         ]
-        let locale = Locale(identifier: "pt-BR")
+        let localizationURL = try #require(
+            Bundle.main.url(forResource: "pt-BR", withExtension: "lproj")
+        )
+        let localizedBundle = try #require(Bundle(url: localizationURL))
 
         for key in keys {
-            let localized = String(localized: String.LocalizationValue(key), locale: locale)
+            let localized = localizedBundle.localizedString(forKey: key, value: nil, table: nil)
             #expect(!localized.isEmpty, "Localization key '\(key)' should resolve for pt-BR")
             #expect(localized != key, "Localization key '\(key)' should have explicit pt-BR translation")
         }

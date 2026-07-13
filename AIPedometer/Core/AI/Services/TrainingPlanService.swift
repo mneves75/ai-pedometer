@@ -169,7 +169,12 @@ final class TrainingPlanService {
             let record = try createPlanRecord(from: resolvedPlan, goal: goal)
             modelContext.insert(record)
             defer { invalidatePlanCaches() }
-            try saveModelContext(modelContext)
+            do {
+                try saveModelContext(modelContext)
+            } catch {
+                modelContext.delete(record)
+                throw error
+            }
 
             Loggers.ai.info("ai.training_plan_generated", metadata: [
                 "goal": goal.rawValue,
@@ -353,13 +358,26 @@ private extension TrainingPlanService {
             return []
         }
         let settings = ActivitySettings.current(userDefaults: userDefaults)
-        return try await healthKitService.fetchDailySummaries(
+        let fallbackGoal = goalService.currentGoal
+        let summaries = try await healthKitService.fetchDailySummaries(
             days: 14,
             activityMode: settings.activityMode,
             distanceMode: settings.distanceMode,
             manualStepLength: settings.manualStepLength,
-            dailyGoal: goalService.currentGoal
+            dailyGoal: fallbackGoal
         )
+        return summaries.map { summary in
+            let resolvedGoal = goalService.goal(for: summary.date) ?? fallbackGoal
+            guard resolvedGoal != summary.goal else { return summary }
+            return DailyStepSummary(
+                date: summary.date,
+                steps: summary.steps,
+                distance: summary.distance,
+                floors: summary.floors,
+                calories: summary.calories,
+                goal: resolvedGoal
+            )
+        }
     }
     
     func buildPlanPrompt(
