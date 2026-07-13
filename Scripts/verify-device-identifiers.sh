@@ -32,15 +32,14 @@ patterns=(
 fail=0
 
 for pattern in "${patterns[@]}"; do
-  matches="$(git -C "${ROOT_DIR}" grep -n -I -E -- "${pattern}" || true)"
-
-  if [[ -n "${matches}" ]]; then
-    matches="$(
+  matches="$(
+    {
+      git -C "${ROOT_DIR}" grep -n -I -E -- "${pattern}" || true
+    } |
       awk -F: -v re="${ALLOWLIST_PATH_REGEX}" '
         $1 !~ re { print }
-      ' <<<"${matches}"
-    )"
-  fi
+      '
+  )"
 
   if [[ -n "${matches}" ]]; then
     fail=1

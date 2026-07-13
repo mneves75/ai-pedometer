@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.92] - 2026-07-13
+
+### Changed
+
+- HealthKit workout export is now durable and idempotent: completed sessions retain a stable export identifier, failed exports remain pending, and bounded foreground/background reconciliation avoids duplicate HealthKit workouts.
+- HealthKit daily-record synchronization now performs one range fetch per batch while preserving historical goals, DST boundaries, and soft-delete semantics.
+- Shared app/widget/watch step payloads use a latest-value coalescer with a five-second maximum staleness in production, immediate structural/milestone/background flushes, and privacy-safe signposts for persistence and transport operations.
+
+### Security
+
+- Completed a pre-production review of secrets, release overrides, entitlements, privacy manifests, network behavior, dependency provenance, workflow pinning, injection surfaces, unsafe casts, and sensitive logging; no actionable security finding remained after the release-hardening changes below.
+
+### Fixed
+
+- Workout start, resume, finish, and discard now keep their in-memory state transactional when a SwiftData save fails, so retries cannot create phantom, prematurely resumed, or soft-deleted completed sessions.
+- Concurrent finish/discard requests are single-flight, preventing duplicate HealthKit exports, Live Activity endings, saves, or a completed workout being soft-deleted by a racing discard.
+- Failed goal, badge, and generated-training-plan saves now remove pending inserts and restore mutated fields before a later save can persist phantom state.
+- Overlapping weekly-summary and streak refreshes use latest-request-wins semantics, preventing a slower stale request from replacing newer published state or unlocking a stale streak badge.
+- Training plans and the HealthKit AI tool now evaluate historical summaries against the goal that was effective on each date, with the current goal used only as fallback.
+- The app and widgets now share one canonical `SharedStepData` persistence codec; corrupt app-group payloads are removed instead of being retried indefinitely.
+- The physical-device installer now parses large `xcodebuild -showBuildSettings` output from temporary files, avoiding a pipe-buffer deadlock in Bash here-strings.
+- Device-identifier scanning now drains large allowlisted match sets through a pipeline instead of a here-string, and the pre-commit fixture no longer relies on deadlock-prone heredocs.
+- Release builds ignore test/reset/demo launch overrides and RevenueCat environment overrides; the watch companion no longer requests unused HealthKit or app-group capabilities.
+- Workout export retries are single-flight, cancellation-aware, and fair to newly pending sessions; legacy 0.91 rows are not blindly re-exported, and background expiration cannot start new reconciliation work.
+- Shared-data persistence invalidates obsolete timers, bounds delay across wall-clock rollback, and flushes durably at background and widget reload boundaries.
+
+### Tests
+
+- Smart notification tests use isolated standard and app-group defaults, eliminating host-state pollution and order-dependent failures.
+- Added save-failure retry coverage for workout sessions, app-to-widget payload contract coverage, and overlapping health-refresh regressions.
+- Added a large-build-settings regression fixture for the iPhone/Apple Watch installation script.
+- Added large-output device-identifier and malformed-entitlements regression gates; invalid plist input can no longer pass a negative capability check.
+- CI/CodeQL now select an available Xcode 26.3 image, build the generated project explicitly, run script tests, and reject `.xcresult` bundles with zero tests, failures, or a non-success result.
+- Portuguese localization assertions now load the compiled `pt-BR` resource bundle explicitly, and the Workouts UI driver scrolls until controls are both hittable and geometrically clear of the tab bar.
+
 ## [0.91] - 2026-07-13
 
 ### Fixed

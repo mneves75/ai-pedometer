@@ -9,7 +9,7 @@
 
 ## Promotional Text (max 170)
 
-`Acompanhe passos, metas e treinos com IA no próprio dispositivo. Sem nuvem para coaching: rápido, privado e personalizado.`
+`Acompanhe passos, metas e treinos com IA no próprio dispositivo. O contexto de atividade e saúde permanece no aparelho.`
 
 ## Descrição
 
@@ -19,9 +19,9 @@
 
 `passos,pedômetro,saúde,treino,caminhada,healthkit,apple watch,metas`
 
-## What's New (próxima versão)
+## What's New (0.92)
 
-`Adiciona Modo Expedição e prévias de rotas GPX para treinos Premium, exibição de batimentos recentes, fallback mais seguro de assinatura, polimento de acessibilidade em widgets/watch e reforços de privacidade.`
+`Recupera o salvamento de treinos após falhas temporárias do HealthKit, torna a atualização de passos e widgets mais eficiente e reforça a confiabilidade da sincronização em segundo plano, metas, badges e planos de treino.`
 
 ## URLs
 
@@ -37,7 +37,9 @@
   - `Tip Jar (IAP consumable): com.mneves.aipedometer.coffee`
   - `Entitlement da assinatura Premium AI: premium`
   - `A IA roda no dispositivo via Apple Foundation Models; nenhum serviço de IA em nuvem é usado.`
-  - `Fluxo acessível na tela More > About > Buy me a coffee`
+  - `Modo Expedição e importação de rotas GPX Premium ficam na aba Workouts.`
+  - `Fluxos Premium: Workouts > Expedition Mode / Routes & GPX; More > About > Premium`
+  - `Fluxo do Tip Jar: More > About > Buy me a coffee`
 
 ## Screenshot set (ordem sugerida)
 

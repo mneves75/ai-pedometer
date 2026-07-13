@@ -9,7 +9,7 @@
 
 ## Overview
 
-AIPedometer is a modern step tracking application featuring **on-device AI coaching** powered by Apple Foundation Models. All AI processing happens locally on your device—no cloud APIs, no data leaving your phone.
+AIPedometer is a modern step tracking application featuring **on-device AI coaching** powered by Apple Foundation Models. AI inference and its activity/health context stay on the device and are not sent to a cloud AI service. App Store and RevenueCat process the purchase and entitlement data needed for subscriptions.
 
 ### Key Features
 
@@ -92,29 +92,29 @@ asc doctor
 # Confirm generated Xcode project version/build metadata
 asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer
 
-# Build for simulator
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
+# Build for simulator with the supported stable Xcode
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # Run all unit tests
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
   -parallel-testing-enabled NO -only-testing:AIPedometerTests test
 
 # Run all UI tests
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
   -parallel-testing-enabled NO -only-testing:AIPedometerUITests test
 
 # Run static analysis
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze
 
 # Run specific test file
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
   test -only-testing:AIPedometerTests/DailyStepCalculatorTests
 
 # Install on physical iPhone (by name)
-bash Scripts/install-on-device.sh --device-name "My iPhone" --launch
+DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh --device-name "My iPhone" --launch
 
 # Install on iPhone + paired Apple Watch with retries
-bash Scripts/install-on-device.sh \
+DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh \
   --device-name "My iPhone" \
   --watch-name "My Apple Watch" \
   --launch \
@@ -127,7 +127,7 @@ bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.91" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "0.92" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -186,7 +186,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.91
+**Current**: 0.92
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

@@ -13,6 +13,7 @@ final class AppLifecycleCoordinator {
     private let refreshTodayData: () async -> Void
     private let refreshStreak: () async -> Void
     private let performForegroundRefresh: () async -> Void
+    private let flushSharedData: () -> Void
 
     private var lastPhase: ScenePhase?
 
@@ -27,7 +28,8 @@ final class AppLifecycleCoordinator {
         clearInsightCacheIfNeeded: @escaping () -> Void,
         refreshTodayData: @escaping () async -> Void,
         refreshStreak: @escaping () async -> Void,
-        performForegroundRefresh: @escaping () async -> Void
+        performForegroundRefresh: @escaping () async -> Void,
+        flushSharedData: @escaping () -> Void = {}
     ) {
         self.isTesting = isTesting
         self.isOnboardingCompleted = isOnboardingCompleted
@@ -40,6 +42,7 @@ final class AppLifecycleCoordinator {
         self.refreshTodayData = refreshTodayData
         self.refreshStreak = refreshStreak
         self.performForegroundRefresh = performForegroundRefresh
+        self.flushSharedData = flushSharedData
     }
 
     func handle(scenePhase: ScenePhase) async {
@@ -48,6 +51,7 @@ final class AppLifecycleCoordinator {
         // Non-active transitions can be recorded immediately — they have no follow-up work
         // that we might want to retry later.
         guard scenePhase == .active else {
+            flushSharedData()
             lastPhase = scenePhase
             return
         }

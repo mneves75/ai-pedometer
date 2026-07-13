@@ -9,6 +9,16 @@ final class AppDriver {
         case workouts
         case aiCoach
         case more
+
+        var index: Int {
+            switch self {
+            case .dashboard: 0
+            case .history: 1
+            case .workouts: 2
+            case .aiCoach: 3
+            case .more: 4
+            }
+        }
     }
 
     private unowned let test: XCTestCase
@@ -87,10 +97,38 @@ final class AppDriver {
         let id = A11yID.tab(tab.rawValue)
         let expected = expectedMarkers(for: tab)
 
+        // The launch flow may already have selected the requested tab. After a
+        // system interruption, SwiftUI can briefly omit the selected tab item
+        // from the accessibility tree even though its content is fully loaded.
+        if UITestWait.firstExisting(expected, timeout: 2) != nil { return }
+
         for _ in 0..<3 {
-            tap(id: id, timeout: 6)
-            if UITestWait.firstExisting(expected, timeout: 2) != nil { return }
             app.activate()
+            if UITestWait.firstExisting(expected, timeout: 1) != nil { return }
+
+            let identifiedCandidates = [
+                app.buttons[id],
+                app.cells[id],
+                app.otherElements[id],
+                app.staticTexts[id],
+            ]
+            if let element = UITestWait.firstExisting(identifiedCandidates, timeout: 2) {
+                if !tapUsingAppCoordinatesIfPossible(element: element), element.isHittable {
+                    element.tap()
+                }
+            } else {
+                // SwiftUI can omit identifiers applied to a Tab label from the
+                // resulting UITabBarButton. The tab order is part of the app's
+                // navigation contract, and the screen-specific marker below
+                // still proves that the intended destination was reached.
+                let tabButton = app.tabBars.buttons.element(boundBy: tab.index)
+                guard tabButton.waitForExistence(timeout: 2) else { continue }
+                if !tapUsingAppCoordinatesIfPossible(element: tabButton), tabButton.isHittable {
+                    tabButton.tap()
+                }
+            }
+
+            if UITestWait.firstExisting(expected, timeout: 2) != nil { return }
         }
 
         UITestWait.assertAnyExists(expected, timeout: 2)
@@ -251,21 +289,24 @@ final class AppDriver {
         let startButton = app.buttons[A11yID.Workouts.startWorkoutButton]
         XCTAssertTrue(startButton.waitForExistence(timeout: 8))
 
-        if !startButton.isHittable {
-            let container = UITestWait.firstExisting(
-                [
-                    app.scrollViews[A11yID.Workouts.scroll],
-                    app.otherElements[A11yID.Workouts.scroll],
-                    app.scrollViews.firstMatch,
-                ],
-                timeout: 2
-            ) ?? app
+        let container = UITestWait.firstExisting(
+            [
+                app.scrollViews[A11yID.Workouts.scroll],
+                app.otherElements[A11yID.Workouts.scroll],
+                app.scrollViews.firstMatch,
+            ],
+            timeout: 2
+        ) ?? app
+        let tabBar = app.tabBars.firstMatch
+
+        for _ in 0..<3 {
+            let isAboveTabBar = !tabBar.exists || startButton.frame.maxY <= tabBar.frame.minY + 1
+            if startButton.isHittable && isAboveTabBar { break }
             container.swipeUp()
         }
 
         XCTAssertTrue(startButton.isHittable, "Botao de iniciar treino deve estar tocavel acima da tab bar.")
 
-        let tabBar = app.tabBars.firstMatch
         if tabBar.exists {
             XCTAssertLessThanOrEqual(
                 startButton.frame.maxY,

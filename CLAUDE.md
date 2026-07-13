@@ -47,6 +47,7 @@ DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destinatio
 bash Scripts/e2e-simulator.sh
 bash Scripts/check-agents-sync.sh
 bash Scripts/verify-device-identifiers.sh
+bash Scripts/verify-entitlements.sh
 bash Scripts/test-payments-device.sh
 ```
 
@@ -56,8 +57,10 @@ Physical-device install must use device names, not hardcoded identifiers. The ca
 
 ```bash
 DEVELOPMENT_TEAM=$(grep '^DEVELOPMENT_TEAM' Config/Local.xcconfig | awk '{print $3}') \
+  DEVELOPER_DIR=/Applications/Xcode.app \
   bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --launch
-bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --watch-name "<Apple Watch Name>" --launch
+DEVELOPER_DIR=/Applications/Xcode.app \
+  bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --watch-name "<Apple Watch Name>" --launch
 ```
 
 ## Reproducer-First Bugs

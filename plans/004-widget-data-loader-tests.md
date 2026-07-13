@@ -3,6 +3,9 @@
 **Written against commit** `d4a2958`. Category: test coverage. Confidence: HIGH (zero coverage
 confirmed). Effort: S. Fix risk: LOW (test-only).
 
+**Status:** DONE on 2026-07-13. App and widget now delegate to one canonical persistence codec;
+tests cover round-trip, missing data, corrupt data, and corrupt-payload cleanup.
+
 ## Why this matters
 
 No test references `WidgetDataLoader`, `StepTimelineProvider`, or `WidgetDataProvider` (grep over

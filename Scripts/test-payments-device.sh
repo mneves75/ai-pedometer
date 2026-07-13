@@ -46,7 +46,8 @@ canonical_output_path() {
 
   local parent_real
   parent_real="$(cd "${parent}" && pwd -P)"
-  local resolved="${parent_real}/$(basename "${absolute_path}")"
+  local resolved
+  resolved="${parent_real}/$(basename "${absolute_path}")"
 
   case "${resolved}" in
     "${OUTPUT_ROOT}"|"${OUTPUT_ROOT}/"*)

@@ -333,7 +333,7 @@ bash Scripts/verify-entitlements.sh
 - [ ] Restore reativa entitlement.
 - [ ] Manage Subscription abre.
 - [ ] Usuário sem assinatura vê gates fechados.
-- [ ] Usuário com assinatura acessa AI Insights, AI Coach, Training Plans, Smart Reminders e Workouts AI.
+- [ ] Usuário com assinatura acessa AI Insights, AI Coach, Training Plans, Smart Reminders, Workouts AI, Expedition Mode e importação GPX.
 - [ ] Tip Jar continua separado e não ativa premium.
 
 ## 6. App Store Review
@@ -354,7 +354,7 @@ Se é a primeira assinatura/IAP do app, associe a subscription à versão na sub
 Texto sugerido para review notes:
 
 ```text
-Premium subscription is available from About > Premium and from AI feature gates in Dashboard, History, AI Coach, Training Plans, Workouts, and Smart Reminders. The app uses RevenueCat with StoreKit 2. Restore Purchases and Manage Subscription are available from About > Premium.
+Premium subscription is available from About > Premium and from feature gates in Dashboard, History, AI Coach, Training Plans, Workouts, and Smart Reminders. In Workouts, Premium also unlocks Expedition Mode and GPX route import. The app uses RevenueCat with StoreKit 2. Restore Purchases and Manage Subscription are available from About > Premium.
 ```
 
 ## 7. Troubleshooting

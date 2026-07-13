@@ -1,8 +1,9 @@
 # Spec F4 — Refactor de arquitetura (executor: Codex gpt-5.5 xhigh)
 
-> Despachado pela sessão Claude (Fable 5) do ciclo 2026-06-12. Tracking geral em
-> `docs/refactor/refactor-ai-pedometer.md`. Esta spec é autocontida: leia-a inteira
-> antes de tocar em código.
+> Spec histórica criada pela sessão Claude (Fable 5) no ciclo 2026-06-12; não é
+> um despacho ativo. Status reconciliado em 2026-07-13: o item 4 foi concluído no
+> working tree local; os itens 1–3 e 5 continuam no backlog. Tracking geral em
+> `docs/refactor/refactor-ai-pedometer.md`.
 
 ## Leitura obrigatória antes de começar
 
@@ -30,30 +31,30 @@
 
 ## Escopo (em ordem; commits separados por item)
 
-### 1. Decompor `AIPedometer/Features/Workouts/WorkoutsView.swift` (~850 linhas)
+### 1. Decompor `AIPedometer/Features/Workouts/WorkoutsView.swift` (~850 linhas) — backlog
 
 - Extrair subviews privadas em arquivos próprios sob `Features/Workouts/Components/` (header, active banner, AI recommendation, expedition toggle, Routes & GPX card, training plans section, recent carousel).
 - Mover lógica não-UI para os seams existentes: import GPX já pertence a `GPXRouteImporter` (NÃO trazer ingest de arquivo de volta para a view); projeção de plano ativo já pertence a `TrainingPlanRecord` — a view só consome.
 - Estado da view: manter `@Query` bounded (fetchLimit 6 + endTime != nil) como está.
 - Meta: WorkoutsView < 300 linhas, zero mudança visual (verificar por screenshot antes/depois se possível).
 
-### 2. Decompor `AIPedometer/Features/Settings/SettingsView.swift` (~780 linhas)
+### 2. Decompor `AIPedometer/Features/Settings/SettingsView.swift` (~780 linhas) — backlog
 
 - Extrair sections em arquivos próprios (`Features/Settings/Sections/`): goal editor, tracking modes, notifications/smart reminders, health sync, about/debug.
 - Consolidar os `Task { await trackingService.* }` espalhados em um ponto de side-effect por section (padrão já existente em `SettingsSideEffects`, se aplicável — verificar antes).
 
-### 3. Dividir `AIPedometer/Core/AI/Services/InsightService.swift` (911 linhas)
+### 3. Dividir `AIPedometer/Core/AI/Services/InsightService.swift` (911 linhas) — backlog
 
 - Separar por responsabilidade mantendo a fachada pública `InsightService` estável (views não mudam): geração de daily insight, weekly analysis e workout recommendation podem virar tipos internos/colaboradores.
 - PRESERVAR: cache com invalidação por dia, gate `isStale` do snapshot compartilhado (fix do 0.87 — há reproducer `dailyInsightIgnoresStaleSharedData`), instruções anti-claims-médicos.
 - Rodar a suíte de AI inteira após o split.
 
-### 4. `AIPedometerWidgets/Shared/WidgetDataProvider.swift` → seam compartilhado
+### 4. `AIPedometerWidgets/Shared/WidgetDataProvider.swift` → seam compartilhado — concluído localmente em 2026-07-13
 
 - Hoje lê `UserDefaults(suiteName:)` direto; fazer consumir o mesmo seam de `SharedStepData`/`SharedDataStore` usado pelo app (mover o seam para `Shared/` se necessário).
 - Cuidado com isolamento: widgets têm processo próprio; manter Sendable/concurrency limpos.
 
-### 5. Gaps de teste (somente onde NÃO há cobertura)
+### 5. Gaps de teste (somente onde NÃO há cobertura) — backlog
 
 - `NotificationService` (66L) e `BackgroundTaskService` (115L): testes de contrato básicos com fakes (autorização negada, agendamento idempotente).
 - Persistence models sem suíte: testes de round-trip mínimos.

@@ -12,25 +12,26 @@ trap cleanup EXIT
 GUIDELINES_DIR="${TMP_DIR}/guidelines"
 mkdir -p "${GUIDELINES_DIR}"
 
-cat > "${GUIDELINES_DIR}/AGENTS.md" <<'EOF'
-# AGENTS.md
+printf '%s\n' \
+  '# AGENTS.md' \
+  '' \
+  'GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.' \
+  '' \
+  'Essentials (apply to every task):' \
+  '- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.' \
+  > "${GUIDELINES_DIR}/AGENTS.md"
 
-GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
-
-Essentials (apply to every task):
-- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.
-EOF
-
-cat > "${TMP_DIR}/AGENTS.md" <<'EOF'
-# Repository Guidelines
-
-## GUIDELINES-REF
-Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/update-agents-guidelines.sh` then `bash Scripts/check-agents-sync.sh`).
-GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
-
-Essentials (apply to every task):
-- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.
-EOF
+# shellcheck disable=SC2016 # The fixture intentionally contains literal backticks.
+printf '%s\n' \
+  '# Repository Guidelines' \
+  '' \
+  '## GUIDELINES-REF' \
+  'Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/update-agents-guidelines.sh` then `bash Scripts/check-agents-sync.sh`).' \
+  'GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.' \
+  '' \
+  'Essentials (apply to every task):' \
+  '- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.' \
+  > "${TMP_DIR}/AGENTS.md"
 
 GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
 LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \

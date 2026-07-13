@@ -6,6 +6,7 @@ import FoundationModels
 @Observable
 final class BadgeService {
     private let persistence: PersistenceController
+    private let saveModelContext: @MainActor (ModelContext) throws -> Void
     private var foundationModelsService: (any FoundationModelsServiceProtocol)?
     @ObservationIgnored private var didLoadEarnedBadges = false
     @ObservationIgnored private var canGenerateAICoaching: @MainActor @Sendable () -> Bool = { false }
@@ -15,8 +16,12 @@ final class BadgeService {
     private(set) var celebratingBadge: BadgeType?
     @ObservationIgnored private(set) var pendingCelebrationTask: Task<Void, Never>?
 
-    init(persistence: PersistenceController) {
+    init(
+        persistence: PersistenceController,
+        saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() }
+    ) {
         self.persistence = persistence
+        self.saveModelContext = saveModelContext
         refreshEarnedBadges()
     }
 
@@ -80,7 +85,7 @@ final class BadgeService {
         let badge = EarnedBadge(badgeType: badgeType, metadata: metadata)
         context.insert(badge)
         do {
-            try context.save()
+            try saveModelContext(context)
             Loggers.badges.info("badges.unlocked", metadata: [
                 "badge": badgeType.rawValue
             ])
@@ -91,6 +96,7 @@ final class BadgeService {
             }
             return true
         } catch {
+            context.delete(badge)
             Loggers.badges.error("badges.unlock_failed", metadata: [
                 "badge": badgeType.rawValue,
                 "error": error.localizedDescription

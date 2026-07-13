@@ -48,6 +48,57 @@ struct HealthKitToolTests {
         #expect(line(after: goalPrefix, in: response)?.contains(unitName) ?? false)
     }
 
+    @Test("HealthKit data tool uses the goal effective on each summary date")
+    func healthKitDataToolUsesHistoricalGoals() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let summaryDate = Date(timeIntervalSince1970: 1_700_000_000)
+        context.insert(
+            StepGoal(
+                dailySteps: 6_000,
+                startDate: summaryDate.addingTimeInterval(-86_400),
+                endDate: summaryDate.addingTimeInterval(86_400)
+            )
+        )
+        context.insert(
+            StepGoal(
+                dailySteps: 12_000,
+                startDate: summaryDate.addingTimeInterval(172_800)
+            )
+        )
+        try context.save()
+
+        let goalService = GoalService(persistence: persistence)
+        let healthKit = MockHealthKitService()
+        healthKit.dailySummariesToReturn = [
+            DailyStepSummary(
+                date: summaryDate,
+                steps: 7_000,
+                distance: 5_600,
+                floors: 2,
+                calories: 350,
+                goal: 12_000
+            )
+        ]
+        let tool = HealthKitDataTool(
+            healthKitService: healthKit,
+            goalService: goalService,
+            userDefaultsSuiteName: testDefaults.suiteName
+        )
+
+        let response = try await tool.call(arguments: .init(days: 7))
+        let goalPrefix = localizedPrefix(for: "Goal: %@ %@")
+        let statusPrefix = localizedPrefix(for: "Status: %@")
+        let goalMet = L10n.localized("Goal Met", comment: "AI tool goal status when met")
+
+        #expect(goalService.currentGoal == 12_000)
+        #expect(extractNumber(after: goalPrefix, in: response) == 6_000)
+        #expect(line(after: statusPrefix, in: response)?.contains(goalMet) ?? false)
+    }
+
     @Test("HealthKit data tool skips when sync disabled")
     func healthKitDataToolSkipsWhenSyncDisabled() async throws {
         let testDefaults = TestUserDefaults()

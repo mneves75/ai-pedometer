@@ -3,6 +3,9 @@
 **Written against commit** `d4a2958`. Category: concurrency. Confidence: MED. Impact: LOW
 (staleness/flicker, not corruption). Effort: S. Fix risk: LOW.
 
+**Status:** DONE on 2026-07-13 using the plan's latest-request-wins option. Generation counters
+prevent stale weekly or streak completions from overwriting the newest refresh.
+
 ## Why this matters
 
 `StepTrackingService.refreshTodayData` is serialized through a `refreshChain` `Task` (protecting it

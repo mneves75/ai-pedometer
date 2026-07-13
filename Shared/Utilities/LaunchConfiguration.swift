@@ -12,17 +12,12 @@ enum LaunchConfiguration {
     private static let demoDeterministicEnvironmentKey = "DEMO_DETERMINISTIC"
     private static let premiumEnabledEnvironmentKey = "PREMIUM_ENABLED"
 
-    static func isUITesting(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        isUITesting(
-            arguments: arguments,
-            environment: ProcessInfo.processInfo.environment
-        )
-    }
-
     static func isUITesting(
-        arguments: [String],
-        environment: [String: String]
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
     ) -> Bool {
+        guard allowsOverrides else { return false }
         if arguments.contains(uiTestingArgument) {
             return true
         }
@@ -33,7 +28,11 @@ enum LaunchConfiguration {
         return false
     }
 
-    static func isRunningXCTest(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+    static func isRunningXCTest(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard allowsOverrides else { return false }
         // XCTest sets at least one of these when running unit tests.
         if environment["XCTestConfigurationFilePath"] != nil { return true }
         if environment["XCTestBundlePath"] != nil { return true }
@@ -41,23 +40,40 @@ enum LaunchConfiguration {
         return false
     }
 
-    static func isTesting(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        isUITesting(arguments: arguments) || isRunningXCTest()
+    static func isTesting(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) || isRunningXCTest(
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        )
     }
 
-    static func shouldResetState(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        arguments.contains("-reset-state")
+    static func shouldResetState(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        allowsOverrides && arguments.contains("-reset-state")
     }
 
-    static func shouldSkipOnboarding(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        arguments.contains(skipOnboardingArgument)
+    static func shouldSkipOnboarding(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        allowsOverrides && arguments.contains(skipOnboardingArgument)
     }
 
-    static func forcedHealthKitSyncEnabled(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
-        // The override gate intentionally checks the live deployment context — not the
-        // function inputs — so a callable that receives crafted args cannot fake "we are
-        // testing." App Store release builds must remain immune to launch-argument tampering.
-        guard isOverridable else { return nil }
+    static func forcedHealthKitSyncEnabled(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool? {
+        guard allowsOverrides else { return nil }
         if arguments.contains(forceHealthKitSyncOffArgument) { return false }
         if arguments.contains(forceHealthKitSyncOnArgument) { return true }
         return nil
@@ -65,11 +81,10 @@ enum LaunchConfiguration {
 
     static func forcedPremiumEnabled(
         arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
     ) -> Bool? {
-        // Fail-closed: forced premium overrides are a test affordance, not a production feature.
-        // See `isOverridable` for the gate rationale.
-        guard isOverridable else { return nil }
+        guard allowsOverrides else { return nil }
 
         if arguments.contains(forcePremiumOffArgument) { return false }
         if arguments.contains(forcePremiumOnArgument) { return true }
@@ -91,7 +106,7 @@ enum LaunchConfiguration {
     /// arguments), so a Release binary that trusted `-ui-testing`/`XCTestConfigurationFilePath`
     /// would let `-force-premium-on` unlock premium without a purchase. All test harnesses
     /// (UI tests, e2e script, CI) run Debug builds, so nothing legitimate needs Release overrides.
-    private static var isOverridable: Bool {
+    static var isOverridable: Bool {
         #if DEBUG
         return true
         #else
@@ -107,7 +122,12 @@ enum LaunchConfiguration {
         #endif
     }
 
-    static func isDeterministicDemoDataEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+    static func isDeterministicDemoDataEnabled(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard allowsOverrides else { return false }
         // Deterministic demo data is primarily for UI tests/snapshots, not unit tests.
         // It can be forced on/off via env for debugging.
         if let value = environment[demoDeterministicEnvironmentKey] {
@@ -115,7 +135,11 @@ enum LaunchConfiguration {
             if normalized == "0" || normalized == "false" { return false }
             if normalized == "1" || normalized == "true" { return true }
         }
-        return isUITesting()
+        return isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        )
     }
 }
 

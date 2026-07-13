@@ -178,10 +178,15 @@ run_unit_tests_once() {
   local status=$?
 
   cp -f "${log_file}" "${OUT_DIR}/xcodebuild-unit-tests.log" >/dev/null 2>&1 || true
-  if [[ "${status}" -eq 0 ]]; then
-    return 0
+  if [[ "${status}" -ne 0 ]]; then
+    return "${status}"
   fi
-  return "${status}"
+
+  python3 Scripts/xcresult-summary.py \
+    "${OUT_DIR}/UnitTests.xcresult" \
+    --kind "Unit Tests" \
+    --validate \
+    >"${OUT_DIR}/unit-tests-summary.md"
 }
 
 unit_status=0
@@ -267,7 +272,11 @@ run_ui_tests_once() {
     return 1
   fi
 
-  return 0
+  python3 Scripts/xcresult-summary.py \
+    "${OUT_DIR}/UITests.xcresult" \
+    --kind "UI Tests" \
+    --validate \
+    >"${OUT_DIR}/ui-tests-summary.md"
 }
 
 ui_status=0
@@ -408,15 +417,15 @@ SUMMARY_FILE="${OUT_DIR}/summary.md"
 {
   echo "# E2E (Simulador) - Resumo"
   echo
-  python3 Scripts/xcresult-summary.py "${OUT_DIR}/UnitTests.xcresult" --kind "Unit Tests"
-  python3 Scripts/xcresult-summary.py "${OUT_DIR}/UITests.xcresult" --kind "UI Tests"
+  cat "${OUT_DIR}/unit-tests-summary.md"
+  cat "${OUT_DIR}/ui-tests-summary.md"
   echo "### Artefatos"
   echo
   echo "- Logs: \`${OUT_DIR}/*.log\`"
   echo "- Screenshots: \`${OUT_DIR}/screens/*.png\`"
   echo "- UI attachments exportados: \`${OUT_DIR}/screens/ui\`"
   echo "- UI screenshots (nomeados): \`${OUT_DIR}/screens/ui/named\`"
-} >"${SUMMARY_FILE}" || true
+} >"${SUMMARY_FILE}"
 
 echo "OK"
 echo "- xcresult (unit): ${OUT_DIR}/UnitTests.xcresult"

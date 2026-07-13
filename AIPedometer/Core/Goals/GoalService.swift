@@ -11,6 +11,7 @@ protocol GoalServiceProtocol: AnyObject, Sendable {
 @MainActor
 final class GoalService: GoalServiceProtocol, Sendable {
     private let persistence: PersistenceController
+    private let saveModelContext: @MainActor (ModelContext) throws -> Void
 
     /// Non-deleted goals sorted by `startDate` descending. Every `StepGoal` read and write
     /// in the app goes through this service, so `setGoal` is the only invalidation point.
@@ -18,8 +19,12 @@ final class GoalService: GoalServiceProtocol, Sendable {
     /// `StreakCalculator` calls `goal(for:)` once per streak day (up to 400× per refresh).
     private var cachedGoals: [StepGoal]?
 
-    init(persistence: PersistenceController) {
+    init(
+        persistence: PersistenceController,
+        saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() }
+    ) {
         self.persistence = persistence
+        self.saveModelContext = saveModelContext
     }
 
     private func sortedGoals() -> [StepGoal] {
@@ -72,6 +77,9 @@ final class GoalService: GoalServiceProtocol, Sendable {
             activeGoals = []
         }
         let now = Date()
+        let previousActiveGoalState = activeGoals.map { goal in
+            (goal: goal, endDate: goal.endDate, updatedAt: goal.updatedAt)
+        }
         for goal in activeGoals {
             goal.endDate = now
             goal.updatedAt = now
@@ -83,8 +91,13 @@ final class GoalService: GoalServiceProtocol, Sendable {
         let goal = StepGoal(dailySteps: value, startDate: now)
         context.insert(goal)
         do {
-            try context.save()
+            try saveModelContext(context)
         } catch {
+            context.delete(goal)
+            for previousState in previousActiveGoalState {
+                previousState.goal.endDate = previousState.endDate
+                previousState.goal.updatedAt = previousState.updatedAt
+            }
             Loggers.tracking.error("goal.save_failed", metadata: ["error": error.localizedDescription])
         }
         // The context changed regardless of save success; drop the cache either way.

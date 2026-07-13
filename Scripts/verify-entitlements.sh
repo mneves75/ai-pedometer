@@ -25,6 +25,15 @@ require_plist_key_true() {
   [[ "$v" == "true" || "$v" == "YES" || "$v" == "1" ]] || fail "${file} key '${key}' is not true (got: '${v}')"
 }
 
+require_plist_key_absent() {
+  local file="$1"
+  local key="$2"
+
+  if /usr/libexec/PlistBuddy -c "Print :${key}" "$file" >/dev/null 2>&1; then
+    fail "${file} unexpectedly contains key '${key}'"
+  fi
+}
+
 require_array_contains() {
   local file="$1"
   local key="$2"
@@ -58,13 +67,20 @@ APP_GROUP="group.com.mneves.aipedometer"
 [[ -f "$WATCH_ENTITLEMENTS" ]] || fail "missing ${WATCH_ENTITLEMENTS}"
 [[ -f "$WIDGETS_ENTITLEMENTS" ]] || fail "missing ${WIDGETS_ENTITLEMENTS}"
 
+for entitlements_file in \
+  "$IOS_ENTITLEMENTS" \
+  "$WATCH_ENTITLEMENTS" \
+  "$WIDGETS_ENTITLEMENTS"; do
+  /usr/bin/plutil -lint "$entitlements_file" >/dev/null \
+    || fail "${entitlements_file} is not a valid plist"
+done
+
 require_plist_key_true "$IOS_ENTITLEMENTS" "com.apple.developer.healthkit"
 require_array_contains "$IOS_ENTITLEMENTS" "com.apple.security.application-groups" "$APP_GROUP"
 
-require_plist_key_true "$WATCH_ENTITLEMENTS" "com.apple.developer.healthkit"
-require_array_contains "$WATCH_ENTITLEMENTS" "com.apple.security.application-groups" "$APP_GROUP"
+require_plist_key_absent "$WATCH_ENTITLEMENTS" "com.apple.developer.healthkit"
+require_plist_key_absent "$WATCH_ENTITLEMENTS" "com.apple.security.application-groups"
 
 require_array_contains "$WIDGETS_ENTITLEMENTS" "com.apple.security.application-groups" "$APP_GROUP"
 
 echo "OK: entitlements are valid"
-

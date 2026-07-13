@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
+TEMP_FILES=()
+cleanup_temp_files() {
+  if (( ${#TEMP_FILES[@]} > 0 )); then
+    rm -f "${TEMP_FILES[@]}"
+  fi
+}
+trap cleanup_temp_files EXIT
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERRO: comando ausente: $1" >&2
@@ -216,7 +224,7 @@ verify_app_installed() {
 }
 
 extract_target_setting() {
-  local settings="$1"
+  local settings_file="$1"
   local target="$2"
   local key="$3"
 
@@ -228,7 +236,7 @@ extract_target_setting() {
       print
       exit
     }
-  ' <<<"${settings}"
+  ' "${settings_file}"
 }
 
 # ---------------------------------------------------------------------------
@@ -278,15 +286,17 @@ if [[ -n "${DERIVED_DATA_PATH}" ]]; then
   settings_args+=(-derivedDataPath "${DERIVED_DATA_PATH}")
 fi
 
-build_settings="$(run_xcodebuild "${settings_args[@]}" 2>/dev/null)"
+build_settings_file="$(mktemp -t aipedometer-build-settings.XXXXXX)"
+TEMP_FILES+=("${build_settings_file}")
+run_xcodebuild "${settings_args[@]}" >"${build_settings_file}" 2>/dev/null
 
-built_products_dir="$(extract_target_setting "${build_settings}" "AIPedometer" "BUILT_PRODUCTS_DIR")"
-full_product_name="$(extract_target_setting "${build_settings}" "AIPedometer" "FULL_PRODUCT_NAME")"
-bundle_identifier="$(extract_target_setting "${build_settings}" "AIPedometer" "PRODUCT_BUNDLE_IDENTIFIER")"
+built_products_dir="$(extract_target_setting "${build_settings_file}" "AIPedometer" "BUILT_PRODUCTS_DIR")"
+full_product_name="$(extract_target_setting "${build_settings_file}" "AIPedometer" "FULL_PRODUCT_NAME")"
+bundle_identifier="$(extract_target_setting "${build_settings_file}" "AIPedometer" "PRODUCT_BUNDLE_IDENTIFIER")"
 if [[ -z "${built_products_dir}" || -z "${full_product_name}" ]]; then
-  built_products_dir="$(awk -F ' = ' '/^[[:space:]]*BUILT_PRODUCTS_DIR = / { print $2; exit }' <<<"${build_settings}")"
-  full_product_name="$(awk -F ' = ' '/^[[:space:]]*FULL_PRODUCT_NAME = / { print $2; exit }' <<<"${build_settings}")"
-  bundle_identifier="$(awk -F ' = ' '/^[[:space:]]*PRODUCT_BUNDLE_IDENTIFIER = / { print $2; exit }' <<<"${build_settings}")"
+  built_products_dir="$(awk -F ' = ' '/^[[:space:]]*BUILT_PRODUCTS_DIR = / { print $2; exit }' "${build_settings_file}")"
+  full_product_name="$(awk -F ' = ' '/^[[:space:]]*FULL_PRODUCT_NAME = / { print $2; exit }' "${build_settings_file}")"
+  bundle_identifier="$(awk -F ' = ' '/^[[:space:]]*PRODUCT_BUNDLE_IDENTIFIER = / { print $2; exit }' "${build_settings_file}")"
 fi
 
 app_path="${built_products_dir}/${full_product_name}"
@@ -365,14 +375,16 @@ if [[ -n "${WATCH_NAME}" ]]; then
     if [[ -n "${DERIVED_DATA_PATH}" ]]; then
       watch_settings_args+=(-derivedDataPath "${DERIVED_DATA_PATH}")
     fi
-    watch_build_settings="$(run_xcodebuild "${watch_settings_args[@]}" 2>/dev/null)"
-    watch_built_products_dir="$(extract_target_setting "${watch_build_settings}" "AIPedometerWatch" "BUILT_PRODUCTS_DIR")"
-    watch_full_product_name="$(extract_target_setting "${watch_build_settings}" "AIPedometerWatch" "FULL_PRODUCT_NAME")"
-    watch_bundle_identifier="$(extract_target_setting "${watch_build_settings}" "AIPedometerWatch" "PRODUCT_BUNDLE_IDENTIFIER")"
+    watch_build_settings_file="$(mktemp -t aipedometer-watch-build-settings.XXXXXX)"
+    TEMP_FILES+=("${watch_build_settings_file}")
+    run_xcodebuild "${watch_settings_args[@]}" >"${watch_build_settings_file}" 2>/dev/null
+    watch_built_products_dir="$(extract_target_setting "${watch_build_settings_file}" "AIPedometerWatch" "BUILT_PRODUCTS_DIR")"
+    watch_full_product_name="$(extract_target_setting "${watch_build_settings_file}" "AIPedometerWatch" "FULL_PRODUCT_NAME")"
+    watch_bundle_identifier="$(extract_target_setting "${watch_build_settings_file}" "AIPedometerWatch" "PRODUCT_BUNDLE_IDENTIFIER")"
     if [[ -z "${watch_built_products_dir}" || -z "${watch_full_product_name}" ]]; then
-      watch_built_products_dir="$(awk -F ' = ' '/^[[:space:]]*BUILT_PRODUCTS_DIR = / { print $2; exit }' <<<"${watch_build_settings}")"
-      watch_full_product_name="$(awk -F ' = ' '/^[[:space:]]*FULL_PRODUCT_NAME = / { print $2; exit }' <<<"${watch_build_settings}")"
-      watch_bundle_identifier="$(awk -F ' = ' '/^[[:space:]]*PRODUCT_BUNDLE_IDENTIFIER = / { print $2; exit }' <<<"${watch_build_settings}")"
+      watch_built_products_dir="$(awk -F ' = ' '/^[[:space:]]*BUILT_PRODUCTS_DIR = / { print $2; exit }' "${watch_build_settings_file}")"
+      watch_full_product_name="$(awk -F ' = ' '/^[[:space:]]*FULL_PRODUCT_NAME = / { print $2; exit }' "${watch_build_settings_file}")"
+      watch_bundle_identifier="$(awk -F ' = ' '/^[[:space:]]*PRODUCT_BUNDLE_IDENTIFIER = / { print $2; exit }' "${watch_build_settings_file}")"
     fi
     watch_app_path="${watch_built_products_dir}/${watch_full_product_name}"
   else

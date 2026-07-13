@@ -8,20 +8,9 @@ struct WidgetStepEntry: TimelineEntry {
 
 enum WidgetDataLoader {
     static func loadSharedData() -> SharedStepData? {
-        guard let defaults = UserDefaults(suiteName: AppConstants.appGroupID) else {
-            return nil
-        }
-        guard let rawData = defaults.data(forKey: AppConstants.UserDefaultsKeys.sharedStepData) else {
-            return nil
-        }
-        do {
-            return try JSONDecoder().decode(SharedStepData.self, from: rawData)
-        } catch {
-            Loggers.widgets.error("widget.shared_data_decode_failed", metadata: [
-                "error": error.localizedDescription
-            ])
-            return nil
-        }
+        SharedStepDataPersistence.load(
+            from: UserDefaults(suiteName: AppConstants.appGroupID)
+        )
     }
 
     static func placeholderData() -> SharedStepData {

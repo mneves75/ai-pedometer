@@ -9,7 +9,7 @@
 
 ## Promotional Text (max 170)
 
-`Track steps, goals, and workouts with on-device AI coaching. Fast, private, and personalized without cloud dependency.`
+`Track steps, goals, and workouts with on-device AI coaching. Activity and health context stay on your device.`
 
 ## Description
 
@@ -19,9 +19,9 @@
 
 `steps,pedometer,fitness,workout,walking,healthkit,apple watch,goals`
 
-## What's New (next release)
+## What's New (0.92)
 
-`Adds Expedition Mode and GPX route previews for Premium workouts, latest heart-rate display, stronger subscription fallback behavior, accessibility polish for widgets and watch, and privacy/security hardening.`
+`Makes workout saves recover safely after temporary HealthKit failures, improves step and widget refresh efficiency, and strengthens reliability across background sync, goals, badges, and training plans.`
 
 ## URLs
 
@@ -37,7 +37,9 @@
   - `Tip Jar (consumable IAP): com.mneves.aipedometer.coffee`
   - `Premium AI subscription entitlement: premium`
   - `AI processing is on-device via Apple Foundation Models; no cloud AI service is used.`
-  - `Access path: More > About > Buy me a coffee`
+  - `Premium Expedition Mode and GPX route import are available in the Workouts tab.`
+  - `Premium access paths: Workouts > Expedition Mode / Routes & GPX; More > About > Premium`
+  - `Tip Jar access path: More > About > Buy me a coffee`
 
 ## Screenshot set (suggested order)
 

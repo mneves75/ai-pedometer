@@ -3,6 +3,8 @@
 **Written against commit** `d4a2958`. Category: test isolation. Confidence: HIGH. Effort: S.
 Fix risk: LOW (test-only, no production change).
 
+**Status:** DONE on 2026-07-13. Every test now injects isolated standard and shared defaults.
+
 ## Why this matters
 
 Two of the three tests in `AIPedometerTests/AI/SmartNotificationServiceTests.swift` construct

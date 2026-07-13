@@ -54,6 +54,11 @@ After that, [`AIPedometer/Features/MainTabView/MainTabView.swift`](AIPedometer/F
 
 That split is worth remembering. If a navigation bug appears only on one device class, do not assume the other layout proves anything. They share concepts, not the same container code.
 
+SwiftUI can omit a `Label` accessibility identifier from the concrete tab-bar button. The XCUITest
+driver therefore prefers identifiers but can select the five stable iPhone tabs by ordinal; it still
+requires the destination screen's own accessibility marker after every tap. Keep that marker check —
+an ordinal-only tap is navigation input, not proof that the correct screen rendered.
+
 The main product areas are straightforward and intentionally product-shaped:
 
 - Dashboard
@@ -83,9 +88,34 @@ This service is the place where "raw activity inputs" become "product behavior."
 
 That is an important distinction. HealthKit tells you facts. `StepTrackingService` decides what the app should do with those facts.
 
+Weekly-summary and streak refreshes can overlap. They deliberately use latest-request-wins generation
+counters: an older HealthKit calculation may finish, but it cannot overwrite state published by a
+newer refresh.
+
+Workout persistence follows the same trust boundary. `WorkoutSessionController` snapshots mutable
+session fields and only commits state-machine transitions after SwiftData saves succeed. A failed
+start, resume, finish, or discard must remain retryable without leaving a phantom or hidden workout.
+Terminal finish/discard operations are also single-flight on the main actor: once one crosses an
+`await`, a second terminal request must not mutate or persist the same session.
+
+Historical activity must use historical goals. AI tools and training-plan calculations resolve
+`GoalService.goal(for:)` for each summary date; `currentGoal` is only a fallback for dates without a
+stored goal.
+
 ## Health data: source of truth, with a parachute
 
 [`AIPedometer/Core/HealthKit/HealthKitService.swift`](AIPedometer/Core/HealthKit/HealthKitService.swift) is the direct bridge into HealthKit. It fetches steps, wheelchair pushes, distance, floors, summaries, and workout data.
+
+The iOS app is the only HealthKit owner. Widgets use the app-group snapshot; the Apple Watch app
+receives its snapshot through WatchConnectivity and intentionally has neither HealthKit nor
+app-group entitlements.
+
+Completed workouts cross an explicit durability boundary before HealthKit export. SwiftData schema
+V2 stores `pending`/`exported` state, a stable external UUID, and privacy-safe failure metadata.
+Foreground, pull-to-refresh, and background reconciliation retry bounded pending batches; the
+HealthKit adapter first resolves `HKMetadataKeyExternalUUID`, so a crash after the remote commit
+cannot create a duplicate workout. Keep the V1→V2 migration fixture and idempotency tests whenever
+this state machine changes.
 
 But the more revealing file is [`AIPedometer/Core/HealthKit/HealthKitServiceFallback.swift`](AIPedometer/Core/HealthKit/HealthKitServiceFallback.swift).
 
@@ -182,6 +212,11 @@ That is a modern Apple-stack choice and it fits the rest of the repo:
 - persisted models back history, goals, plans, and related product features
 - app-group-backed storage keeps extensions in sync
 
+Production app-group writes are latest-value coalesced with at most five seconds of staleness.
+Goal/streak/week changes, day rollover, 100-step milestones, and lifecycle backgrounding flush
+immediately. Encoding, persistence, widget reload, and watch transport emit Points of Interest
+signposts without step totals or identifiers.
+
 You can think of it this way:
 
 - SwiftData remembers the story
@@ -255,7 +290,14 @@ Running overlapping simulator test jobs against the same destination is a good w
 
 Serialize when the tooling is the variable under test.
 
-### 5. Health apps need graceful degradation
+### 5. A manual Info.plist is the source of truth
+
+The app disables generated plist files. Settings such as `INFOPLIST_KEY_*` in `project.yml` can look
+correct while the signed bundle still lacks the declaration. Put app-level declarations in
+`AIPedometer/Resources/Info.plist`, test that source file, and inspect the built plist before treating
+a device-build warning as closed.
+
+### 6. Health apps need graceful degradation
 
 If a fix "works" only when every permission and entitlement is present, it is probably not finished. This app already bakes in fallback behavior. Respect that design instead of bulldozing it.
 

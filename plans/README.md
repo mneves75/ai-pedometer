@@ -1,30 +1,40 @@
-# Improve-deep audit — AIPedometer
+# Improve-deep audits — AIPedometer
 
-Written against commit `d4a2958` (0.91 / build 47). Advisor: main session (Fable-orchestrator
-routing). Audit fanned out over 4 read-only Explore subagents (concurrency, 32-bit/time,
-security, correctness+test-gaps). Every finding below was **vetted against the real code by the
-advisor** before being written here — subagent line numbers were treated as leads, not facts.
+Written against commit `d4a2958` (0.91 / build 47). Implemented locally on 2026-07-13.
 
-## Why these are plans and not commits
+## Implementation result
 
-The simulator build is **environment-blocked** on this host: `xcodebuild` wedges deterministically
-during build-planning when `SWBBuildService` invokes its `clang -v -E -dM` compiler probe — the
-`clang` child hangs 100% in a `write()` syscall (pipe not drained by the service), 0% CPU,
-reproduced 4× independent of host load. Microsoft Defender's Endpoint Security extension (`epsext`,
-hooking `exec`) is the prime suspect. The same `clang` probe runs standalone in 0.038 s. This is a
-host toolchain/AV-integration defect, **not** an AIPedometer code defect, and cannot be fixed
-without excluding Xcode/DerivedData from Defender (admin/MDM, out of session scope).
+All nine findings are implemented. The workout save-failure and overlapping-refresh reproducers
+were proven red before the production fixes. The final stable-toolchain verification on an iOS 26.5
+simulator passed 504 unit tests and 16 UI tests with zero failures. Static analysis and a Release
+simulator build also passed, validating the embedded watch app and widget extension.
 
-Because nothing can be build-verified here, no source was edited and nothing was committed. Each
-plan below inlines the exact patch and the exact reproducer test so it can be applied, built, and
-verified in a single pass once the host is quiet (or Defender excludes `~/Library/Developer/Xcode`).
+Split local `autoreview` passes left the core and app slices clean (confidence 0.84). The operations
+slice found one valid malformed-entitlements gate; its reproducer was red before the fix and green
+afterward. A final automated rerun was attempted but the review engine reached its usage limit, so
+the last two shell-only changes were closed with targeted tests, `shellcheck`, `actionlint`, and the
+full script suite rather than an unsupported clean-review claim.
+
+The final signed stable-Xcode device build succeeded and installed AI Pedometer 0.92 (48) on
+iMarcus. `devicectl` independently confirmed the installed version, accepted the launch, and listed
+the app process afterward. The forced HealthKit failure/retry smoke and a representative walking
+trace remain manual observational checks; they are not unimplemented code paths.
+
+The earlier build blockage was a full stdout/stderr pipe in an `SWBBuildService` compiler-capability
+probe. Terminating only the blocked probe child allowed the build service to continue. Microsoft
+Defender remains an unproven hypothesis, not a confirmed root cause.
+
+A second deep pass on 2026-07-13 found and locally fixed additional bounded correctness, security,
+CI/DX, and documentation issues. Plans 006–009 were then implemented with reproducer-first tests,
+an explicit SwiftData V1→V2 migration, deterministic adapter/performance seams, and bounded
+background reconciliation.
 
 ## Verification gate (run for every plan before marking DONE)
 
 ```bash
 xcodegen generate && Scripts/restore-entitlements.sh
 DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,OS=26.5,name=iPhone 17' \
   -parallel-testing-enabled NO -only-testing:AIPedometerTests test
 ```
 Warnings-as-errors + strict concurrency are on; a clean build is a hard gate. Prove the reproducer
@@ -34,14 +44,21 @@ RED before applying the fix (plans 001), per the repo's reproducer-first rule.
 
 | # | Plan | Category | Confidence | Effort | Status |
 |---|------|----------|------------|--------|--------|
-| 001 | [Workout discard save-failure rollback](001-workout-discard-rollback.md) | correctness / data-loss | MED | S | TODO |
-| 002 | [SmartNotificationService test isolation](002-smart-notification-test-isolation.md) | test isolation | HIGH | S | TODO |
-| 003 | [WorkoutSessionController save-failure coverage](003-workout-save-failure-coverage.md) | test coverage | HIGH | M | TODO |
-| 004 | [Widget data-loader tests](004-widget-data-loader-tests.md) | test coverage | HIGH | S | TODO |
-| 005 | [Serialize weekly/streak refresh](005-serialize-weekly-streak-refresh.md) | concurrency | MED (LOW impact) | S | TODO |
+| 001 | [Workout discard save-failure rollback](001-workout-discard-rollback.md) | correctness / data-loss | MED | S | DONE |
+| 002 | [SmartNotificationService test isolation](002-smart-notification-test-isolation.md) | test isolation | HIGH | S | DONE |
+| 003 | [WorkoutSessionController save-failure coverage](003-workout-save-failure-coverage.md) | test coverage | HIGH | M | DONE |
+| 004 | [Widget data-loader tests](004-widget-data-loader-tests.md) | test coverage | HIGH | S | DONE |
+| 005 | [Serialize weekly/streak refresh](005-serialize-weekly-streak-refresh.md) | concurrency | MED (LOW impact) | S | DONE |
+| 006 | [Durable, idempotent HealthKit workout export](006-durable-healthkit-workout-export.md) | correctness / data durability | HIGH | L | DONE |
+| 007 | [Real HealthKit query-adapter tests](007-healthkit-query-adapter-tests.md) | test coverage | HIGH | M | DONE |
+| 008 | [Batch daily-record upserts](008-batch-healthkit-daily-record-upserts.md) | performance | HIGH | M | DONE |
+| 009 | [Measure/bound shared-data write rate](009-measure-shared-step-data-write-rate.md) | performance / battery | MED | M | DONE* |
 
-No hard dependencies between plans; 001 and 002 are the highest leverage. 003 characterizes the
-same code 001 fixes — land 001 first, then 003's tests document the recovered behavior.
+`DONE*`: instrumentation, production policy, and deterministic gates are complete; a representative
+walking trace cannot be manufactured by automation and remains a manual device-observation step.
+
+Plan 005 uses latest-request-wins generation counters rather than serializing network-independent
+HealthKit reads; stale completions cannot overwrite newer state and newer refreshes are not delayed.
 
 ## Considered and rejected / by-design (do not re-audit)
 

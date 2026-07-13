@@ -1,7 +1,10 @@
-# Refactor & Redesign — ai-pedometer (ciclo 2026-06-12)
+# Refactor & Redesign — ai-pedometer (registro do ciclo 2026-06-12)
 
-Tracking vivo do ciclo de redesign visual + review de arquitetura iniciado em 2026-06-12.
+Registro histórico do ciclo de redesign visual + review de arquitetura iniciado em 2026-06-12. Não é um tracking vivo; os status foram reconciliados em 2026-07-13 com o estado local do repositório.
 Base: `87f8045` (0.89 / build 45), working tree limpo.
+
+O repositório local está em `0.92 (48)`. Bloqueios de ambiente e deploy descritos no log abaixo
+pertencem à sessão de junho e não comprovam o estado atual de TestFlight ou App Store Connect.
 
 ## Objetivos
 
@@ -39,12 +42,12 @@ Princípios adotados:
 
 | Fase | Escopo | Executor | Status | Evidência |
 |------|--------|----------|--------|-----------|
-| F0 | Baseline verde (build + unit tests + screenshots) | Claude (main) | em andamento | build em background |
-| F1 | Motion tokens v2 + Dashboard hero (ring vivo, kinetic numbers, scrollTransition, haptics) | Claude (main) | pendente | — |
-| F2 | History chart vivo + Badges celebration (partículas Canvas/TimelineView) + **easter egg** | Claude (main) | pendente | — |
+| F0 | Baseline verde (build + unit tests + screenshots) | Claude (main) | concluído no ciclo | log de execução abaixo |
+| F1 | Motion tokens v2 + Dashboard hero (ring vivo, kinetic numbers, scrollTransition, haptics) | Claude (main) | concluído no ciclo | suíte e screenshots registradas abaixo |
+| F2 | History chart vivo + Badges celebration (partículas Canvas/TimelineView) + **easter egg** | Claude (main) | concluído no ciclo | implementação e verificação registradas abaixo |
 | F3 | Onboarding/Workouts/Coach motion polish | Claude (main) | feito, verde | suíte 465 verde |
-| F4 | Refactor arquitetura: decompor WorkoutsView/SettingsView, split InsightService, WidgetDataProvider→seam compartilhado, gaps de teste | Codex (/goal, gpt-5.5 xhigh) | despachado | `docs/refactor/codex-spec-f4.md` |
-| F5 | Fechamento: bump 0.90 (46), CHANGELOG, docs, autoreview, commit/push/tag, deploys | Claude (main) | em andamento | — |
+| F4 | Refactor arquitetura: decompor WorkoutsView/SettingsView, split InsightService, WidgetDataProvider→seam compartilhado, gaps de teste | Codex (/goal, gpt-5.5 xhigh) | parcial: item 4 concluído localmente em 2026-07-13; itens 1–3 e 5 em backlog | `docs/refactor/codex-spec-f4.md` |
+| F5 | Fechamento: bump 0.90 (46), CHANGELOG, docs, autoreview, commit/push/tag, deploys | Claude (main) | parcial: ciclo local 0.90 fechado; deploys não comprovados | seções Fechamento e Deploys abaixo |
 
 Regra por fase: build + testes relevantes verdes → verificação visual no simulador (argent) → autoreview → commit. Nenhuma fase fecha sem evidência.
 
@@ -102,7 +105,7 @@ Regra por fase: build + testes relevantes verdes → verificação visual no sim
   não-positivo, monotonicidade) — todos verdes.
 - Evidência: suíte unitária 465 testes, só a falha de localização pt-BR pré-existente (ver abaixo).
 
-#### F2 — History chart vivo + Badges celebration + EASTER EGG (em verificação)
+#### F2 — History chart vivo + Badges celebration + EASTER EGG (concluído no ciclo)
 
 - `Shared/DesignSystem/ConfettiView.swift`: confete via `Canvas` + `TimelineView`, partículas
   determinísticas (jitter por índice, sem `Math.random`), reduce-motion-aware (renderiza nada).
@@ -115,12 +118,13 @@ Regra por fase: build + testes relevantes verdes → verificação visual no sim
 
 #### Falha de teste PRÉ-EXISTENTE (não é regressão do redesign)
 
-- `LocalizationTests/partialResponseNoticesAreTranslatedInPortugueseBrazil()` falha (2 assertions).
+- `LocalizationTests/partialResponseNoticesAreTranslatedInPortugueseBrazil()` falhava (2 assertions)
+  neste ciclo; o teste foi corrigido localmente em 2026-07-13 para carregar explicitamente o bundle pt-BR.
 - Prova de pré-existência: `git diff HEAD` do teste E de `Localizable.xcstrings` está **vazio**; o
   `.app` compilado **contém** a tradução pt-BR correta (`pt-BR.lproj/Localizable.strings`).
 - Causa: `String(localized:locale:)` no Xcode 26.6 não força a seleção da tabela pt-BR via o
   parâmetro `locale:` (só afeta formatação de interpolação); precisaria de `bundle:` + processo em
-  pt-BR. Bug do teste/ambiente, independente do redesign. Candidato a fix separado (F4 ou avulso).
+  pt-BR. Bug do teste/ambiente, independente do redesign.
 
 #### F3 — Onboarding/Workouts/Coach (feito, verde)
 
@@ -182,8 +186,8 @@ Regra por fase: build + testes relevantes verdes → verificação visual no sim
   Apple não disponibiliza), OU (b) bumpar o RevenueCat para revisão compatível com Swift 6.4 e
   arquivar com o Xcode 27 beta. (b) é revenue-critical → NÃO feito autonomamente.
 
-### F4 (refactor de arquitetura) — pronto, não executado
+### F4 (refactor de arquitetura) — status reconciliado em 2026-07-13
 
-- Spec completa e commitada em `docs/refactor/codex-spec-f4.md`. Não despachado nesta sessão: o
-  ambiente não builda o watch e está sob contenção severa, então a verificação autônoma do Codex
-  seria não confiável. Rodar quando o build estiver saudável.
+- A spec histórica permanece em `docs/refactor/codex-spec-f4.md`; ela não representa um despacho ativo.
+- O item 4 (`WidgetDataProvider` → seam compartilhado) foi implementado no working tree local em
+  2026-07-13. Os itens 1–3 e 5 continuam no backlog e não devem ser inferidos como concluídos.

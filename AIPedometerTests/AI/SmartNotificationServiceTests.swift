@@ -8,6 +8,8 @@ import UserNotifications
 struct SmartNotificationServiceTests {
     @Test("Motivational reminders return false when AI is unavailable")
     func motivationalReminderReturnsFalseWhenAIUnavailable() async {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
         let persistence = PersistenceController(inMemory: true)
         let goalService = GoalService(persistence: persistence)
         let foundationModels = MockFoundationModelsService()
@@ -18,7 +20,9 @@ struct SmartNotificationServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: goalService,
-            notificationCenter: notificationCenter
+            notificationCenter: notificationCenter,
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
         )
 
         let didSchedule = await service.scheduleMotivationalReminder(at: 9, minute: 0)
@@ -29,6 +33,8 @@ struct SmartNotificationServiceTests {
 
     @Test("cancelAllSmartNotifications removes scheduled smart identifiers")
     func cancelAllSmartNotificationsRemovesKnownIdentifiers() {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
         let persistence = PersistenceController(inMemory: true)
         let goalService = GoalService(persistence: persistence)
         let notificationCenter = MockNotificationCenter()
@@ -37,7 +43,9 @@ struct SmartNotificationServiceTests {
             foundationModelsService: MockFoundationModelsService(),
             healthKitService: MockHealthKitService(),
             goalService: goalService,
-            notificationCenter: notificationCenter
+            notificationCenter: notificationCenter,
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
         )
 
         service.cancelAllSmartNotifications()
@@ -83,7 +91,8 @@ struct SmartNotificationServiceTests {
             healthKitService: healthKit,
             goalService: goalService,
             notificationCenter: notificationCenter,
-            userDefaults: testDefaults.defaults
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
         )
 
         await service.scheduleSmartNotification()
@@ -129,7 +138,8 @@ struct SmartNotificationServiceTests {
             healthKitService: healthKit,
             goalService: goalService,
             notificationCenter: notificationCenter,
-            userDefaults: testDefaults.defaults
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
         )
 
         await firstService.scheduleSmartNotification()
@@ -140,7 +150,8 @@ struct SmartNotificationServiceTests {
             healthKitService: healthKit,
             goalService: goalService,
             notificationCenter: notificationCenter,
-            userDefaults: testDefaults.defaults
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
         )
 
         await secondService.scheduleSmartNotification()
@@ -332,7 +343,8 @@ struct SmartNotificationServiceTests {
             healthKitService: healthKit,
             goalService: goalService,
             notificationCenter: notificationCenter,
-            userDefaults: testDefaults.defaults
+            userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
         )
 
         await service.scheduleSmartNotification()

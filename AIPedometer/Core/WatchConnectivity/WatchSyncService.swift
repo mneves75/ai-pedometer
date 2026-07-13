@@ -68,11 +68,13 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
             guard shouldUpdateContext || shouldSendMessage || shouldQueueTransfer else { return }
 
             let encoded = try JSONEncoder().encode(payload)
+            Signposts.sync.event("WatchPayloadEncoded")
             if shouldUpdateContext {
                 do {
                     try session.updateApplicationContext([WatchPayload.transferKey: encoded])
                     lastContextUpdateAt = now
                     lastContextSentSteps = stepData.todaySteps
+                    Signposts.sync.event("WatchContextUpdated")
                 } catch {
                     Loggers.sync.warning("watch.update_application_context_failed", metadata: [
                         "error": error.localizedDescription
@@ -94,11 +96,13 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 )
                 lastReachableSendAt = now
                 lastReachableSentSteps = stepData.todaySteps
+                Signposts.sync.event("WatchMessageSent")
             }
 
             if shouldQueueTransfer {
                 session.transferUserInfo([WatchPayload.transferKey: encoded])
                 lastQueuedTransferAt = now
+                Signposts.sync.event("WatchTransferQueued")
             }
         } catch {
             Loggers.sync.error("watch.payload_encode_failed", metadata: [

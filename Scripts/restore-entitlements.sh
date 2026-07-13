@@ -9,12 +9,14 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 write_entitlement() {
   local file="$1"
   local content="$2"
-  echo "$content" > "$file"
+  local temp_file="${file}.tmp.$$"
+  printf '%s\n' "$content" > "$temp_file"
+  plutil -lint "$temp_file" >/dev/null
+  mv -f "$temp_file" "$file"
   echo "  Restored: $file"
 }
 
-HEALTHKIT_AND_APPGROUP=$(cat <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
+HEALTHKIT_AND_APPGROUP='<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -25,9 +27,7 @@ HEALTHKIT_AND_APPGROUP=$(cat <<'PLIST'
         <string>group.com.mneves.aipedometer</string>
     </array>
 </dict>
-</plist>
-PLIST
-)
+</plist>'
 
 # iOS app variant with Enhanced Security (hardened process) on top of HealthKit + app
 # group. STAGED, not default: signing with these keys requires the team provisioning
@@ -36,9 +36,8 @@ PLIST
 # with: ENHANCED_SECURITY_ENTITLEMENTS=1 bash Scripts/restore-entitlements.sh
 # The ENABLE_ENHANCED_SECURITY build setting (compiler hardening + pointer auth) is
 # always on and does not require the profile capability.
-# watchOS does not support Enhanced Security; the watch app keeps the plain variant.
-HEALTHKIT_APPGROUP_HARDENED=$(cat <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
+# watchOS does not support Enhanced Security; the watch app keeps an empty capability surface.
+HEALTHKIT_APPGROUP_HARDENED='<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -59,12 +58,9 @@ HEALTHKIT_APPGROUP_HARDENED=$(cat <<'PLIST'
     <key>com.apple.security.hardened-process.platform-restrictions-string</key>
     <string>2</string>
 </dict>
-</plist>
-PLIST
-)
+</plist>'
 
-APPGROUP_ONLY=$(cat <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
+APPGROUP_ONLY='<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -73,9 +69,15 @@ APPGROUP_ONLY=$(cat <<'PLIST'
         <string>group.com.mneves.aipedometer</string>
     </array>
 </dict>
-</plist>
-PLIST
-)
+</plist>'
+
+# The watch companion receives its data only through WatchConnectivity. It does not query
+# HealthKit or read the shared app-group container, so keep its signed capability surface empty.
+NO_ENTITLEMENTS='<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>'
 
 echo "Restoring entitlements..."
 if [ "${ENHANCED_SECURITY_ENTITLEMENTS:-0}" = "1" ]; then
@@ -83,7 +85,7 @@ if [ "${ENHANCED_SECURITY_ENTITLEMENTS:-0}" = "1" ]; then
 else
   write_entitlement "$REPO_ROOT/AIPedometer/Resources/AIPedometer.entitlements" "$HEALTHKIT_AND_APPGROUP"
 fi
-write_entitlement "$REPO_ROOT/AIPedometerWatch/Resources/AIPedometerWatch.entitlements" "$HEALTHKIT_AND_APPGROUP"
+write_entitlement "$REPO_ROOT/AIPedometerWatch/Resources/AIPedometerWatch.entitlements" "$NO_ENTITLEMENTS"
 write_entitlement "$REPO_ROOT/AIPedometerWidgets/Resources/AIPedometerWidgets.entitlements" "$APPGROUP_ONLY"
 
 # Enhanced Security enables pointer authentication (arm64e); SPM packages

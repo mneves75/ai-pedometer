@@ -98,31 +98,45 @@ enum AppConstants {
 
         static func resolveConfiguration(
             bundle: Bundle = .main,
-            environment: [String: String] = ProcessInfo.processInfo.environment
+            environment: [String: String] = ProcessInfo.processInfo.environment,
+            allowsEnvironmentOverrides: Bool = environmentOverridesEnabled
         ) -> RevenueCatConfiguration {
-            RevenueCatConfiguration(
-                apiKey: resolveValue(
-                    environmentKey: "REVENUECAT_API_KEY",
-                    infoDictionaryKey: "RevenueCatAPIKey",
-                    placeholder: placeholderAPIKey,
-                    bundle: bundle,
-                    environment: environment
-                ),
+            let resolvedKey = resolveValue(
+                environmentKey: "REVENUECAT_API_KEY",
+                infoDictionaryKey: "RevenueCatAPIKey",
+                placeholder: placeholderAPIKey,
+                bundle: bundle,
+                environment: environment,
+                allowsEnvironmentOverrides: allowsEnvironmentOverrides
+            )
+
+            return RevenueCatConfiguration(
+                apiKey: resolvedKey,
                 entitlementID: resolveValue(
                     environmentKey: "REVENUECAT_ENTITLEMENT_ID",
                     infoDictionaryKey: "RevenueCatEntitlementID",
                     placeholder: placeholderEntitlementID,
                     bundle: bundle,
-                    environment: environment
+                    environment: environment,
+                    allowsEnvironmentOverrides: allowsEnvironmentOverrides
                 ) ?? placeholderEntitlementID,
                 offeringID: resolveValue(
                     environmentKey: "REVENUECAT_OFFERING_ID",
                     infoDictionaryKey: "RevenueCatOfferingID",
                     placeholder: "",
                     bundle: bundle,
-                    environment: environment
+                    environment: environment,
+                    allowsEnvironmentOverrides: allowsEnvironmentOverrides
                 )
             )
+        }
+
+        static var environmentOverridesEnabled: Bool {
+            #if DEBUG
+            true
+            #else
+            false
+            #endif
         }
 
         private static func resolveValue(
@@ -130,9 +144,11 @@ enum AppConstants {
             infoDictionaryKey: String,
             placeholder: String,
             bundle: Bundle,
-            environment: [String: String]
+            environment: [String: String],
+            allowsEnvironmentOverrides: Bool
         ) -> String? {
-            if let envValue = environment[environmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+            if allowsEnvironmentOverrides,
+               let envValue = environment[environmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
                !envValue.isEmpty,
                envValue != placeholder {
                 return envValue

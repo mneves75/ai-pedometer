@@ -3,6 +3,9 @@
 **Written against commit** `d4a2958`. Category: correctness / silent data loss. Confidence: MED
 (clear code reading; the triggering save-failure is rare). Effort: S. Fix risk: LOW.
 
+**Status:** DONE on 2026-07-13. The red reproducer now passes, and the controller restores the
+session mutation while preserving an active workout when persistence fails.
+
 ## Why this matters
 
 `WorkoutSessionController.discardWorkout()` mutates the live SwiftData model **before** it saves,

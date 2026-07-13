@@ -64,7 +64,7 @@ struct AIPedometerApp: App {
         let healthAuth = HealthKitAuthorization(healthStore: sharedHealthStore)
         let motionAuth = MotionAuthorization()
         let motionService = MotionService()
-        let dataStore = SharedDataStore()
+        let dataStore = SharedDataStore(coalescingInterval: 5)
         let goalService = GoalService(persistence: persistence)
         let streakCalculator = StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
         let fmService = FoundationModelsService()
@@ -160,7 +160,21 @@ struct AIPedometerApp: App {
 
         _badgeService = State(initialValue: badges)
 
-        let backgroundTaskService = BackgroundTaskService(stepTrackingService: trackingService)
+        let backgroundTaskService = BackgroundTaskService(
+            stepTrackingService: trackingService,
+            performHealthKitReconciliation: { [syncService] in
+                do {
+                    try await syncService.reconcilePendingWorkoutExports()
+                } catch is CancellationError {
+                    return
+                } catch {
+                    Loggers.sync.error(
+                        "sync.background_workout_reconciliation_failed",
+                        metadata: ["error": error.localizedDescription]
+                    )
+                }
+            }
+        )
         backgroundTaskService.registerTasks()
         backgroundService = backgroundTaskService
 
@@ -208,7 +222,8 @@ struct AIPedometerApp: App {
                     ])
                 }
                 _ = await trackingService.refreshWeeklySummaries()
-            }
+            },
+            flushSharedData: { trackingService.flushSharedData() }
         ))
     }
 

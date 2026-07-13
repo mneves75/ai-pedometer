@@ -1,3 +1,4 @@
 // Debug configuration
 // APP_STORE_ID should be provided via Local.xcconfig or CI environment.
+SWIFT_COMPILATION_MODE = incremental
 #include? "Local.xcconfig"
