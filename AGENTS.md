@@ -245,6 +245,7 @@ Additional kb-tools commands:
 - `TODO: no further command promotions until a newer notes/run-*.txt (newer than 2026-04-26) captures repeated execution evidence beyond the currently promoted command set.`
 - `TODO: as of 2026-06-01, run-note inventory now includes notes/run-2026-06-01-full-refresh.txt (full 2026+ guideline refresh); this is a single run, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
 - `TODO: as of 2026-07-05, run-note inventory adds notes/run-2026-07-05-guidelines-refresh.txt (release 2026.07.05.0: Expo SDK 57 / RN 0.86 baseline convergence + patch bumps); still single-run per release, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
+- `TODO: as of 2026-07-13, run-note inventory adds notes/run-2026-07-13-guidelines-refresh.txt (release 2026.07.13.0: July baselines + fail-closed tooling + routing/CI hardening); retain the command-promotion freeze until repeated evidence accrues.`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`
@@ -596,7 +597,7 @@ Usage notes:
 
 <skill>
 <name>mneves-typescript</name>
-<description>Enforce TYPESCRIPT-GUIDELINES.md compliance for TypeScript 6.0+ with strict configuration, Decorators 1.0, Project References, runtime validation, type-only imports, and build/testing standards</description>
+<description>Enforce TYPESCRIPT-GUIDELINES.md compliance for TypeScript 7 GA, with a documented TypeScript 6 compatibility lane, strict configuration, runtime validation, type-only imports, and build/testing standards</description>
 <location>global</location>
 </skill>
 
