@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.91] - 2026-07-13
+
+### Fixed
+
+- **Distance badges are now earnable.** `distance5km`, `distance10km`, and `distanceMarathon` were rendered in the Badges grid but absent from `BadgeDefinitions.all`, so no award path could ever unlock them. They now carry meter thresholds (5 000 / 10 000 / 42 195 m — all within 32-bit `Int` for the watchOS arm64_32 slice) and `StepTrackingService.evaluateBadges` gained a `distance` branch, fed the day's walking/running distance at every refresh site (HealthKit, wheelchair, and motion-fallback paths), mirroring the existing steps/streak award logic. New reproducer suite `BadgeDefinitionsTests` locks in the award-path invariant (every steps/streak/distance badge type must have a definition).
+- **Monthly Challenge badge no longer advertised as earnable.** The `.challenge` badge has no challenge system to complete, so `BadgesView` now hides it (unless a historical record somehow holds it) instead of showing a badge that can never be earned.
+- **`MARKETING_VERSION` YAML float-trap.** `project.yml` carried `MARKETING_VERSION: 0.90` unquoted, which XcodeGen/YAML parsed as the float `0.9`, shipping `MARKETING_VERSION = 0.9` into the generated project — App Store compares versions segment-by-segment, so `0.9` sorts *below* the prior `0.89`. The value is now quoted (`"0.91"`), and the app version is bumped to `0.91 (47)`.
+
+### Docs
+
+- README no longer claims "bidirectional" watch sync; the companion mirrors the phone's daily step snapshot (sync is phone→watch only).
+- Re-synced the `## GUIDELINES-REF` section of `AGENTS.md` with the upstream `~/dev/GUIDELINES-REF/AGENTS.md` (the `check-agents-sync.sh` gate was failing).
+
 ## [0.90] - 2026-06-13
 
 ### Added

@@ -198,6 +198,7 @@ Rules:
 
 ## GUIDELINES-REF
 Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/check-agents-sync.sh`).
+
 GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
 
 Essentials (apply to every task):
@@ -211,12 +212,12 @@ Essentials (apply to every task):
 - Follow `.github/pull_request_template.md` and keep review routing aligned with `OWNERS.md`/`.github/CODEOWNERS`.
 
 Mandatory change workflow:
-- After every change, verify all changes with agent-browser (`/browser gstack`) and fix any UI/UX issues. Do not stop until all changes have been verified.
+- After changes that affect browser-rendered artifacts, verify the affected artifact with agent-browser (`/browser gstack`) or a concrete local HTML/report target and fix any UI/UX issues before stopping. For docs, metadata, schemas, and tooling-only changes without a rendered UI surface, record why browser QA is not applicable and use the relevant CLI checks instead.
 - When there is a bug report, do not start by trying to fix it. Start by writing a test that reproduces the bug. Then have subagents try to fix the bug and prove it with a passing test.
 - When all done, use the `autoreview` skill and fix all justified findings.
 
 Security:
-- NÃO tenha a página `/admin`; sempre peça pro admin ser um acesso via string aleatória.
+- NÃO publique uma página `/admin` sem proteção explícita. Admin deve ter autenticação, autorização, rate limiting, auditoria e `noindex`; se o produto exigir URL não óbvia, trate isso apenas como defesa adicional, nunca como controle de acesso.
 - NÃO tenha uma senha que brute force quebra em 1 minuto.
 
 Common commands:
@@ -243,6 +244,7 @@ Additional kb-tools commands:
 - `TODO: evaluate/promote targeted staleness lint command after repeated post-Biome-2.4 evidence beyond notes/run-2026-04-24-full-refresh.txt.`
 - `TODO: no further command promotions until a newer notes/run-*.txt (newer than 2026-04-26) captures repeated execution evidence beyond the currently promoted command set.`
 - `TODO: as of 2026-06-01, run-note inventory now includes notes/run-2026-06-01-full-refresh.txt (full 2026+ guideline refresh); this is a single run, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
+- `TODO: as of 2026-07-05, run-note inventory adds notes/run-2026-07-05-guidelines-refresh.txt (release 2026.07.05.0: Expo SDK 57 / RN 0.86 baseline convergence + patch bumps); still single-run per release, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`
@@ -261,6 +263,7 @@ Additional kb-tools commands:
 - `bun --bun tools/kb-audit-report.ts`
 - `bun --bun tools/kb-feedback-report.ts`
 - `bun tools/kb-update-baselines.ts [--apply|--major|--force]`
+- `./scripts/scan-secrets.sh`
 
 Collaboration defaults (apply unless overridden by repo-specific docs):
 - Always read `AGENTS.md`, `CLAUDE.md`, `README.md`, and any `DOCS/GUIDELINES-REF/*` before making changes.
