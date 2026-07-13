@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a large-build-settings regression fixture for the iPhone/Apple Watch installation script.
 - Added large-output device-identifier and malformed-entitlements regression gates; invalid plist input can no longer pass a negative capability check.
 - CI/CodeQL now select an available Xcode 26.3 image, build the generated project explicitly, run script tests, and reject `.xcresult` bundles with zero tests, failures, or a non-success result.
+- CI installs its declared script dependencies, classifies simulator background-assertion timeouts as retryable infrastructure failures, and reserves enough job time for the bounded retry.
 - Portuguese localization assertions now load the compiled `pt-BR` resource bundle explicitly, and the Workouts UI driver scrolls until controls are both hittable and geometrically clear of the tab bar.
 
 ## [0.91] - 2026-07-13

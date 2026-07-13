@@ -200,7 +200,7 @@ for attempt in $(seq 1 "${UNIT_RESTART_MAX}"); do
     break
   fi
 
-  if rg -n "NSMachErrorDomain|server died|Failed to initialize for UI testing|Timed out waiting for AX loaded notification|Failed to get matching snapshots" "${OUT_DIR}/xcodebuild-unit-tests-attempt-${attempt}.log" >/dev/null 2>&1; then
+  if bash Scripts/simulator-retry-classifier.sh "${OUT_DIR}/xcodebuild-unit-tests-attempt-${attempt}.log"; then
     echo "Unit tests falharam por instabilidade do simulador. Reiniciando e tentando novamente... (tentativa ${attempt}/${UNIT_RESTART_MAX})"
     xcrun simctl shutdown "${IOS_UDID}" >/dev/null 2>&1 || true
     sleep 2
@@ -290,8 +290,8 @@ for attempt in $(seq 1 "${UI_RESTART_MAX}"); do
     break
   fi
 
-  if rg -n "Timed out waiting for AX loaded notification|Failed to initialize for UI testing|AX loaded notification|kAXErrorAPIDisabled|Failed to get matching snapshots" "${OUT_DIR}/xcodebuild-ui-tests-attempt-${attempt}.log" >/dev/null 2>&1; then
-    echo "UI tests falharam ao inicializar (AX). Reiniciando o simulador e tentando novamente... (tentativa ${attempt}/${UI_RESTART_MAX})"
+  if bash Scripts/simulator-retry-classifier.sh "${OUT_DIR}/xcodebuild-ui-tests-attempt-${attempt}.log"; then
+    echo "UI tests falharam por instabilidade do simulador. Reiniciando e tentando novamente... (tentativa ${attempt}/${UI_RESTART_MAX})"
     xcrun simctl shutdown "${IOS_UDID}" >/dev/null 2>&1 || true
     sleep 2
     xcrun simctl boot "${IOS_UDID}" >/dev/null 2>&1 || true
@@ -301,7 +301,7 @@ for attempt in $(seq 1 "${UI_RESTART_MAX}"); do
     continue
   fi
 
-  echo "UI tests falharam (nao-AX). Abortando."
+  echo "UI tests falharam (nao-recuperavel). Abortando."
   exit "${ui_status}"
 done
 
