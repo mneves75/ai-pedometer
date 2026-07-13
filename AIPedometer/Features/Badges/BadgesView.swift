@@ -14,13 +14,18 @@ struct BadgesView: View {
     private var allBadges: [BadgeDisplayItem] {
         let earnedBadges = badgeService.earnedBadges()
         let earnedByType = Dictionary(uniqueKeysWithValues: earnedBadges.map { ($0.badgeType, $0) })
-        return BadgeType.allCases.map { type in
-            BadgeDisplayItem(
-                type: type,
-                isEarned: earnedByType[type] != nil,
-                earnedBadge: earnedByType[type]
-            )
-        }
+        return BadgeType.allCases
+            // The `.challenge` badge (Monthly Challenge) has no award path yet — there is no
+            // challenge system to complete — so hiding it keeps the grid from advertising a badge
+            // that can never be earned. Still show it if a historical record somehow earned it.
+            .filter { $0.category != .challenge || earnedByType[$0] != nil }
+            .map { type in
+                BadgeDisplayItem(
+                    type: type,
+                    isEarned: earnedByType[type] != nil,
+                    earnedBadge: earnedByType[type]
+                )
+            }
     }
 
     private var showsCustomBackButton: Bool {

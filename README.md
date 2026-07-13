@@ -19,7 +19,7 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 - **AI Coach** — Personalized coaching with local Markdown rendering and resilient fallback behavior
 - **AI Training Plans** — AI-generated workout programs adapted to your fitness level, with deterministic localized fallbacks when the model response is invalid
 - **Workouts** — Live workout tracking with history, plans, Premium Expedition Mode, and GPX route import for long walks or hikes
-- **watchOS App** — Companion app with bidirectional sync
+- **watchOS App** — Companion app that mirrors the phone's daily step snapshot
 - **Widgets** — Lock screen and Home Screen widgets
 - **Accessibility** — Wheelchair mode for push tracking, VoiceOver support
 - **Tip Jar** — Optional one-time “Buy me a coffee” support (USD $4.99 in the US)
@@ -127,7 +127,7 @@ bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.90" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "0.91" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -186,7 +186,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.90
+**Current**: 0.91
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

@@ -226,7 +226,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                     healthKitFloors: floors
                 )
                 updateSharedData()
-                evaluateBadges(steps: hkSteps, streak: nil)
+                evaluateBadges(steps: hkSteps, streak: nil, distance: distance)
                 Loggers.tracking.info("steps.refresh_today", metadata: ["steps": "\(hkSteps)"])
 
             case .wheelchairPushes:
@@ -244,7 +244,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 liveBaseline = nil
                 pendingBaseline = nil
                 updateSharedData()
-                evaluateBadges(steps: pushes, streak: nil)
+                evaluateBadges(steps: pushes, streak: nil, distance: distance)
                 Loggers.tracking.info("pushes.refresh_today", metadata: ["pushes": "\(pushes)"])
             }
         } catch {
@@ -429,9 +429,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         liveSnapshotDayStart = nil
     }
 
-    private func evaluateBadges(steps: Int?, streak: Int?) {
+    private func evaluateBadges(steps: Int?, streak: Int?, distance: Double? = nil) {
         var earnedTypes = badgeService.earnedBadgeTypes()
-        
+
         if let steps {
             let stepBadges = BadgeDefinitions.all.filter {
                 $0.type.category == .steps && steps >= $0.requiredValue
@@ -450,7 +450,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 }
             }
         }
-        
+
         if let streak {
             let streakBadges = BadgeDefinitions.all.filter {
                 $0.type.category == .streak && streak >= $0.requiredValue
@@ -460,6 +460,29 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                     badge.type,
                     metadata: [
                         "streak": "\(streak)",
+                        "required": "\(badge.requiredValue)"
+                    ],
+                    existingBadgeTypes: earnedTypes
+                )
+                if unlocked {
+                    earnedTypes.insert(badge.type)
+                }
+            }
+        }
+
+        if let distance {
+            // `distance` is the day's walking/running distance in meters, matched against the
+            // meter thresholds in BadgeDefinitions. Negative/NaN distances can't clear any
+            // threshold, so `Int(...)` is guarded to avoid trapping on non-finite input.
+            let distanceMeters = distance.isFinite ? Int(distance) : 0
+            let distanceBadges = BadgeDefinitions.all.filter {
+                $0.type.category == .distance && distanceMeters >= $0.requiredValue
+            }
+            for badge in distanceBadges {
+                let unlocked = badgeService.unlock(
+                    badge.type,
+                    metadata: [
+                        "distance": "\(distanceMeters)",
                         "required": "\(badge.requiredValue)"
                     ],
                     existingBadgeTypes: earnedTypes
@@ -572,7 +595,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         lastUpdated = .now
         seedMotionBaseline(snapshot: snapshot, startOfDay: startOfDay)
         updateSharedData()
-        evaluateBadges(steps: snapshot.steps, streak: nil)
+        evaluateBadges(steps: snapshot.steps, streak: nil, distance: distance)
         Loggers.tracking.info("steps.refresh_today_motion", metadata: ["steps": "\(snapshot.steps)"])
     }
 
