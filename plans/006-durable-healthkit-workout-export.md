@@ -3,7 +3,7 @@
 **Written against commit** `fa3c252`. Category: correctness / data durability. Confidence: HIGH.
 Impact: HIGH. Effort: L. Fix risk: HIGH.
 
-**Status:** DONE in 0.92 (48). Automated migration and idempotency gates pass; the physical forced-failure scenario remains a manual release smoke.
+**Status:** DONE in 0.93 (49). Automated migration/idempotency gates and the physical forced-failure, relaunch, retry, and second-relaunch smoke pass.
 
 ## Implementation result
 
@@ -14,6 +14,13 @@ foreground, pull-to-refresh, and background flows. Tests cover migration from an
 failure/retry, remote-commit/local-save recovery, revoked authorization, and eligibility filters.
 Concurrent exports share one in-flight task; cancellation stops the batch without recording a
 false failure, and retry ordering gives unattempted/newly pending rows a fair turn.
+
+The physical smoke exposed one final gap: a recent `lastSyncDate` throttled the heavy automatic
+sync and also skipped the lightweight pending-export reconciliation. Automatic sync now preserves
+the six-hour throttle for daily records while always reconciling durable pending workouts; a local
+preflight avoids requesting HealthKit authorization when there is nothing to export. On
+iMarcus, a real denied HealthKit save persisted one pending row; the fixed relaunch exported that
+same row, and a second relaunch kept exactly one stable export ID and one HealthKit ID.
 
 ## Why this matters
 

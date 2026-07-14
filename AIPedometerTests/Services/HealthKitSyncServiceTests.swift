@@ -69,6 +69,44 @@ struct SyncStateKeyTests {
 @Suite("HealthKitSyncService Tests")
 @MainActor
 struct HealthKitSyncServiceTests {
+    @Test("Automatic sync retries pending workouts even inside the foreground throttle window")
+    func automaticSyncRetriesPendingWorkoutInsideThrottleWindow() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let workout = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-600),
+            endTime: .now,
+            healthKitExportState: .pending
+        )
+        modelContext.insert(workout)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastColdStartDate.rawValue)
+        userDefaults.set(2, forKey: SyncStateKey.syncVersion.rawValue)
+
+        let performedFullSync = try await service.performAutomaticSync()
+
+        #expect(performedFullSync == false)
+        #expect(mockHealthKit.authorizationRequested == true)
+        #expect(mockHealthKit.saveWorkoutCallCount == 1)
+        #expect(workout.healthKitExportState == .exported)
+        #expect(workout.healthKitWorkoutID != nil)
+    }
+
+    @Test("Automatic sync inside the throttle avoids HealthKit authorization without pending workouts")
+    func automaticSyncWithoutPendingWorkoutSkipsAuthorization() async throws {
+        let (service, mockHealthKit, userDefaults, _) = makeTestEnvironment()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastColdStartDate.rawValue)
+        userDefaults.set(2, forKey: SyncStateKey.syncVersion.rawValue)
+
+        let performedFullSync = try await service.performAutomaticSync()
+
+        #expect(performedFullSync == false)
+        #expect(mockHealthKit.authorizationRequested == false)
+        #expect(mockHealthKit.saveWorkoutCallCount == 0)
+    }
+
     @Test("Incremental sync retries durable pending workouts and marks success")
     func incrementalSyncRetriesPendingWorkout() async throws {
         let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()

@@ -2,6 +2,42 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AST_GREP_BIN="${AST_GREP_BIN:-ast-grep}"
+INDEX_SNAPSHOT="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "${INDEX_SNAPSHOT}"
+}
+trap cleanup EXIT
+
+if ! command -v "${AST_GREP_BIN}" >/dev/null 2>&1; then
+  echo "ast-grep is required; refusing to commit without the structural lint gate." >&2
+  exit 1
+fi
+
+git -C "${ROOT_DIR}" checkout-index \
+  --all \
+  --ignore-skip-worktree-bits \
+  --prefix="${INDEX_SNAPSHOT}/"
+
+if [[ ! -f "${INDEX_SNAPSHOT}/sgconfig.yml" ]]; then
+  echo "sgconfig.yml is missing from the staged snapshot; refusing to bypass the structural lint gate." >&2
+  exit 1
+fi
+
+(
+  cd "${INDEX_SNAPSHOT}"
+  "${AST_GREP_BIN}" scan \
+    --config "sgconfig.yml" \
+    --no-ignore hidden \
+    --no-ignore dot \
+    --no-ignore exclude \
+    --no-ignore global \
+    --no-ignore parent \
+    --no-ignore vcs \
+    --error=unused-suppression \
+    --error=no-suppress-all
+)
 
 bash "${ROOT_DIR}/Scripts/check-agents-sync.sh"
 bash "${ROOT_DIR}/Scripts/verify-device-identifiers.sh"

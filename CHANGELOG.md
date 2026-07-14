@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.93] - 2026-07-14
+
+### Fixed
+
+- Pending HealthKit workout exports now retry during app startup and foreground activation even when the heavier daily sync is inside its six-hour throttle window. The lightweight preflight stays local and does not request HealthKit authorization when nothing is pending. A physical forced-failure smoke proved durable pending state, successful relaunch recovery, and no duplicate after a second relaunch.
+
+### Changed
+
+- Release metadata advanced to `0.93 (49)`, with App Store notes and operational version references synchronized.
+
 ## [0.92] - 2026-07-13
 
 ### Changed

@@ -112,8 +112,10 @@ app-group entitlements.
 
 Completed workouts cross an explicit durability boundary before HealthKit export. SwiftData schema
 V2 stores `pending`/`exported` state, a stable external UUID, and privacy-safe failure metadata.
-Foreground, pull-to-refresh, and background reconciliation retry bounded pending batches; the
-HealthKit adapter first resolves `HKMetadataKeyExternalUUID`, so a crash after the remote commit
+Startup, foreground, pull-to-refresh, and background reconciliation retry bounded pending batches
+even when the heavier daily sync is inside its six-hour throttle window; the automatic preflight
+stays local and does not request HealthKit authorization when no export is pending. The HealthKit
+adapter first resolves `HKMetadataKeyExternalUUID`, so a crash after the remote commit
 cannot create a duplicate workout. Keep the V1→V2 migration fixture and idempotency tests whenever
 this state machine changes.
 
