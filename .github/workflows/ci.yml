@@ -31,7 +31,7 @@ jobs:
           xcodebuild -version
 
       - name: Install build tools
-        run: brew install xcodegen ripgrep
+        run: brew install ast-grep xcodegen ripgrep
 
       - name: Guardrail (no hardcoded device identifiers)
         run: bash Scripts/verify-device-identifiers.sh
