@@ -1,0 +1,11 @@
+id: swift-no-force-cast
+valid:
+  - |
+      func value(from input: Any) -> String? {
+        input as? String
+      }
+invalid:
+  - |
+      func value(from input: Any) -> String {
+        input as! String
+      }

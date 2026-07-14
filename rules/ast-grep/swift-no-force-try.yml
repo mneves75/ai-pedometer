@@ -1,0 +1,9 @@
+id: swift-no-force-try
+language: Swift
+severity: error
+message: Replace try! with explicit error propagation or handling.
+note: Forced try turns recoverable failures into process crashes and is not allowed in production or test code.
+rule:
+  pattern: try! $EXPR
+files:
+  - "**/*.swift"

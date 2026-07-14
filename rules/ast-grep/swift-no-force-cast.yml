@@ -1,0 +1,9 @@
+id: swift-no-force-cast
+language: Swift
+severity: error
+message: Replace as! with a checked cast or a type-safe design.
+note: Forced casts crash at runtime when assumptions drift and are not allowed in production or test code.
+rule:
+  pattern: $EXPR as! $TYPE
+files:
+  - "**/*.swift"

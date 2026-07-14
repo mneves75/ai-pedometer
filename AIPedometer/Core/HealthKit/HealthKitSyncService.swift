@@ -34,6 +34,8 @@ enum SyncStateKey: String {
 
 @MainActor
 protocol HealthKitSyncServiceProtocol: AnyObject {
+    @discardableResult
+    func performAutomaticSync() async throws -> Bool
     func performColdStartSync() async throws
     func performIncrementalSync() async throws
     func performPullToRefresh() async throws
@@ -70,6 +72,21 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         self.goalService = goalService
         self.userDefaults = userDefaults
         self.calendar = calendar
+    }
+
+    /// Selects the appropriate automatic sync without throttling durable workout retries.
+    @discardableResult
+    func performAutomaticSync() async throws -> Bool {
+        if needsColdStartSync() {
+            try await performColdStartSync()
+            return true
+        } else if shouldPerformForegroundSync() {
+            try await performIncrementalSync()
+            return true
+        } else {
+            try await reconcilePendingWorkoutExports()
+            return false
+        }
     }
     
     // MARK: - Cold Start Sync
@@ -161,8 +178,25 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             Loggers.sync.info("sync.workout_reconciliation_skipped", metadata: ["reason": "sync_disabled"])
             return
         }
+        guard try hasPendingWorkoutExports() else {
+            Loggers.sync.info("sync.workout_reconciliation_skipped", metadata: ["reason": "no_pending_exports"])
+            return
+        }
         try await ensureAuthorization()
         try await syncWorkouts(from: .distantPast, to: .now)
+    }
+
+    private func hasPendingWorkoutExports() throws -> Bool {
+        let pendingState = HealthKitWorkoutExportState.pending.rawValue
+        let predicate = #Predicate<WorkoutSession> { session in
+            session.healthKitExportStateRaw == pendingState
+        }
+        let descriptor = FetchDescriptor<WorkoutSession>(predicate: predicate)
+        return try modelContext.fetch(descriptor).contains { session in
+            session.deletedAt == nil &&
+                session.healthKitWorkoutID == nil &&
+                session.endTime != nil
+        }
     }
     
     // MARK: - Foreground Sync Check

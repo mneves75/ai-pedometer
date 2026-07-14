@@ -19,9 +19,9 @@
 
 `steps,pedometer,fitness,workout,walking,healthkit,apple watch,goals`
 
-## What's New (0.92)
+## What's New (0.93)
 
-`Makes workout saves recover safely after temporary HealthKit failures, improves step and widget refresh efficiency, and strengthens reliability across background sync, goals, badges, and training plans.`
+`Fixed completed workouts sometimes waiting too long to retry after a temporary HealthKit failure.`
 
 ## URLs
 

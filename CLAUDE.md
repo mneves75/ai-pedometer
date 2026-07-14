@@ -2,6 +2,12 @@
 
 This repository expects operator behavior, not passive assistance. `AGENTS.md` is the full operating contract; this file is the compact Claude-facing checklist for `AIPedometer`.
 
+## Purpose and Quality
+
+- Operate as a senior Apple-platform engineer; keep responses concise and clarify material uncertainty before coding.
+- Challenge assumptions with evidence. Follow KISS and prefer clear, maintainable, current patterns over shortcuts or speculative abstraction.
+- Add comments only for tricky constraints, then review and verify the result twice before completion.
+
 ## Read First
 
 At the start of every session, in this exact order:
@@ -26,6 +32,14 @@ Then read the task-relevant docs before editing:
 - `docs/agents/coding-style.md`
 - `docs/agents/git-workflow.md`
 
+Do not create standalone completion-report markdown files. Temporary markdown plans belong under `agent_planning/` and obsolete plans under `agent_planning/archive/`. Do not use emojis in repository documentation.
+
+## Code Discovery and AST-Grep
+
+- Prefer the codebase knowledge graph when available.
+- For syntax-aware or structural search, default to `ast-grep --lang swift -p '<pattern>'` and select the appropriate language for other files. Use `rg` or `grep` only for intentional plain-text/config/doc searches or when structural matching is insufficient.
+- Run `ast-grep scan --config sgconfig.yml --error=unused-suppression --error=no-suppress-all`. The active `.githooks/pre-commit` hook scans the exact staged Git snapshot and blocks findings or a missing ast-grep binary; do not bypass it.
+
 ## Project Snapshot
 
 - Product: iOS + watchOS pedometer with widgets, Live Activities, HealthKit/CoreMotion tracking, and local Apple Foundation Models AI.
@@ -49,6 +63,8 @@ bash Scripts/check-agents-sync.sh
 bash Scripts/verify-device-identifiers.sh
 bash Scripts/verify-entitlements.sh
 bash Scripts/test-payments-device.sh
+ast-grep test --config sgconfig.yml --skip-snapshot-tests
+ast-grep scan --config sgconfig.yml --error=unused-suppression --error=no-suppress-all
 ```
 
 Entitlements are rewritten on every `xcodegen generate` by `Scripts/restore-entitlements.sh` — entitlement changes go in that script, never in the `.entitlements` files. Enhanced Security compiler hardening (`ENABLE_ENHANCED_SECURITY` + pointer auth) is always on; the hardened-process *entitlements* are staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1` because signing them needs the team profile regenerated with the capability (one-time interactive Xcode sign-in). Security build-setting decisions live in `xcode-security-settings.md`.
@@ -74,6 +90,12 @@ For bug reports:
 
 Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 
+## Execution Routing
+
+- Keep planning, visual/UI work, product copy, and the hardest judgment calls in the primary session.
+- For independent backend, bulk, or mechanically heavy implementation, write a self-contained specification with acceptance checks and delegate when useful. Prefer `gpt-5.6-sol` at high reasoning through Codex when available; use `/goal` only when the runtime exposes it.
+- Correctness and intelligence outrank taste, which outranks cost. Verify delegated output and redo weak work without asking merely to change models.
+
 ## Swift and Product Rules
 
 - Keep Swift 6.2 strict concurrency and warnings-as-errors clean.
@@ -85,6 +107,20 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 - `pt-BR` devices use Portuguese; every other locale defaults to English.
 - For RevenueCat/App Store payments work, follow `docs/revenuecat/apple-payments-setup.md`; never commit `.p8` keys, ASC credentials, RevenueCat secret keys, sandbox accounts, or local Apple account details.
 - Check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing iOS/watchOS 26 behavior.
+- Check official Apple documentation in `/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing iOS/watchOS 27 behavior.
+- Prefer Context7 for current third-party documentation when available; otherwise use primary official docs.
+
+## Security, Audit, and Data
+
+- Do not expose a predictable `/admin` page. A non-obvious route is defense-in-depth only; require authentication, authorization, rate limiting, audit events, and `noindex`.
+- Reject authentication controls that can be brute-forced in about one minute; use platform password hashing, throttling/backoff, and MFA where appropriate.
+- Do not hard-delete production records by default. Prefer `deletedAt`/`deleted_at` plus explicit active-record filters, while honoring verified erasure and retention obligations.
+- Audit security-sensitive mutations without logging health data, secrets, credentials, or unnecessary identifiers.
+
+## Verification and Closeout
+
+- For browser-rendered changes, verify every affected surface with agent-browser (`/browser gstack`) and fix UI/UX issues before stopping. For docs, tooling, schemas, or native-only changes without a browser surface, record why browser QA is not applicable and run the relevant CLI/native checks.
+- After non-trivial changes, run the `autoreview` skill in local mode, verify every finding in context, and fix all justified in-scope issues.
 
 ## Shell Rules
 
@@ -92,6 +128,7 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 - Avoid truncation pipes such as `| head -n 20`.
 - Prefer direct commands or tool-specific limit flags.
 - Prefer reading logs directly instead of chaining pipes.
+- Use tmux for long-running, interactive, or multi-step shell workflows.
 
 ## Figure It Out
 

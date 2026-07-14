@@ -15,10 +15,10 @@ afterward. A final automated rerun was attempted but the review engine reached i
 the last two shell-only changes were closed with targeted tests, `shellcheck`, `actionlint`, and the
 full script suite rather than an unsupported clean-review claim.
 
-The final signed stable-Xcode device build succeeded and installed AI Pedometer 0.92 (48) on
-iMarcus. `devicectl` independently confirmed the installed version, accepted the launch, and listed
-the app process afterward. The forced HealthKit failure/retry smoke and a representative walking
-trace remain manual observational checks; they are not unimplemented code paths.
+The final signed stable-Xcode device build succeeded and installed AI Pedometer 0.93 (49) on
+iMarcus. The forced HealthKit failure/retry/relaunch smoke passed with one durable row and no
+duplicate after a second relaunch. A representative walking trace remains a manual observational
+check because the user deferred the required physical walk; it is not an unimplemented code path.
 
 The earlier build blockage was a full stdout/stderr pipe in an `SWBBuildService` compiler-capability
 probe. Terminating only the blocked probe child allowed the build service to continue. Microsoft

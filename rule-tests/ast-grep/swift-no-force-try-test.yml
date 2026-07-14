@@ -1,0 +1,11 @@
+id: swift-no-force-try
+valid:
+  - |
+      func load() throws -> Data {
+        try fetchData()
+      }
+invalid:
+  - |
+      func load() -> Data {
+        try! fetchData()
+      }

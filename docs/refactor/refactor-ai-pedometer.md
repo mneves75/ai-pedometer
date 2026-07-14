@@ -3,7 +3,7 @@
 Registro histórico do ciclo de redesign visual + review de arquitetura iniciado em 2026-06-12. Não é um tracking vivo; os status foram reconciliados em 2026-07-13 com o estado local do repositório.
 Base: `87f8045` (0.89 / build 45), working tree limpo.
 
-O repositório local está em `0.92 (48)`. Bloqueios de ambiente e deploy descritos no log abaixo
+O repositório local está em `0.93 (49)`. Bloqueios de ambiente e deploy descritos no log abaixo
 pertencem à sessão de junho e não comprovam o estado atual de TestFlight ou App Store Connect.
 
 ## Objetivos

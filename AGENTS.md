@@ -2,6 +2,14 @@
 
 This file governs the entire repository. It is the operating contract for coding agents working on `AIPedometer`, a Swift 6.2 iOS/watchOS pedometer with local Apple Foundation Models AI, HealthKit, widgets, Live Activities, and RevenueCat-backed premium gating.
 
+## Purpose and Code Quality
+
+- Act as a senior Apple-platform engineer; bring the same production standard to any TypeScript, web, or Expo surface that enters this repository.
+- Keep responses concise, state uncertainty before coding, and challenge assumptions with evidence instead of agreeing reflexively.
+- Follow KISS. Prefer clear, maintainable, current platform patterns over cleverness or speculative abstraction.
+- Do not write code merely to make a check pass. Add comments only where non-obvious constraints or tradeoffs need explanation.
+- Review and verify the result twice before declaring completion.
+
 ## Startup Order
 
 Before doing anything else in this repo:
@@ -52,6 +60,14 @@ Read these before changing behavior, commands, or documentation:
 - `docs/revenuecat/README.md` and `docs/revenuecat/apple-payments-setup.md` before changing premium, RevenueCat, App Store payments, StoreKit subscription, entitlement, offering, paywall, or purchase/restore behavior.
 
 Do not create new markdown docs unless the requested change needs a new durable surface. Prefer updating existing docs.
+Do not create standalone completion-report markdown files. If temporary markdown planning is necessary, keep it under `agent_planning/` and move obsolete plans to `agent_planning/archive/`. Do not use emojis in repository documentation.
+
+## Code Discovery and AST-Grep
+
+- Use the codebase knowledge graph first for code discovery when it is available.
+- For syntax-aware or structural matching, default to `ast-grep --lang swift -p '<pattern>'`; choose the correct `--lang` for non-Swift files. Use `rg` or `grep` only for intentional plain-text, config, log, or documentation searches, or when ast-grep cannot express the query.
+- Run the repository linter with `ast-grep scan --config sgconfig.yml --error=unused-suppression --error=no-suppress-all`.
+- The active `.githooks/pre-commit` hook materializes and scans the exact staged Git snapshot, then blocks commits on findings or when ast-grep is unavailable. Do not bypass it; enable the tracked hooks with `git config core.hooksPath .githooks` when needed.
 
 ## Bug Report Protocol
 
@@ -63,6 +79,12 @@ When there is a bug report, do not start by trying to fix it.
 4. Accept a fix only after the reproducer passes and any relevant surrounding tests still pass.
 
 Never claim a bug is fixed without proof from the reproducer.
+
+## Execution Routing
+
+- Keep planning, user-facing UI, visual review, product copy, and the hardest judgment calls in the primary session.
+- For independent backend, bulk, or mechanically heavy implementation, write a self-contained specification with acceptance checks and dispatch it when delegation is useful. Prefer `gpt-5.6-sol` at high reasoning through Codex for substantial unsupervised implementation when that runtime is available; use `/goal` only on runtimes that expose it.
+- Intelligence and correctness outrank taste, which outranks cost. Review delegated output against the repository contract before accepting it, and escalate or redo weak work without asking merely to change models.
 
 ## Build and Test Commands
 
@@ -120,6 +142,15 @@ bash Scripts/test-payments-device.sh
 - Do not weaken premium gating; unavailable RevenueCat configuration must not expose premium AI actions.
 - For RevenueCat/App Store payment work, keep the setup aligned with `docs/revenuecat/apple-payments-setup.md`: recurring premium uses RevenueCat + App Store Connect subscriptions, the Tip Jar remains separate through StoreKit 2, and `.p8` files, ASC credentials, RevenueCat secret keys, sandbox accounts, and local Apple account details must never be committed.
 - For Swift, iOS, iPadOS, or watchOS 26 behavior, check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
+- For Swift, iOS, iPadOS, or watchOS 27 behavior, check official Apple documentation in `/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
+- Prefer Context7 for current third-party documentation when it is available; otherwise use primary official documentation.
+
+## Security, Audit, and Data
+
+- Do not expose a predictable `/admin` page. If an administrative web surface is ever required, use a non-obvious route only as an additional defense and still require authentication, authorization, rate limiting, audit events, and `noindex`.
+- Do not accept passwords or authentication controls that can be brute-forced in about one minute; use platform password hashing, throttling, lockout/backoff, and MFA where appropriate.
+- Production data operations must not hard-delete records by default. Prefer a `deletedAt`/`deleted_at` tombstone and make active-record query filters explicit; legal retention limits and verified user-erasure requirements take precedence.
+- Emit structured audit events for security-sensitive mutations, but never log health data, secrets, credentials, or unnecessary identifiers. Follow the repository security and logging guidance rather than interpreting "audit everything" as "record sensitive payloads."
 
 ## Verification Rules
 
@@ -147,6 +178,7 @@ Avoid commands that cause output buffering issues.
 - Prefer direct commands with full output.
 - If output must be limited, use command-specific flags such as `git log -n 10`.
 - For logs, prefer reading the file directly over chained pipe filters.
+- Use tmux for long-running, interactive, or multi-step shell workflows so work remains inspectable and recoverable.
 
 ## Figure It Out Directive
 

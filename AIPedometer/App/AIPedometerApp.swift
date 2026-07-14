@@ -187,11 +187,7 @@ struct AIPedometerApp: App {
             startStepTracking: { await trackingService.start() },
             performInitialSync: { [syncService] in
                 do {
-                    if syncService.needsColdStartSync() {
-                        try await syncService.performColdStartSync()
-                    } else if syncService.shouldPerformForegroundSync() {
-                        try await syncService.performIncrementalSync()
-                    }
+                    try await syncService.performAutomaticSync()
                 } catch {
                     Loggers.sync.error("sync.initial_sync_failed", metadata: ["error": error.localizedDescription])
                 }
@@ -213,13 +209,14 @@ struct AIPedometerApp: App {
             refreshTodayData: { await trackingService.refreshTodayData() },
             refreshStreak: { await trackingService.refreshStreak() },
             performForegroundRefresh: { [syncService, trackingService] in
-                guard syncService.shouldPerformForegroundSync() else { return }
                 do {
-                    try await syncService.performIncrementalSync()
+                    let performedFullSync = try await syncService.performAutomaticSync()
+                    guard performedFullSync else { return }
                 } catch {
                     Loggers.sync.error("sync.foreground_refresh_failed", metadata: [
                         "error": error.localizedDescription
                     ])
+                    return
                 }
                 _ = await trackingService.refreshWeeklySummaries()
             },
