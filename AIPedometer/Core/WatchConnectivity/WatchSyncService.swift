@@ -27,17 +27,17 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.isPaired, session.isWatchAppInstalled else { return }
+        let now = Date.now
         let payload = WatchPayload(
             todaySteps: stepData.todaySteps,
             goalSteps: stepData.goalSteps,
             goalProgress: stepData.goalProgress,
             currentStreak: stepData.currentStreak,
             lastUpdated: stepData.lastUpdated,
-            weeklySteps: stepData.weeklySteps
+            weeklySteps: stepData.weeklySteps,
+            sentAt: now
         )
         do {
-            let now = Date.now
-
             // The context is a latest-wins snapshot, so it gets the same time/step-delta
             // throttle as `sendMessage` — without it, every CMPedometer tick (several per
             // second during a brisk walk) paid a JSON encode + plist serialization + XPC

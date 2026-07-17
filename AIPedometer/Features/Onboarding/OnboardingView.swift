@@ -10,6 +10,11 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var dailyGoal: Double = Double(AppConstants.defaultDailyGoal)
     @State private var isRequestingPermissions = false
+    @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.md
+
+    private var boundedGoalValueFontSize: CGFloat {
+        min(max(goalValueFontSize, DesignTokens.FontSize.md), DesignTokens.FontSize.xl)
+    }
 
     var body: some View {
         ZStack {
@@ -76,8 +81,10 @@ struct OnboardingView: View {
                         Int64(dailyGoal)
                     )
                 )
-                    .font(.system(size: DesignTokens.FontSize.md, weight: .bold))
+                    .font(.system(size: boundedGoalValueFontSize, weight: .bold))
                     .foregroundStyle(DesignTokens.Colors.accent)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .contentTransition(.numericText(value: dailyGoal))
                     .animation(reduceMotion ? nil : DesignTokens.Animation.snappy, value: dailyGoal)
 

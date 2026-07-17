@@ -33,16 +33,14 @@ struct HealthKitAuthorizationTests {
         #expect(writeTypes.count == 4)
     }
 
-    @Test("Privacy manifest declares Health and Fitness data categories")
-    func privacyManifestDeclaresHealthAndFitnessCategories() throws {
+    @Test("Privacy manifest does not report on-device Health and Fitness data as collected")
+    func privacyManifestKeepsOnDeviceHealthAndFitnessOutOfCollectedData() throws {
         let url = try #require(Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy"))
         let data = try Data(contentsOf: url)
         let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
         let collectedTypes = try #require(plist?["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
-        let declaredTypes = Set(collectedTypes.compactMap { $0["NSPrivacyCollectedDataType"] as? String })
 
-        #expect(declaredTypes.contains("NSPrivacyCollectedDataTypeHealth"))
-        #expect(declaredTypes.contains("NSPrivacyCollectedDataTypeFitness"))
+        #expect(collectedTypes.isEmpty)
     }
 
     @Test("Health share usage copy names the read categories users grant")

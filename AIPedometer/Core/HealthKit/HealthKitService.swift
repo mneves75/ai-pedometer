@@ -31,7 +31,7 @@ protocol HealthKitServiceProtocol: Sendable {
     func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample?
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
     func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary]
-    func saveWorkout(_ session: WorkoutSession) async throws
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome
 }
 
 @MainActor
@@ -327,11 +327,12 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         }
     }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         let exportIdentifier = session.stableHealthKitExportIdentifier
         if let inFlightExport = inFlightWorkoutExports[exportIdentifier] {
-            session.healthKitWorkoutID = try await inFlightExport.value
-            return
+            let workoutID = try await inFlightExport.value
+            session.healthKitWorkoutID = workoutID
+            return .exported(workoutID)
         }
 
         let externalIdentifier = exportIdentifier.uuidString
@@ -340,7 +341,9 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         }
         inFlightWorkoutExports[exportIdentifier] = export
         defer { inFlightWorkoutExports.removeValue(forKey: exportIdentifier) }
-        session.healthKitWorkoutID = try await export.value
+        let workoutID = try await export.value
+        session.healthKitWorkoutID = workoutID
+        return .exported(workoutID)
     }
 
     private func exportWorkout(_ session: WorkoutSession, externalIdentifier: String) async throws -> UUID {

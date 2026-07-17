@@ -167,14 +167,13 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
         }
     }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         guard isSyncEnabled else {
             Loggers.health.info("healthkit.workout_save_skipped", metadata: ["reason": "sync_disabled"])
-            return
+            return .deferred
         }
         if shouldServeFakeData() {
-            try await demoService.saveWorkout(session)
-            return
+            return try await demoService.saveWorkout(session)
         }
         if let unavailableError {
             Loggers.health.info("healthkit.workout_save_skipped", metadata: [
@@ -182,7 +181,7 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             ])
             throw unavailableError
         }
-        try await primary.saveWorkout(session)
+        return try await primary.saveWorkout(session)
     }
 
     private func fetchWithGracefulFallback<T>(

@@ -37,6 +37,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private let userDefaults: UserDefaults
     @ObservationIgnored private let healthAuthorization: HealthKitAuthorization
     private let calculator: DailyStepCalculator
+    @ObservationIgnored private let now: @MainActor () -> Date
     @ObservationIgnored private let sendToWatch: @MainActor (SharedStepData) -> Void
     @ObservationIgnored private var activitySettings: ActivitySettings
     @ObservationIgnored private var liveBaseline: LiveStepBaseline?
@@ -46,6 +47,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     @ObservationIgnored private var lastWidgetReloadAt: Date?
     @ObservationIgnored private var lastWidgetReloadSteps: Int?
     @ObservationIgnored private var refreshChain: Task<Void, Never>?
+    @ObservationIgnored private var liveStreamGeneration = 0
     @ObservationIgnored private var streakRefreshGeneration = 0
     @ObservationIgnored private var weeklyRefreshGeneration = 0
 
@@ -77,6 +79,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         streakCalculator: any StreakCalculating,
         userDefaults: UserDefaults = .standard,
         calculator: DailyStepCalculator = DailyStepCalculator(),
+        now: @escaping @MainActor () -> Date = { .now },
         sendToWatch: @escaping @MainActor (SharedStepData) -> Void = { WatchSyncService.shared.send(stepData: $0) }
     ) {
         self.healthKitService = healthKitService
@@ -88,6 +91,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         self.streakCalculator = streakCalculator
         self.userDefaults = userDefaults
         self.calculator = calculator
+        self.now = now
         self.sendToWatch = sendToWatch
         self.activitySettings = ActivitySettings.current(userDefaults: userDefaults)
         self.currentGoal = goalService.currentGoal
@@ -101,7 +105,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             Loggers.sync.info("healthkit.authorization_skipped", metadata: ["reason": "sync_disabled"])
         }
 
-        let startOfDay = calculator.startOfDay(for: .now)
+        let startOfDay = calculator.startOfDay(for: now())
         configureLiveUpdates(for: activitySettings.activityMode, startOfDay: startOfDay)
 
         await refreshTodayData()
@@ -113,7 +117,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         refreshActivitySettings()
 
         if activitySettings.activityMode != previousSettings.activityMode {
-            let startOfDay = calculator.startOfDay(for: .now)
+            let startOfDay = calculator.startOfDay(for: now())
             configureLiveUpdates(for: activitySettings.activityMode, startOfDay: startOfDay)
         }
 
@@ -133,15 +137,22 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         let previous = refreshChain
         let task = Task { @MainActor [weak self] in
             await previous?.value
+            guard !Task.isCancelled else { return }
             await self?.performRefreshTodayData()
         }
         refreshChain = task
-        await task.value
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     private func performRefreshTodayData() async {
+        guard !Task.isCancelled else { return }
         refreshActivitySettings()
-        let startOfDay = calculator.startOfDay(for: .now)
+        let currentDate = now()
+        let startOfDay = calculator.startOfDay(for: currentDate)
         guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else {
             isUsingMotionFallback = true
             if activitySettings.activityMode == .steps {
@@ -155,6 +166,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         // HealthKit read access cannot be inferred reliably; always attempt queries.
         // If HealthKit is unavailable, fall back to Motion for steps.
         let healthAvailable = await ensureHealthAuthorizationIfNeeded()
+        guard !Task.isCancelled else { return }
         if !healthAvailable {
             isUsingMotionFallback = true
             if activitySettings.activityMode == .steps {
@@ -168,7 +180,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 // can no longer be trusted. Clear it explicitly here (the steps path clears it
                 // implicitly by failing earlier).
                 todayHeartRateSample = nil
-                lastUpdated = .now
+                lastUpdated = currentDate
                 updateSharedData()
             }
             return
@@ -177,13 +189,15 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         do {
             switch activitySettings.activityMode {
             case .steps:
-                let hkSteps = try await healthKitService.fetchSteps(from: startOfDay, to: .now)
+                let hkSteps = try await healthKitService.fetchSteps(from: startOfDay, to: currentDate)
+                guard !Task.isCancelled else { return }
 
                 // If HealthKit returns 0, attempt Motion as a heuristic: if Motion has steps,
                 // HealthKit is likely missing read access and would otherwise show "0".
                 if hkSteps == 0 {
                     do {
-                        let motionSnapshot = try await motionService.query(from: startOfDay, to: .now)
+                        let motionSnapshot = try await motionService.query(from: startOfDay, to: currentDate)
+                        guard !Task.isCancelled else { return }
                         if motionSnapshot.steps > 0 {
                             Loggers.health.info("healthkit.steps_zero_using_motion", metadata: [
                                 "motionSteps": "\(motionSnapshot.steps)"
@@ -191,7 +205,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                             isUsingMotionFallback = true
                             // HR is independent of step samples. Always attempt a fresh fetch so we
                             // honor the latest BPM (or fade to "No Data" when there is no recent sample).
-                            let sample = await resolveLatestHeartRate(start: startOfDay, end: .now)
+                            let sample = await resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                            guard !Task.isCancelled else { return }
                             let attempt = HeartRateRefreshAttempt(attempted: true, sample: sample)
                             applyMotionSnapshot(
                                 motionSnapshot,
@@ -201,11 +216,13 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                             return
                         }
                     } catch {
+                        guard !Task.isCancelled else { return }
                         Loggers.health.info("healthkit.steps_zero_using_motion", metadata: [
                             "motionError": String(describing: error)
                         ])
                         isUsingMotionFallback = true
-                        let sample = await resolveLatestHeartRate(start: startOfDay, end: .now)
+                        let sample = await resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                        guard !Task.isCancelled else { return }
                         let attempt = HeartRateRefreshAttempt(attempted: true, sample: sample)
                         clearCurrentActivityData(markStale: true, heartRate: attempt)
                         return
@@ -213,15 +230,18 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 }
 
                 isUsingMotionFallback = false
-                let distance = await resolveDistance(steps: hkSteps, start: startOfDay, end: .now)
-                let floors = await resolveFloors(start: startOfDay, end: .now)
-                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: .now)
+                let distance = await resolveDistance(steps: hkSteps, start: startOfDay, end: currentDate)
+                guard !Task.isCancelled else { return }
+                let floors = await resolveFloors(start: startOfDay, end: currentDate)
+                guard !Task.isCancelled else { return }
+                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                guard !Task.isCancelled else { return }
                 todaySteps = hkSteps
                 todayDistance = distance
                 todayFloors = floors
                 todayCalories = Double(hkSteps) * AppConstants.Metrics.caloriesPerStep
                 todayHeartRateSample = heartRate
-                lastUpdated = .now
+                lastUpdated = currentDate
                 seedLiveBaseline(
                     startOfDay: startOfDay,
                     healthKitSteps: hkSteps,
@@ -234,16 +254,20 @@ final class StepTrackingService: StepTrackingServiceProtocol {
 
             case .wheelchairPushes:
                 isUsingMotionFallback = false
-                let pushes = try await healthKitService.fetchWheelchairPushes(from: startOfDay, to: .now)
-                let distance = await resolveDistance(steps: pushes, start: startOfDay, end: .now)
-                let floors = await resolveFloors(start: startOfDay, end: .now)
-                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: .now)
+                let pushes = try await healthKitService.fetchWheelchairPushes(from: startOfDay, to: currentDate)
+                guard !Task.isCancelled else { return }
+                let distance = await resolveDistance(steps: pushes, start: startOfDay, end: currentDate)
+                guard !Task.isCancelled else { return }
+                let floors = await resolveFloors(start: startOfDay, end: currentDate)
+                guard !Task.isCancelled else { return }
+                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                guard !Task.isCancelled else { return }
                 todaySteps = pushes
                 todayDistance = distance
                 todayFloors = floors
                 todayCalories = Double(pushes) * AppConstants.Metrics.caloriesPerStep
                 todayHeartRateSample = heartRate
-                lastUpdated = .now
+                lastUpdated = currentDate
                 liveBaseline = nil
                 pendingBaseline = nil
                 updateSharedData()
@@ -251,6 +275,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 Loggers.tracking.info("pushes.refresh_today", metadata: ["pushes": "\(pushes)"])
             }
         } catch {
+            guard !Task.isCancelled else { return }
             Loggers.tracking.error("steps.refresh_failed", metadata: ["error": String(describing: error)])
             if activitySettings.activityMode == .steps {
                 Loggers.motion.info("motion.refresh_fallback", metadata: [
@@ -359,7 +384,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     /// This is used from onboarding/settings flows.
     func requestMotionAccessProbe() async {
         refreshActivitySettings()
-        let startOfDay = calculator.startOfDay(for: .now)
+        let startOfDay = calculator.startOfDay(for: now())
         await refreshTodayDataFromMotion(startOfDay: startOfDay)
     }
 
@@ -397,11 +422,20 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
-    private func updateLiveData(from snapshot: PedometerSnapshot) {
+    private func updateLiveData(from snapshot: PedometerSnapshot, generation: Int) {
+        guard generation == liveStreamGeneration else { return }
         guard activitySettings.activityMode == .steps else { return }
+        let currentDate = now()
+        let currentDayStart = calculator.startOfDay(for: currentDate)
+        if let liveSnapshotDayStart,
+           calculator.didCrossMidnight(previousDate: liveSnapshotDayStart, currentDate: currentDate) {
+            resetTodayForRollover(at: currentDate)
+            configureLiveUpdates(for: .steps, startOfDay: currentDayStart)
+            return
+        }
         lastLiveSnapshot = snapshot
-        seedPendingBaselineIfNeeded(using: snapshot)
-        let baseline = currentBaseline()
+        seedPendingBaselineIfNeeded(using: snapshot, currentDate: currentDate)
+        let baseline = currentBaseline(currentDate: currentDate)
         let steps = snapshot.steps + (baseline?.stepsOffset ?? 0)
         let distance = snapshot.distance + (baseline?.distanceOffset ?? 0)
         let floors = snapshot.floorsAscended + (baseline?.floorsOffset ?? 0)
@@ -409,7 +443,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         todayDistance = distance
         todayFloors = floors
         todayCalories = Double(steps) * AppConstants.Metrics.caloriesPerStep
-        lastUpdated = .now
+        lastUpdated = currentDate
         updateSharedData()
     }
 
@@ -418,6 +452,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     }
 
     private func configureLiveUpdates(for mode: ActivityTrackingMode, startOfDay: Date) {
+        liveStreamGeneration &+= 1
+        let generation = liveStreamGeneration
         motionService.stopLiveUpdates()
         resetLiveState()
 
@@ -427,7 +463,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         do {
             try motionService.startLiveUpdates(from: startOfDay) { [weak self] snapshot in
                 guard let self else { return }
-                self.updateLiveData(from: snapshot)
+                self.updateLiveData(from: snapshot, generation: generation)
             }
         } catch {
             Loggers.motion.warning("motion.start_failed", metadata: ["error": String(describing: error)])
@@ -439,6 +475,16 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         pendingBaseline = nil
         lastLiveSnapshot = nil
         liveSnapshotDayStart = nil
+    }
+
+    private func resetTodayForRollover(at date: Date) {
+        todaySteps = 0
+        todayDistance = 0
+        todayFloors = 0
+        todayCalories = 0
+        todayHeartRateSample = nil
+        lastUpdated = date
+        updateSharedData()
     }
 
     private func evaluateBadges(steps: Int?, streak: Int?, distance: Double? = nil) {
@@ -562,6 +608,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     }
 
     private func refreshTodayDataFromMotion(startOfDay: Date) async {
+        guard !Task.isCancelled else { return }
         guard activitySettings.activityMode == .steps else {
             Loggers.motion.info("motion.refresh_skipped", metadata: ["reason": "unsupported_mode"])
             clearCurrentActivityData(markStale: true)
@@ -573,15 +620,18 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         // disabled means we must not query HealthKit, so clear any previously cached BPM.
         let heartRateAttempt: HeartRateRefreshAttempt
         if HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) {
-            let sample = await resolveLatestHeartRate(start: startOfDay, end: .now)
+            let sample = await resolveLatestHeartRate(start: startOfDay, end: now())
+            guard !Task.isCancelled else { return }
             heartRateAttempt = HeartRateRefreshAttempt(attempted: true, sample: sample)
         } else {
             heartRateAttempt = HeartRateRefreshAttempt(attempted: true, sample: nil)
         }
         do {
-            let snapshot = try await motionService.query(from: startOfDay, to: .now)
+            let snapshot = try await motionService.query(from: startOfDay, to: now())
+            guard !Task.isCancelled else { return }
             applyMotionSnapshot(snapshot, startOfDay: startOfDay, heartRate: heartRateAttempt)
         } catch {
+            guard !Task.isCancelled else { return }
             Loggers.motion.warning("motion.refresh_failed", metadata: ["error": String(describing: error)])
             clearCurrentActivityData(markStale: true, heartRate: heartRateAttempt)
         }
@@ -604,7 +654,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         if heartRate.attempted {
             todayHeartRateSample = heartRate.sample
         }
-        lastUpdated = .now
+        lastUpdated = now()
         seedMotionBaseline(snapshot: snapshot, startOfDay: startOfDay)
         updateSharedData()
         evaluateBadges(steps: snapshot.steps, streak: nil, distance: distance)
@@ -622,7 +672,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         if heartRate.attempted {
             todayHeartRateSample = heartRate.sample
         }
-        lastUpdated = markStale ? .distantPast : .now
+        lastUpdated = markStale ? .distantPast : now()
         resetLiveState()
         updateSharedData()
     }
@@ -674,7 +724,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
 
     private func reloadWidgetsIfNeeded(steps: Int) {
         #if canImport(WidgetKit)
-        let now = Date.now
+        let now = now()
         guard Self.shouldReloadWidgets(
             lastReloadAt: lastWidgetReloadAt,
             lastReloadSteps: lastWidgetReloadSteps,
@@ -739,7 +789,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         // decision here) instead of a one-off `Calendar.current`, so the current-day merge stays
         // consistent with `seedLiveBaseline`/`currentBaseline` and is exercisable under a fixed
         // test calendar.
-        guard !calculator.didCrossMidnight(previousDate: summary.date, currentDate: .now) else {
+        guard !calculator.didCrossMidnight(previousDate: summary.date, currentDate: now()) else {
             return summary
         }
 
@@ -758,9 +808,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         )
     }
 
-    private func currentBaseline() -> LiveStepBaseline? {
+    private func currentBaseline(currentDate: Date) -> LiveStepBaseline? {
         guard let baseline = liveBaseline else { return nil }
-        guard !calculator.didCrossMidnight(previousDate: baseline.dayStart, currentDate: .now) else {
+        guard !calculator.didCrossMidnight(previousDate: baseline.dayStart, currentDate: currentDate) else {
             liveBaseline = nil
             return nil
         }
@@ -800,9 +850,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
-    private func seedPendingBaselineIfNeeded(using snapshot: PedometerSnapshot) {
+    private func seedPendingBaselineIfNeeded(using snapshot: PedometerSnapshot, currentDate: Date) {
         guard let pendingBaseline else { return }
-        guard !calculator.didCrossMidnight(previousDate: pendingBaseline.dayStart, currentDate: .now) else {
+        guard !calculator.didCrossMidnight(previousDate: pendingBaseline.dayStart, currentDate: currentDate) else {
             self.pendingBaseline = nil
             return
         }

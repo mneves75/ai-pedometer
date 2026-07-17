@@ -130,6 +130,50 @@ struct HealthKitSyncServiceTests {
         #expect(workout.healthKitExportLastFailureAt == nil)
     }
 
+    @Test("Deferred workout export remains pending without recording a failure")
+    func deferredWorkoutExportRemainsPending() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let workout = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-1_800),
+            endTime: .now,
+            healthKitExportState: .pending
+        )
+        modelContext.insert(workout)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        mockHealthKit.saveWorkoutOutcomeToReturn = .deferred
+
+        try await service.performIncrementalSync()
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 1)
+        #expect(workout.healthKitExportState == .pending)
+        #expect(workout.healthKitWorkoutID == nil)
+        #expect(workout.healthKitExportFailureCount == 0)
+    }
+
+    @Test("Not-required workout export is explicit and never invents an identifier")
+    func notRequiredWorkoutExportIsExplicit() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let workout = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-1_800),
+            endTime: .now,
+            healthKitExportState: .pending
+        )
+        modelContext.insert(workout)
+        try modelContext.save()
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        mockHealthKit.saveWorkoutOutcomeToReturn = .notRequired
+
+        try await service.performIncrementalSync()
+
+        #expect(mockHealthKit.saveWorkoutCallCount == 1)
+        #expect(workout.healthKitExportState == .notRequired)
+        #expect(workout.healthKitWorkoutID == nil)
+        #expect(workout.healthKitExportFailureCount == 0)
+    }
+
     @Test("Retry after remote commit reuses the stable identifier instead of duplicating")
     func retryAfterRemoteCommitIsIdempotent() async throws {
         let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()

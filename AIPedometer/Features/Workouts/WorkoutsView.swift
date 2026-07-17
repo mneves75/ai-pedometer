@@ -33,6 +33,8 @@ struct WorkoutsView: View {
     @State private var importedRoute: ImportedRoute? = GPXRouteImporter.loadImportedRoute()
     @State private var isImportingRoute = false
     @State private var routeImportError: RouteImportError?
+    @State private var isHandlingRecovery = false
+    @State private var isConfirmingRecoveryDiscard = false
 
     private var activityMode: ActivityTrackingMode {
         ActivityTrackingMode(rawValue: activityModeRaw) ?? .steps
@@ -45,6 +47,45 @@ struct WorkoutsView: View {
         let activePlanID: UUID?
     }
 
+    private struct PresentedError {
+        let title: String
+        let message: String
+    }
+
+    private var presentedError: PresentedError? {
+        if let routeImportError {
+            return PresentedError(
+                title: L10n.localized("Could not import route", comment: "GPX import error alert title"),
+                message: routeImportError.message
+            )
+        }
+
+        if let error = workoutController.lastError {
+            return PresentedError(
+                title: L10n.localized("Workout Error", comment: "Workout error alert title"),
+                message: error.localizedDescription
+            )
+        }
+
+        return nil
+    }
+
+    private var isPresentingError: Binding<Bool> {
+        Binding(
+            get: { presentedError != nil },
+            set: { isPresented in
+                if !isPresented {
+                    clearPresentedError()
+                }
+            }
+        )
+    }
+
+    private func clearPresentedError() {
+        routeImportError = nil
+        workoutController.lastError = nil
+    }
+
     var body: some View {
         @Bindable var workoutController = workoutController
         ScrollView {
@@ -53,10 +94,15 @@ struct WorkoutsView: View {
                 if workoutController.isActive {
                     activeWorkoutBanner
                 }
+                if workoutController.requiresWorkoutRecovery {
+                    recoveryWorkoutSection
+                }
                 aiWorkoutSection
                 expeditionModeSection
                 routeImportSection
-                startWorkoutSection
+                if !workoutController.requiresWorkoutRecovery {
+                    startWorkoutSection
+                }
                 trainingPlansSection
                 recentWorkoutsSection
             }
@@ -76,12 +122,34 @@ struct WorkoutsView: View {
         ) { result in
             importRoute(from: result)
         }
-        .alert(item: $routeImportError) { error in
-            Alert(
-                title: Text(L10n.localized("Could not import route", comment: "GPX import error alert title")),
-                message: Text(error.message),
-                dismissButton: .default(Text(L10n.localized("OK", comment: "Generic OK button")))
-            )
+        .alert(
+            presentedError?.title ?? "",
+            isPresented: isPresentingError,
+            presenting: presentedError
+        ) { _ in
+            Button(L10n.localized("OK", comment: "Generic OK button"), role: .cancel) {
+                clearPresentedError()
+            }
+        } message: { error in
+            Text(error.message)
+        }
+        .confirmationDialog(
+            L10n.localized("Discard Workout", comment: "Confirmation dialog title for discarding workout"),
+            isPresented: $isConfirmingRecoveryDiscard,
+            titleVisibility: .visible
+        ) {
+            Button(
+                L10n.localized("Discard Workout", comment: "Discard recovered workout action"),
+                role: .destructive
+            ) {
+                handleRecovery(discard: true)
+            }
+            Button(L10n.localized("Cancel", comment: "Cancel action"), role: .cancel) {}
+        } message: {
+            Text(L10n.localized(
+                "This will remove the workout and discard progress.",
+                comment: "Message explaining that discarding removes progress"
+            ))
         }
         .task(id: RecommendationTrigger(
             aiAvailable: aiService.availability.isAvailable,
@@ -383,6 +451,75 @@ struct WorkoutsView: View {
         .padding(.vertical, DesignTokens.Spacing.lg)
     }
 
+    private var recoveryWorkoutSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            Label {
+                Text(L10n.localized("Unfinished Workout", comment: "Title for a workout recovered after app interruption"))
+                    .font(DesignTokens.Typography.headline)
+            } icon: {
+                Image(systemName: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
+                    .foregroundStyle(DesignTokens.Colors.accent)
+            }
+
+            Text(L10n.localized(
+                "A previous workout ended unexpectedly. Finish it using the last saved checkpoint, or discard it before starting another workout.",
+                comment: "Explanation for recovering an unfinished workout"
+            ))
+            .font(DesignTokens.Typography.subheadline)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    recoveryActionButtons
+                }
+
+                VStack(spacing: DesignTokens.Spacing.sm) {
+                    recoveryActionButtons
+                }
+            }
+            .disabled(isHandlingRecovery)
+
+            if isHandlingRecovery {
+                ProgressView(
+                    L10n.localized(
+                        "Updating workout...",
+                        comment: "Progress status while resolving an unfinished workout"
+                    )
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(DesignTokens.Spacing.md)
+        .glassCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(A11yID.Workouts.recoveryCard)
+        .padding(.horizontal, DesignTokens.Spacing.md)
+    }
+
+    @ViewBuilder
+    private var recoveryActionButtons: some View {
+        Button {
+            handleRecovery(discard: false)
+        } label: {
+            Text(L10n.localized(
+                "Finish Saved Workout",
+                comment: "Action that finishes an interrupted workout at its last saved checkpoint"
+            ))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier(A11yID.Workouts.finishRecoveredWorkoutButton)
+
+        Button(role: .destructive) {
+            isConfirmingRecoveryDiscard = true
+        } label: {
+            Text(L10n.localized("Discard Workout", comment: "Discard recovered workout action"))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier(A11yID.Workouts.discardRecoveredWorkoutButton)
+    }
+
     private var trainingPlansSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(L10n.localized("Training Plans", comment: "Section header for training plans"))
@@ -513,6 +650,19 @@ struct WorkoutsView: View {
 
         Task {
             await workoutController.startWorkout(type: .outdoorWalk, targetSteps: targetSteps)
+        }
+    }
+
+    private func handleRecovery(discard: Bool) {
+        guard !isHandlingRecovery else { return }
+        isHandlingRecovery = true
+        Task {
+            if discard {
+                await workoutController.discardRecoverableWorkout()
+            } else {
+                await workoutController.finishRecoverableWorkout()
+            }
+            isHandlingRecovery = false
         }
     }
 

@@ -119,13 +119,15 @@ struct HealthKitWorkoutSamplesTests {
 
         let firstExport = Task { @MainActor in try await service.saveWorkout(first) }
         let secondExport = Task { @MainActor in try await service.saveWorkout(second) }
-        try await firstExport.value
-        try await secondExport.value
+        let firstOutcome = try await firstExport.value
+        let secondOutcome = try await secondExport.value
 
         #expect(lookupCalls == 1)
         #expect(creationCalls == 1)
         #expect(first.healthKitWorkoutID == createdWorkoutID)
         #expect(second.healthKitWorkoutID == createdWorkoutID)
+        #expect(firstOutcome == .exported(createdWorkoutID))
+        #expect(secondOutcome == .exported(createdWorkoutID))
     }
 
     @Test

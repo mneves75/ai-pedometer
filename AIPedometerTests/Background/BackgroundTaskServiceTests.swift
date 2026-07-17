@@ -22,9 +22,43 @@ final class MockBackgroundScheduler: BackgroundTaskScheduling {
 final class FakeAppRefreshTask: AppRefreshTaskProtocol {
     var expirationHandler: (() -> Void)?
     private(set) var completed: Bool?
+    private let completionProbe = AppRefreshCompletionProbe()
 
     func setTaskCompleted(success: Bool) {
         completed = success
+        let completionProbe = completionProbe
+        Task {
+            await completionProbe.record(success)
+        }
+    }
+
+    @MainActor
+    func waitUntilCompleted() async -> Bool {
+        await completionProbe.waitForCompletion()
+    }
+}
+
+private actor AppRefreshCompletionProbe {
+    private var result: Bool?
+    private var waiters: [CheckedContinuation<Bool, Never>] = []
+
+    func record(_ result: Bool) {
+        guard self.result == nil else { return }
+        self.result = result
+        let currentWaiters = waiters
+        waiters.removeAll()
+        for waiter in currentWaiters {
+            waiter.resume(returning: result)
+        }
+    }
+
+    func waitForCompletion() async -> Bool {
+        if let result {
+            return result
+        }
+        return await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
     }
 }
 
@@ -32,17 +66,77 @@ final class FakeAppRefreshTask: AppRefreshTaskProtocol {
 final class MockStepTrackingService: StepTrackingServiceProtocol {
     private(set) var refreshCalled = false
     private(set) var flushCallCount = 0
-    var refreshDelayNanoseconds: UInt64 = 0
 
     func refreshTodayData() async {
-        if refreshDelayNanoseconds > 0 {
-            try? await Task.sleep(nanoseconds: refreshDelayNanoseconds)
-        }
         refreshCalled = true
     }
 
     func flushSharedData() {
         flushCallCount += 1
+    }
+}
+
+@MainActor
+final class BlockingStepTrackingService: StepTrackingServiceProtocol {
+    private(set) var refreshStarted = false
+    private(set) var cancellationObserved = false
+    private(set) var committed = false
+    private(set) var flushCallCount = 0
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var cancellationWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func refreshTodayData() async {
+        refreshStarted = true
+        let currentStartWaiters = startWaiters
+        startWaiters.removeAll()
+        for waiter in currentStartWaiters {
+            waiter.resume()
+        }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelAndResume()
+            }
+        }
+        guard !Task.isCancelled else { return }
+        committed = true
+    }
+
+    func flushSharedData() {
+        flushCallCount += 1
+    }
+
+    func waitUntilRefreshStarts() async {
+        if refreshStarted {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func waitUntilCancellationIsObserved() async {
+        if cancellationObserved {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            cancellationWaiters.append(continuation)
+        }
+    }
+
+    private func cancelAndResume() {
+        cancellationObserved = true
+        let currentCancellationWaiters = cancellationWaiters
+        cancellationWaiters.removeAll()
+        for waiter in currentCancellationWaiters {
+            waiter.resume()
+        }
+        continuation?.resume()
+        continuation = nil
     }
 }
 
@@ -89,8 +183,9 @@ struct BackgroundTaskServiceTests {
         let task = FakeAppRefreshTask()
 
         service.handleAppRefresh(task: task)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        let completed = await task.waitUntilCompleted()
 
+        #expect(completed)
         #expect(task.completed == true)
         #expect(tracker.refreshCalled == true)
         #expect(reconciliationCount == 1)
@@ -100,8 +195,7 @@ struct BackgroundTaskServiceTests {
     @Test("handleAppRefresh expiration does not get overwritten by late success")
     func handleAppRefreshExpirationWins() async {
         let scheduler = MockBackgroundScheduler()
-        let tracker = MockStepTrackingService()
-        tracker.refreshDelayNanoseconds = 80_000_000
+        let tracker = BlockingStepTrackingService()
         var reconciliationCount = 0
         let service = BackgroundTaskService(
             stepTrackingService: tracker,
@@ -111,12 +205,33 @@ struct BackgroundTaskServiceTests {
         let task = FakeAppRefreshTask()
 
         service.handleAppRefresh(task: task)
+        await tracker.waitUntilRefreshStarts()
         task.expirationHandler?()
-        try? await Task.sleep(nanoseconds: 120_000_000)
+        await tracker.waitUntilCancellationIsObserved()
+        let completed = await task.waitUntilCompleted()
 
+        #expect(!completed)
         #expect(task.completed == false)
         #expect(reconciliationCount == 0)
-        #expect(tracker.flushCallCount == 1)
+        #expect(tracker.flushCallCount == 0)
+    }
+
+    @Test("Expiration cancels blocked refresh and prevents commit or flush")
+    func expirationCancelsBlockedRefresh() async {
+        let scheduler = MockBackgroundScheduler()
+        let tracker = BlockingStepTrackingService()
+        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
+        let task = FakeAppRefreshTask()
+
+        service.handleAppRefresh(task: task)
+        await tracker.waitUntilRefreshStarts()
+        task.expirationHandler?()
+        await tracker.waitUntilCancellationIsObserved()
+
+        #expect(task.completed == false)
+        #expect(tracker.cancellationObserved)
+        #expect(!tracker.committed)
+        #expect(tracker.flushCallCount == 0)
     }
 
     @Test("handleAppRefresh does not overwrite completed success when expiration fires later")
@@ -127,10 +242,10 @@ struct BackgroundTaskServiceTests {
         let task = FakeAppRefreshTask()
 
         service.handleAppRefresh(task: task)
-        try? await Task.sleep(nanoseconds: 70_000_000)
+        let completed = await task.waitUntilCompleted()
         task.expirationHandler?()
-        try? await Task.sleep(nanoseconds: 20_000_000)
 
+        #expect(completed)
         #expect(task.completed == true)
     }
 }

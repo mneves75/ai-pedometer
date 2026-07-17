@@ -415,6 +415,8 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             }
         }.prefix(Self.workoutExportBatchLimit).map { $0 }
         var exportedCount = 0
+        var deferredCount = 0
+        var notRequiredCount = 0
         var failedCount = 0
 
         for session in pending {
@@ -424,15 +426,24 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             try modelContext.save()
 
             do {
-                try await healthKitService.saveWorkout(session)
-                guard session.healthKitWorkoutID != nil else {
-                    throw HealthKitError.queryFailed
+                switch try await healthKitService.saveWorkout(session) {
+                case let .exported(workoutID):
+                    session.healthKitWorkoutID = workoutID
+                    session.healthKitExportState = HealthKitWorkoutExportState.exported
+                    session.healthKitExportFailureCount = 0
+                    session.healthKitExportLastFailureAt = nil
+                    session.healthKitExportLastErrorCode = nil
+                    exportedCount += 1
+                case .deferred:
+                    session.healthKitExportState = HealthKitWorkoutExportState.pending
+                    deferredCount += 1
+                case .notRequired:
+                    session.healthKitExportState = HealthKitWorkoutExportState.notRequired
+                    session.healthKitExportFailureCount = 0
+                    session.healthKitExportLastFailureAt = nil
+                    session.healthKitExportLastErrorCode = nil
+                    notRequiredCount += 1
                 }
-                session.healthKitExportState = HealthKitWorkoutExportState.exported
-                session.healthKitExportFailureCount = 0
-                session.healthKitExportLastFailureAt = nil
-                session.healthKitExportLastErrorCode = nil
-                exportedCount += 1
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -449,6 +460,8 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         Loggers.sync.info("sync.workout_exports_reconciled", metadata: [
             "pending": "\(pending.count)",
             "exported": "\(exportedCount)",
+            "deferred": "\(deferredCount)",
+            "not_required": "\(notRequiredCount)",
             "failed": "\(failedCount)",
             "range_requested": startDate < endDate ? "true" : "false"
         ])

@@ -245,6 +245,48 @@ struct HealthKitServiceFallbackTests {
         let recoveredSteps = try await service.fetchTodaySteps()
         #expect(recoveredSteps == 4321)
     }
+
+    @Test("Workout save is deferred while HealthKit sync is disabled")
+    func workoutSaveIsDeferredWhenSyncIsDisabled() async throws {
+        let suiteName = "HealthKitServiceFallbackTests-workout-sync-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        let store = DemoModeStore(userDefaults: defaults)
+        let service = HealthKitServiceFallback(
+            primary: MutableHealthKitService(),
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        let outcome = try await service.saveWorkout(
+            WorkoutSession(type: .outdoorWalk, startTime: .now, endTime: .now)
+        )
+
+        #expect(outcome == .deferred)
+    }
+
+    @Test("Demo workout save is explicitly not required")
+    func demoWorkoutSaveIsNotRequired() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: true)
+        defer { cleanup() }
+        let service = HealthKitServiceFallback(
+            primary: MutableHealthKitService(),
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        let outcome = try await service.saveWorkout(
+            WorkoutSession(type: .outdoorWalk, startTime: .now, endTime: .now)
+        )
+
+        #expect(outcome == .notRequired)
+    }
 }
 
 @MainActor
@@ -312,7 +354,7 @@ private final class FailingHealthKitService: HealthKitServiceProtocol {
         throw queryError
     }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         throw queryError
     }
 }
@@ -352,7 +394,7 @@ private final class SpyHealthKitService: HealthKitServiceProtocol {
         manualStepLength: Double,
         dailyGoal: Int
     ) async throws -> [DailyStepSummary] { [] }
-    func saveWorkout(_ session: WorkoutSession) async throws {}
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome { .notRequired }
 }
 
 @MainActor
@@ -380,7 +422,7 @@ private final class MutableHealthKitService: HealthKitServiceProtocol {
     }
     func fetchDailySummaries(days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
     func fetchDailySummaries(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int) async throws -> [DailyStepSummary] { dailySummariesToReturn }
-    func saveWorkout(_ session: WorkoutSession) async throws {}
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome { .notRequired }
 }
 
 @MainActor

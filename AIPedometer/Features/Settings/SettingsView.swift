@@ -28,6 +28,7 @@ struct SettingsView: View {
     @State private var notificationAlertOffersSettings = false
     @State private var isUpdatingNotifications = false
     @State private var isUpdatingSmartReminders = false
+    @State private var smartReminderUpdateGeneration = 0
     @State private var showHealthHelp = false
 
     private var activityMode: ActivityTrackingMode {
@@ -541,8 +542,14 @@ struct SettingsView: View {
     }
 
     private func updateSmartReminders(enabled: Bool) async {
+        smartReminderUpdateGeneration &+= 1
+        let updateGeneration = smartReminderUpdateGeneration
         isUpdatingSmartReminders = true
-        defer { isUpdatingSmartReminders = false }
+        defer {
+            if smartReminderUpdateGeneration == updateGeneration {
+                isUpdatingSmartReminders = false
+            }
+        }
 
         guard premiumAccessStore.canAccessAIFeatures else {
             smartRemindersEnabled = false
@@ -565,23 +572,35 @@ struct SettingsView: View {
         }
 
         if enabled {
-            guard await ensureNotificationAuthorization() else {
-                smartRemindersEnabled = false
-                return
-            }
-            let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
-                at: AppConstants.Notifications.defaultSmartReminderHour,
-                minute: AppConstants.Notifications.defaultSmartReminderMinute
+            let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
+                isCurrent: { smartReminderUpdateGeneration == updateGeneration },
+                isEnabled: { smartRemindersEnabled },
+                premiumEnabled: { premiumAccessStore.canAccessAIFeatures },
+                aiAvailability: { aiService.availability },
+                ensureAuthorization: { await ensureNotificationAuthorization() },
+                scheduleReminder: {
+                    await smartNotificationService.scheduleMotivationalReminder(
+                        at: AppConstants.Notifications.defaultSmartReminderHour,
+                        minute: AppConstants.Notifications.defaultSmartReminderMinute
+                    )
+                },
+                cancelReminders: { smartNotificationService.cancelAllSmartNotifications() }
             )
-            guard didSchedule else {
+
+            switch result {
+            case .scheduled:
+                Loggers.ai.info("notifications.smart_enabled")
+            case .stale:
+                break
+            case .authorizationDenied:
+                smartRemindersEnabled = false
+            case .scheduleFailed:
                 smartRemindersEnabled = false
                 showNotificationAlert(
                     message: L10n.localized("Unable to schedule notifications. Please try again.", comment: "Alert when scheduling notifications fails"),
                     offersSettings: false
                 )
-                return
             }
-            Loggers.ai.info("notifications.smart_enabled")
         } else {
             smartNotificationService.cancelAllSmartNotifications()
             Loggers.ai.info("notifications.smart_disabled")
@@ -597,12 +616,16 @@ struct SettingsView: View {
         case .keep:
             break
         case .disablePremium:
+            smartReminderUpdateGeneration &+= 1
             smartNotificationService.cancelAllSmartNotifications()
             smartRemindersEnabled = false
+            isUpdatingSmartReminders = false
             Loggers.ai.info("notifications.smart_disabled", metadata: ["reason": "premium_unavailable"])
         case .disableUnavailableAI:
+            smartReminderUpdateGeneration &+= 1
             smartNotificationService.cancelAllSmartNotifications()
             smartRemindersEnabled = false
+            isUpdatingSmartReminders = false
             Loggers.ai.info("notifications.smart_disabled", metadata: ["reason": "ai_unavailable"])
         }
     }
@@ -663,6 +686,11 @@ struct GoalEditorSheet: View {
     let onSave: (Int) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var tempGoal: Double
+    @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.xl
+
+    private var boundedGoalValueFontSize: CGFloat {
+        min(max(goalValueFontSize, DesignTokens.FontSize.xl), DesignTokens.FontSize.xxl)
+    }
 
     init(initialGoal: Int, unitName: String, onSave: @escaping (Int) -> Void) {
         self.initialGoal = initialGoal
@@ -677,8 +705,10 @@ struct GoalEditorSheet: View {
                 Spacer()
 
                 Text("\(Int(tempGoal).formatted())")
-                    .font(.system(size: DesignTokens.FontSize.xl, weight: .bold, design: .rounded))
+                    .font(.system(size: boundedGoalValueFontSize, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .contentTransition(.numericText())
                     .accessibilityIdentifier(A11yID.GoalEditor.value)
 

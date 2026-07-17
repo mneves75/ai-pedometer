@@ -3,6 +3,12 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedTab: Tab = .dashboard
+    @State private var preferredRegularTab: Tab = .dashboard
+
+    enum Layout: Equatable {
+        case compact
+        case regular
+    }
 
     enum Tab: String, CaseIterable {
         case dashboard
@@ -51,13 +57,56 @@ struct MainTabView: View {
         }
     }
 
+    private var layout: Layout {
+        horizontalSizeClass == .regular ? .regular : .compact
+    }
+
+    static func normalizedSelection(_ selection: Tab, for layout: Layout) -> Tab {
+        switch layout {
+        case .compact:
+            selection.isPhoneTab ? selection : .more
+        case .regular:
+            selection.isTabletTab ? selection : .dashboard
+        }
+    }
+
+    static func transitionedSelection(
+        _ selection: Tab,
+        preferredRegularSelection: Tab,
+        to layout: Layout
+    ) -> (selection: Tab, preferredRegularSelection: Tab) {
+        let preferredSelection = selection.isTabletTab ? selection : preferredRegularSelection
+
+        switch layout {
+        case .compact:
+            return (normalizedSelection(selection, for: layout), preferredSelection)
+        case .regular:
+            let selectionToRestore = selection == .more ? preferredSelection : selection
+            let restoredSelection = normalizedSelection(selectionToRestore, for: layout)
+            return (restoredSelection, restoredSelection)
+        }
+    }
+
     var body: some View {
         Group {
-            if horizontalSizeClass == .regular {
+            if layout == .regular {
                 iPadLayout
             } else {
                 iPhoneLayout
             }
+        }
+        .onChange(of: layout, initial: true) { _, newLayout in
+            let transition = Self.transitionedSelection(
+                selectedTab,
+                preferredRegularSelection: preferredRegularTab,
+                to: newLayout
+            )
+            preferredRegularTab = transition.preferredRegularSelection
+            selectedTab = transition.selection
+        }
+        .onChange(of: selectedTab) { _, newSelection in
+            guard newSelection != .more else { return }
+            preferredRegularTab = newSelection
         }
     }
 

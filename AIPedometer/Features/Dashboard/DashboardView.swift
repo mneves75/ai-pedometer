@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 enum HeartRateDisplayFormatter {
     static let freshnessThreshold: TimeInterval = 5 * 60
+    static let freshnessRefreshInterval: TimeInterval = 60
 
     private static let relativeDateFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
@@ -57,6 +58,7 @@ struct DashboardView: View {
     @State private var dailyInsight: DailyInsight?
     @State private var insightError: AIServiceError?
     @State private var showHealthHelp = false
+    @ScaledMetric(relativeTo: .largeTitle) private var progressValueFontSize = DesignTokens.FontSize.md
 
     // Hidden easter egg: tapping the ring's center a few times in a row throws a
     // confetti burst. No UI affordance hints at it; it is purely local and
@@ -67,6 +69,10 @@ struct DashboardView: View {
 
     private let progressRingSize: CGFloat = DesignTokens.Sizing.progressRing
     private let progressRingLineWidth: CGFloat = DesignTokens.Sizing.progressRingLineWidth
+
+    private var boundedProgressValueFontSize: CGFloat {
+        min(max(progressValueFontSize, DesignTokens.FontSize.md), DesignTokens.FontSize.lg)
+    }
 
     private struct LoadTrigger: Hashable {
         let activityModeRaw: String
@@ -387,8 +393,10 @@ struct DashboardView: View {
     private var progressRingContent: some View {
         VStack(spacing: DesignTokens.Spacing.xxs) {
             Text(trackingService.todaySteps.formattedSteps)
-                .font(.system(size: DesignTokens.FontSize.md, weight: .bold, design: .rounded))
+                .font(.system(size: boundedProgressValueFontSize, weight: .bold, design: .rounded))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .contentTransition(.numericText())
             Text(
                 Localization.format(
@@ -427,41 +435,42 @@ struct DashboardView: View {
             StatItem(
                 icon: activityMode.iconName,
                 title: L10n.localized("Distance"),
-                value: trackingService.todayDistance.formattedDistance(),
+                value: .text(trackingService.todayDistance.formattedDistance(), accessibilityValue: nil),
                 color: DesignTokens.Colors.accent,
-                accessibilityValue: nil
             ),
             StatItem(
                 icon: "flame.fill",
                 title: L10n.localized("Calories", comment: "Dashboard stat card title"),
-                value: "\(trackingService.todayCalories.formattedCalories()) \(L10n.localized("kcal", comment: "Calories unit"))",
+                value: .text(
+                    "\(trackingService.todayCalories.formattedCalories()) \(L10n.localized("kcal", comment: "Calories unit"))",
+                    accessibilityValue: nil
+                ),
                 color: DesignTokens.Colors.orange,
-                accessibilityValue: nil
             ),
             StatItem(
                 icon: "figure.stairs",
                 title: L10n.localized("Floors", comment: "Dashboard stat card title"),
-                value: "\(trackingService.todayFloors)",
+                value: .text("\(trackingService.todayFloors)", accessibilityValue: nil),
                 color: DesignTokens.Colors.green,
-                accessibilityValue: nil
             ),
             StatItem(
                 icon: "heart.fill",
                 title: L10n.localized("Heart Rate", comment: "Dashboard stat card title"),
-                value: heartRateText,
+                value: .heartRate(trackingService.todayHeartRateSample),
                 color: DesignTokens.Colors.red,
-                accessibilityValue: heartRateAccessibilityText
             ),
             StatItem(
                 icon: "flame.circle",
                 title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
-                value: Localization.format(
-                    "%lld days",
-                    comment: "The value of the stat card for the current streak.",
-                    Int64(trackingService.currentStreak)
+                value: .text(
+                    Localization.format(
+                        "%lld days",
+                        comment: "The value of the stat card for the current streak.",
+                        Int64(trackingService.currentStreak)
+                    ),
+                    accessibilityValue: nil
                 ),
                 color: DesignTokens.Colors.accent,
-                accessibilityValue: nil
             )
         ]
     }
@@ -472,25 +481,35 @@ struct DashboardView: View {
             spacing: DesignTokens.Spacing.md
         ) {
             ForEach(Array(statItems.enumerated()), id: \.element.id) { index, item in
-                StatCard(
-                    icon: item.icon,
-                    title: item.title,
-                    value: item.value,
-                    color: item.color,
-                    accessibilityValue: item.accessibilityValue
-                )
+                statCard(for: item)
                 .staggeredReveal(index: index, isRevealed: revealStats)
                 .scrollFadeIn()
             }
         }
     }
 
-    private var heartRateText: String {
-        HeartRateDisplayFormatter.visualText(sample: trackingService.todayHeartRateSample)
-    }
-
-    private var heartRateAccessibilityText: String {
-        HeartRateDisplayFormatter.accessibilityText(sample: trackingService.todayHeartRateSample)
+    @ViewBuilder
+    private func statCard(for item: StatItem) -> some View {
+        switch item.value {
+        case .text(let value, let accessibilityValue):
+            StatCard(
+                icon: item.icon,
+                title: item.title,
+                value: value,
+                color: item.color,
+                accessibilityValue: accessibilityValue
+            )
+        case .heartRate(let sample):
+            TimelineView(.periodic(from: .now, by: HeartRateDisplayFormatter.freshnessRefreshInterval)) { context in
+                StatCard(
+                    icon: item.icon,
+                    title: item.title,
+                    value: HeartRateDisplayFormatter.visualText(sample: sample, now: context.date),
+                    color: item.color,
+                    accessibilityValue: HeartRateDisplayFormatter.accessibilityText(sample: sample, now: context.date)
+                )
+            }
+        }
     }
 
 }
@@ -498,11 +517,15 @@ struct DashboardView: View {
 // MARK: - Stat Item
 
 private struct StatItem: Identifiable {
+    enum Value {
+        case text(String, accessibilityValue: String?)
+        case heartRate(HeartRateSample?)
+    }
+
     let icon: String
     let title: String
-    let value: String
+    let value: Value
     let color: Color
-    let accessibilityValue: String?
 
     // Stable identity for ForEach: the title is unique per card and does not
     // change as the value updates, so reveal/transition state is preserved.

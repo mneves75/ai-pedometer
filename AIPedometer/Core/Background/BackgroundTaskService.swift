@@ -113,10 +113,11 @@ final class BackgroundTaskService {
 
     @MainActor
     func performRefresh() async {
-        defer { stepTrackingService.flushSharedData() }
         await stepTrackingService.refreshTodayData()
         guard !Task.isCancelled else { return }
         await performHealthKitReconciliation()
+        guard !Task.isCancelled else { return }
+        stepTrackingService.flushSharedData()
     }
 }
 #endif
