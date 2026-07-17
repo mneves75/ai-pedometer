@@ -388,7 +388,7 @@ struct HistoryView: View {
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(
             Localization.format(
                 "Weekly %@ summary chart",

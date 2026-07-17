@@ -21,6 +21,68 @@ struct LocalizationTests {
         #expect(titles.count == uniqueTitles.count, "All tab titles should be unique")
     }
 
+    @Test("Compact navigation maps every selection to a valid phone tab")
+    @MainActor
+    func compactNavigationNormalizesEverySelection() {
+        let expectedSelections: [MainTabView.Tab: MainTabView.Tab] = [
+            .dashboard: .dashboard,
+            .history: .history,
+            .workouts: .workouts,
+            .badges: .more,
+            .aiCoach: .aiCoach,
+            .settings: .more,
+            .more: .more,
+        ]
+
+        for selection in MainTabView.Tab.allCases {
+            let normalized = MainTabView.normalizedSelection(selection, for: .compact)
+            #expect(normalized == expectedSelections[selection])
+            #expect(normalized.isPhoneTab)
+        }
+    }
+
+    @Test("Regular navigation maps every selection to a valid tablet tab")
+    @MainActor
+    func regularNavigationNormalizesEverySelection() {
+        let expectedSelections: [MainTabView.Tab: MainTabView.Tab] = [
+            .dashboard: .dashboard,
+            .history: .history,
+            .workouts: .workouts,
+            .badges: .badges,
+            .aiCoach: .aiCoach,
+            .settings: .settings,
+            .more: .dashboard,
+        ]
+
+        for selection in MainTabView.Tab.allCases {
+            let normalized = MainTabView.normalizedSelection(selection, for: .regular)
+            #expect(normalized == expectedSelections[selection])
+            #expect(normalized.isTabletTab)
+        }
+    }
+
+    @Test("Adaptive navigation preserves hidden tablet destinations across a compact round trip")
+    @MainActor
+    func adaptiveNavigationPreservesTabletDestination() {
+        for tabletOnlySelection in [MainTabView.Tab.badges, .settings] {
+            let compactTransition = MainTabView.transitionedSelection(
+                tabletOnlySelection,
+                preferredRegularSelection: .dashboard,
+                to: .compact
+            )
+            #expect(compactTransition.selection == .more)
+            #expect(compactTransition.preferredRegularSelection == tabletOnlySelection)
+
+            let regularTransition = MainTabView.transitionedSelection(
+                compactTransition.selection,
+                preferredRegularSelection: compactTransition.preferredRegularSelection,
+                to: .regular
+            )
+            #expect(regularTransition.selection == tabletOnlySelection)
+            #expect(regularTransition.preferredRegularSelection == tabletOnlySelection)
+        }
+    }
+
     // MARK: - WorkoutType Localization
 
     @Test("WorkoutType displayNames return non-empty localized strings")

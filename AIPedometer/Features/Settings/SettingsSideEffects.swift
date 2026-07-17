@@ -6,6 +6,13 @@ enum SmartReminderAccessDecision: Equatable {
     case disableUnavailableAI(AIUnavailabilityReason?)
 }
 
+enum SmartReminderSchedulingResult: Equatable {
+    case scheduled
+    case stale
+    case authorizationDenied
+    case scheduleFailed
+}
+
 enum SettingsSideEffects {
     static func smartReminderAccessDecision(
         isEnabled: Bool,
@@ -20,6 +27,43 @@ enum SettingsSideEffects {
         }
 
         return .keep
+    }
+
+    @MainActor
+    static func scheduleSmartReminderIfCurrent(
+        isCurrent: @escaping @MainActor () -> Bool,
+        isEnabled: @escaping @MainActor () -> Bool,
+        premiumEnabled: @escaping @MainActor () -> Bool,
+        aiAvailability: @escaping @MainActor () -> AIModelAvailability,
+        ensureAuthorization: @escaping @MainActor () async -> Bool,
+        scheduleReminder: @escaping @MainActor () async -> Bool,
+        cancelReminders: @escaping @MainActor () -> Void
+    ) async -> SmartReminderSchedulingResult {
+        let isEligible: @MainActor () -> Bool = {
+            isEnabled() && premiumEnabled() && aiAvailability().isAvailable
+        }
+
+        guard isCurrent(), isEligible() else {
+            return .stale
+        }
+        guard await ensureAuthorization() else {
+            return .authorizationDenied
+        }
+        guard isCurrent(), isEligible() else {
+            return .stale
+        }
+
+        let didSchedule = await scheduleReminder()
+        guard isEligible() else {
+            if didSchedule {
+                cancelReminders()
+            }
+            return .stale
+        }
+        guard isCurrent() else {
+            return .stale
+        }
+        return didSchedule ? .scheduled : .scheduleFailed
     }
 
     @MainActor

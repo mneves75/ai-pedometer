@@ -48,7 +48,9 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         dailyGoal: Int
     )?
     var errorToThrow: (any Error)?
+    var fetchStepsHandler: (@MainActor @Sendable (Date, Date) async throws -> Int)?
     var saveWorkoutErrorToThrow: (any Error)?
+    var saveWorkoutOutcomeToReturn: HealthKitWorkoutSaveOutcome?
     var saveWorkoutCallCount = 0
     private(set) var saveWorkoutIdentifiers: [UUID] = []
     var workoutIDToAssign: UUID?
@@ -69,17 +71,20 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         return stepsToReturn
     }
 
-    func fetchSteps(from _: Date, to _: Date) async throws -> Int {
+    func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int {
         if let error = errorToThrow {
             throw error
         }
         fetchStepsCallCount += 1
         concurrentFetchSteps += 1
         maxConcurrentFetchSteps = max(maxConcurrentFetchSteps, concurrentFetchSteps)
+        defer { concurrentFetchSteps -= 1 }
+        if let fetchStepsHandler {
+            return try await fetchStepsHandler(startDate, endDate)
+        }
         for _ in 0..<fetchStepsYieldCount {
             await Task.yield()
         }
-        concurrentFetchSteps -= 1
         return stepsToReturn
     }
 
@@ -166,7 +171,7 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         return dailySummariesToReturn
     }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         if let error = errorToThrow {
             throw error
         }
@@ -176,14 +181,21 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
         if let error = saveWorkoutErrorToThrow {
             throw error
         }
+        if let saveWorkoutOutcomeToReturn {
+            if case let .exported(workoutID) = saveWorkoutOutcomeToReturn {
+                session.healthKitWorkoutID = workoutID
+            }
+            return saveWorkoutOutcomeToReturn
+        }
         if let existing = workoutIDsByExternalIdentifier[externalIdentifier] {
             session.healthKitWorkoutID = existing
-            return
+            return .exported(existing)
         }
         let assigned = workoutIDToAssign ?? UUID()
         workoutIDsByExternalIdentifier[externalIdentifier] = assigned
         session.healthKitWorkoutID = assigned
         createdWorkoutCount += 1
+        return .exported(assigned)
     }
 }
 
@@ -192,18 +204,22 @@ final class MockHealthKitService: HealthKitServiceProtocol, Sendable {
 @MainActor
 final class MockMotionService: MotionServiceProtocol {
     var liveUpdateHandler: (@MainActor (PedometerSnapshot) -> Void)?
+    private(set) var liveUpdateHandlers: [@MainActor (PedometerSnapshot) -> Void] = []
+    private(set) var liveUpdateStartDates: [Date] = []
     var snapshotToReturn = PedometerSnapshot(steps: 0, distance: 0, floorsAscended: 0)
     var errorToThrow: (any Error)?
     var queryCallCount = 0
 
     func startLiveUpdates(
-        from _: Date,
+        from startDate: Date,
         handler: @escaping @Sendable @MainActor (PedometerSnapshot) -> Void
     ) throws {
         if let error = errorToThrow {
             throw error
         }
         liveUpdateHandler = handler
+        liveUpdateHandlers.append(handler)
+        liveUpdateStartDates.append(startDate)
     }
 
     func stopLiveUpdates() {
@@ -220,6 +236,56 @@ final class MockMotionService: MotionServiceProtocol {
 
     func simulateLiveUpdate(_ snapshot: PedometerSnapshot) {
         liveUpdateHandler?(snapshot)
+    }
+}
+
+@MainActor
+private final class MutableDateProvider {
+    var date: Date
+
+    init(date: Date) {
+        self.date = date
+    }
+}
+
+private actor ControlledCancellationResult {
+    private var didEnter = false
+    private var didObserveCancellation = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func value() async -> Int {
+        didEnter = true
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+        } onCancel: {
+            Task { await self.cancelAndResume() }
+        }
+        if Task.isCancelled {
+            didObserveCancellation = true
+        }
+        return 9_999
+    }
+
+    func waitUntilEntered() async {
+        while !didEnter {
+            await Task.yield()
+        }
+    }
+
+    func cancellationWasObserved() -> Bool {
+        didObserveCancellation
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+
+    private func cancelAndResume() {
+        didObserveCancellation = true
+        release()
     }
 }
 
@@ -283,7 +349,9 @@ private func makeService(
     goalValue: Int? = nil,
     streakResult: StreakResult = StreakResult(count: 0, todayIncluded: false, streakStartDate: nil),
     userDefaults: UserDefaults,
-    persistence: PersistenceController = PersistenceController(inMemory: true)
+    persistence: PersistenceController = PersistenceController(inMemory: true),
+    calculator: DailyStepCalculator = DailyStepCalculator(),
+    now: @escaping @MainActor () -> Date = { .now }
 ) -> (service: StepTrackingService, goalService: GoalService) {
     let goalService = GoalService(persistence: persistence)
     if let goalValue {
@@ -300,7 +368,9 @@ private func makeService(
         badgeService: badgeService,
         dataStore: dataStore,
         streakCalculator: streakCalculator,
-        userDefaults: userDefaults
+        userDefaults: userDefaults,
+        calculator: calculator,
+        now: now
     )
     return (service, goalService)
 }
@@ -371,6 +441,87 @@ struct HealthKitServiceProtocolTests {
 
 @Suite("StepTrackingService Tests")
 struct StepTrackingServiceTests {
+    @Test("Live updates restart at midnight and reject callbacks from the prior stream")
+    @MainActor
+    func liveUpdatesRestartAtMidnightWithoutCarryingYesterday() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let beforeMidnight = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 7, day: 17, hour: 23, minute: 59, second: 59))
+        )
+        let afterMidnight = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 7, day: 18, hour: 0, minute: 0, second: 1))
+        )
+        let clock = MutableDateProvider(date: beforeMidnight)
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        mockMotion.snapshotToReturn = PedometerSnapshot(steps: 1_200, distance: 900, floorsAscended: 2)
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults,
+            calculator: DailyStepCalculator(calendar: calendar),
+            now: { clock.date }
+        )
+
+        await service.start()
+        let priorHandler = try #require(mockMotion.liveUpdateHandlers.first)
+        #expect(mockMotion.liveUpdateStartDates == [calendar.startOfDay(for: beforeMidnight)])
+        #expect(service.todaySteps == 1_200)
+
+        clock.date = afterMidnight
+        priorHandler(PedometerSnapshot(steps: 1_201, distance: 901, floorsAscended: 2))
+
+        #expect(mockMotion.liveUpdateStartDates == [
+            calendar.startOfDay(for: beforeMidnight),
+            calendar.startOfDay(for: afterMidnight),
+        ])
+        #expect(service.todaySteps == 0)
+
+        priorHandler(PedometerSnapshot(steps: 9_000, distance: 6_000, floorsAscended: 20))
+        #expect(service.todaySteps == 0)
+
+        let currentHandler = try #require(mockMotion.liveUpdateHandlers.last)
+        currentHandler(PedometerSnapshot(steps: 5, distance: 3, floorsAscended: 0))
+        #expect(service.todaySteps == 5)
+    }
+
+    @Test("Cancelling refreshTodayData cancels its owned serialized refresh and skips commit")
+    @MainActor
+    func refreshTodayDataPropagatesCancellation() async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let controlledResult = ControlledCancellationResult()
+        mockHealthKit.fetchStepsHandler = { _, _ in
+            await controlledResult.value()
+        }
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        let refresh = Task { await service.refreshTodayData() }
+        await controlledResult.waitUntilEntered()
+        refresh.cancel()
+
+        for _ in 0..<100 where !(await controlledResult.cancellationWasObserved()) {
+            await Task.yield()
+        }
+        await controlledResult.release()
+        await refresh.value
+
+        #expect(await controlledResult.cancellationWasObserved())
+        #expect(service.todaySteps == 0)
+        #expect(testDefaults.defaults.sharedStepData == nil)
+    }
+
     @Test("Service updates steps from HealthKit")
     @MainActor
     func serviceUpdatesStepsFromHealthKit() async {

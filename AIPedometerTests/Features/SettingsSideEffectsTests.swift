@@ -89,4 +89,83 @@ struct SettingsSideEffectsTests {
 
         #expect(decision == .keep)
     }
+
+    @Test(
+        "Smart reminder authorization cannot schedule after eligibility revocation",
+        arguments: SmartReminderRevocation.allCases
+    )
+    func smartReminderAuthorizationCannotScheduleAfterRevocation(
+        _ revocation: SmartReminderRevocation
+    ) async {
+        var isEnabled = true
+        var premiumEnabled = true
+        var aiAvailability = AIModelAvailability.available
+        var scheduleCallCount = 0
+        let authorizationStarted = SettingsAsyncTestLatch()
+        let resumeAuthorization = SettingsAsyncTestLatch()
+
+        let update = Task {
+            await SettingsSideEffects.scheduleSmartReminderIfCurrent(
+                isCurrent: { true },
+                isEnabled: { isEnabled },
+                premiumEnabled: { premiumEnabled },
+                aiAvailability: { aiAvailability },
+                ensureAuthorization: {
+                    authorizationStarted.signal()
+                    await resumeAuthorization.wait()
+                    return true
+                },
+                scheduleReminder: {
+                    scheduleCallCount += 1
+                    return true
+                },
+                cancelReminders: {}
+            )
+        }
+
+        await authorizationStarted.wait()
+        switch revocation {
+        case .toggle:
+            isEnabled = false
+        case .premium:
+            premiumEnabled = false
+        case .ai:
+            aiAvailability = .unavailable(reason: .appleIntelligenceNotEnabled)
+        }
+        resumeAuthorization.signal()
+
+        let result = await update.value
+
+        #expect(result == .stale)
+        #expect(scheduleCallCount == 0)
+    }
+}
+
+enum SmartReminderRevocation: CaseIterable, Sendable {
+    case toggle
+    case premium
+    case ai
+}
+
+@MainActor
+private final class SettingsAsyncTestLatch {
+    private var isSignaled = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isSignaled else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func signal() {
+        guard !isSignaled else { return }
+        isSignaled = true
+        let pendingWaiters = waiters
+        waiters.removeAll()
+        for waiter in pendingWaiters {
+            waiter.resume()
+        }
+    }
 }

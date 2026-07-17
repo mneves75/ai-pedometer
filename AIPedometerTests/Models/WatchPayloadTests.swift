@@ -4,6 +4,15 @@ import Testing
 @testable import AIPedometer
 
 struct WatchPayloadTests {
+    private struct LegacyPayload: Encodable {
+        let todaySteps: Int
+        let goalSteps: Int
+        let goalProgress: Double
+        let currentStreak: Int
+        let lastUpdated: Date
+        let weeklySteps: [Int]
+    }
+
     @Test
     func encodeAndDecodeRoundTrip() throws {
         let original = WatchPayload(
@@ -85,6 +94,49 @@ struct WatchPayloadTests {
         let decoded = WatchPayload.decode(from: data)
         #expect(decoded?.todaySteps == 100_000)
         #expect(decoded?.goalProgress == 2.0)
+    }
+
+    @Test("Reversed delivery cannot replace the newest accepted payload")
+    func reversedDeliveryIsRejected() {
+        let newer = WatchPayload(
+            todaySteps: 2_000,
+            goalSteps: 10_000,
+            goalProgress: 0.2,
+            currentStreak: 2,
+            lastUpdated: Date(timeIntervalSince1970: 150),
+            weeklySteps: [],
+            sentAt: Date(timeIntervalSince1970: 200)
+        )
+        let older = WatchPayload(
+            todaySteps: 1_000,
+            goalSteps: 10_000,
+            goalProgress: 0.1,
+            currentStreak: 1,
+            lastUpdated: Date(timeIntervalSince1970: 100),
+            weeklySteps: [],
+            sentAt: Date(timeIntervalSince1970: 100)
+        )
+
+        #expect(WatchPayload.shouldAccept(newer, after: nil))
+        #expect(!WatchPayload.shouldAccept(older, after: newer.deliveryOrder))
+    }
+
+    @Test("Legacy payload without sentAt still decodes and orders by lastUpdated")
+    func legacyPayloadStillDecodes() throws {
+        let legacy = LegacyPayload(
+            todaySteps: 1_234,
+            goalSteps: 10_000,
+            goalProgress: 0.1234,
+            currentStreak: 4,
+            lastUpdated: Date(timeIntervalSince1970: 300),
+            weeklySteps: [1, 2, 3]
+        )
+        let decoded = try #require(WatchPayload.decode(from: JSONEncoder().encode(legacy)))
+
+        #expect(decoded.todaySteps == 1_234)
+        #expect(decoded.sentAt == nil)
+        #expect(decoded.deliveryOrder == legacy.lastUpdated)
+        #expect(WatchPayload.shouldAccept(decoded, after: nil))
     }
 }
 

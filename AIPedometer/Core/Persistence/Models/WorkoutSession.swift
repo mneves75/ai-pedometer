@@ -7,6 +7,12 @@ enum HealthKitWorkoutExportState: String, Codable, Sendable {
     case exported
 }
 
+enum HealthKitWorkoutSaveOutcome: Sendable, Equatable {
+    case exported(UUID)
+    case deferred
+    case notRequired
+}
+
 @Model
 final class WorkoutSession {
     var typeRaw: String

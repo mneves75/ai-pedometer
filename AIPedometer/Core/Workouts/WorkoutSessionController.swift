@@ -67,6 +67,7 @@ final class WorkoutSessionController {
     private(set) var metrics: WorkoutMetrics?
     var lastError: WorkoutSessionError?
     private(set) var workoutType: WorkoutType?
+    private(set) var recoverableSession: WorkoutSession?
     private(set) var isExpeditionModeActive = false
     var isPresenting = false
 
@@ -88,6 +89,7 @@ final class WorkoutSessionController {
         self.saveModelContext = saveModelContext
         self.now = now
         self.isExpeditionModeEnabled = isExpeditionModeEnabled
+        loadRecoverableSession()
     }
 
     var isActive: Bool {
@@ -110,7 +112,12 @@ final class WorkoutSessionController {
         isExpeditionModeActive ? 60 : 5
     }
 
+    var requiresWorkoutRecovery: Bool {
+        recoverableSession != nil
+    }
+
     func startWorkout(type: WorkoutType, targetSteps: Int?) async {
+        guard recoverableSession == nil else { return }
         guard activeSession == nil else {
             isPresenting = true
             return
@@ -250,30 +257,7 @@ final class WorkoutSessionController {
         pauseStartedAt = nil
         lastError = nil
 
-        do {
-            try await healthKitService.saveWorkout(session)
-            session.healthKitExportState = .exported
-            session.healthKitExportFailureCount = 0
-            session.healthKitExportLastFailureAt = nil
-            session.healthKitExportLastErrorCode = nil
-        } catch {
-            Loggers.health.warning("workout.healthkit_save_failed", metadata: ["error": error.localizedDescription])
-            session.healthKitExportState = .pending
-            session.healthKitExportFailureCount += 1
-            session.healthKitExportLastFailureAt = now()
-            session.healthKitExportLastErrorCode = Self.errorCode(for: error)
-        }
-
-        if session.healthKitExportState == .exported || session.healthKitExportFailureCount > 0 {
-            do {
-                try saveModelContext(modelContext)
-            } catch {
-                Loggers.workouts.error("workout.healthkit_id_persist_failed", metadata: [
-                    "error": error.localizedDescription
-                ])
-                lastError = .saveFailed(error.localizedDescription)
-            }
-        }
+        await reconcileHealthKitExport(for: session)
 
         let summary = WorkoutSummary(
             type: session.type,
@@ -285,6 +269,80 @@ final class WorkoutSessionController {
         )
         transition(.finish(summary: summary))
         resetSession()
+    }
+
+    func finishRecoverableWorkout() async {
+        guard !isTerminatingSession else { return }
+        guard let session = recoverableSession else {
+            lastError = .sessionUnavailable
+            return
+        }
+        isTerminatingSession = true
+        defer { isTerminatingSession = false }
+
+        let checkpoint = max(session.updatedAt, session.startTime)
+        let previousEndTime = session.endTime
+        let previousUpdatedAt = session.updatedAt
+        let previousExportStateRaw = session.healthKitExportStateRaw
+        let previousExportIdentifier = session.healthKitExportIdentifier
+        let previousFailureCount = session.healthKitExportFailureCountValue
+        let previousFailureAt = session.healthKitExportLastFailureAt
+        let previousErrorCode = session.healthKitExportLastErrorCode
+
+        session.endTime = checkpoint
+        session.updatedAt = checkpoint
+        session.healthKitExportState = .pending
+        _ = session.stableHealthKitExportIdentifier
+        session.healthKitExportLastFailureAt = nil
+        session.healthKitExportLastErrorCode = nil
+
+        do {
+            try saveModelContext(modelContext)
+        } catch {
+            session.endTime = previousEndTime
+            session.updatedAt = previousUpdatedAt
+            session.healthKitExportStateRaw = previousExportStateRaw
+            session.healthKitExportIdentifier = previousExportIdentifier
+            session.healthKitExportFailureCountValue = previousFailureCount
+            session.healthKitExportLastFailureAt = previousFailureAt
+            session.healthKitExportLastErrorCode = previousErrorCode
+            lastError = .saveFailed(error.localizedDescription)
+            return
+        }
+
+        await liveActivityManager.end()
+        lastError = nil
+        await reconcileHealthKitExport(for: session)
+        loadRecoverableSession()
+    }
+
+    func discardRecoverableWorkout() async {
+        guard !isTerminatingSession else { return }
+        guard let session = recoverableSession else {
+            lastError = .sessionUnavailable
+            return
+        }
+        isTerminatingSession = true
+        defer { isTerminatingSession = false }
+
+        let discardedAt = now()
+        let previousDeletedAt = session.deletedAt
+        let previousUpdatedAt = session.updatedAt
+        session.deletedAt = discardedAt
+        session.updatedAt = discardedAt
+
+        do {
+            try saveModelContext(modelContext)
+        } catch {
+            session.deletedAt = previousDeletedAt
+            session.updatedAt = previousUpdatedAt
+            lastError = .discardFailed(error.localizedDescription)
+            return
+        }
+
+        await liveActivityManager.end()
+        lastError = nil
+        loadRecoverableSession()
     }
 
     nonisolated private static func errorCode(for error: any Error) -> String {
@@ -340,6 +398,64 @@ final class WorkoutSessionController {
 }
 
 private extension WorkoutSessionController {
+    func loadRecoverableSession() {
+        let predicate = #Predicate<WorkoutSession> { session in
+            session.endTime == nil && session.deletedAt == nil
+        }
+        var descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\WorkoutSession.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+
+        do {
+            recoverableSession = try modelContext.fetch(descriptor).first
+        } catch {
+            recoverableSession = nil
+            lastError = .sessionUnavailable
+            Loggers.workouts.error("workout.recovery_fetch_failed", metadata: [
+                "error": error.localizedDescription
+            ])
+        }
+    }
+
+    func reconcileHealthKitExport(for session: WorkoutSession) async {
+        do {
+            switch try await healthKitService.saveWorkout(session) {
+            case let .exported(workoutID):
+                session.healthKitWorkoutID = workoutID
+                session.healthKitExportState = .exported
+                session.healthKitExportFailureCount = 0
+                session.healthKitExportLastFailureAt = nil
+                session.healthKitExportLastErrorCode = nil
+            case .deferred:
+                session.healthKitExportState = .pending
+            case .notRequired:
+                session.healthKitExportState = .notRequired
+                session.healthKitExportFailureCount = 0
+                session.healthKitExportLastFailureAt = nil
+                session.healthKitExportLastErrorCode = nil
+            }
+        } catch {
+            Loggers.health.warning("workout.healthkit_save_failed", metadata: ["error": error.localizedDescription])
+            session.healthKitExportState = .pending
+            session.healthKitExportFailureCount += 1
+            session.healthKitExportLastFailureAt = now()
+            session.healthKitExportLastErrorCode = Self.errorCode(for: error)
+        }
+
+        if session.healthKitExportState != .pending || session.healthKitExportFailureCount > 0 {
+            do {
+                try saveModelContext(modelContext)
+            } catch {
+                Loggers.workouts.error("workout.healthkit_id_persist_failed", metadata: [
+                    "error": error.localizedDescription
+                ])
+                lastError = .saveFailed(error.localizedDescription)
+            }
+        }
+    }
+
     func transition(_ event: WorkoutEvent) {
         stateMachine.send(event)
         state = stateMachine.state
@@ -441,10 +557,11 @@ private extension WorkoutSessionController {
 
     func discardSessionAfterFailure() {
         guard let session = activeSession else { return }
+        let startupError = lastError
         session.deletedAt = now()
         session.updatedAt = now()
         do {
-            try modelContext.save()
+            try saveModelContext(modelContext)
         } catch {
             Loggers.workouts.error("workout.session_discard_save_failed", metadata: [
                 "error": error.localizedDescription
@@ -452,6 +569,7 @@ private extension WorkoutSessionController {
         }
         resetSession()
         resetState()
+        lastError = startupError
     }
 
     func isCurrentPreparingSession(_ session: WorkoutSession) -> Bool {

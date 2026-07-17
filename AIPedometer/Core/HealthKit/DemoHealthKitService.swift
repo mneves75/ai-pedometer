@@ -141,11 +141,12 @@ final class DemoHealthKitService: HealthKitServiceProtocol, Sendable {
         return summaries
     }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         Loggers.health.info("healthkit.demo_workout_ignored", metadata: [
             "start_time": session.startTime.ISO8601Format(),
             "type": session.typeRaw
         ])
+        return .notRequired
     }
 
     private func steps(for date: Date, dailyGoal: Int) -> Int {

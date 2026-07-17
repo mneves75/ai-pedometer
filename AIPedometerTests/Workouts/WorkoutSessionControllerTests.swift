@@ -29,6 +29,28 @@ struct WorkoutSessionControllerTests {
         #expect(workouts[0].healthKitWorkoutID == nil)
     }
 
+    @Test("HealthKit save without an identifier leaves the workout pending")
+    func healthKitSaveWithoutIdentifierLeavesPendingWorkout() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let healthKit = WorkoutSessionHealthKitStub()
+        healthKit.assignedWorkoutID = nil
+        let controller = WorkoutSessionController(
+            modelContext: context,
+            healthKitService: healthKit,
+            metricsSource: MockMetricsSource()
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        await controller.finishWorkout()
+
+        let workouts = try context.fetch(FetchDescriptor<WorkoutSession>())
+        #expect(workouts.count == 1)
+        #expect(workouts[0].endTime != nil)
+        #expect(workouts[0].healthKitExportState == .pending)
+        #expect(workouts[0].healthKitWorkoutID == nil)
+    }
+
     @Test
     func startWorkoutCreatesSessionAndStartsMetrics() async throws {
         let persistence = PersistenceController(inMemory: true)
@@ -57,6 +79,97 @@ struct WorkoutSessionControllerTests {
         #expect(sessions.count == 1)
         #expect(sessions.first?.endTime == nil)
         await controller.discardWorkout()
+    }
+
+    @Test("Fresh controller blocks a duplicate when an unfinished workout exists")
+    func freshControllerBlocksDuplicateUnfinishedWorkout() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let unfinished = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: Date(timeIntervalSince1970: 1_000),
+            steps: 321,
+            distance: 250,
+            updatedAt: Date(timeIntervalSince1970: 1_100)
+        )
+        context.insert(unfinished)
+        try context.save()
+
+        let controller = WorkoutSessionController(
+            modelContext: context,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: MockMetricsSource(),
+            liveActivityManager: MockLiveActivityManager()
+        )
+
+        #expect(controller.requiresWorkoutRecovery)
+        #expect(controller.recoverableSession === unfinished)
+
+        await controller.startWorkout(type: .hike, targetSteps: nil)
+
+        let unfinishedWorkouts = try context.fetch(FetchDescriptor<WorkoutSession>()).filter {
+            $0.endTime == nil && $0.deletedAt == nil
+        }
+        #expect(unfinishedWorkouts.count == 1)
+    }
+
+    @Test("Recovered workout can be explicitly finished from its last durable checkpoint")
+    func recoveredWorkoutCanBeFinished() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let checkpoint = Date(timeIntervalSince1970: 1_100)
+        let unfinished = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: Date(timeIntervalSince1970: 1_000),
+            steps: 321,
+            distance: 250,
+            updatedAt: checkpoint
+        )
+        context.insert(unfinished)
+        try context.save()
+        let healthKit = WorkoutSessionHealthKitStub()
+        let liveActivity = MockLiveActivityManager()
+        let controller = WorkoutSessionController(
+            modelContext: context,
+            healthKitService: healthKit,
+            metricsSource: MockMetricsSource(),
+            liveActivityManager: liveActivity
+        )
+
+        await controller.finishRecoverableWorkout()
+
+        #expect(unfinished.endTime == checkpoint)
+        #expect(unfinished.healthKitWorkoutID == healthKit.assignedWorkoutID)
+        #expect(unfinished.healthKitExportState == .exported)
+        #expect(!controller.requiresWorkoutRecovery)
+        #expect(liveActivity.endCount == 1)
+    }
+
+    @Test("Recovered workout is discarded only through the explicit recovery action")
+    func recoveredWorkoutCanBeDiscarded() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let unfinished = WorkoutSession(
+            type: .hike,
+            startTime: Date(timeIntervalSince1970: 1_000),
+            updatedAt: Date(timeIntervalSince1970: 1_100)
+        )
+        context.insert(unfinished)
+        try context.save()
+        let liveActivity = MockLiveActivityManager()
+        let controller = WorkoutSessionController(
+            modelContext: context,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: MockMetricsSource(),
+            liveActivityManager: liveActivity,
+            now: { Date(timeIntervalSince1970: 1_200) }
+        )
+
+        await controller.discardRecoverableWorkout()
+
+        #expect(unfinished.deletedAt == Date(timeIntervalSince1970: 1_200))
+        #expect(!controller.requiresWorkoutRecovery)
+        #expect(liveActivity.endCount == 1)
     }
 
     @Test
@@ -88,6 +201,28 @@ struct WorkoutSessionControllerTests {
         #expect(controller.isActive)
 
         await controller.discardWorkout()
+    }
+
+    @Test("Workout startup error remains observable after failed session cleanup")
+    func workoutStartupErrorRemainsObservableAfterCleanup() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        let startupError = CocoaError(.fileReadUnknown)
+        metricsSource.startErrorToThrow = startupError
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: metricsSource,
+            liveActivityManager: MockLiveActivityManager()
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+
+        #expect(controller.lastError == .unableToStart(startupError.localizedDescription))
+        #expect(!controller.isPresenting)
+        let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
+        #expect(sessions.count == 1)
+        #expect(sessions[0].deletedAt != nil)
     }
 
     @Test
@@ -667,7 +802,7 @@ final class BlockingLiveActivityManager: LiveActivityManaging {
 final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
     var saveCount = 0
     var requestCount = 0
-    var assignedWorkoutID = UUID()
+    var assignedWorkoutID: UUID? = UUID()
     var saveError: (any Error)?
 
     func requestAuthorization() async throws {
@@ -697,10 +832,12 @@ final class WorkoutSessionHealthKitStub: HealthKitServiceProtocol {
         dailyGoal _: Int
     ) async throws -> [DailyStepSummary] { [] }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         if let saveError { throw saveError }
-        session.healthKitWorkoutID = assignedWorkoutID
         saveCount += 1
+        guard let assignedWorkoutID else { return .deferred }
+        session.healthKitWorkoutID = assignedWorkoutID
+        return .exported(assignedWorkoutID)
     }
 }
 
@@ -759,8 +896,9 @@ final class BlockingWorkoutSessionHealthKitStub: HealthKitServiceProtocol {
         dailyGoal _: Int
     ) async throws -> [DailyStepSummary] { [] }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
         _ = session
         saveCount += 1
+        return .deferred
     }
 }

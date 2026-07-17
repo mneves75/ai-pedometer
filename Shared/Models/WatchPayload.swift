@@ -7,6 +7,34 @@ struct WatchPayload: Codable, Sendable {
     let currentStreak: Int
     let lastUpdated: Date
     let weeklySteps: [Int]
+    let sentAt: Date?
+
+    init(
+        todaySteps: Int,
+        goalSteps: Int,
+        goalProgress: Double,
+        currentStreak: Int,
+        lastUpdated: Date,
+        weeklySteps: [Int],
+        sentAt: Date? = nil
+    ) {
+        self.todaySteps = todaySteps
+        self.goalSteps = goalSteps
+        self.goalProgress = goalProgress
+        self.currentStreak = currentStreak
+        self.lastUpdated = lastUpdated
+        self.weeklySteps = weeklySteps
+        self.sentAt = sentAt
+    }
+
+    var deliveryOrder: Date {
+        sentAt ?? lastUpdated
+    }
+
+    static func shouldAccept(_ candidate: WatchPayload, after latestAcceptedOrder: Date?) -> Bool {
+        guard let latestAcceptedOrder else { return true }
+        return candidate.deliveryOrder > latestAcceptedOrder
+    }
 
     static let transferKey = "payload"
 
@@ -16,7 +44,8 @@ struct WatchPayload: Codable, Sendable {
         goalProgress: 0,
         currentStreak: 0,
         lastUpdated: .now,
-        weeklySteps: []
+        weeklySteps: [],
+        sentAt: nil
     )
 
     static func decode(from data: Data?) -> WatchPayload? {
