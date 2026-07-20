@@ -9,6 +9,7 @@ This file governs the entire repository. It is the operating contract for coding
 - Follow KISS. Prefer clear, maintainable, current platform patterns over cleverness or speculative abstraction.
 - Do not write code merely to make a check pass. Add comments only where non-obvious constraints or tradeoffs need explanation.
 - Review and verify the result twice before declaring completion.
+- List any unresolved questions at the end of a response; never paper over open uncertainty to look finished.
 
 ## Startup Order
 
@@ -61,12 +62,13 @@ Read these before changing behavior, commands, or documentation:
 
 Do not create new markdown docs unless the requested change needs a new durable surface. Prefer updating existing docs.
 Do not create standalone completion-report markdown files. If temporary markdown planning is necessary, keep it under `agent_planning/` and move obsolete plans to `agent_planning/archive/`. Do not use emojis in repository documentation.
+For complex features or significant refactors, run an ExecPlan — a living execution plan per `~/dev/GUIDELINES-REF/EXECPLANS-GUIDELINES.md` — kept under `agent_planning/` while active.
 
 ## Code Discovery and AST-Grep
 
 - Use the codebase knowledge graph first for code discovery when it is available.
 - For syntax-aware or structural matching, default to `ast-grep --lang swift -p '<pattern>'`; choose the correct `--lang` for non-Swift files. Use `rg` or `grep` only for intentional plain-text, config, log, or documentation searches, or when ast-grep cannot express the query.
-- Run the repository linter with `ast-grep scan --config sgconfig.yml --error=unused-suppression --error=no-suppress-all`.
+- Run the exact repository linter with `bash .githooks/pre-commit`; it materializes the staged Git snapshot and invokes ast-grep with every ignore source disabled so manual gate verification matches commit enforcement.
 - The active `.githooks/pre-commit` hook materializes and scans the exact staged Git snapshot, then blocks commits on findings or when ast-grep is unavailable. Do not bypass it; enable the tracked hooks with `git config core.hooksPath .githooks` when needed.
 
 ## Bug Report Protocol
@@ -85,6 +87,24 @@ Never claim a bug is fixed without proof from the reproducer.
 - Keep planning, user-facing UI, visual review, product copy, and the hardest judgment calls in the primary session.
 - For independent backend, bulk, or mechanically heavy implementation, write a self-contained specification with acceptance checks and dispatch it when delegation is useful. Prefer `gpt-5.6-sol` at high reasoning through Codex for substantial unsupervised implementation when that runtime is available; use `/goal` only on runtimes that expose it.
 - Intelligence and correctness outrank taste, which outranks cost. Review delegated output against the repository contract before accepting it, and escalate or redo weak work without asking merely to change models.
+- Mechanics: `gpt-5.6` is reachable only through the Codex CLI (`codex exec`, `codex review`); Claude models run via the Agent/Workflow `model` parameter. When a workflow or subagent needs a Codex-side model such as `gpt-5.6-terra`, spawn a thin low-effort Claude wrapper whose only job is to run `codex exec` with a self-contained prompt and return the result.
+
+Model defaults (user-maintained; rankings higher = better, cost = user's actual spend, not list price):
+
+| model | cost | intelligence | taste |
+|-------|------|--------------|-------|
+| gpt-5.6-terra (xhigh) | 9 | 7 | 5 |
+| gpt-5.6-sol (high) | 7 | 9 | 7 |
+| sonnet-5 | 5 | 5 | 7 |
+| opus-4.8 | 4 | 7 | 8 |
+| fable-5 | 2 | 9 | 9 |
+| kimi k3 | 8 | 8 | 9 |
+
+- These are defaults, not limits: if a cheaper model's output misses the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag.
+- Bulk or mechanical work (clear-spec implementation, data analysis, migrations): `gpt-5.6-terra` (high) — effectively free.
+- Anything user-facing (UI, copy, API design) needs taste ≥ 7.
+- Reviews of plans/implementations: `fable-5` or `opus-4.8`, optionally `gpt-5.6-sol` (xhigh) as an extra independent perspective.
+- Never use Haiku.
 
 ## Build and Test Commands
 
@@ -151,6 +171,7 @@ bash Scripts/test-payments-device.sh
 - Do not accept passwords or authentication controls that can be brute-forced in about one minute; use platform password hashing, throttling, lockout/backoff, and MFA where appropriate.
 - Production data operations must not hard-delete records by default. Prefer a `deletedAt`/`deleted_at` tombstone and make active-record query filters explicit; legal retention limits and verified user-erasure requirements take precedence.
 - Emit structured audit events for security-sensitive mutations, but never log health data, secrets, credentials, or unnecessary identifiers. Follow the repository security and logging guidance rather than interpreting "audit everything" as "record sensitive payloads."
+- Never run destructive commands against production or shared environments — no database drops, mass record deletes, or force operations. Before any irreversible action, verify the target hostname, path, and backups.
 
 ## Verification Rules
 
@@ -179,6 +200,12 @@ Avoid commands that cause output buffering issues.
 - If output must be limited, use command-specific flags such as `git log -n 10`.
 - For logs, prefer reading the file directly over chained pipe filters.
 - Use tmux for long-running, interactive, or multi-step shell workflows so work remains inspectable and recoverable.
+
+## Commits
+
+- Keep commits atomic: commit only the files you touched and list each path explicitly (convention details in `docs/agents/git-workflow.md`).
+- Tracked files: `git commit -m "<scoped message>" -- path/to/file1 path/to/file2`.
+- Brand-new files: `git restore --staged :/ && git add "path/to/file1" "path/to/file2" && git commit -m "<scoped message>" -- path/to/file1 path/to/file2`.
 
 ## Figure It Out Directive
 
@@ -278,6 +305,7 @@ Additional kb-tools commands:
 - `TODO: as of 2026-06-01, run-note inventory now includes notes/run-2026-06-01-full-refresh.txt (full 2026+ guideline refresh); this is a single run, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
 - `TODO: as of 2026-07-05, run-note inventory adds notes/run-2026-07-05-guidelines-refresh.txt (release 2026.07.05.0: Expo SDK 57 / RN 0.86 baseline convergence + patch bumps); still single-run per release, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
 - `TODO: as of 2026-07-13, run-note inventory adds notes/run-2026-07-13-guidelines-refresh.txt (release 2026.07.13.0: July baselines + fail-closed tooling + routing/CI hardening); retain the command-promotion freeze until repeated evidence accrues.`
+- `TODO: as of 2026-07-19, run-note inventory adds notes/run-2026-07-19-guidelines-refresh.txt (release 2026.07.19.0: deep all-docs 2026+ refresh + AI-code-security de-symlink + pnpm-default enforcement); retain the command-promotion freeze until repeated evidence accrues.`
 - `bun --bun tools/kb-check-anchors.ts`
 - `bun --bun tools/kb-check-consistency.ts`
 - `bun --bun tools/kb-check-baselines.ts`

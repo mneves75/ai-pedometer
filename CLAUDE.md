@@ -7,6 +7,7 @@ This repository expects operator behavior, not passive assistance. `AGENTS.md` i
 - Operate as a senior Apple-platform engineer; keep responses concise and clarify material uncertainty before coding.
 - Challenge assumptions with evidence. Follow KISS and prefer clear, maintainable, current patterns over shortcuts or speculative abstraction.
 - Add comments only for tricky constraints, then review and verify the result twice before completion.
+- List any unresolved questions at the end of a response when material questions remain open.
 
 ## Read First
 
@@ -32,13 +33,13 @@ Then read the task-relevant docs before editing:
 - `docs/agents/coding-style.md`
 - `docs/agents/git-workflow.md`
 
-Do not create standalone completion-report markdown files. Temporary markdown plans belong under `agent_planning/` and obsolete plans under `agent_planning/archive/`. Do not use emojis in repository documentation.
+Do not create standalone completion-report markdown files. Temporary markdown plans belong under `agent_planning/` and obsolete plans under `agent_planning/archive/`. Do not use emojis in repository documentation. For complex features or significant refactors, run an ExecPlan (living execution plan per `~/dev/GUIDELINES-REF/EXECPLANS-GUIDELINES.md`) and keep it under `agent_planning/` while active.
 
 ## Code Discovery and AST-Grep
 
 - Prefer the codebase knowledge graph when available.
 - For syntax-aware or structural search, default to `ast-grep --lang swift -p '<pattern>'` and select the appropriate language for other files. Use `rg` or `grep` only for intentional plain-text/config/doc searches or when structural matching is insufficient.
-- Run `ast-grep scan --config sgconfig.yml --error=unused-suppression --error=no-suppress-all`. The active `.githooks/pre-commit` hook scans the exact staged Git snapshot and blocks findings or a missing ast-grep binary; do not bypass it.
+- Run the exact repository linter with `bash .githooks/pre-commit`; it scans the staged Git snapshot with every ast-grep ignore source disabled and blocks findings or a missing ast-grep binary. Do not bypass it.
 
 ## Project Snapshot
 
@@ -95,6 +96,7 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 - Keep planning, visual/UI work, product copy, and the hardest judgment calls in the primary session.
 - For independent backend, bulk, or mechanically heavy implementation, write a self-contained specification with acceptance checks and delegate when useful. Prefer `gpt-5.6-sol` at high reasoning through Codex when available; use `/goal` only when the runtime exposes it.
 - Correctness and intelligence outrank taste, which outranks cost. Verify delegated output and redo weak work without asking merely to change models.
+- The model-defaults table lives in `AGENTS.md` (Execution Routing); treat entries as defaults, not limits — escalate on weak output without asking. Never use Haiku.
 
 ## Swift and Product Rules
 
@@ -116,6 +118,13 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 - Reject authentication controls that can be brute-forced in about one minute; use platform password hashing, throttling/backoff, and MFA where appropriate.
 - Do not hard-delete production records by default. Prefer `deletedAt`/`deleted_at` plus explicit active-record filters, while honoring verified erasure and retention obligations.
 - Audit security-sensitive mutations without logging health data, secrets, credentials, or unnecessary identifiers.
+- Never run destructive commands against production or shared environments — no database drops, mass deletes, or force operations. Verify target hostnames, paths, and backups before any irreversible action.
+
+## Git Commits
+
+- Keep commits atomic: stage only the files you touched and list each path explicitly (convention details in `docs/agents/git-workflow.md`).
+- Tracked files: `git commit -m "<scoped message>" -- path/to/file1 path/to/file2`.
+- Brand-new files: `git restore --staged :/ && git add "path/to/file1" "path/to/file2" && git commit -m "<scoped message>" -- path/to/file1 path/to/file2`.
 
 ## Verification and Closeout
 
