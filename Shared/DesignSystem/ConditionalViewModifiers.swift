@@ -72,10 +72,13 @@ private struct UITestMarkerView: View {
     let identifier: String
 
     var body: some View {
-        // Keep it discoverable for XCUITest without affecting layout.
+        // A transparent foreground keeps the element in the accessibility tree
+        // without leaving faint automation text in captured UI.
         Text(identifier)
-            .font(DesignTokens.Typography.caption2)
-            .opacity(0.01)
+            .font(.system(size: 1))
+            .foregroundStyle(.clear)
+            .frame(width: 1, height: 1)
+            .clipped()
             .accessibilityIdentifier(identifier)
             .accessibilityLabel(identifier)
     }

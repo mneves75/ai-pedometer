@@ -10,7 +10,7 @@ import WatchConnectivity
 @MainActor
 final class WatchSyncClient: NSObject, WCSessionDelegate {
     private(set) var payload: WatchPayload = .placeholder
-    @ObservationIgnored private var latestAcceptedOrder: Date?
+    @ObservationIgnored private var acceptanceState = WatchPayloadAcceptanceState()
 
     override init() {
         super.init()
@@ -39,13 +39,12 @@ final class WatchSyncClient: NSObject, WCSessionDelegate {
         guard let data = dictionary[WatchPayload.transferKey] as? Data,
               let decoded = WatchPayload.decode(from: data) else { return }
         Task { @MainActor in
-            guard WatchPayload.shouldAccept(decoded, after: latestAcceptedOrder) else {
+            guard acceptanceState.accept(decoded) else {
                 Loggers.sync.info("watch.payload_stale_ignored", metadata: [
                     "steps": "\(decoded.todaySteps)"
                 ])
                 return
             }
-            latestAcceptedOrder = decoded.deliveryOrder
             payload = decoded
             Loggers.sync.info("watch.payload_received", metadata: [
                 "steps": "\(decoded.todaySteps)",

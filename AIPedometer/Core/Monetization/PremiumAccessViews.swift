@@ -9,8 +9,12 @@ enum PremiumSheetMode: String, Identifiable {
 }
 
 enum RevenueCatPaywallPolicy {
-    static func shouldUseOfficialPaywall(for offering: Offering?) -> Bool {
-        offering?.hasPaywall == true
+    static func packagePurchaseIsDisabled(
+        isCurrent: Bool,
+        isLoading: Bool,
+        isPurchaseInProgress: Bool
+    ) -> Bool {
+        isCurrent || isLoading || isPurchaseInProgress
     }
 }
 
@@ -307,6 +311,7 @@ struct PremiumAccessSheet: View {
                         package: package,
                         isCurrent: premiumAccessStore.customerInfo?.activeSubscriptions.contains(package.storeProduct.productIdentifier) == true,
                         isLoading: purchasingPackageID == package.identifier,
+                        isPurchaseInProgress: premiumAccessStore.isPurchaseInProgress,
                         purchaseAction: {
                             await purchase(package)
                         }
@@ -345,47 +350,23 @@ struct PremiumAccessSheet: View {
 
     @ViewBuilder
     private var paywallView: some View {
-        if RevenueCatPaywallPolicy.shouldUseOfficialPaywall(for: premiumAccessStore.currentOffering),
-           let offering = premiumAccessStore.currentOffering {
-            PaywallView(offering: offering, displayCloseButton: false)
-                .onPurchaseCompleted { _ in
-                    Task { @MainActor in
-                        await premiumAccessStore.syncPurchases()
-                        if premiumAccessStore.isPremiumActive {
-                            dismiss()
-                        }
-                    }
-                }
-                .onRestoreCompleted { _ in
-                    Task { @MainActor in
-                        await premiumAccessStore.syncPurchases()
-                        if premiumAccessStore.isPremiumActive {
-                            dismiss()
-                        }
-                    }
-                }
-                .onRequestedDismissal {
-                    dismiss()
-                }
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                    headerCard
-                    packageList
-                    actionRow
+        ScrollView {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                headerCard
+                packageList
+                actionRow
 
-                    if let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
-                        Text(lastError)
-                            .font(DesignTokens.Typography.caption)
-                            .foregroundStyle(DesignTokens.Colors.warning)
-                            .padding(DesignTokens.Spacing.md)
-                            .glassCard()
-                    }
+                if let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
+                    Text(lastError)
+                        .font(DesignTokens.Typography.caption)
+                        .foregroundStyle(DesignTokens.Colors.warning)
+                        .padding(DesignTokens.Spacing.md)
+                        .glassCard()
                 }
-                .padding(DesignTokens.Spacing.lg)
             }
-            .background(DesignTokens.Colors.surfaceGrouped)
+            .padding(DesignTokens.Spacing.lg)
         }
+        .background(DesignTokens.Colors.surfaceGrouped)
     }
 
     private var unavailableContent: some View {
@@ -430,6 +411,7 @@ private struct PremiumPackageCard: View {
     let package: Package
     let isCurrent: Bool
     let isLoading: Bool
+    let isPurchaseInProgress: Bool
     let purchaseAction: @MainActor @Sendable () async -> Void
 
     var body: some View {
@@ -471,7 +453,13 @@ private struct PremiumPackageCard: View {
                 }
             }
             .glassButton()
-            .disabled(isCurrent || isLoading)
+            .disabled(
+                RevenueCatPaywallPolicy.packagePurchaseIsDisabled(
+                    isCurrent: isCurrent,
+                    isLoading: isLoading,
+                    isPurchaseInProgress: isPurchaseInProgress
+                )
+            )
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()

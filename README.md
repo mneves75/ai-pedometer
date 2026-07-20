@@ -127,7 +127,7 @@ DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.93" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "0.94" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -186,7 +186,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.93
+**Current**: 0.94
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

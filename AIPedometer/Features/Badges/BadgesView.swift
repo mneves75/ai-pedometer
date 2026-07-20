@@ -255,7 +255,7 @@ struct BadgeCard: View {
             .padding(DesignTokens.Spacing.md)
             .frame(maxWidth: .infinity)
             .frame(minHeight: DesignTokens.Sizing.badgeCardMinHeight)
-            .glassCard(interactive: badge.isEarned)
+            .glassCard(interactive: true)
             .overlay(alignment: .topTrailing) {
                 if !badge.isEarned {
                     Image(systemName: "lock.fill")

@@ -1,6 +1,25 @@
 import Foundation
 
 @MainActor
+enum AppLaunchSequence {
+    static func start(
+        preparePremiumAccess: @escaping @MainActor () async -> Void,
+        startLocalServices: @escaping @MainActor () async -> Void
+    ) async {
+        let premiumPreparation = Task { @MainActor in
+            await preparePremiumAccess()
+        }
+
+        await withTaskCancellationHandler {
+            await startLocalServices()
+            await premiumPreparation.value
+        } onCancel: {
+            premiumPreparation.cancel()
+        }
+    }
+}
+
+@MainActor
 final class AppStartupCoordinator {
     private let isTesting: () -> Bool
     private let refreshHealthAuthorization: () async -> Void

@@ -12,7 +12,9 @@
 - `project.yml` is the XcodeGen source of truth for the Xcode project.
 - `Config/` holds xcconfig build settings (warnings as errors, strict concurrency).
 - Minimum targets: iOS 26.0, watchOS 26.0 (see `project.yml`).
-- The iOS app owns HealthKit. The app and widgets share the app-group container; the watch companion
+- The iOS app owns HealthKit. Widgets read only the bounded `SharedStepData` snapshot from app-group
+  `UserDefaults`; fresh SwiftData stores stay in the app sandbox, while existing app-group stores
+  remain a compatibility fallback until relocation can be proven data-safe. The watch companion
   receives data through WatchConnectivity and intentionally has no HealthKit or app-group entitlement.
 
 ## Ownership Notes

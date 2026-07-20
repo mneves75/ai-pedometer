@@ -113,6 +113,28 @@ struct WorkoutSessionControllerTests {
         #expect(unfinishedWorkouts.count == 1)
     }
 
+    @Test("Recovery lookup failure blocks creating a potentially duplicate workout")
+    func recoveryLookupFailureBlocksWorkoutStart() async throws {
+        struct RecoveryLookupFailure: Error {}
+
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let controller = WorkoutSessionController(
+            modelContext: context,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: MockMetricsSource(),
+            fetchRecoverableSession: { _, _ in throw RecoveryLookupFailure() }
+        )
+
+        #expect(controller.lastError == .sessionUnavailable)
+
+        await controller.startWorkout(type: .hike, targetSteps: nil)
+
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        #expect(sessions.isEmpty)
+        #expect(!controller.isActive)
+    }
+
     @Test("Recovered workout can be explicitly finished from its last durable checkpoint")
     func recoveredWorkoutCanBeFinished() async throws {
         let persistence = PersistenceController(inMemory: true)

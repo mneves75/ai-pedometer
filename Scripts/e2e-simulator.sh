@@ -4,11 +4,19 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh"
+source "${ROOT_DIR}/Scripts/lib/simulator-lifecycle.sh"
+source "${ROOT_DIR}/Scripts/lib/logged-command.sh"
+aipedometer_select_xcode_26
+
 echo "Verificando entitlements..."
 bash Scripts/verify-entitlements.sh
 
 STAMP="$(date +"%Y-%m-%d-%H%M%S")"
 OUT_DIR="${E2E_OUT_DIR:-output/e2e-${STAMP}}"
+DERIVED_DATA_ROOT="${E2E_DERIVED_DATA_ROOT:-${OUT_DIR}-DerivedData}"
+IOS_DERIVED_DATA="${DERIVED_DATA_ROOT}/iOS"
+WATCH_DERIVED_DATA="${DERIVED_DATA_ROOT}/watchOS"
 mkdir -p "${OUT_DIR}/screens"
 
 IOS_UDID="${E2E_IOS_UDID:-}"
@@ -101,6 +109,7 @@ IOS_DEST="${E2E_IOS_DEST:-$IOS_DEST}"
 WATCH_DEST="${E2E_WATCH_DEST:-$WATCH_DEST}"
 
 echo "E2E (simulador) - saída: ${OUT_DIR}"
+echo "DerivedData: ${DERIVED_DATA_ROOT}"
 echo "iOS - destino: ${IOS_DEST}"
 if [[ "${ENABLE_WATCH}" == "1" && -n "${WATCH_UDID}" ]]; then
   echo "watchOS - destino: ${WATCH_DEST}"
@@ -110,43 +119,31 @@ else
   ERASE_WATCH_SIM="0"
 fi
 
-if [[ -n "${IOS_UDID}" ]]; then
-  # Proactively boot and wait for a stable simulator state before running tests.
-  xcrun simctl boot "${IOS_UDID}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${IOS_UDID}" -b >/dev/null 2>&1 || true
-  open -a Simulator >/dev/null 2>&1 || true
-  sleep 2
-fi
-
 if [[ "${ERASE_IOS_SIM}" == "1" ]]; then
-  echo "Limpando simulador iOS (shutdown + erase)..."
-  xcrun simctl shutdown "${IOS_UDID}" >/dev/null 2>&1 || true
-  xcrun simctl erase "${IOS_UDID}" >/dev/null 2>&1 || true
+  echo "Limpando simulador iOS antes do boot final..."
 fi
 if [[ "${ENABLE_WATCH}" == "1" && "${ERASE_WATCH_SIM}" == "1" ]]; then
-  echo "Limpando simulador watchOS (shutdown + erase)..."
-  xcrun simctl shutdown "${WATCH_UDID}" >/dev/null 2>&1 || true
-  xcrun simctl erase "${WATCH_UDID}" >/dev/null 2>&1 || true
+  echo "Limpando simulador watchOS antes do boot final..."
 fi
 
-xcrun simctl boot "${IOS_UDID}" >/dev/null 2>&1 || true
+aipedometer_prepare_simulator "${IOS_UDID}" "${ERASE_IOS_SIM}"
 if [[ "${ENABLE_WATCH}" == "1" ]]; then
-  xcrun simctl boot "${WATCH_UDID}" >/dev/null 2>&1 || true
+  aipedometer_prepare_simulator "${WATCH_UDID}" "${ERASE_WATCH_SIM}"
 fi
 open -a Simulator >/dev/null 2>&1 || true
+sleep 2
 
 echo "Build-for-testing (iOS)..."
-xcodebuild \
+aipedometer_run_logged "${OUT_DIR}/xcodebuild-build-for-testing.log" xcodebuild \
   -scheme AIPedometer \
   -destination "${IOS_DEST}" \
-  -derivedDataPath "${OUT_DIR}/DerivedData-iOS" \
+  -derivedDataPath "${IOS_DERIVED_DATA}" \
   -parallel-testing-enabled NO \
-  build-for-testing \
-  | tee "${OUT_DIR}/xcodebuild-build-for-testing.log"
+  build-for-testing
 
 if [[ "${ENABLE_WIDGETS}" == "1" ]]; then
   echo "Verificando embed de widgets no app..."
-  IOS_APP_PATH="${OUT_DIR}/DerivedData-iOS/Build/Products/Debug-iphonesimulator/AIPedometer.app"
+  IOS_APP_PATH="${IOS_DERIVED_DATA}/Build/Products/Debug-iphonesimulator/AIPedometer.app"
   WIDGET_APPEX_PATH="${IOS_APP_PATH}/PlugIns/AIPedometerWidgets.appex"
   if [[ ! -d "${WIDGET_APPEX_PATH}" ]]; then
     echo "ERRO: widget extension nao esta embutido no app."
@@ -165,16 +162,15 @@ run_unit_tests_once() {
 
   rm -rf "${OUT_DIR}/UnitTests.xcresult" >/dev/null 2>&1 || true
 
-  xcodebuild \
+  aipedometer_run_logged "${log_file}" xcodebuild \
     -scheme AIPedometer \
     -destination "${IOS_DEST}" \
-    -derivedDataPath "${OUT_DIR}/DerivedData-iOS" \
+    -derivedDataPath "${IOS_DERIVED_DATA}" \
     -resultBundlePath "${OUT_DIR}/UnitTests.xcresult" \
     -parallel-testing-enabled NO \
     -collect-test-diagnostics on-failure \
     -only-testing:AIPedometerTests \
-    test-without-building \
-    | tee "${log_file}"
+    test-without-building
   local status=$?
 
   cp -f "${log_file}" "${OUT_DIR}/xcodebuild-unit-tests.log" >/dev/null 2>&1 || true
@@ -234,30 +230,28 @@ run_ui_tests_once() {
 
   local status=0
   if [[ "${UI_TEST_ITERATIONS}" -gt 1 ]]; then
-    xcodebuild \
+    aipedometer_run_logged "${log_file}" xcodebuild \
       -scheme AIPedometer \
       -destination "${IOS_DEST}" \
-      -derivedDataPath "${OUT_DIR}/DerivedData-iOS" \
+      -derivedDataPath "${IOS_DERIVED_DATA}" \
       -resultBundlePath "${OUT_DIR}/UITests.xcresult" \
       -parallel-testing-enabled NO \
       -collect-test-diagnostics on-failure \
       -test-iterations "${UI_TEST_ITERATIONS}" \
       -test-repetition-relaunch-enabled YES \
       -only-testing:AIPedometerUITests \
-      test-without-building \
-      | tee "${log_file}"
+      test-without-building
     status=$?
   else
-    xcodebuild \
+    aipedometer_run_logged "${log_file}" xcodebuild \
       -scheme AIPedometer \
       -destination "${IOS_DEST}" \
-      -derivedDataPath "${OUT_DIR}/DerivedData-iOS" \
+      -derivedDataPath "${IOS_DERIVED_DATA}" \
       -resultBundlePath "${OUT_DIR}/UITests.xcresult" \
       -parallel-testing-enabled NO \
       -collect-test-diagnostics on-failure \
       -only-testing:AIPedometerUITests \
-      test-without-building \
-      | tee "${log_file}"
+      test-without-building
     status=$?
   fi
 
@@ -360,30 +354,14 @@ for entry in manifest:
         shutil.copyfile(src, dst)
 PY
 
-if [[ "${ENABLE_WIDGETS}" == "1" ]]; then
-  echo "Build (widgets)..."
-  xcodebuild \
-    -project AIPedometer.xcodeproj \
-    -target AIPedometerWidgets \
-    -sdk iphonesimulator \
-    -parallel-testing-enabled NO \
-    SYMROOT="${OUT_DIR}/Build-widgets" \
-    OBJROOT="${OUT_DIR}/Build-widgets-obj" \
-    build \
-    | tee "${OUT_DIR}/xcodebuild-widgets-build.log"
-else
-  echo "Build (widgets) - pulado (E2E_ENABLE_WIDGETS=${ENABLE_WIDGETS})"
-fi
-
 if [[ "${ENABLE_WATCH}" == "1" ]]; then
   echo "Build (watchOS)..."
-  xcodebuild \
+  aipedometer_run_logged "${OUT_DIR}/xcodebuild-watch-build.log" xcodebuild \
     -scheme AIPedometerWatch \
     -destination "${WATCH_DEST}" \
-    -derivedDataPath "${OUT_DIR}/DerivedData-watch" \
+    -derivedDataPath "${WATCH_DERIVED_DATA}" \
     -parallel-testing-enabled NO \
-    build \
-    | tee "${OUT_DIR}/xcodebuild-watch-build.log"
+    build
 fi
 
 if [[ "${ENABLE_SCREENSHOTS}" == "1" ]]; then

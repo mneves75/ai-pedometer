@@ -86,6 +86,68 @@ struct PersistenceControllerTests {
         #expect(fileManager.fileExists(atPath: storeURL.deletingLastPathComponent().path))
     }
 
+    @Test("Fresh installs select private Application Support without creating a legacy store")
+    func freshInstallSelectsPrivateStore() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let privateStoreURL = root
+            .appendingPathComponent("private", isDirectory: true)
+            .appendingPathComponent("default.store")
+        let legacyStoreURL = root
+            .appendingPathComponent("group/Library/Application Support", isDirectory: true)
+            .appendingPathComponent("default.store")
+
+        let selectedURL = try PersistenceController.selectStoreURL(
+            privateStoreURL: privateStoreURL,
+            legacyStoreURL: legacyStoreURL,
+            fileManager: fileManager
+        )
+
+        #expect(selectedURL == privateStoreURL)
+        #expect(fileManager.fileExists(atPath: privateStoreURL.deletingLastPathComponent().path))
+        #expect(!fileManager.fileExists(atPath: legacyStoreURL.deletingLastPathComponent().path))
+    }
+
+    @Test("Existing app-group stores remain authoritative and untouched")
+    func existingLegacyStoreRemainsInPlace() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let privateStoreURL = root
+            .appendingPathComponent("private", isDirectory: true)
+            .appendingPathComponent("default.store")
+        let legacyStoreURL = root
+            .appendingPathComponent("group/Library/Application Support", isDirectory: true)
+            .appendingPathComponent("default.store")
+        try fileManager.createDirectory(
+            at: legacyStoreURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let legacyFiles = PersistenceController.storeFileURLs(for: legacyStoreURL)
+        let sentinels = legacyFiles.enumerated().map { index, url in
+            (url, Data("legacy-health-data-\(index)".utf8))
+        }
+        for (url, data) in sentinels {
+            try data.write(to: url)
+        }
+
+        let selectedURL = try PersistenceController.selectStoreURL(
+            privateStoreURL: privateStoreURL,
+            legacyStoreURL: legacyStoreURL,
+            fileManager: fileManager
+        )
+
+        #expect(selectedURL == legacyStoreURL)
+        for (url, expectedData) in sentinels {
+            let persistedData = try Data(contentsOf: url)
+            #expect(persistedData == expectedData)
+        }
+        #expect(!fileManager.fileExists(atPath: privateStoreURL.deletingLastPathComponent().path))
+    }
+
     @Test
     func resolveStoreURLFallsBackToApplicationSupport() throws {
         let fileManager = FileManager.default

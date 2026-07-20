@@ -7,6 +7,7 @@ xcuserdata/
 # Build products
 build/
 DerivedData/
+.build-benchmark/
 *.app
 *.dSYM.zip
 *.dSYM
@@ -18,6 +19,18 @@ Packages/
 Package.pins
 Package.resolved
 *.xcodeproj
+
+# GitHub's dependency graph only discovers SwiftPM dependencies from a lockfile.
+# Keep the generated project ignored except for the shared, deterministic lockfile.
+!AIPedometer.xcodeproj/
+AIPedometer.xcodeproj/*
+!AIPedometer.xcodeproj/project.xcworkspace/
+AIPedometer.xcodeproj/project.xcworkspace/*
+!AIPedometer.xcodeproj/project.xcworkspace/xcshareddata/
+AIPedometer.xcodeproj/project.xcworkspace/xcshareddata/*
+!AIPedometer.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+AIPedometer.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!AIPedometer.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # CocoaPods (if used)
 Pods/

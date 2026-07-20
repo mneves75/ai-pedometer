@@ -70,11 +70,25 @@ final class PersistenceController {
         allowAppSupportFallback: Bool = true
     ) throws -> URL {
         if let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
-            return try storeURL(baseDirectory: containerURL, fileManager: fileManager)
+            let privateURL = try Self.privateStoreURL(fileManager: fileManager)
+            let legacyURL = try storeURL(
+                baseDirectory: containerURL,
+                fileManager: fileManager,
+                createDirectory: false
+            )
+            return try selectStoreURL(
+                privateStoreURL: privateURL,
+                legacyStoreURL: legacyURL,
+                fileManager: fileManager
+            )
         }
         if requireSharedContainer || !allowAppSupportFallback {
             throw CocoaError(.fileNoSuchFile)
         }
+        return try privateStoreURL(fileManager: fileManager)
+    }
+
+    static func privateStoreURL(fileManager: FileManager = .default) throws -> URL {
         let appSupport = try fileManager.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -84,9 +98,32 @@ final class PersistenceController {
         return appSupport.appendingPathComponent("default.store")
     }
 
-    static func storeURL(baseDirectory: URL, fileManager: FileManager = .default) throws -> URL {
+    static func selectStoreURL(
+        privateStoreURL: URL,
+        legacyStoreURL: URL,
+        fileManager: FileManager = .default
+    ) throws -> URL {
+        // Keep an existing store in place; relocating SwiftData's SQLite/WAL files at launch risks data loss.
+        if fileManager.fileExists(atPath: legacyStoreURL.path) {
+            return legacyStoreURL
+        }
+
+        try fileManager.createDirectory(
+            at: privateStoreURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        return privateStoreURL
+    }
+
+    static func storeURL(
+        baseDirectory: URL,
+        fileManager: FileManager = .default,
+        createDirectory: Bool = true
+    ) throws -> URL {
         let directory = baseDirectory.appendingPathComponent("Library/Application Support", isDirectory: true)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        if createDirectory {
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
         return directory.appendingPathComponent("default.store")
     }
 

@@ -3,9 +3,30 @@ set -euo pipefail
 
 ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 LOCAL_AGENTS="${LOCAL_AGENTS:-${ROOT_DIR}/AGENTS.md}"
-GUIDELINES_REF_ROOT="${GUIDELINES_REF_ROOT:-${HOME}/dev/GUIDELINES-REF}"
+DEFAULT_GUIDELINES_REF_ROOT="${HOME}/dev/GUIDELINES-REF"
+GUIDELINES_REF_ROOT="${GUIDELINES_REF_ROOT:-${DEFAULT_GUIDELINES_REF_ROOT}}"
 UPSTREAM_AGENTS="${GUIDELINES_REF_ROOT}/AGENTS.md"
 SYNC_NOTICE="${SYNC_NOTICE:-Synced from \`~/dev/GUIDELINES-REF/AGENTS.md\` (use \`bash Scripts/check-agents-sync.sh\`).}"
+
+canonical_guidelines_root="$(cd "${GUIDELINES_REF_ROOT}" 2>/dev/null && pwd -P || true)"
+canonical_default_root="$(cd "${DEFAULT_GUIDELINES_REF_ROOT}" 2>/dev/null && pwd -P || true)"
+
+if [[ -z "${canonical_guidelines_root}" ]]; then
+  echo "GUIDELINES-REF root is unavailable: ${GUIDELINES_REF_ROOT}" >&2
+  exit 1
+fi
+
+if [[ "${canonical_guidelines_root}" != "${canonical_default_root}" ]] &&
+  [[ "${AIPEDOMETER_ALLOW_GUIDELINES_OVERRIDE:-0}" != "1" ]]; then
+  echo "Refusing to import agent instructions from an untrusted override." >&2
+  echo "Set AIPEDOMETER_ALLOW_GUIDELINES_OVERRIDE=1 only for an explicitly reviewed source." >&2
+  exit 1
+fi
+
+if [[ -L "${UPSTREAM_AGENTS}" ]]; then
+  echo "Refusing to import agent instructions through a symbolic link: ${UPSTREAM_AGENTS}" >&2
+  exit 1
+fi
 
 if [[ ! -f "${LOCAL_AGENTS}" ]]; then
   echo "AGENTS.md not found at ${LOCAL_AGENTS}" >&2

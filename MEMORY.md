@@ -42,6 +42,16 @@ Also confirm repo scope first with:
 - AI is on-device through Apple Foundation Models, not cloud inference.
 - Health data is read through HealthKit, with graceful fallback behavior when data or permissions are unavailable.
 - RevenueCat gates premium AI surfaces and is designed to fail closed when not configured or when Trusted Entitlements verification fails.
+- RevenueCat is pinned by the immutable annotated-tag object in `project.yml`, while Xcode's
+  `Package.resolved` records the resolving commit. Run `Scripts/check-revenuecat-staleness.sh`
+  before release and review the upstream release notes; never replace the pin with a moving branch.
+- `InsightService` weekly generation is single-flight across one Foundation Models session. Cache
+  invalidation or week rollover increments an ownership generation; incompatible callers await the
+  prior flight and re-evaluate instead of starting a concurrent model session. Stale flights must
+  not publish cache or `lastError`.
+- Badge celebration generation uses UUID ownership. Cancellation, dismissal, failure, and a
+  replacement request invalidate the prior owner so a late response cannot publish content or
+  clear the current celebration.
 - Expedition Mode is a Premium workouts capability: the Workouts UI owns the toggle, while `WorkoutSessionController` rechecks premium-gated persisted state before reducing live metrics cadence.
 - Routes & GPX is presently a local GPX import/summary/MapKit-preview feature, not full live maps, offline maps, or Apple Watch maps.
 - `GPXRouteImporter` owns the Routes & GPX import seam: security-scoped file access, pre-allocation size rejection, mapped file reads, parsing, and storage. `WorkoutsView` should only keep UI state and call this module.
@@ -62,6 +72,32 @@ Also confirm repo scope first with:
   - Build de simulador iOS continua possível removendo TEMP o `- target: AIPedometerWatch` das deps do app em `project.yml` (nunca commitar; o autoreview pega).
 - **Ponto-cego de 32 bits**: `Shared/` compila no target watchOS (arm64_32, `Int` de 32 bits). Literais inteiros que cabem em Int64 mas estouram Int32 (ex.: a constante de hash de Knuth `2_654_435_761`) passam no build de simulador (arm64, Int 64-bit) E no autoreview do Codex, mas QUEBRAM o build do watch/device. Use `UInt32`/`UInt64` com aritmética de wrapping (`&*`,`&+`) para hashing em código de `Shared/`. O build de device do iMarcus foi o que pegou o bug (0.90). LIÇÃO: verificação só em simulador 64-bit + review estático NÃO cobre overflow de 32 bits; um build de watch/device é necessário para fechar essa classe.
 - **GitHub push**: `gh`/git resolve para a conta `conhecendoia` (sem write em `mneves75/ai-pedometer`) → 403. `gh auth switch --user mneves75` antes de push (ambas no keyring; mneves75 é dono).
+
+## RevenueCat Test Store key crasha builds Release de propósito (2026-07-15)
+
+- O crash "app crashes on imarcus" de 2026-07-15 (2x às 20:00, EXC_BREAKPOINT/SIGTRAP tipo 309,
+  cooperative pool, ~0,7s pós-launch) era o RevenueCat pinado executando
+  `checkForSimulatedStoreAPIKeyInRelease`: em build **não-DEBUG** com key `test_…` (Test/Simulated
+  Store), o SDK loga → mostra alerta → `fatalError` **quando o alerta é dispensado**. Por isso um
+  "launch sobreviveu N segundos" NÃO prova ausência desse crash — o trap espera interação.
+- `Config/Local.xcconfig` carrega uma key RevenueCat de Test Store (prefixo test) (dev). Install em device com
+  `--configuration Release` + essa key = crash garantido na primeira interação. Debug é o modo
+  suportado para a test key (`install-on-device.sh` default).
+- Guard no app (2026-07-15): `AppConstants.RevenueCat.resolveConfiguration` tem
+  `allowsTestStoreAPIKeys` (default `#if DEBUG`); key `test_…` vira `nil` quando não permitida →
+  premium fail-closed em vez do fatalError do SDK. Reproducer: `AppConstantsTests`
+  (`resolveRevenueCatConfigurationRejectsTestStoreKey*`). Red→green provado em 2026-07-15.
+- Correção definitiva para Release/TestFlight: key Apple real (`appl_…`) do dashboard RevenueCat
+  (app record ASC 6778799265 existe) — decisão do usuário, revenue-critical, não autônoma.
+- Diagnóstico de crash em iMarcus sem USB: o device aparece em `pymobiledevice3 usbmux list` como
+  `ConnectionType: Network` quando está no mesmo Wi-Fi; `idevicecrashreport -n -u <UDID-nativo> -k <dir>`
+  puxa os `.ips` por rede. `devicectl` pode reportar "could not be established" e voltar sozinho depois.
+- iMarcus roda iOS 27.0 beta (24A5380h) desde ≤2026-07-14; runtime de sim iOS 27.0 (24A5380g) está
+  instalado e o app 0.93 buildado com SDK 26.5 roda nele sem crash (fresh install, 5 abas). No iOS 27
+  o fluxo de autorização HealthKit ganhou um passo extra ("Past 30 Days" vs "Full History").
+- NOTA STALE (2026-06-13): o runtime watchOS 26.x voltou a existir em `simctl list runtimes`
+  (26.5 23T570 presente em 2026-07-15) — revalidar o "toolchain pincer" antes de citar bloqueio de
+  distribuição.
 
 ## Known Documentation Drift
 
@@ -114,6 +150,9 @@ Also confirm repo scope first with:
 - **0.92 (48) closeout:** stable Xcode installed and launched the final build on iMarcus, and a separate process query confirmed it remained alive. Simulator proof is 504/504 unit tests, 16/16 XCUITests, clean analysis, and a successful Release build. HealthKit forced-failure retry and the write-rate walking trace remain manual smokes.
 - **0.93 (49) HealthKit retry closeout:** the physical forced-failure smoke proved a real completed workout remained durable with one pending export, but its first relaunch exposed that the six-hour daily-sync throttle also skipped pending reconciliation. `performAutomaticSync()` now keeps the heavy throttle while always retrying durable workout exports; its local preflight avoids HealthKit authorization when there is no pending export. On iMarcus the fixed relaunch exported the same row, a second relaunch kept exactly one stable export ID and one HealthKit ID, the process remained alive, and the original Workouts permission was restored. The representative walking signpost trace remains deferred because it requires a person carrying the phone.
 - Large scanner output must be piped into its filter, not captured and replayed through a Bash here-string. Entitlement absence checks must first prove every input is an existing, syntactically valid plist.
+- `Scripts/lib/logged-command.sh` must enable `pipefail` inside its own subshell. A helper cannot assume its Bash/Zsh caller enabled pipeline failure propagation; otherwise `xcodebuild | tee` can report success when the build failed.
+- UI-test markers at `opacity(0.01)` are still visible in screenshots. Use the shared fully clear 1×1 accessibility marker and preserve a targeted XCUITest proving both marker discovery and visually clean captures.
+- **0.94 (50) local simulator proof:** stable Xcode 26.6 on iOS 26.5 passed 576/576 unit tests and 16/16 XCUITests. The embedded watch app and widget compiled in the app graph; this is not physical-device, watch-UI, TestFlight, or App Store publication proof.
 
 ## Memory Rules
 

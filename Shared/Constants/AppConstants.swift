@@ -99,9 +99,10 @@ enum AppConstants {
         static func resolveConfiguration(
             bundle: Bundle = .main,
             environment: [String: String] = ProcessInfo.processInfo.environment,
-            allowsEnvironmentOverrides: Bool = environmentOverridesEnabled
+            allowsEnvironmentOverrides: Bool = environmentOverridesEnabled,
+            allowsTestStoreAPIKeys: Bool = testStoreAPIKeysEnabled
         ) -> RevenueCatConfiguration {
-            let resolvedKey = resolveValue(
+            var resolvedKey = resolveValue(
                 environmentKey: "REVENUECAT_API_KEY",
                 infoDictionaryKey: "RevenueCatAPIKey",
                 placeholder: placeholderAPIKey,
@@ -109,6 +110,12 @@ enum AppConstants {
                 environment: environment,
                 allowsEnvironmentOverrides: allowsEnvironmentOverrides
             )
+
+            // RevenueCat deliberately fatalErrors when configured with a Test Store ("test_")
+            // key in a non-DEBUG build; resolve such keys to nil so premium fails closed instead.
+            if !allowsTestStoreAPIKeys, let key = resolvedKey, key.hasPrefix(testStoreAPIKeyPrefix) {
+                resolvedKey = nil
+            }
 
             return RevenueCatConfiguration(
                 apiKey: resolvedKey,
@@ -132,6 +139,16 @@ enum AppConstants {
         }
 
         static var environmentOverridesEnabled: Bool {
+            #if DEBUG
+            true
+            #else
+            false
+            #endif
+        }
+
+        private static let testStoreAPIKeyPrefix = "test_"
+
+        static var testStoreAPIKeysEnabled: Bool {
             #if DEBUG
             true
             #else

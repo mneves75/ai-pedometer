@@ -249,10 +249,9 @@ O app configura RevenueCat assim:
 - fallback nativo do app quando o offering tem packages mas não tem Paywall v2 publicado;
 - `showManageSubscriptions()` com fallback para `managementURL`.
 
-Acesso premium é verdadeiro quando:
+Acesso premium é verdadeiro quando o entitlement configurado, um alias normalizado dele ou um alias premium conhecido está ativo no ambiente atual do `CustomerInfo`.
 
-- o entitlement configurado está ativo no `CustomerInfo`; ou
-- existe uma assinatura ativa conhecida vinculada aos packages carregados.
+Entitlements ativos apenas em outro ambiente (sandbox versus produção) não liberam premium.
 
 Se `CustomerInfo.entitlements.verification` retornar `.failed`, o app trata o resultado como não confiável e falha fechado, mesmo que o payload contenha entitlement ou produto premium ativo.
 
@@ -310,7 +309,7 @@ Para um passe de release real:
 bash Scripts/test-payments-device.sh
 ```
 
-O script valida auth local do `asc`, encontra o app por bundle ID, prepara IPA Release, cria/usa grupo TestFlight e orienta o fluxo de sandbox tester. Ele exige credenciais ASC configuradas fora do repo.
+O script valida auth local do `asc`, encontra o app por bundle ID, prepara IPA Release, cria/usa grupo TestFlight e orienta o fluxo de sandbox tester. Ele exige credenciais ASC configuradas fora do repo e redige do console e dos logs os emails, IDs e caminhos de credenciais conhecidos.
 
 Também é útil rodar antes:
 
@@ -347,6 +346,7 @@ Antes de enviar para review:
 - review notes explicam onde encontrar o paywall;
 - privacidade/metadata do app não promete recurso que não aparece no build;
 - build usa chave RevenueCat Apple real;
+- App Store privacy labels foram revisados contra as práticas atuais da RevenueCat para dados técnicos, App User ID anônimo, recibos/transações e entitlements; o manifest vazio do app cobre apenas a ausência de coleta de Health/Fitness pelo app e não substitui essa declaração;
 - primeiro IAP/subscription é submetido junto com uma nova versão do app.
 
 Se é a primeira assinatura/IAP do app, associe a subscription à versão na submissão da App Store. Esse detalhe costuma bloquear review quando esquecido.

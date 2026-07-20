@@ -15,6 +15,7 @@ final class BadgeService {
     private(set) var pendingCelebration: AchievementCelebration?
     private(set) var celebratingBadge: BadgeType?
     @ObservationIgnored private(set) var pendingCelebrationTask: Task<Void, Never>?
+    @ObservationIgnored private var celebrationGeneration: UUID?
 
     init(
         persistence: PersistenceController,
@@ -90,10 +91,7 @@ final class BadgeService {
                 "badge": badgeType.rawValue
             ])
             refreshEarnedBadges()
-            pendingCelebrationTask?.cancel()
-            pendingCelebrationTask = Task { [weak self] in
-                await self?.generateCelebration(for: badgeType)
-            }
+            startCelebration(for: badgeType)
             return true
         } catch {
             context.delete(badge)
@@ -106,11 +104,33 @@ final class BadgeService {
     }
     
     func dismissCelebration() {
+        celebrationGeneration = nil
+        pendingCelebrationTask?.cancel()
+        pendingCelebrationTask = nil
         pendingCelebration = nil
         celebratingBadge = nil
     }
-    
-    private func generateCelebration(for badgeType: BadgeType) async {
+
+    private func startCelebration(for badgeType: BadgeType) {
+        celebrationGeneration = nil
+        pendingCelebrationTask?.cancel()
+        pendingCelebration = nil
+        celebratingBadge = nil
+
+        let generation = UUID()
+        celebrationGeneration = generation
+        pendingCelebrationTask = Task { [weak self] in
+            await self?.generateCelebration(for: badgeType, generation: generation)
+        }
+    }
+
+    private func generateCelebration(for badgeType: BadgeType, generation: UUID) async {
+        var didPublishCelebration = false
+        defer {
+            finishCelebrationGeneration(generation, preservingCelebration: didPublishCelebration)
+        }
+
+        guard celebrationGeneration == generation, !Task.isCancelled else { return }
         guard canGenerateAICoaching() else { return }
         guard let aiService = foundationModelsService,
               aiService.availability.isAvailable else { return }
@@ -134,17 +154,33 @@ final class BadgeService {
                 to: prompt,
                 as: AchievementCelebration.self
             )
-            
+
+            guard celebrationGeneration == generation, !Task.isCancelled else { return }
             pendingCelebration = celebration
+            didPublishCelebration = true
             
             Loggers.ai.info("ai.achievement_celebration_generated", metadata: [
                 "badge": badgeType.rawValue
             ])
         } catch {
+            guard celebrationGeneration == generation, !Task.isCancelled else { return }
             Loggers.ai.error("ai.achievement_celebration_failed", metadata: [
                 "badge": badgeType.rawValue,
                 "error": error.localizedDescription
             ])
+        }
+    }
+
+    private func finishCelebrationGeneration(
+        _ generation: UUID,
+        preservingCelebration: Bool
+    ) {
+        guard celebrationGeneration == generation else { return }
+        celebrationGeneration = nil
+        pendingCelebrationTask = nil
+        if !preservingCelebration {
+            pendingCelebration = nil
+            celebratingBadge = nil
         }
     }
 

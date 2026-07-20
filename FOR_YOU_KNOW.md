@@ -92,6 +92,16 @@ Weekly-summary and streak refreshes can overlap. They deliberately use latest-re
 counters: an older HealthKit calculation may finish, but it cannot overwrite state published by a
 newer refresh.
 
+Weekly AI insights have a stricter constraint: Apple Foundation Models sessions are not treated as
+parallel workers. `InsightService` owns one generation-tagged flight, lets incompatible callers wait
+for it, and re-evaluates after cache invalidation or week rollover. This keeps model access serialized
+without allowing an obsolete result to repopulate the cache.
+
+Badge celebrations use the same ownership idea at UI scale. Every generation has a UUID; dismiss,
+failure, cancellation, or replacement invalidates that UUID before any late response can publish or
+clear state. If a celebration appears stuck, inspect ownership cleanup before adding another view
+workaround.
+
 Workout persistence follows the same trust boundary. `WorkoutSessionController` snapshots mutable
 session fields and only commits state-machine transitions after SwiftData saves succeed. A failed
 start, resume, finish, or discard must remain retryable without leaving a phantom or hidden workout.
@@ -212,7 +222,7 @@ That is a modern Apple-stack choice and it fits the rest of the repo:
 
 - SwiftUI views consume observable state
 - persisted models back history, goals, plans, and related product features
-- app-group-backed storage keeps extensions in sync
+- SwiftData keeps new stores in the app sandbox; app-group snapshots keep extensions in sync
 
 Production app-group writes are latest-value coalesced with at most five seconds of staleness.
 Goal/streak/week changes, day rollover, 100-step milestones, and lifecycle backgrounding flush
@@ -223,7 +233,14 @@ You can think of it this way:
 
 - SwiftData remembers the story
 - Observation keeps the UI alive
-- app-group storage keeps the side screens honest
+- the bounded app-group snapshot keeps the side screens honest
+
+Fresh installations keep the SwiftData store in the app's private Application Support directory.
+Upgrades that already contain the historical app-group store continue opening it in place so an
+update cannot lose health history. Widgets never open SwiftData; they read only `SharedStepData`
+from app-group `UserDefaults`. Moving legacy SQLite/WAL files is deferred until a supported or fully
+interruption-tested migration can prove data equivalence and recovery; 0.94 must not be described as
+full store isolation for every upgraded installation.
 
 ## Build system and repo layout
 
@@ -302,6 +319,13 @@ a device-build warning as closed.
 ### 6. Health apps need graceful degradation
 
 If a fix "works" only when every permission and entitlement is present, it is probably not finished. This app already bakes in fallback behavior. Respect that design instead of bulldozing it.
+
+### 7. UI-test markers must be visually empty, not almost transparent
+
+SwiftUI elements at `opacity(0.01)` remain visible in screenshots. The shared `uiTestMarker` keeps
+automation identifiers in the accessibility tree with a fully clear 1×1 foreground. Preserve the
+primary-tabs XCUITest whenever changing this helper: the contract is both discoverable automation
+and zero visible marker text.
 
 ## Why the repo feels solid
 

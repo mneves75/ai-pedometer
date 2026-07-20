@@ -9,10 +9,18 @@ final class InsightService {
     private let goalService: GoalService
     private let dataStore: SharedDataStore
     private let userDefaults: UserDefaults
+    private let now: @MainActor () -> Date
     
     private var cachedDailyInsight: (date: Date, steps: Int, goal: Int, insight: DailyInsight)?
     private var cachedWeeklyAnalysis: (weekStart: Date, analysis: WeeklyTrendAnalysis)?
     private var cachedWorkoutRecommendation: (date: Date, steps: Int, goal: Int, recommendation: AIWorkoutRecommendation)?
+    private var weeklyAnalysisFlight: (
+        id: UUID,
+        weekStart: Date,
+        cacheGeneration: UInt64,
+        task: Task<WeeklyTrendAnalysis, Never>
+    )?
+    private var weeklyAnalysisCacheGeneration: UInt64 = 0
     private var lastSeenDay: Date?
 
     private(set) var isGeneratingDailyInsight = false
@@ -25,18 +33,20 @@ final class InsightService {
         healthKitService: any HealthKitServiceProtocol,
         goalService: GoalService,
         dataStore: SharedDataStore,
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        now: @escaping @MainActor () -> Date = { .now }
     ) {
         self.foundationModelsService = foundationModelsService
         self.healthKitService = healthKitService
         self.goalService = goalService
         self.dataStore = dataStore
         self.userDefaults = userDefaults
+        self.now = now
     }
     
     func generateDailyInsight(forceRefresh: Bool = false) async throws(AIServiceError) -> DailyInsight {
         checkDayRolloverAndClearCache()
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = Calendar.current.startOfDay(for: now())
         let todayData = await fetchTodayActivityData()
         
         if !forceRefresh, let cached = cachedDailyInsight {
@@ -81,28 +91,55 @@ final class InsightService {
     }
     
     func generateWeeklyAnalysis(forceRefresh: Bool = false) async throws(AIServiceError) -> WeeklyTrendAnalysis {
-        checkDayRolloverAndClearCache()
-        let calendar = Calendar.current
-        let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
-        
-        if !forceRefresh,
-           let cached = cachedWeeklyAnalysis,
-           calendar.isDate(cached.weekStart, equalTo: weekStart, toGranularity: .weekOfYear) {
-            return cached.analysis
-        }
+        while true {
+            checkDayRolloverAndClearCache()
+            let calendar = Calendar.current
+            let currentDate = now()
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
+            let cacheGeneration = weeklyAnalysisCacheGeneration
 
-        if isGeneratingWeeklyAnalysis {
-            if let cached = cachedWeeklyAnalysis,
+            if !forceRefresh,
+               let cached = cachedWeeklyAnalysis,
                calendar.isDate(cached.weekStart, equalTo: weekStart, toGranularity: .weekOfYear) {
                 return cached.analysis
             }
-            return await fallbackWeeklyAnalysisWhileInFlight(weekStart: weekStart)
+
+            if let flight = weeklyAnalysisFlight {
+                let analysis = await flight.task.value
+                finishWeeklyAnalysisFlight(id: flight.id)
+
+                guard isWeeklyAnalysisResultCurrent(
+                    weekStart: flight.weekStart,
+                    cacheGeneration: flight.cacheGeneration
+                ) else { continue }
+                return analysis
+            }
+
+            let flightID = UUID()
+            isGeneratingWeeklyAnalysis = true
+            lastError = nil
+            let task = Task { @MainActor in
+                await self.performWeeklyAnalysis(
+                    weekStart: weekStart,
+                    cacheGeneration: cacheGeneration
+                )
+            }
+            weeklyAnalysisFlight = (flightID, weekStart, cacheGeneration, task)
+
+            let analysis = await task.value
+            finishWeeklyAnalysisFlight(id: flightID)
+            guard isWeeklyAnalysisResultCurrent(
+                weekStart: weekStart,
+                cacheGeneration: cacheGeneration
+            ) else { continue }
+            return analysis
         }
-        
-        isGeneratingWeeklyAnalysis = true
-        lastError = nil
-        defer { isGeneratingWeeklyAnalysis = false }
-        
+    }
+
+    private func performWeeklyAnalysis(
+        weekStart: Date,
+        cacheGeneration: UInt64
+    ) async -> WeeklyTrendAnalysis {
         let signpostState = Signposts.ai.begin("WeeklyAnalysis")
         defer { Signposts.ai.end("WeeklyAnalysis", signpostState) }
 
@@ -110,9 +147,13 @@ final class InsightService {
         do {
             weekData = try await fetchWeekActivityData()
         } catch let error as AIServiceError {
-            lastError = error
             let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
-            cachedWeeklyAnalysis = (weekStart, fallback)
+            publishWeeklyAnalysis(
+                fallback,
+                error: error,
+                weekStart: weekStart,
+                cacheGeneration: cacheGeneration
+            )
             Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
                 "reason": WeeklyFallbackReason.fetchError.rawValue,
                 "error": error.logDescription
@@ -120,9 +161,13 @@ final class InsightService {
             return fallback
         } catch {
             let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
-            lastError = mappedError
             let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
-            cachedWeeklyAnalysis = (weekStart, fallback)
+            publishWeeklyAnalysis(
+                fallback,
+                error: mappedError,
+                weekStart: weekStart,
+                cacheGeneration: cacheGeneration
+            )
             Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
                 "reason": WeeklyFallbackReason.fetchError.rawValue,
                 "error": mappedError.logDescription
@@ -132,7 +177,11 @@ final class InsightService {
 
         if weekData.summaries.isEmpty {
             let fallback = fallbackWeeklyAnalysis(reason: .noData)
-            cachedWeeklyAnalysis = (weekStart, fallback)
+            publishWeeklyAnalysis(
+                fallback,
+                weekStart: weekStart,
+                cacheGeneration: cacheGeneration
+            )
             Loggers.ai.info("ai.weekly_analysis_fallback", metadata: [
                 "reason": WeeklyFallbackReason.noData.rawValue
             ])
@@ -146,18 +195,26 @@ final class InsightService {
                 as: WeeklyTrendAnalysis.self
             )
 
-            cachedWeeklyAnalysis = (weekStart, analysis)
+            publishWeeklyAnalysis(
+                analysis,
+                weekStart: weekStart,
+                cacheGeneration: cacheGeneration
+            )
             Loggers.ai.info("ai.weekly_analysis_generated")
             return analysis
         } catch let error {
-            lastError = error
             let reason: WeeklyFallbackReason = if case .guardrailViolation = error {
                 .guardrail
             } else {
                 .generationFailure
             }
             let fallback = fallbackWeeklyAnalysis(from: weekData, reason: reason)
-            cachedWeeklyAnalysis = (weekStart, fallback)
+            publishWeeklyAnalysis(
+                fallback,
+                error: error,
+                weekStart: weekStart,
+                cacheGeneration: cacheGeneration
+            )
             Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
                 "reason": reason.rawValue,
                 "error": error.logDescription
@@ -171,7 +228,7 @@ final class InsightService {
 
         checkDayRolloverAndClearCache()
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: now())
         let todayData = await fetchTodayActivityData()
         let currentGoal = goalService.currentGoal
 
@@ -263,17 +320,50 @@ final class InsightService {
     }
     
     func clearCache() {
+        weeklyAnalysisCacheGeneration &+= 1
         cachedDailyInsight = nil
         cachedWeeklyAnalysis = nil
         cachedWorkoutRecommendation = nil
         Loggers.ai.info("ai.cache_cleared")
     }
 
+    private func finishWeeklyAnalysisFlight(id: UUID) {
+        guard weeklyAnalysisFlight?.id == id else { return }
+        weeklyAnalysisFlight = nil
+        isGeneratingWeeklyAnalysis = false
+    }
+
+    private func publishWeeklyAnalysis(
+        _ analysis: WeeklyTrendAnalysis,
+        error: AIServiceError? = nil,
+        weekStart: Date,
+        cacheGeneration: UInt64
+    ) {
+        guard isWeeklyAnalysisResultCurrent(
+            weekStart: weekStart,
+            cacheGeneration: cacheGeneration
+        ) else { return }
+
+        cachedWeeklyAnalysis = (weekStart, analysis)
+        lastError = error
+    }
+
+    private func isWeeklyAnalysisResultCurrent(
+        weekStart: Date,
+        cacheGeneration: UInt64
+    ) -> Bool {
+        let calendar = Calendar.current
+        let currentDate = now()
+        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
+        return cacheGeneration == weeklyAnalysisCacheGeneration
+            && calendar.isDate(weekStart, equalTo: currentWeekStart, toGranularity: .weekOfYear)
+    }
+
     /// Checks if a new day has started since last check, clearing stale cache if so.
     /// Call this on app foregrounding or before generating insights.
     func checkDayRolloverAndClearCache() {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: now())
 
         if let lastSeen = lastSeenDay, !calendar.isDate(lastSeen, inSameDayAs: today) {
             clearCache()
@@ -301,7 +391,6 @@ private extension InsightService {
         case fetchError
         case guardrail
         case generationFailure
-        case inFlight
     }
 
     struct ActivityData {
@@ -515,44 +604,6 @@ private extension InsightService {
         )
     }
 
-    func fallbackWeeklyAnalysisWhileInFlight(weekStart: Date) async -> WeeklyTrendAnalysis {
-        do {
-            let weekData = try await fetchWeekActivityData()
-            let fallback: WeeklyTrendAnalysis
-            if weekData.summaries.isEmpty {
-                fallback = fallbackWeeklyAnalysis(reason: .noData)
-            } else {
-                fallback = fallbackWeeklyAnalysis(from: weekData, reason: .inFlight)
-            }
-            cachedWeeklyAnalysis = (weekStart, fallback)
-            Loggers.ai.info("ai.weekly_analysis_fallback", metadata: [
-                "reason": WeeklyFallbackReason.inFlight.rawValue
-            ])
-            return fallback
-        } catch let error as AIServiceError {
-            lastError = error
-            let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
-            cachedWeeklyAnalysis = (weekStart, fallback)
-            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
-                "reason": WeeklyFallbackReason.fetchError.rawValue,
-                "context": WeeklyFallbackReason.inFlight.rawValue,
-                "error": error.logDescription
-            ])
-            return fallback
-        } catch {
-            let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
-            lastError = mappedError
-            let fallback = fallbackWeeklyAnalysis(reason: .fetchError)
-            cachedWeeklyAnalysis = (weekStart, fallback)
-            Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
-                "reason": WeeklyFallbackReason.fetchError.rawValue,
-                "context": WeeklyFallbackReason.inFlight.rawValue,
-                "error": mappedError.logDescription
-            ])
-            return fallback
-        }
-    }
-
     func fallbackWeeklyAnalysis(
         from data: WeekActivityData,
         reason: WeeklyFallbackReason
@@ -595,11 +646,6 @@ private extension InsightService {
             observationPrefix = String(
                 localized: "I used a safe summary based on your recorded history this week.",
                 comment: "Weekly fallback prefix when AI content is blocked by guardrails"
-            )
-        case .inFlight:
-            observationPrefix = String(
-                localized: "Your latest AI summary is still processing, so I used your recorded history for now.",
-                comment: "Weekly fallback prefix when another weekly AI generation is in progress"
             )
         case .generationFailure, .fetchError, .noData:
             observationPrefix = String(
@@ -791,7 +837,8 @@ private extension InsightService {
     func buildWorkoutRecommendationPrompt(weekData: WeekActivityData, todayData: ActivityData, currentGoal: Int) -> String {
         let unitLabel = todayData.unitName
         let languageInstruction = AppLanguage.promptInstruction()
-        let currentHour = Calendar.current.component(.hour, from: Date())
+        let currentDate = now()
+        let currentHour = Calendar.current.component(.hour, from: currentDate)
         let timeContext: String
         if currentHour < 12 {
             timeContext = "morning"
@@ -801,7 +848,7 @@ private extension InsightService {
             timeContext = "evening"
         }
         
-        let dayOfWeek = Calendar.current.component(.weekday, from: Date())
+        let dayOfWeek = Calendar.current.component(.weekday, from: currentDate)
         let isWeekend = dayOfWeek == 1 || dayOfWeek == 7
         
         let dataReliabilityNote: String
@@ -885,7 +932,7 @@ private extension InsightService {
             rationale: intent.localizedDescription,
             targetSteps: roundedTarget,
             estimatedMinutes: estimatedMinutes,
-            suggestedTimeOfDay: fallbackWorkoutTimeOfDay()
+            suggestedTimeOfDay: fallbackWorkoutTimeOfDay(now: now())
         )
     }
 

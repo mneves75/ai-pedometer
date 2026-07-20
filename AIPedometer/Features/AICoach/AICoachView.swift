@@ -1,14 +1,42 @@
 import SwiftUI
 
+enum AICoachBottomPinningPolicy {
+    static let tolerance: CGFloat = 24
+
+    static func isBottomVisible(
+        contentOffsetY: CGFloat,
+        contentHeight: CGFloat,
+        containerHeight: CGFloat,
+        bottomInset: CGFloat,
+        tolerance: CGFloat = tolerance
+    ) -> Bool {
+        let visibleBottom = contentOffsetY + containerHeight
+        let contentBottom = contentHeight + bottomInset
+        return visibleBottom >= contentBottom - tolerance
+    }
+
+    static func updatedPinning(
+        currentPinning: Bool,
+        isBottomVisible: Bool,
+        isUserScrollActive: Bool
+    ) -> Bool {
+        guard isUserScrollActive else { return currentPinning }
+        return isBottomVisible
+    }
+}
+
 struct AICoachView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(CoachService.self) private var coachService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(PremiumAccessStore.self) private var premiumAccessStore
+    @Environment(\.openURL) private var openExternalURL
 
     private let autoScrollMinInterval: TimeInterval = DesignTokens.Animation.defaultDuration
     @State private var inputText = ""
     @State private var isPinnedToBottom = true
+    @State private var isUserScrollActive = false
+    @State private var linkConfirmation = AIChatLinkConfirmation()
     @State private var lastAutoScrollTime = Date.distantPast
     @State private var showClearConfirmation = false
     @FocusState private var isInputFocused: Bool
@@ -20,10 +48,10 @@ struct AICoachView: View {
             .background(DesignTokens.Colors.surfaceGrouped)
             .navigationTitle(L10n.localized("AI Coach", comment: "AI Coach navigation title"))
             .navigationBarTitleDisplayMode(.inline)
-            // Harden model-generated links: allow only http(s).
+            // Model-generated links must pass policy and explicit user confirmation.
             .environment(\.openURL, OpenURLAction { url in
-                guard AIChatLinkPolicy.isAllowed(url) else { return .discarded }
-                return .systemAction(url)
+                guard linkConfirmation.request(url) else { return .discarded }
+                return .handled
             })
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -47,17 +75,39 @@ struct AICoachView: View {
             } message: {
                 Text(L10n.localized("This removes the current AI Coach conversation from this device.", comment: "AI Coach clear conversation confirmation message"))
             }
+            .alert(
+                L10n.localized("Open external link?", comment: "AI Coach external link confirmation title"),
+                isPresented: Binding(
+                    get: { linkConfirmation.pendingLink != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            linkConfirmation.cancel()
+                        }
+                    }
+                ),
+                presenting: linkConfirmation.pendingLink
+            ) { _ in
+                Button(L10n.localized("Cancel", comment: "Cancel button"), role: .cancel) {
+                    linkConfirmation.cancel()
+                }
+                Button(L10n.localized("Open Link", comment: "AI Coach external link confirmation button")) {
+                    guard let confirmedURL = linkConfirmation.confirm() else { return }
+                    openExternalURL(confirmedURL)
+                }
+            } message: { pendingLink in
+                Text(
+                    Localization.format(
+                        "Host: %@\n\nFull URL: %@",
+                        comment: "AI Coach external link confirmation details",
+                        pendingLink.host,
+                        pendingLink.url.absoluteString
+                    )
+                )
+            }
     }
 
     private var coachContent: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            if LaunchConfiguration.isUITesting() {
-                // Stable UI test marker when AI availability hides the welcome copy.
-                Text(L10n.localized("AI Coach Screen", comment: "Hidden UI test marker for AI Coach screen"))
-                    .font(DesignTokens.Typography.caption2)
-                    .opacity(0.01)
-                    .accessibilityIdentifier(A11yID.AICoach.marker)
-            }
             if premiumAccessStore.isResolvingAccess {
                 PremiumAccessLoadingCard(
                     title: L10n.localized("AI Coach", comment: "AI Coach navigation title")
@@ -87,6 +137,7 @@ struct AICoachView: View {
                 inputSection
             }
         }
+        .uiTestMarker(A11yID.AICoach.marker)
     }
 
     private var messagesScrollView: some View {
@@ -119,11 +170,28 @@ struct AICoachView: View {
                 .padding(DesignTokens.Spacing.md)
                 .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: coachService.messages.count)
             }
-            .simultaneousGesture(
-                DragGesture().onChanged { _ in
-                    isPinnedToBottom = false
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                AICoachBottomPinningPolicy.isBottomVisible(
+                    contentOffsetY: geometry.contentOffset.y,
+                    contentHeight: geometry.contentSize.height,
+                    containerHeight: geometry.containerSize.height,
+                    bottomInset: geometry.contentInsets.bottom
+                )
+            } action: { _, isBottomVisible in
+                isPinnedToBottom = AICoachBottomPinningPolicy.updatedPinning(
+                    currentPinning: isPinnedToBottom,
+                    isBottomVisible: isBottomVisible,
+                    isUserScrollActive: isUserScrollActive
+                )
+            }
+            .onScrollPhaseChange { _, newPhase in
+                isUserScrollActive = switch newPhase {
+                case .tracking, .interacting, .decelerating:
+                    true
+                case .idle, .animating:
+                    false
                 }
-            )
+            }
             .onChange(of: coachService.messages.count) { _, _ in
                 guard isPinnedToBottom else { return }
                 scrollToBottom(proxy: proxy, animated: true)

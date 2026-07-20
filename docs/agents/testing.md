@@ -21,6 +21,6 @@
 
 ## App Store Connect Gate
 - Remote ASC validation requires stored credentials or `ASC_KEY_ID`, `ASC_ISSUER_ID`, and private key configuration.
-- Version readiness: `asc validate --app "<APP_ID_ASC>" --version "0.93" --platform IOS --output table`.
+- Version readiness: `asc validate --app "<APP_ID_ASC>" --version "0.94" --platform IOS --output table`.
 - TestFlight readiness: `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`.
 - Release dashboard: `asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table`.

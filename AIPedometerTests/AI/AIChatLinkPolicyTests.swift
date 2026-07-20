@@ -59,12 +59,13 @@ struct AIChatLinkPolicyTests {
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://[ff02::1]")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://[2001:db8::1]")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://[::ffff:10.0.0.1]")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://[fe80::1%25en0]")!))
     }
 
-    @Test("Allows public literal IPs when scheme is valid")
-    func allowsPublicLiteralIPs() {
-        #expect(AIChatLinkPolicy.isAllowed(URL(string: "https://8.8.8.8")!))
-        #expect(AIChatLinkPolicy.isAllowed(URL(string: "https://[2606:4700:4700::1111]")!))
+    @Test("Rejects public literal IPs")
+    func rejectsPublicLiteralIPs() {
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://8.8.8.8")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://[2606:4700:4700::1111]")!))
     }
 
     @Test("Rejects internal hostname suffixes")
@@ -82,5 +83,110 @@ struct AIChatLinkPolicyTests {
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://0x7f000001")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://0177.0.0.1")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://localhost.")!))
+    }
+}
+
+@Suite("AIChatLinkConfirmation Tests")
+struct AIChatLinkConfirmationTests {
+    @Test("An allowed model link requires confirmation before yielding a URL")
+    func allowedLinkRequiresConfirmation() {
+        let url = URL(string: "https://EXAMPLE.com/path?query=value")!
+        var confirmation = AIChatLinkConfirmation()
+
+        let requiresConfirmation = confirmation.request(url)
+
+        #expect(requiresConfirmation)
+        #expect(confirmation.pendingLink?.url == url)
+        #expect(confirmation.pendingLink?.host == "example.com")
+
+        let confirmedURL = confirmation.confirm()
+        #expect(confirmedURL == url)
+        #expect(confirmation.pendingLink == nil)
+        let repeatedConfirmation = confirmation.confirm()
+        #expect(repeatedConfirmation == nil)
+    }
+
+    @Test("A rejected model link never becomes confirmable")
+    func rejectedLinkNeverBecomesConfirmable() {
+        var confirmation = AIChatLinkConfirmation()
+
+        let requiresConfirmation = confirmation.request(URL(string: "file:///etc/hosts")!)
+
+        #expect(!requiresConfirmation)
+        #expect(confirmation.pendingLink == nil)
+        let confirmedURL = confirmation.confirm()
+        #expect(confirmedURL == nil)
+    }
+
+    @Test("Cancelling clears the pending model link")
+    func cancellingClearsPendingLink() {
+        var confirmation = AIChatLinkConfirmation()
+
+        let requiresConfirmation = confirmation.request(URL(string: "https://example.com/path")!)
+        #expect(requiresConfirmation)
+        confirmation.cancel()
+
+        #expect(confirmation.pendingLink == nil)
+        let confirmedURL = confirmation.confirm()
+        #expect(confirmedURL == nil)
+    }
+}
+
+@Suite("AI Coach Bottom Pinning Policy Tests")
+struct AICoachBottomPinningPolicyTests {
+    @Test("Pinning follows actual bottom visibility")
+    func pinningFollowsBottomVisibility() {
+        #expect(
+            AICoachBottomPinningPolicy.isBottomVisible(
+                contentOffsetY: 300,
+                contentHeight: 700,
+                containerHeight: 400,
+                bottomInset: 0
+            )
+        )
+        #expect(
+            !AICoachBottomPinningPolicy.isBottomVisible(
+                contentOffsetY: 250,
+                contentHeight: 700,
+                containerHeight: 400,
+                bottomInset: 0
+            )
+        )
+    }
+
+    @Test("Returning within the bottom tolerance restores follow mode")
+    func bottomToleranceRestoresFollowMode() {
+        #expect(
+            AICoachBottomPinningPolicy.isBottomVisible(
+                contentOffsetY: 280,
+                contentHeight: 700,
+                containerHeight: 400,
+                bottomInset: 0
+            )
+        )
+    }
+
+    @Test("Stream growth preserves follow mode until the user scrolls")
+    func streamedGrowthDoesNotDisableFollowMode() {
+        let afterContentGrowth = AICoachBottomPinningPolicy.updatedPinning(
+            currentPinning: true,
+            isBottomVisible: false,
+            isUserScrollActive: false
+        )
+        #expect(afterContentGrowth)
+
+        let afterUserScrollsAway = AICoachBottomPinningPolicy.updatedPinning(
+            currentPinning: afterContentGrowth,
+            isBottomVisible: false,
+            isUserScrollActive: true
+        )
+        #expect(!afterUserScrollsAway)
+
+        let afterUserReturnsToBottom = AICoachBottomPinningPolicy.updatedPinning(
+            currentPinning: afterUserScrollsAway,
+            isBottomVisible: true,
+            isUserScrollActive: true
+        )
+        #expect(afterUserReturnsToBottom)
     }
 }

@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Select Xcode 26.3
         run: |
@@ -31,10 +31,15 @@ jobs:
           xcodebuild -version
 
       - name: Install build tools
-        run: brew install ast-grep xcodegen ripgrep
+        run: bash Scripts/install-ci-tools.sh ast-grep xcodegen ripgrep actionlint shellcheck
 
-      - name: Guardrail (no hardcoded device identifiers)
-        run: bash Scripts/verify-device-identifiers.sh
+      - name: Lint workflows and shell scripts
+        run: |
+          actionlint
+          shellcheck Scripts/*.sh Scripts/lib/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh .githooks/pre-commit
+
+      - name: Run exact staged-source guardrail
+        run: bash .githooks/pre-commit
 
       - name: Run script tests
         run: |
@@ -47,11 +52,29 @@ jobs:
         run: |
           xcodegen generate
           bash Scripts/verify-entitlements.sh
+          bash Scripts/verify-revenuecat-lock.sh
+
+      - name: Compile watchOS arm64_32
+        run: |
+          xcodebuild \
+            -project AIPedometer.xcodeproj \
+            -target AIPedometerWatch \
+            -configuration Debug \
+            -sdk watchos \
+            ARCHS=arm64_32 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            SYMROOT="${RUNNER_TEMP}/aipedometer-watch-arm64_32/Build" \
+            OBJROOT="${RUNNER_TEMP}/aipedometer-watch-arm64_32/Intermediates" \
+            SHARED_PRECOMPS_DIR="${RUNNER_TEMP}/aipedometer-watch-arm64_32/PrecompiledHeaders" \
+            build
 
       - name: Run E2E (iOS Simulator)
         run: |
           rm -rf output/e2e-ci
           E2E_OUT_DIR=output/e2e-ci \
+          E2E_DERIVED_DATA_ROOT="${RUNNER_TEMP}/aipedometer-e2e-derived-data" \
           E2E_ENABLE_WATCH=0 \
           E2E_ENABLE_SCREENSHOTS=0 \
           E2E_ERASE_IOS_SIM=1 \
@@ -69,7 +92,9 @@ jobs:
 
       - name: Upload E2E artifacts
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: e2e-artifacts
-          path: output/e2e-ci
+          path: |
+            output/e2e-ci
+            !output/e2e-ci/**/DerivedData*

@@ -1,6 +1,8 @@
 import Foundation
 
 struct WatchPayload: Codable, Sendable {
+    let senderID: UUID?
+    let revision: UInt64?
     let todaySteps: Int
     let goalSteps: Int
     let goalProgress: Double
@@ -10,6 +12,8 @@ struct WatchPayload: Codable, Sendable {
     let sentAt: Date?
 
     init(
+        senderID: UUID? = nil,
+        revision: UInt64? = nil,
         todaySteps: Int,
         goalSteps: Int,
         goalProgress: Double,
@@ -18,6 +22,8 @@ struct WatchPayload: Codable, Sendable {
         weeklySteps: [Int],
         sentAt: Date? = nil
     ) {
+        self.senderID = senderID
+        self.revision = revision
         self.todaySteps = todaySteps
         self.goalSteps = goalSteps
         self.goalProgress = goalProgress
@@ -58,5 +64,42 @@ struct WatchPayload: Codable, Sendable {
             ])
             return nil
         }
+    }
+}
+
+struct WatchPayloadAcceptanceState: Sendable {
+    private(set) var senderID: UUID?
+    private(set) var latestRevision: UInt64?
+    private(set) var latestLegacyOrder: Date?
+    private(set) var latestGlobalOrder: Date?
+    private var retiredSenderIDs: Set<UUID> = []
+
+    mutating func accept(_ candidate: WatchPayload) -> Bool {
+        if let candidateSenderID = candidate.senderID,
+           let candidateRevision = candidate.revision {
+            if candidateSenderID == senderID {
+                guard candidateRevision > (latestRevision ?? 0) else { return false }
+            } else {
+                guard !retiredSenderIDs.contains(candidateSenderID) else { return false }
+                if let senderID {
+                    guard candidate.deliveryOrder > (latestGlobalOrder ?? .distantPast) else {
+                        return false
+                    }
+                    retiredSenderIDs.insert(senderID)
+                }
+                senderID = candidateSenderID
+            }
+
+            latestRevision = candidateRevision
+            latestLegacyOrder = nil
+            latestGlobalOrder = max(latestGlobalOrder ?? .distantPast, candidate.deliveryOrder)
+            return true
+        }
+
+        guard senderID == nil else { return false }
+        guard WatchPayload.shouldAccept(candidate, after: latestLegacyOrder) else { return false }
+        latestLegacyOrder = candidate.deliveryOrder
+        latestGlobalOrder = candidate.deliveryOrder
+        return true
     }
 }
