@@ -53,18 +53,28 @@ RED before applying the fix (plans 001), per the repo's reproducer-first rule.
 | 007 | [Real HealthKit query-adapter tests](007-healthkit-query-adapter-tests.md) | test coverage | HIGH | M | DONE |
 | 008 | [Batch daily-record upserts](008-batch-healthkit-daily-record-upserts.md) | performance | HIGH | M | DONE |
 | 009 | [Measure/bound shared-data write rate](009-measure-shared-step-data-write-rate.md) | performance / battery | MED | M | DONE* |
+| 010 | [Premium/privacy/security hardening](010-premium-privacy-security-hardening.md) | security / privacy | HIGH | M | DONE |
+| 011 | [Workout lifecycle durability](011-workout-lifecycle-durability.md) | correctness / persistence | HIGH | L | DONE* |
+| 012 | [Step/watch/background concurrency](012-step-watch-background-concurrency.md) | concurrency / lifecycle | HIGH | L | DONE* |
+| 013 | [AI/reminder single-flight](013-ai-reminder-single-flight.md) | concurrency / AI | HIGH | M | DONE* |
+| 014 | [Adaptive UI and accessibility](014-adaptive-ui-accessibility.md) | SwiftUI / accessibility | HIGH | L | DONE* |
+| 015 | [Build/supply-chain/release](015-build-supply-chain-release.md) | build / CI / release | MED-HIGH | M | IN PROGRESS |
+| 016 | [Test coverage and determinism](016-test-coverage-determinism.md) | tests / payments / HealthKit | HIGH | L | DONE* |
 
-`DONE*`: instrumentation, production policy, and deterministic gates are complete; a representative
-walking trace cannot be manufactured by automation and remains a manual device-observation step.
+`DONE*`: the release-blocking implementation and deterministic gates are complete; each plan records
+its bounded observational or cleanup residual. A representative walking trace cannot be
+manufactured by automation and remains a manual device-observation step.
 
 Plan 005 uses latest-request-wins generation counters rather than serializing network-independent
 HealthKit reads; stale completions cannot overwrite newer state and newer refreshes are not delayed.
 
 ## Considered and rejected / by-design (do not re-audit)
 
-- **SEC-01 SwiftData data-protection = `untilFirstUnlock`** (`PersistenceController.swift:36`) —
-  informational, **by-design**. Widgets/background refresh must read the store while the device is
-  locked; raising to `.complete` breaks them. Optionally record as an ADR; no code change.
+- **SEC-01 SwiftData store boundary** (`PersistenceController.swift`) — partially mitigated in 0.94.
+  Fresh installs use private Application Support and widgets read only the bounded app-group
+  snapshot. Existing app-group stores remain in place to prevent upgrade-time data loss; SwiftData
+  has no public relocation API, so full legacy isolation remains hardening residual pending
+  real-store fixtures and interruption-recovery proof. Do not implement a raw SQLite/WAL move.
 - **`ProgressClamp.percent` no high-side clamp** (`Shared/Utilities/ProgressClamp.swift:11`) — guards
   `isFinite`, clamps low to 0. `Int(...)` would only trap on the watch (Int32) for progress
   >~21.4M× the goal — unreachable with real step/goal data (2M steps / goal 1 = 2e8, still ~10×

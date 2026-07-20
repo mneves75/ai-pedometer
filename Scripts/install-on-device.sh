@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh"
 
 TEMP_FILES=()
 cleanup_temp_files() {
@@ -144,50 +145,22 @@ fi
 
 require_cmd xcodebuild
 require_cmd xcrun
+aipedometer_select_xcode_26
 
 destination="platform=iOS,name=${DEVICE_NAME}"
-ACTIVE_DEVELOPER_DIR="${DEVELOPER_DIR:-}"
+ACTIVE_DEVELOPER_DIR="${DEVELOPER_DIR}"
 
 run_xcodebuild() {
-  if [[ -n "${ACTIVE_DEVELOPER_DIR}" ]]; then
-    DEVELOPER_DIR="${ACTIVE_DEVELOPER_DIR}" xcodebuild "$@"
-  else
-    xcodebuild "$@"
-  fi
+  DEVELOPER_DIR="${ACTIVE_DEVELOPER_DIR}" xcodebuild "$@"
 }
 
 run_xcrun() {
-  if [[ -n "${ACTIVE_DEVELOPER_DIR}" ]]; then
-    DEVELOPER_DIR="${ACTIVE_DEVELOPER_DIR}" xcrun "$@"
-  else
-    xcrun "$@"
-  fi
+  DEVELOPER_DIR="${ACTIVE_DEVELOPER_DIR}" xcrun "$@"
 }
 
-run_build_with_fallback() {
+run_build() {
   local -a args=("$@")
-  local build_log
-
-  build_log="$(mktemp -t aipedometer-install-build.XXXXXX.log)"
-  if run_xcodebuild "${args[@]}" build 2>&1 | tee "${build_log}"; then
-    return 0
-  fi
-
-  # Xcode 26.4 beta may report watchOS runtime as "missing" for embedded watch
-  # schemes while stable Xcode builds/installs successfully on device.
-  local stable_xcode_dir selected_xcode_dir
-  stable_xcode_dir="/Applications/Xcode.app/Contents/Developer"
-  selected_xcode_dir="$(xcode-select -p 2>/dev/null || true)"
-  if [[ -z "${DEVELOPER_DIR:-}" \
-    && -d "${stable_xcode_dir}" \
-    && "${selected_xcode_dir}" != "${stable_xcode_dir}" ]] \
-    && grep -Eq "embedded Apple Watch app\\. watchOS .* must be installed" "${build_log}"; then
-    echo "==> Retry build com Xcode estavel: ${stable_xcode_dir}"
-    ACTIVE_DEVELOPER_DIR="${stable_xcode_dir}"
-    run_xcodebuild "${args[@]}" build
-  else
-    return 1
-  fi
+  run_xcodebuild "${args[@]}" build
 }
 
 run_with_retries() {
@@ -266,7 +239,7 @@ if [[ -n "${DERIVED_DATA_PATH}" ]]; then
 fi
 
 echo "==> Build (${CONFIGURATION}) para ${DEVICE_NAME}..."
-if ! run_with_retries "${BUILD_RETRIES}" "${RETRY_DELAY_SECONDS}" "build iOS para ${DEVICE_NAME}" run_build_with_fallback "${xcodebuild_args[@]}"; then
+if ! run_with_retries "${BUILD_RETRIES}" "${RETRY_DELAY_SECONDS}" "build iOS para ${DEVICE_NAME}" run_build "${xcodebuild_args[@]}"; then
   exit 1
 fi
 
@@ -362,7 +335,7 @@ if [[ -n "${WATCH_NAME}" ]]; then
   echo "==> Build watchOS (${CONFIGURATION}) para ${WATCH_NAME}..."
   watch_app_path=""
   watch_bundle_identifier=""
-  if run_with_retries "${BUILD_RETRIES}" "${RETRY_DELAY_SECONDS}" "build watchOS para ${WATCH_NAME}" run_build_with_fallback "${watch_build_args[@]}"; then
+  if run_with_retries "${BUILD_RETRIES}" "${RETRY_DELAY_SECONDS}" "build watchOS para ${WATCH_NAME}" run_build "${watch_build_args[@]}"; then
     echo "==> Localizando .app do watch (saida de build watchOS)..."
     watch_settings_args=(
       -project "${PROJECT_PATH}"

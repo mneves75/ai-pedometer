@@ -33,6 +33,19 @@ final class TipJarStore {
     private var transactionTask: Task<Void, Never>?
     private let maxRetryAttempts: Int
     private let initialRetryDelayNs: UInt64
+    private let pendingPurchaseDefaults: UserDefaults
+    private let onTransactionEventHandled: @MainActor @Sendable (TipJarTransactionEvent) -> Void
+    private var hasPersistedPendingPurchase: Bool
+
+    private static let pendingPurchaseKey = "TipJarStore.pendingPurchase"
+    private static let verifiedSettlementKey = "TipJarStore.verifiedSettlement"
+
+    private static var verificationFailureMessage: String {
+        String(
+            localized: "Purchase verification failed. Please try again.",
+            comment: "Error when StoreKit verification fails"
+        )
+    }
 
     init(
         driver: any TipJarDriver = StoreKitTipJarDriver(
@@ -40,11 +53,26 @@ final class TipJarStore {
             logger: Loggers.app
         ),
         maxRetryAttempts: Int = 3,
-        initialRetryDelayNs: UInt64 = 500_000_000 // 0.5s
+        initialRetryDelayNs: UInt64 = 500_000_000, // 0.5s
+        pendingPurchaseDefaults: UserDefaults = .standard,
+        onTransactionEventHandled: @escaping @MainActor @Sendable (TipJarTransactionEvent) -> Void = { _ in }
     ) {
         self.driver = driver
         self.maxRetryAttempts = maxRetryAttempts
         self.initialRetryDelayNs = initialRetryDelayNs
+        self.pendingPurchaseDefaults = pendingPurchaseDefaults
+        self.onTransactionEventHandled = onTransactionEventHandled
+        if pendingPurchaseDefaults.string(forKey: Self.verifiedSettlementKey) != nil {
+            // A verified transaction was handed off before a previous process ended.
+            // StoreKit will redeliver it if it was not finished; it is no longer pending.
+            pendingPurchaseDefaults.removeObject(forKey: Self.pendingPurchaseKey)
+            pendingPurchaseDefaults.removeObject(forKey: Self.verifiedSettlementKey)
+        }
+        let hasPersistedPendingPurchase = pendingPurchaseDefaults.bool(forKey: Self.pendingPurchaseKey)
+        self.hasPersistedPendingPurchase = hasPersistedPendingPurchase
+        if hasPersistedPendingPurchase {
+            purchaseState = .pending
+        }
         startTransactionListener()
     }
 
@@ -72,8 +100,20 @@ final class TipJarStore {
         return false
     }
 
+    private var hasPurchaseInFlight: Bool {
+        if hasPersistedPendingPurchase {
+            return true
+        }
+        switch purchaseState {
+        case .purchasing, .pending:
+            return true
+        default:
+            return false
+        }
+    }
+
     var canPurchase: Bool {
-        product != nil && !isPurchasing && driver.canMakePayments
+        product != nil && !hasPurchaseInFlight && driver.canMakePayments
     }
 
     func loadProduct() async {
@@ -140,6 +180,11 @@ final class TipJarStore {
         await loadProduct()
     }
 
+    func handleAppBecameActive() {
+        // StoreKit owns the lifetime of a pending purchase. Only its transaction
+        // update may settle this state; foregrounding must not enable a duplicate.
+    }
+
     /// Loads product with exponential backoff retry (0.5s → 1s → 2s).
     /// Returns nil if all attempts return empty products.
     private func loadProductWithRetry() async throws -> TipJarProduct? {
@@ -172,38 +217,43 @@ final class TipJarStore {
 
     func purchase() async {
         guard product != nil else { return }
-        guard !isPurchasing else { return }
+        guard !hasPurchaseInFlight else { return }
 
+        setPendingPurchase(true)
         purchaseState = .purchasing
 
         do {
             let result = try await driver.purchase()
             switch result {
             case .success(let transactionID):
-                purchaseState = .success
+                await settleVerifiedTransaction(transactionID, surfaceSuccess: true)
                 Loggers.app.info("tip_jar.purchase_success", metadata: [
-                    "product_id": AppConstants.TipJar.productID,
-                    "transaction_id": transactionID
+                    "product_id": AppConstants.TipJar.productID
                 ])
             case .pending:
                 purchaseState = .pending
                 Loggers.app.info("tip_jar.purchase_pending")
             case .cancelled:
+                setPendingPurchase(false)
                 purchaseState = .cancelled
             case .failedVerification:
-                purchaseState = .failed(
-                    String(
-                        localized: "Purchase verification failed. Please try again.",
-                        comment: "Error when StoreKit verification fails"
-                    )
-                )
+                setPendingPurchase(true)
+                purchaseState = .failed(Self.verificationFailureMessage)
             case .unknown:
+                setPendingPurchase(false)
                 purchaseState = .failed(L10n.localized("Please try again later.", comment: "Generic retry message"))
             }
         } catch let error as TipJarDriverError {
+            switch error {
+            case .failedVerification:
+                setPendingPurchase(true)
+            case .productUnavailable:
+                setPendingPurchase(false)
+            }
             purchaseState = .failed(error.localizedDescription)
             Loggers.app.error("tip_jar.purchase_failed", metadata: ["error": error.localizedDescription])
         } catch {
+            setPendingPurchase(false)
             let message = String(
                 localized: "Unable to complete purchase. Please try again.",
                 comment: "Tip jar purchase failed message"
@@ -221,21 +271,54 @@ final class TipJarStore {
             for await event in events {
                 switch event {
                 case .tipDelivered(let transactionID):
-                    // Only surface completion if it relates to an in-flight purchase.
+                    let shouldSurfaceSuccess = self.hasPurchaseInFlight
+                    await self.settleVerifiedTransaction(
+                        transactionID,
+                        surfaceSuccess: shouldSurfaceSuccess
+                    )
+                    if shouldSurfaceSuccess {
+                        Loggers.app.info("tip_jar.purchase_completed_via_update", metadata: [
+                            "product_id": AppConstants.TipJar.productID
+                        ])
+                    }
+                case .verificationFailed(let productID):
+                    guard productID == AppConstants.TipJar.productID else { break }
                     switch self.purchaseState {
                     case .pending, .purchasing:
-                        self.purchaseState = .success
-                        Loggers.app.info("tip_jar.purchase_completed_via_update", metadata: [
-                            "transaction_id": transactionID
-                        ])
+                        self.setPendingPurchase(true)
+                        self.purchaseState = .failed(Self.verificationFailureMessage)
                     default:
                         break
                     }
-                case .verificationFailed:
-                    // The driver already logs verification failures with error details.
-                    break
                 }
+                self.onTransactionEventHandled(event)
             }
+        }
+    }
+
+    private func setPendingPurchase(_ isPending: Bool) {
+        hasPersistedPendingPurchase = isPending
+        if isPending {
+            pendingPurchaseDefaults.set(true, forKey: Self.pendingPurchaseKey)
+        } else {
+            pendingPurchaseDefaults.removeObject(forKey: Self.pendingPurchaseKey)
+        }
+    }
+
+    private func settleVerifiedTransaction(
+        _ transactionID: String,
+        surfaceSuccess: Bool
+    ) async {
+        // Persist the verified handoff before the irreversible StoreKit finish.
+        // If the process ends first, StoreKit redelivers the unfinished transaction.
+        pendingPurchaseDefaults.set(transactionID, forKey: Self.verifiedSettlementKey)
+        setPendingPurchase(false)
+        if surfaceSuccess {
+            purchaseState = .success
+        }
+        await driver.finish(transactionID: transactionID)
+        if pendingPurchaseDefaults.string(forKey: Self.verifiedSettlementKey) == transactionID {
+            pendingPurchaseDefaults.removeObject(forKey: Self.verifiedSettlementKey)
         }
     }
 }
@@ -250,13 +333,14 @@ enum TipJarPurchaseOutcome: Sendable, Equatable {
 
 enum TipJarTransactionEvent: Sendable, Equatable {
     case tipDelivered(transactionID: String)
-    case verificationFailed
+    case verificationFailed(productID: String)
 }
 
 protocol TipJarDriver: Actor {
     nonisolated var canMakePayments: Bool { get }
     func loadProduct() async throws -> TipJarStore.TipJarProduct?
     func purchase() async throws -> TipJarPurchaseOutcome
+    func finish(transactionID: String) async
     func transactionEvents() -> AsyncStream<TipJarTransactionEvent>
 }
 
@@ -287,6 +371,7 @@ actor StoreKitTipJarDriver: TipJarDriver {
     private let logger: AppLogger
 
     private var cachedProduct: Product?
+    private var cachedTransactions: [String: Transaction] = [:]
     private var finishedTransactionIDs: Set<Transaction.ID> = []
     private var listenerStarted = false
 
@@ -314,8 +399,9 @@ actor StoreKitTipJarDriver: TipJarDriver {
         case .success(let verification):
             do {
                 let transaction = try checkVerified(verification)
-                try await finishIfNeeded(transaction)
-                return .success(transactionID: String(transaction.id))
+                let transactionID = String(transaction.id)
+                cachedTransactions[transactionID] = transaction
+                return .success(transactionID: transactionID)
             } catch {
                 return .failedVerification
             }
@@ -332,6 +418,12 @@ actor StoreKitTipJarDriver: TipJarDriver {
         AsyncStream { continuation in
             startListenerIfNeeded(continuation: continuation)
         }
+    }
+
+    func finish(transactionID: String) async {
+        guard let transaction = cachedTransactions[transactionID] else { return }
+        await finishIfNeeded(transaction)
+        cachedTransactions.removeValue(forKey: transactionID)
     }
 
     private func startListenerIfNeeded(continuation: AsyncStream<TipJarTransactionEvent>.Continuation) {
@@ -354,16 +446,19 @@ actor StoreKitTipJarDriver: TipJarDriver {
         _ result: VerificationResult<Transaction>,
         continuation: AsyncStream<TipJarTransactionEvent>.Continuation
     ) async {
-        do {
-            let transaction = try checkVerified(result)
+        switch result {
+        case .verified(let transaction):
             guard transaction.productID == productID else { return }
-            try await finishIfNeeded(transaction)
-            continuation.yield(.tipDelivered(transactionID: String(transaction.id)))
-        } catch {
+            let transactionID = String(transaction.id)
+            cachedTransactions[transactionID] = transaction
+            continuation.yield(.tipDelivered(transactionID: transactionID))
+        case .unverified(let unsafeTransaction, _):
+            let unsafeProductID = unsafeTransaction.productID
+            guard unsafeProductID == productID else { return }
             logger.error("tip_jar.transaction_verification_failed", metadata: [
-                "error": error.localizedDescription
+                "product_id": unsafeProductID
             ])
-            continuation.yield(.verificationFailed)
+            continuation.yield(.verificationFailed(productID: unsafeProductID))
         }
     }
 
@@ -375,12 +470,12 @@ actor StoreKitTipJarDriver: TipJarDriver {
         return product
     }
 
-    private func finishIfNeeded(_ transaction: Transaction) async throws {
+    private func finishIfNeeded(_ transaction: Transaction) async {
         guard !finishedTransactionIDs.contains(transaction.id) else { return }
         finishedTransactionIDs.insert(transaction.id)
         await transaction.finish()
         logger.info("tip_jar.transaction_finished", metadata: [
-            "transaction_id": String(transaction.id)
+            "product_id": transaction.productID
         ])
     }
 

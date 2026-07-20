@@ -477,12 +477,18 @@ struct InsightServiceTests {
         #expect(analysis.recommendation == String(localized: "Enable HealthKit Sync in Settings to see your activity history.", comment: "Weekly trend recommendation when no data is available"))
     }
 
-    @Test("Weekly analysis concurrent calls return fallback instead of throwing")
+    @Test("Weekly analysis concurrent calls await the same generation")
     func weeklyAnalysisConcurrentCallsAvoidSessionContentionError() async throws {
         let testDefaults = TestUserDefaults()
         defer { testDefaults.reset() }
+        let modelStarted = AsyncTestLatch()
+        let releaseModel = AsyncTestLatch()
+        let followerStarted = AsyncTestLatch()
         let foundationModels = MockFoundationModelsService()
-        foundationModels.respondDelayNanoseconds = 120_000_000
+        foundationModels.beforeRespond = {
+            modelStarted.signal()
+            await releaseModel.wait()
+        }
         foundationModels.respondResult = .success(WeeklyTrendAnalysis(
             summary: "AI Summary",
             trend: .stable,
@@ -510,21 +516,221 @@ struct InsightServiceTests {
             userDefaults: testDefaults.defaults
         )
 
-        async let first: WeeklyTrendAnalysis = service.generateWeeklyAnalysis(forceRefresh: true)
-        async let second: WeeklyTrendAnalysis = service.generateWeeklyAnalysis(forceRefresh: true)
+        let first = Task {
+            try await service.generateWeeklyAnalysis(forceRefresh: true)
+        }
+        await modelStarted.wait()
+        let second = Task {
+            followerStarted.signal()
+            return try await service.generateWeeklyAnalysis(forceRefresh: true)
+        }
+        await followerStarted.wait()
+        releaseModel.signal()
 
-        let (firstResult, secondResult) = try await (first, second)
+        let firstResult = try await first.value
+        let secondResult = try await second.value
 
         #expect(foundationModels.respondCallCount == 1)
-        let resultSummaries = [firstResult.summary, secondResult.summary]
-        let observations = [firstResult.observation, secondResult.observation]
+        #expect(firstResult.summary == "AI Summary")
+        #expect(secondResult.summary == "AI Summary")
+        #expect(firstResult.observation == "AI Observation")
+        #expect(secondResult.observation == "AI Observation")
+    }
 
-        #expect(resultSummaries.contains("AI Summary"))
-        #expect(resultSummaries.allSatisfy {
-            $0 != String(localized: "No Activity Data", comment: "Weekly trend summary when no data is available")
-        })
-        #expect(observations.contains("AI Observation"))
-        #expect(observations.contains { $0.contains("still processing") })
+    @Test("Clearing cache during weekly generation invalidates the in-flight result")
+    func clearCacheInvalidatesWeeklyFlight() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let modelStarted = AsyncTestLatch()
+        let releaseModel = AsyncTestLatch()
+        let staleAnalysis = WeeklyTrendAnalysis(
+            summary: "Stale Summary",
+            trend: .stable,
+            observation: "Stale Observation",
+            recommendation: "Stale Recommendation"
+        )
+        let freshAnalysis = WeeklyTrendAnalysis(
+            summary: "Fresh Summary",
+            trend: .increasing,
+            observation: "Fresh Observation",
+            recommendation: "Fresh Recommendation"
+        )
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.beforeRespond = {
+            if foundationModels.respondCallCount == 1 {
+                modelStarted.signal()
+                await releaseModel.wait()
+                foundationModels.respondResult = .success(staleAnalysis)
+            } else {
+                foundationModels.respondResult = .success(freshAnalysis)
+            }
+        }
+        foundationModels.respondResult = .success(staleAnalysis)
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(
+                date: .now,
+                steps: 6_200,
+                distance: 4_900,
+                floors: 3,
+                calories: 250,
+                goal: 7_000
+            )
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        let first = Task {
+            try await service.generateWeeklyAnalysis(forceRefresh: true)
+        }
+        await modelStarted.wait()
+        service.clearCache()
+        releaseModel.signal()
+        let result = try await first.value
+
+        #expect(result.summary == "Fresh Summary")
+        #expect(result.observation == "Fresh Observation")
+        #expect(foundationModels.respondCallCount == 2)
+        #expect(healthKit.fetchDailySummariesCallCount == 2)
+    }
+
+    @Test("Weekly analysis owner revalidates its result after a week rollover")
+    func weeklyRolloverInvalidatesPreviousWeekFlight() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let calendar = Calendar.current
+        let initialDate = Date(timeIntervalSince1970: 1_783_900_800)
+        let nextWeekDate = try #require(calendar.date(byAdding: .day, value: 8, to: initialDate))
+        let clock = MutableInsightDateProvider(date: initialDate)
+        let modelStarted = AsyncTestLatch()
+        let releaseModel = AsyncTestLatch()
+        let staleAnalysis = WeeklyTrendAnalysis(
+            summary: "Previous Week Summary",
+            trend: .stable,
+            observation: "Previous Week Observation",
+            recommendation: "Previous Week Recommendation"
+        )
+        let freshAnalysis = WeeklyTrendAnalysis(
+            summary: "Current Week Summary",
+            trend: .increasing,
+            observation: "Current Week Observation",
+            recommendation: "Current Week Recommendation"
+        )
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.beforeRespond = {
+            if foundationModels.respondCallCount == 1 {
+                modelStarted.signal()
+                await releaseModel.wait()
+                foundationModels.respondResult = .success(staleAnalysis)
+            } else {
+                foundationModels.respondResult = .success(freshAnalysis)
+            }
+        }
+        foundationModels.respondResult = .success(staleAnalysis)
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(
+                date: initialDate,
+                steps: 6_200,
+                distance: 4_900,
+                floors: 3,
+                calories: 250,
+                goal: 7_000
+            )
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults,
+            now: { clock.read() }
+        )
+
+        let first = Task {
+            try await service.generateWeeklyAnalysis(forceRefresh: true)
+        }
+        await modelStarted.wait()
+
+        clock.date = nextWeekDate
+        releaseModel.signal()
+
+        let result = try await first.value
+
+        #expect(result.summary == "Current Week Summary")
+        #expect(result.observation == "Current Week Observation")
+        #expect(foundationModels.respondCallCount == 2)
+        #expect(healthKit.fetchDailySummariesCallCount == 2)
+    }
+
+    @Test("Weekly analysis follower cannot overwrite a successful in-flight result")
+    func weeklyAnalysisFollowerCannotOverwriteSuccessfulResult() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let followerStarted = AsyncTestLatch()
+        let modelStarted = AsyncTestLatch()
+        let leaderFinished = AsyncTestLatch()
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.beforeRespond = {
+            modelStarted.signal()
+            await followerStarted.wait()
+        }
+        foundationModels.respondResult = .success(WeeklyTrendAnalysis(
+            summary: "Generated Summary",
+            trend: .increasing,
+            observation: "Generated Observation",
+            recommendation: "Generated Recommendation"
+        ))
+
+        let summaries = [
+            DailyStepSummary(
+                date: .now,
+                steps: 6_200,
+                distance: 4_900,
+                floors: 3,
+                calories: 250,
+                goal: 7_000
+            )
+        ]
+        let healthKit = StubHealthKitService(dailySummaries: summaries) { callCount in
+            if callCount == 2 {
+                await leaderFinished.wait()
+                throw HealthKitError.queryFailed
+            }
+            return summaries
+        }
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        let leader = Task {
+            try await service.generateWeeklyAnalysis(forceRefresh: true)
+        }
+        await modelStarted.wait()
+        let follower = Task {
+            followerStarted.signal()
+            return try await service.generateWeeklyAnalysis(forceRefresh: true)
+        }
+
+        let leaderResult = try await leader.value
+        leaderFinished.signal()
+        let followerResult = try await follower.value
+        let cachedResult = try await service.generateWeeklyAnalysis()
+
+        #expect(leaderResult.summary == "Generated Summary")
+        #expect(followerResult.summary == "Generated Summary")
+        #expect(cachedResult.summary == "Generated Summary")
+        #expect(foundationModels.respondCallCount == 1)
+        #expect(healthKit.fetchDailySummariesCallCount == 1)
+        #expect(service.lastError == nil)
     }
 
     @Test("Weekly analysis falls back to history summary when guardrail blocks response")
@@ -609,10 +815,15 @@ struct InsightServiceTests {
 @MainActor
 private final class StubHealthKitService: HealthKitServiceProtocol, Sendable {
     private let dailySummaries: [DailyStepSummary]
+    private let fetchDailySummariesHandler: (@MainActor (Int) async throws -> [DailyStepSummary])?
     private(set) var fetchDailySummariesCallCount = 0
 
-    init(dailySummaries: [DailyStepSummary]) {
+    init(
+        dailySummaries: [DailyStepSummary],
+        fetchDailySummariesHandler: (@MainActor (Int) async throws -> [DailyStepSummary])? = nil
+    ) {
         self.dailySummaries = dailySummaries
+        self.fetchDailySummariesHandler = fetchDailySummariesHandler
     }
 
     func requestAuthorization() async throws {}
@@ -639,6 +850,9 @@ private final class StubHealthKitService: HealthKitServiceProtocol, Sendable {
         dailyGoal: Int
     ) async throws -> [DailyStepSummary] {
         fetchDailySummariesCallCount += 1
+        if let fetchDailySummariesHandler {
+            return try await fetchDailySummariesHandler(fetchDailySummariesCallCount)
+        }
         return dailySummaries
     }
 
@@ -651,10 +865,53 @@ private final class StubHealthKitService: HealthKitServiceProtocol, Sendable {
         dailyGoal: Int
     ) async throws -> [DailyStepSummary] {
         fetchDailySummariesCallCount += 1
+        if let fetchDailySummariesHandler {
+            return try await fetchDailySummariesHandler(fetchDailySummariesCallCount)
+        }
         return dailySummaries
     }
 
-    func saveWorkout(_ session: WorkoutSession) async throws {}
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome { .notRequired }
+}
+
+@MainActor
+private final class AsyncTestLatch {
+    private var isSignaled = false
+
+    func wait(timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !isSignaled {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for an insight test rendezvous")
+                signal()
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func signal() {
+        guard !isSignaled else { return }
+        isSignaled = true
+    }
+}
+
+@MainActor
+private final class MutableInsightDateProvider {
+    var date: Date
+    var onRead: (() -> Void)?
+
+    init(date: Date) {
+        self.date = date
+    }
+
+    func read() -> Date {
+        onRead?()
+        return date
+    }
 }
 
 private func goalValue(from prompt: String) -> Int? {

@@ -14,7 +14,7 @@ enum AIChatLinkPolicy {
         guard url.user == nil, url.password == nil else { return false }
         guard !isLocalHost(host) else { return false }
         guard !isObfuscatedNumericHost(host) else { return false }
-        guard !isLiteralPrivateIPAddress(host) else { return false }
+        guard !isLiteralIPAddress(host) else { return false }
 
         return true
     }
@@ -47,59 +47,16 @@ enum AIChatLinkPolicy {
         return parseIPv4Octets(normalized) == nil
     }
 
-    private static func isLiteralPrivateIPAddress(_ host: String) -> Bool {
+    private static func isLiteralIPAddress(_ host: String) -> Bool {
         let normalized = normalizeHost(host)
 
-        if let ipv4 = parseIPv4Octets(normalized) {
-            let a = ipv4.0
-            let b = ipv4.1
-            let c = ipv4.2
-            let d = ipv4.3
-            return isNonPublicIPv4(a: a, b: b, c: c, d: d)
+        if parseIPv4Octets(normalized) != nil {
+            return true
         }
 
         var addr6 = in6_addr()
-        if normalized.withCString({ inet_pton(AF_INET6, $0, &addr6) }) == 1 {
-            var bytes = [UInt8](repeating: 0, count: 16)
-            withUnsafeBytes(of: &addr6) { rawBuffer in
-                bytes.withUnsafeMutableBytes { mutable in
-                    mutable.copyMemory(from: rawBuffer)
-                }
-            }
-
-            let isLoopback = bytes[0..<15].allSatisfy { $0 == 0 } && bytes[15] == 1
-            let isUnspecified = bytes.allSatisfy { $0 == 0 }
-            let isUniqueLocal = (bytes[0] & 0xfe) == 0xfc      // fc00::/7
-            let isLinkLocal = bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80 // fe80::/10
-            let isMulticast = bytes[0] == 0xff // ff00::/8
-            let isDocumentation = bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0d && bytes[3] == 0xb8 // 2001:db8::/32
-
-            let isIPv4Mapped =
-                bytes[0..<10].allSatisfy { $0 == 0 } &&
-                bytes[10] == 0xff &&
-                bytes[11] == 0xff
-            if isIPv4Mapped {
-                return isNonPublicIPv4(a: bytes[12], b: bytes[13], c: bytes[14], d: bytes[15])
-            }
-
-            return isLoopback || isUnspecified || isUniqueLocal || isLinkLocal || isMulticast || isDocumentation
-        }
-
-        return false
-    }
-
-    private static func isNonPublicIPv4(a: UInt8, b: UInt8, c: UInt8, d: UInt8) -> Bool {
-        _ = c
-        _ = d
-        return a == 10
-            || a == 127
-            || (a == 172 && (16...31).contains(b))
-            || (a == 192 && b == 168)
-            || (a == 169 && b == 254)
-            || (a == 100 && (64...127).contains(b))  // 100.64.0.0/10 CGNAT
-            || (a == 198 && (b == 18 || b == 19))    // 198.18.0.0/15 benchmarking
-            || a == 0
-            || a >= 224 // multicast (224/4) + reserved/broadcast (240/4)
+        let ipv6WithoutZone = normalized.split(separator: "%", maxSplits: 1).first.map(String.init) ?? normalized
+        return ipv6WithoutZone.withCString { inet_pton(AF_INET6, $0, &addr6) } == 1
     }
 
     private static func parseIPv4Octets(_ host: String) -> (UInt8, UInt8, UInt8, UInt8)? {
@@ -126,5 +83,37 @@ enum AIChatLinkPolicy {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "."))
             .lowercased()
+    }
+}
+
+struct AIChatPendingLink: Equatable {
+    let url: URL
+    let host: String
+}
+
+struct AIChatLinkConfirmation {
+    private(set) var pendingLink: AIChatPendingLink?
+
+    @discardableResult
+    mutating func request(_ url: URL) -> Bool {
+        guard AIChatLinkPolicy.isAllowed(url), let host = url.host else {
+            pendingLink = nil
+            return false
+        }
+
+        pendingLink = AIChatPendingLink(
+            url: url,
+            host: host.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
+        )
+        return true
+    }
+
+    mutating func confirm() -> URL? {
+        defer { pendingLink = nil }
+        return pendingLink?.url
+    }
+
+    mutating func cancel() {
+        pendingLink = nil
     }
 }

@@ -13,7 +13,7 @@
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' analyze`
 - `asc doctor`: verify local ASC CLI/keychain/auth health before remote App Store Connect work.
 - `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`: confirm generated Xcode metadata matches `project.yml`.
-- `asc validate --app "<APP_ID_ASC>" --version "0.93" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
+- `asc validate --app "<APP_ID_ASC>" --version "0.94" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
 - `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`: remote TestFlight readiness once a processed build exists.
 - Full simulator E2E (iOS tests + widget build + watch build + screenshots): `bash Scripts/e2e-simulator.sh`
 - Build/install on physical device by name (no hardcoded UDID): `DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh --device-name <DeviceName>`
@@ -29,9 +29,10 @@
 ## Utilities
 - `swift Scripts/generate-app-icon.swift`: regenerate app icons (writes into each target's `AppIcon.appiconset`).
 - `bash Scripts/check-agents-sync.sh`: verify AGENTS.md matches GUIDELINES-REF guidance.
-- `bash Scripts/update-agents-guidelines.sh`: refresh AGENTS.md from GUIDELINES-REF guidance.
+- `bash Scripts/update-agents-guidelines.sh`: refresh AGENTS.md from the trusted `~/dev/GUIDELINES-REF` guidance. Alternate roots are rejected unless the operator explicitly sets `AIPEDOMETER_ALLOW_GUIDELINES_OVERRIDE=1` after reviewing the source.
 - `bash Scripts/verify-device-identifiers.sh`: fail if device IDs/UDIDs/ECIDs are hardcoded in tracked files.
 - `bash Scripts/verify-entitlements.sh`: validate entitlement plist syntax and required/forbidden capabilities.
+- `bash Scripts/verify-revenuecat-lock.sh`: verify that `project.yml`, the generated Xcode package reference, and `Package.resolved` agree on the immutable RevenueCat tag object and its resolved commit.
 - `bash Scripts/appstore-materials-prepare.sh`: assemble ordered App Store screenshots from captured UI-test artifacts.
 - `bash Scripts/appstore-screenshots-validate.sh`: validate screenshot dimensions for ASC upload sets.
 - `bash Scripts/appstore-screenshots-upload.sh`: upload prepared screenshot sets with `asc`.

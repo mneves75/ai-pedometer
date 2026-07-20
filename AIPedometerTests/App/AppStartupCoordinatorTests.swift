@@ -15,6 +15,68 @@ final class StartupCounter {
 @Suite("AppStartupCoordinator")
 @MainActor
 struct AppStartupCoordinatorTests {
+    @Test("Local startup does not wait for premium access resolution")
+    func localStartupDoesNotWaitForPremiumResolution() async {
+        let premiumStarted = AppStartupTestLatch()
+        let releasePremium = AppStartupTestLatch()
+        let localStartupCompleted = AppStartupTestLatch()
+        var premiumCompleted = false
+
+        let launch = Task { @MainActor in
+            await AppLaunchSequence.start(
+                preparePremiumAccess: {
+                    premiumStarted.signal()
+                    await releasePremium.wait()
+                    premiumCompleted = true
+                },
+                startLocalServices: {
+                    localStartupCompleted.signal()
+                }
+            )
+        }
+
+        await premiumStarted.wait()
+        await localStartupCompleted.wait()
+
+        #expect(premiumCompleted == false)
+
+        releasePremium.signal()
+        await launch.value
+
+        #expect(premiumCompleted)
+    }
+
+    @Test("Cancelling launch cancels unresolved premium preparation")
+    func cancelledLaunchCancelsPremiumPreparation() async {
+        let premiumStarted = AppStartupTestLatch()
+        let releasePremium = AppStartupTestLatch()
+        let premiumCancelled = AppStartupTestLatch()
+
+        let launch = Task { @MainActor in
+            await AppLaunchSequence.start(
+                preparePremiumAccess: {
+                    await withTaskCancellationHandler {
+                        premiumStarted.signal()
+                        await releasePremium.wait()
+                    } onCancel: {
+                        Task { @MainActor in
+                            premiumCancelled.signal()
+                            releasePremium.signal()
+                        }
+                    }
+                },
+                startLocalServices: {}
+            )
+        }
+
+        await premiumStarted.wait()
+        launch.cancel()
+        await premiumCancelled.wait()
+        await launch.value
+
+        #expect(launch.isCancelled)
+    }
+
     @Test("Does not start when onboarding is incomplete")
     func doesNotStartWhenOnboardingIncomplete() async {
         let counter = StartupCounter()
@@ -170,5 +232,30 @@ struct AppStartupCoordinatorTests {
         #expect(counter.watchStart == 1)
         #expect(counter.stepTrackingStart == 1)
         #expect(counter.initialSync == 1)
+    }
+}
+
+@MainActor
+private final class AppStartupTestLatch {
+    private var isSignaled = false
+
+    func wait(timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !isSignaled {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for an app-startup test rendezvous")
+                signal()
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func signal() {
+        guard !isSignaled else { return }
+        isSignaled = true
     }
 }

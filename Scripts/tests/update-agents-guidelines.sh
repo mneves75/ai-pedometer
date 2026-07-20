@@ -31,10 +31,30 @@ EOF
 
 GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
 LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
+AIPEDOMETER_ALLOW_GUIDELINES_OVERRIDE=1 \
 bash "${ROOT_DIR}/Scripts/update-agents-guidelines.sh"
 
 GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
 LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
 bash "${ROOT_DIR}/Scripts/check-agents-sync.sh"
+
+cat > "${TMP_DIR}/untrusted-agents.md" <<'EOF'
+# Repository Guidelines
+
+## GUIDELINES-REF
+UNCHANGED
+EOF
+
+if GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
+  LOCAL_AGENTS="${TMP_DIR}/untrusted-agents.md" \
+  bash "${ROOT_DIR}/Scripts/update-agents-guidelines.sh"; then
+  echo "Expected an untrusted source override to fail." >&2
+  exit 1
+fi
+
+if ! grep -q '^UNCHANGED$' "${TMP_DIR}/untrusted-agents.md"; then
+  echo "Untrusted source changed AGENTS.md before rejection." >&2
+  exit 1
+fi
 
 echo "update-agents-guidelines.sh tests passed."

@@ -11,6 +11,7 @@ final class MockFoundationModelsService: FoundationModelsServiceProtocol {
     var respondCallCount = 0
     var lastPrompt: String?
     var respondDelayNanoseconds: UInt64 = 0
+    var beforeRespond: (@MainActor () async -> Void)?
 
     func checkAvailability() -> AIModelAvailability {
         availability
@@ -19,6 +20,9 @@ final class MockFoundationModelsService: FoundationModelsServiceProtocol {
     func respond(to prompt: String) async throws(AIServiceError) -> String {
         respondCallCount += 1
         lastPrompt = prompt
+        if let beforeRespond {
+            await beforeRespond()
+        }
         if respondDelayNanoseconds > 0 {
             try? await Task.sleep(nanoseconds: respondDelayNanoseconds)
         }
@@ -34,6 +38,9 @@ final class MockFoundationModelsService: FoundationModelsServiceProtocol {
     func respond<T: Generable>(to prompt: String, as type: T.Type) async throws(AIServiceError) -> T {
         respondCallCount += 1
         lastPrompt = prompt
+        if let beforeRespond {
+            await beforeRespond()
+        }
         if respondDelayNanoseconds > 0 {
             try? await Task.sleep(nanoseconds: respondDelayNanoseconds)
         }

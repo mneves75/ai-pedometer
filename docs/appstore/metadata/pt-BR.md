@@ -19,9 +19,9 @@
 
 `passos,pedômetro,saúde,treino,caminhada,healthkit,apple watch,metas`
 
-## What's New (0.93)
+## What's New (0.94)
 
-`Corrige treinos concluídos que podiam demorar para tentar novamente após uma falha temporária do HealthKit.`
+`Melhora a recuperação de treinos, a confiabilidade de passos e Apple Watch, a acessibilidade, a privacidade, o Premium e a consistência da IA no dispositivo.`
 
 ## URLs
 

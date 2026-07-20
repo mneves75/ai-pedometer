@@ -714,23 +714,6 @@
         }
       }
     },
-    "AI Coach Screen" : {
-      "comment" : "Hidden UI test marker for AI Coach screen",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI Coach Screen"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tela do Coach IA"
-          }
-        }
-      }
-    },
     "AI Daily Insight" : {
       "comment" : "Title of a card that offers personalized daily motivation and tips.",
       "extractionState" : "stale",

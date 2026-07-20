@@ -19,9 +19,9 @@
 
 `steps,pedometer,fitness,workout,walking,healthkit,apple watch,goals`
 
-## What's New (0.93)
+## What's New (0.94)
 
-`Fixed completed workouts sometimes waiting too long to retry after a temporary HealthKit failure.`
+`Improved workout recovery, step and Watch reliability, accessibility, privacy safeguards, premium validation, and on-device AI consistency.`
 
 ## URLs
 

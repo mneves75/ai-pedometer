@@ -15,7 +15,7 @@ Derived from current code and documentation.
 ## Data and State
 - SwiftData for persistence
 - Observation framework (@Observable)
-- App Group shared storage for widgets/watch
+- App Group `SharedStepData` snapshots for widgets; WatchConnectivity snapshots for Apple Watch
 
 ## AI
 - Foundation Models (on-device)

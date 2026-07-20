@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.94] - 2026-07-18
+
+### Added
+
+- Durable recovery UI for unfinished workouts and deferred HealthKit exports, including explicit retry, finish, and discard paths that remain usable after relaunch.
+- Deterministic coverage for RevenueCat purchase/sync states, Tip Jar outcomes, HealthKit adapters, background expiration, AI streaming, workout recovery, privacy manifests, and cross-target Watch payload compatibility.
+
+### Changed
+
+- Daily step tracking now owns midnight rollover, live-stream generations, serialized refreshes, and cancellation boundaries explicitly so older HealthKit, Core Motion, Watch, or background work cannot replace newer state.
+- iPhone and iPad navigation preserve the logical destination across compact/regular transitions; workout recovery actions, onboarding metrics, charts, and status feedback adapt better to Dynamic Type and VoiceOver.
+- RevenueCat is pinned immutably to `5.81.1`; package provenance and staleness are checked without automatic dependency mutation.
+- New SwiftData stores live in private Application Support while existing app-group stores remain in place and byte-for-byte untouched to avoid upgrade-time data loss.
+- Release metadata advanced to `0.94 (50)`, with App Store notes and operational version references synchronized.
+
+### Security
+
+- Premium access remains fail-closed for missing configuration, failed Trusted Entitlements verification, unrelated entitlements, or Release builds using Test Store configuration.
+- Purchase actions are single-flight, startup no longer waits on RevenueCat before local services begin, and cancellation cannot publish late premium state.
+- Model-generated links require explicit confirmation and reject credentials, literal IP addresses, loopback, local, and private-network destinations.
+- App, watch, and widget privacy manifests now declare no developer collection of Health/Fitness data because those values remain on-device; RevenueCat subscription data remains documented separately for App Store privacy labels.
+- Release launch overrides are disabled, security-sensitive logs remain private/redacted, CI actions and tool installers are checksum-pinned, and the exact staged structural-lint hook runs in CI.
+
+### Fixed
+
+- Weekly insights and badge celebrations use generation-owned single-flight tasks so cache invalidation, rollover, cancellation, or a replacement request cannot publish stale state or leave the celebration gate stuck.
+- Workout start/resume/finish/discard mutations roll back on persistence failure; terminal operations and export reconciliation are single-flight and idempotent.
+- Delayed Watch payloads, expired background work, stale smart-notification authorization, and overlapping AI/HealthKit refreshes can no longer commit obsolete state.
+- Premium and Tip Jar errors shown to users are localized and generic while diagnostic detail stays in private logs.
+- Tip Jar verification failures remain retryable, payment diagnostics redact local paths and account identifiers, and UI-test markers no longer leave faint automation text in screenshots.
+
+### Tests
+
+- CI now validates script regressions, the staged pre-commit snapshot, `actionlint`, `shellcheck`, RevenueCat freshness, non-zero XCTest execution, CodeQL analysis, and generated-project integrity with stable Xcode 26.
+- Simulator lifecycle and command logging are centralized so transient CoreSimulator failures are classified from complete stdout/stderr and retried only when recoverable.
+
 ## [0.93] - 2026-07-14
 
 ### Fixed

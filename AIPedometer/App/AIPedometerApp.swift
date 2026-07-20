@@ -256,8 +256,14 @@ struct AIPedometerApp: App {
                 .environment(premiumAccessStore)
                 .modelContainer(persistence.container)
                 .task {
-                    await premiumAccessStore.prepare()
-                    await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
+                    await AppLaunchSequence.start(
+                        preparePremiumAccess: {
+                            await premiumAccessStore.prepare()
+                        },
+                        startLocalServices: {
+                            await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
+                        }
+                    )
                 }
                 .onChange(of: onboardingCompleted) { _, _ in
                     Task { @MainActor in
@@ -265,6 +271,9 @@ struct AIPedometerApp: App {
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .active {
+                        tipJarStore.handleAppBecameActive()
+                    }
                     lifecycleTask?.cancel()
                     lifecycleTask = Task { @MainActor in
                         await lifecycleCoordinator.handle(scenePhase: newPhase)

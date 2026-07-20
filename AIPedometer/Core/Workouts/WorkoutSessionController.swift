@@ -49,6 +49,7 @@ final class WorkoutSessionController {
     private let healthKitService: any HealthKitServiceProtocol
     private let metricsSource: any WorkoutLiveMetricsSource
     private let liveActivityManager: any LiveActivityManaging
+    private let fetchRecoverableSession: @MainActor (ModelContext, FetchDescriptor<WorkoutSession>) throws -> WorkoutSession?
     private let saveModelContext: @MainActor (ModelContext) throws -> Void
     private let now: () -> Date
     private let isExpeditionModeEnabled: () -> Bool
@@ -62,6 +63,7 @@ final class WorkoutSessionController {
     private var accumulatedSteps: Int = 0
     private var accumulatedDistance: Double = 0
     private var isTerminatingSession = false
+    private var recoveryLookupSucceeded = false
 
     private(set) var state: WorkoutState = .idle
     private(set) var metrics: WorkoutMetrics?
@@ -76,6 +78,9 @@ final class WorkoutSessionController {
         healthKitService: any HealthKitServiceProtocol,
         metricsSource: any WorkoutLiveMetricsSource,
         liveActivityManager: any LiveActivityManaging = NoopLiveActivityManager(),
+        fetchRecoverableSession: @escaping @MainActor (ModelContext, FetchDescriptor<WorkoutSession>) throws -> WorkoutSession? = {
+            try $0.fetch($1).first
+        },
         saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() },
         now: @escaping () -> Date = { .now },
         isExpeditionModeEnabled: @escaping () -> Bool = {
@@ -86,6 +91,7 @@ final class WorkoutSessionController {
         self.healthKitService = healthKitService
         self.metricsSource = metricsSource
         self.liveActivityManager = liveActivityManager
+        self.fetchRecoverableSession = fetchRecoverableSession
         self.saveModelContext = saveModelContext
         self.now = now
         self.isExpeditionModeEnabled = isExpeditionModeEnabled
@@ -117,7 +123,7 @@ final class WorkoutSessionController {
     }
 
     func startWorkout(type: WorkoutType, targetSteps: Int?) async {
-        guard recoverableSession == nil else { return }
+        guard recoveryLookupSucceeded, recoverableSession == nil else { return }
         guard activeSession == nil else {
             isPresenting = true
             return
@@ -409,9 +415,11 @@ private extension WorkoutSessionController {
         descriptor.fetchLimit = 1
 
         do {
-            recoverableSession = try modelContext.fetch(descriptor).first
+            recoverableSession = try fetchRecoverableSession(modelContext, descriptor)
+            recoveryLookupSucceeded = true
         } catch {
             recoverableSession = nil
+            recoveryLookupSucceeded = false
             lastError = .sessionUnavailable
             Loggers.workouts.error("workout.recovery_fetch_failed", metadata: [
                 "error": error.localizedDescription

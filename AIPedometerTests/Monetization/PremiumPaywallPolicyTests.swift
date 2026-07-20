@@ -1,24 +1,44 @@
-import RevenueCat
 import Testing
 
 @testable import AIPedometer
 
 @MainActor
 struct PremiumPaywallPolicyTests {
-    @Test("missing offering uses app-owned fallback instead of RevenueCat default paywall")
-    func missingOfferingUsesFallback() {
-        #expect(RevenueCatPaywallPolicy.shouldUseOfficialPaywall(for: nil) == false)
+    @Test("a pending purchase disables every fallback package option")
+    func pendingPurchaseDisablesEveryPackageOption() {
+        for isCurrent in [false, true] {
+            #expect(
+                RevenueCatPaywallPolicy.packagePurchaseIsDisabled(
+                    isCurrent: isCurrent,
+                    isLoading: false,
+                    isPurchaseInProgress: true
+                )
+            )
+        }
     }
 
-    @Test("offering without RevenueCat Paywall v2 uses app-owned package UI")
-    func offeringWithoutConfiguredPaywallUsesFallback() {
-        let offering = Offering(
-            identifier: "default",
-            serverDescription: "Default offering",
-            availablePackages: [],
-            webCheckoutUrl: nil
+    @Test("without a purchase flight, fallback packages preserve current and loading disables")
+    func idlePackagePreservesCurrentAndLoadingDisables() {
+        #expect(
+            RevenueCatPaywallPolicy.packagePurchaseIsDisabled(
+                isCurrent: false,
+                isLoading: false,
+                isPurchaseInProgress: false
+            ) == false
         )
-
-        #expect(RevenueCatPaywallPolicy.shouldUseOfficialPaywall(for: offering) == false)
+        #expect(
+            RevenueCatPaywallPolicy.packagePurchaseIsDisabled(
+                isCurrent: true,
+                isLoading: false,
+                isPurchaseInProgress: false
+            )
+        )
+        #expect(
+            RevenueCatPaywallPolicy.packagePurchaseIsDisabled(
+                isCurrent: false,
+                isLoading: true,
+                isPurchaseInProgress: false
+            )
+        )
     }
 }

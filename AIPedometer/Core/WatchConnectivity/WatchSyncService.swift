@@ -6,6 +6,13 @@ import WatchConnectivity
 final class WatchSyncService: NSObject, WCSessionDelegate {
     static let shared = WatchSyncService()
 
+    private enum RevisionStorageKey {
+        static let senderID = "watchPayload.senderID"
+        static let revision = "watchPayload.revision"
+    }
+
+    private let userDefaults: UserDefaults
+    private let senderID: UUID
     private var lastQueuedTransferAt: Date?
     private var lastReachableSendAt: Date?
     private var lastReachableSentSteps: Int?
@@ -13,6 +20,17 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private var lastContextSentSteps: Int?
 
     private override init() {
+        let userDefaults = UserDefaults.standard
+        self.userDefaults = userDefaults
+        if let storedSenderID = userDefaults.string(forKey: RevisionStorageKey.senderID),
+           let senderID = UUID(uuidString: storedSenderID) {
+            self.senderID = senderID
+        } else {
+            let senderID = UUID()
+            self.senderID = senderID
+            userDefaults.set(senderID.uuidString, forKey: RevisionStorageKey.senderID)
+            userDefaults.removeObject(forKey: RevisionStorageKey.revision)
+        }
         super.init()
     }
 
@@ -28,15 +46,6 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         let session = WCSession.default
         guard session.isPaired, session.isWatchAppInstalled else { return }
         let now = Date.now
-        let payload = WatchPayload(
-            todaySteps: stepData.todaySteps,
-            goalSteps: stepData.goalSteps,
-            goalProgress: stepData.goalProgress,
-            currentStreak: stepData.currentStreak,
-            lastUpdated: stepData.lastUpdated,
-            weeklySteps: stepData.weeklySteps,
-            sentAt: now
-        )
         do {
             // The context is a latest-wins snapshot, so it gets the same time/step-delta
             // throttle as `sendMessage` — without it, every CMPedometer tick (several per
@@ -67,6 +76,17 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
             // Nothing due on any channel: skip the encode entirely (hot pedometer tick path).
             guard shouldUpdateContext || shouldSendMessage || shouldQueueTransfer else { return }
 
+            let payload = WatchPayload(
+                senderID: senderID,
+                revision: nextRevision(),
+                todaySteps: stepData.todaySteps,
+                goalSteps: stepData.goalSteps,
+                goalProgress: stepData.goalProgress,
+                currentStreak: stepData.currentStreak,
+                lastUpdated: stepData.lastUpdated,
+                weeklySteps: stepData.weeklySteps,
+                sentAt: now
+            )
             let encoded = try JSONEncoder().encode(payload)
             Signposts.sync.event("WatchPayloadEncoded")
             if shouldUpdateContext {
@@ -109,6 +129,13 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 "error": error.localizedDescription
             ])
         }
+    }
+
+    private func nextRevision() -> UInt64 {
+        let current = UInt64(userDefaults.string(forKey: RevisionStorageKey.revision) ?? "0") ?? 0
+        let next = current + 1
+        userDefaults.set(String(next), forKey: RevisionStorageKey.revision)
+        return next
     }
 
     /// Pure throttle decision for `WCSession.sendMessage`. Push immediately on first send;

@@ -98,7 +98,10 @@ struct WatchPayloadTests {
 
     @Test("Reversed delivery cannot replace the newest accepted payload")
     func reversedDeliveryIsRejected() {
+        let senderID = UUID()
         let newer = WatchPayload(
+            senderID: senderID,
+            revision: 2,
             todaySteps: 2_000,
             goalSteps: 10_000,
             goalProgress: 0.2,
@@ -108,6 +111,8 @@ struct WatchPayloadTests {
             sentAt: Date(timeIntervalSince1970: 200)
         )
         let older = WatchPayload(
+            senderID: senderID,
+            revision: 1,
             todaySteps: 1_000,
             goalSteps: 10_000,
             goalProgress: 0.1,
@@ -117,8 +122,44 @@ struct WatchPayloadTests {
             sentAt: Date(timeIntervalSince1970: 100)
         )
 
-        #expect(WatchPayload.shouldAccept(newer, after: nil))
-        #expect(!WatchPayload.shouldAccept(older, after: newer.deliveryOrder))
+        var state = WatchPayloadAcceptanceState()
+        let acceptedNewer = state.accept(newer)
+        let acceptedOlder = state.accept(older)
+        #expect(acceptedNewer)
+        #expect(!acceptedOlder)
+    }
+
+    @Test("A new delivery remains acceptable when the phone clock moves backward")
+    func clockRollbackDoesNotLockOutWatchUpdates() {
+        let senderID = UUID()
+        let previous = WatchPayload(
+            senderID: senderID,
+            revision: 1,
+            todaySteps: 1_000,
+            goalSteps: 10_000,
+            goalProgress: 0.1,
+            currentStreak: 1,
+            lastUpdated: Date(timeIntervalSince1970: 200),
+            weeklySteps: [],
+            sentAt: Date(timeIntervalSince1970: 200)
+        )
+        let deliveredAfterClockRollback = WatchPayload(
+            senderID: senderID,
+            revision: 2,
+            todaySteps: 1_100,
+            goalSteps: 10_000,
+            goalProgress: 0.11,
+            currentStreak: 1,
+            lastUpdated: Date(timeIntervalSince1970: 100),
+            weeklySteps: [],
+            sentAt: Date(timeIntervalSince1970: 100)
+        )
+
+        var state = WatchPayloadAcceptanceState()
+        let acceptedPrevious = state.accept(previous)
+        let acceptedAfterRollback = state.accept(deliveredAfterClockRollback)
+        #expect(acceptedPrevious)
+        #expect(acceptedAfterRollback)
     }
 
     @Test("Legacy payload without sentAt still decodes and orders by lastUpdated")
@@ -136,7 +177,79 @@ struct WatchPayloadTests {
         #expect(decoded.todaySteps == 1_234)
         #expect(decoded.sentAt == nil)
         #expect(decoded.deliveryOrder == legacy.lastUpdated)
-        #expect(WatchPayload.shouldAccept(decoded, after: nil))
+        var state = WatchPayloadAcceptanceState()
+        let acceptedLegacy = state.accept(decoded)
+        #expect(acceptedLegacy)
+    }
+
+    @Test("A retired phone installation cannot overwrite its replacement")
+    func retiredSenderCannotReturn() {
+        let oldSenderID = UUID()
+        let newSenderID = UUID()
+        let oldDeliveryDate = Date(timeIntervalSince1970: 100)
+        let replacementDeliveryDate = Date(timeIntervalSince1970: 200)
+        let oldPayload = WatchPayload(
+            senderID: oldSenderID,
+            revision: 10,
+            todaySteps: 1_000,
+            goalSteps: 10_000,
+            goalProgress: 0.1,
+            currentStreak: 1,
+            lastUpdated: oldDeliveryDate,
+            weeklySteps: [],
+            sentAt: oldDeliveryDate
+        )
+        let replacementPayload = WatchPayload(
+            senderID: newSenderID,
+            revision: 1,
+            todaySteps: 1_100,
+            goalSteps: 10_000,
+            goalProgress: 0.11,
+            currentStreak: 1,
+            lastUpdated: replacementDeliveryDate,
+            weeklySteps: [],
+            sentAt: replacementDeliveryDate
+        )
+
+        var state = WatchPayloadAcceptanceState()
+        let acceptedOld = state.accept(oldPayload)
+        let acceptedReplacement = state.accept(replacementPayload)
+        let acceptedRetired = state.accept(oldPayload)
+        #expect(acceptedOld)
+        #expect(acceptedReplacement)
+        #expect(!acceptedRetired)
+    }
+
+    @Test("An older queued sender cannot displace the current phone after watch state reset")
+    func olderUnknownSenderCannotDisplaceCurrentPhone() {
+        let currentPayload = WatchPayload(
+            senderID: UUID(),
+            revision: 1,
+            todaySteps: 2_000,
+            goalSteps: 10_000,
+            goalProgress: 0.2,
+            currentStreak: 2,
+            lastUpdated: Date(timeIntervalSince1970: 200),
+            weeklySteps: [],
+            sentAt: Date(timeIntervalSince1970: 200)
+        )
+        let olderQueuedPayload = WatchPayload(
+            senderID: UUID(),
+            revision: 100,
+            todaySteps: 1_000,
+            goalSteps: 10_000,
+            goalProgress: 0.1,
+            currentStreak: 1,
+            lastUpdated: Date(timeIntervalSince1970: 100),
+            weeklySteps: [],
+            sentAt: Date(timeIntervalSince1970: 100)
+        )
+
+        var state = WatchPayloadAcceptanceState()
+        let acceptedCurrent = state.accept(currentPayload)
+        let acceptedOlderSender = state.accept(olderQueuedPayload)
+        #expect(acceptedCurrent)
+        #expect(!acceptedOlderSender)
     }
 }
 

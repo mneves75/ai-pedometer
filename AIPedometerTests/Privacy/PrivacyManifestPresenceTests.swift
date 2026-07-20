@@ -86,8 +86,8 @@ struct PrivacyManifestPresenceTests {
         #expect(hasLocation == false)
     }
 
-    @Test("Privacy manifests use official Health/Fitness data types for app functionality only")
-    func privacyManifestsUseOfficialHealthAndFitnessTypes() throws {
+    @Test("Privacy manifests declare no collected data when production health egress is absent")
+    func privacyManifestsDeclareNoCollectedData() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)
         let repoRoot = testFileURL
             .deletingLastPathComponent()
@@ -104,21 +104,10 @@ struct PrivacyManifestPresenceTests {
             let manifestURL = repoRoot.appendingPathComponent(path)
             let data = try Data(contentsOf: manifestURL)
             let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-            let collectedTypes = plist?["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? []
-            let declaredTypes = Set(collectedTypes.compactMap { $0["NSPrivacyCollectedDataType"] as? String })
+            let collectedTypes = plist?["NSPrivacyCollectedDataTypes"] as? [[String: Any]]
 
-            #expect(declaredTypes.contains("NSPrivacyCollectedDataTypeHealth"), "\(path) should declare Health data")
-            #expect(declaredTypes.contains("NSPrivacyCollectedDataTypeFitness"), "\(path) should declare Fitness data")
-            #expect(!declaredTypes.contains("Health"), "\(path) should not use a custom short Health value")
-            #expect(!declaredTypes.contains("Fitness"), "\(path) should not use a custom short Fitness value")
-
-            for entry in collectedTypes {
-                let purposes = entry["NSPrivacyCollectedDataTypePurposes"] as? [String] ?? []
-                #expect(purposes.contains("NSPrivacyCollectedDataTypePurposeAppFunctionality"))
-                #expect(!purposes.contains("NSPrivacyCollectedDataTypePurposeAnalytics"))
-                #expect(!purposes.contains("Analytics"))
-                #expect(!purposes.contains("AppFunctionality"))
-            }
+            #expect(collectedTypes != nil, "\(path) should declare NSPrivacyCollectedDataTypes")
+            #expect(collectedTypes?.isEmpty == true, "\(path) should not declare on-device Health/Fitness use as collected data")
         }
     }
 

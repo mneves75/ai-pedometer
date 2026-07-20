@@ -296,6 +296,8 @@ Pontos importantes:
 - se o SDK não está configurado, a UI mostra estado de assinatura indisponível
 - a UI não “abre” recurso premium por ausência de resposta; ela bloqueia
 - se a verificação de entitlements da RevenueCat falhar, o app bloqueia acesso premium mesmo com entitlement/produto ativo no payload
+- o entitlement só libera premium quando está ativo no ambiente atual; um entitlement de sandbox não vaza para produção, nem o inverso
+- antes de cada release, revise os App Store privacy labels contra as práticas atuais da RevenueCat para dados técnicos, App User ID anônimo, recibos/transações e entitlements; `NSPrivacyCollectedDataTypes` vazio nos manifests do app significa apenas que o app não coleta Health/Fitness e não substitui a declaração do SDK
 
 ### Offering usado pelo app
 

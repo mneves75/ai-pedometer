@@ -1,0 +1,39 @@
+name: RevenueCat Pin Staleness
+
+on:
+  schedule:
+    - cron: "23 5 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: revenuecat-pin-staleness
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check immutable RevenueCat pin
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Compare pin with latest reviewed release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          bash Scripts/check-revenuecat-staleness.sh | tee revenuecat-staleness.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          cat revenuecat-staleness.txt >> "$GITHUB_STEP_SUMMARY"
+          if [[ ${status} -eq 10 ]]; then
+            echo "::warning::RevenueCat pin is stale; review the reported release manually."
+          fi
+          exit "${status}"

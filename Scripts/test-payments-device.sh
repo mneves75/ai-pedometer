@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh"
 
 bash "${ROOT_DIR}/Scripts/verify-device-identifiers.sh"
 
@@ -21,6 +24,47 @@ require_env() {
   fi
 }
 
+redact_sensitive_output() {
+  AIPEDOMETER_REDACT_APP_ID="${APP_ID:-}" \
+    AIPEDOMETER_REDACT_GROUP_ID="${GROUP_ID:-}" \
+    AIPEDOMETER_REDACT_ROOT_DIR="${ROOT_DIR}" \
+    python3 -c '
+import os
+import re
+import sys
+
+names = (
+    "ASC_KEY_ID",
+    "ASC_ISSUER_ID",
+    "ASC_PRIVATE_KEY_PATH",
+    "APP_BUNDLE_ID",
+    "TESTFLIGHT_GROUP_NAME",
+    "SANDBOX_TESTER_EMAIL",
+    "TESTFLIGHT_TESTER_EMAILS",
+    "AIPEDOMETER_REDACT_APP_ID",
+    "AIPEDOMETER_REDACT_GROUP_ID",
+    "AIPEDOMETER_REDACT_ROOT_DIR",
+)
+values = []
+for name in names:
+    value = os.environ.get(name, "").strip()
+    if value:
+        values.append(value)
+        values.extend(part.strip() for part in value.split(",") if part.strip())
+
+redactions = sorted(set(values), key=len, reverse=True)
+email_pattern = re.compile(
+    r"(?i)(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![A-Z0-9._%+-])"
+)
+for line in sys.stdin:
+    for value in redactions:
+        line = line.replace(value, "[REDACTED]")
+    line = email_pattern.sub("[REDACTED_EMAIL]", line)
+    sys.stdout.write(line)
+    sys.stdout.flush()
+'
+}
+
 OUTPUT_ROOT="${ROOT_DIR}/build/ipa"
 
 canonical_output_path() {
@@ -35,7 +79,7 @@ canonical_output_path() {
   case "${absolute_path}" in
     "${OUTPUT_ROOT}"|"${OUTPUT_ROOT}/"*) ;;
     *)
-      echo "ERRO: caminho de saida fora de ${OUTPUT_ROOT}: ${raw_path}" >&2
+      echo "ERRO: caminho de saida fora de build/ipa." >&2
       exit 1
       ;;
   esac
@@ -54,7 +98,7 @@ canonical_output_path() {
       printf '%s\n' "${resolved}"
       ;;
     *)
-      echo "ERRO: caminho de saida fora de ${OUTPUT_ROOT}: ${raw_path}" >&2
+      echo "ERRO: caminho de saida fora de build/ipa." >&2
       exit 1
       ;;
   esac
@@ -63,7 +107,7 @@ canonical_output_path() {
 safe_rm_rf() {
   local target="$1"
   if [[ -z "${target}" || "${target}" == "/" ]]; then
-    echo "ERRO: recusando remover caminho invalido: '${target}'" >&2
+    echo "ERRO: recusando remover caminho invalido." >&2
     exit 1
   fi
 
@@ -72,7 +116,7 @@ safe_rm_rf() {
       rm -rf "${target}" >/dev/null 2>&1 || true
       ;;
     *)
-      echo "ERRO: recusando remover caminho fora de ${OUTPUT_ROOT}: ${target}" >&2
+      echo "ERRO: recusando remover caminho fora de build/ipa." >&2
       exit 1
       ;;
   esac
@@ -94,6 +138,7 @@ require_cmd asc
 require_cmd xcodebuild
 require_cmd python3
 require_cmd rg
+aipedometer_select_xcode_26
 
 mkdir -p "${IPA_DIR}"
 
@@ -113,28 +158,31 @@ if asc auth status 2>/dev/null | rg -n "No credentials stored" >/dev/null 2>&1; 
   echo "E rode:"
   echo "  asc auth login --bypass-keychain --local --skip-validation \\"
   echo "    --name \"AIPedometer\" \\"
-  echo "    --key-id \"${ASC_KEY_ID:-<ASC_KEY_ID>}\" \\"
-  echo "    --issuer-id \"${ASC_ISSUER_ID:-<ASC_ISSUER_ID>}\" \\"
-  echo "    --private-key \"${ASC_PRIVATE_KEY_PATH:-</path/to/AuthKey.p8>}\""
+  echo "    --key-id \"<ASC_KEY_ID>\" \\"
+  echo "    --issuer-id \"<ASC_ISSUER_ID>\" \\"
+  echo "    --private-key \"</path/to/AuthKey.p8>\""
   echo
   echo "Obs: este repo ignora .asc/ no git (.gitignore) para evitar vazamento."
   exit 2
 fi
 
-echo "==> 2) Descobrindo APP_ID para bundle id ${APP_BUNDLE_ID}..."
-APP_JSON="$(asc apps list --bundle-id "${APP_BUNDLE_ID}" --output json)"
+echo "==> 2) Descobrindo APP_ID para o bundle configurado..."
+if ! APP_JSON="$(asc apps list --bundle-id "${APP_BUNDLE_ID}" --output json 2>/dev/null)"; then
+  echo "ERRO: falha ao consultar o app no App Store Connect."
+  exit 3
+fi
 APP_ID="$(
   python3 -c 'import json,sys; data=json.loads(sys.stdin.read() or "[]"); print((data[0].get("id","") if isinstance(data,list) and data else "") or "")' \
     <<<"${APP_JSON}"
 )"
 
 if [[ -z "${APP_ID}" ]]; then
-  echo "ERRO: nao encontrei o app no App Store Connect para bundle id: ${APP_BUNDLE_ID}"
+  echo "ERRO: nao encontrei o app no App Store Connect para o bundle configurado."
   echo "Dica: confirme se o app existe no ASC e se o bundle id esta correto."
   exit 3
 fi
 
-echo "APP_ID=${APP_ID}"
+echo "APP_ID obtido."
 
 echo "==> 3) Sandbox Tester (IAP)"
 echo "O asc ainda nao oferece 'create' para sandbox testers nesta versao."
@@ -143,8 +191,12 @@ echo "- listar: asc sandbox list --email \"EMAIL\""
 echo "- limpar historico: asc sandbox clear-history --id \"ID\" --confirm"
 echo
 if [[ -n "${SANDBOX_TESTER_EMAIL:-}" ]]; then
-  echo "Procurando sandbox tester existente por email: ${SANDBOX_TESTER_EMAIL}"
-  asc sandbox list --email "${SANDBOX_TESTER_EMAIL}" --output table || true
+  echo "Procurando sandbox tester existente pelo email configurado."
+  if asc sandbox list --email "${SANDBOX_TESTER_EMAIL}" --output json >/dev/null 2>&1; then
+    echo "Consulta concluida sem exibir dados do tester."
+  else
+    echo "Aviso: nao foi possivel consultar o sandbox tester."
+  fi
   echo "Se existir, voce pode limpar historico com:"
   echo "  asc sandbox clear-history --id \"<SANDBOX_TESTER_ID>\" --confirm"
 else
@@ -153,8 +205,7 @@ fi
 
 echo
 echo "==> 4) Gerando IPA (Release) para TestFlight..."
-echo "Archive: ${ARCHIVE_PATH}"
-echo "IPA:     ${IPA_PATH}"
+echo "Os artefatos serao gravados sob build/ipa."
 
 # ExportOptions (minimal) for App Store / TestFlight distribution.
 EXPORT_OPTIONS_PLIST="${IPA_DIR}/ExportOptions-TestFlight.plist"
@@ -185,6 +236,8 @@ xcodebuild \
   -destination "generic/platform=iOS" \
   -archivePath "${ARCHIVE_PATH}" \
   archive \
+  2>&1 \
+  | redact_sensitive_output \
   | tee "${IPA_DIR}/xcodebuild-archive.log"
 
 xcodebuild \
@@ -192,17 +245,22 @@ xcodebuild \
   -exportArchive \
   -exportOptionsPlist "${EXPORT_OPTIONS_PLIST}" \
   -exportPath "${IPA_DIR}/export" \
+  2>&1 \
+  | redact_sensitive_output \
   | tee "${IPA_DIR}/xcodebuild-export.log"
 
 if [[ ! -f "${IPA_DIR}/export/AIPedometer.ipa" ]]; then
-  echo "ERRO: IPA nao encontrada apos export. Esperado: ${IPA_DIR}/export/AIPedometer.ipa"
+  echo "ERRO: IPA nao encontrada apos export."
   exit 4
 fi
 
 cp -f "${IPA_DIR}/export/AIPedometer.ipa" "${IPA_PATH}"
 
-echo "==> 5) Garantindo grupo do TestFlight: ${GROUP_NAME}"
-GROUPS_JSON="$(asc testflight beta-groups list --app "${APP_ID}" --output json)"
+echo "==> 5) Garantindo o grupo configurado do TestFlight."
+if ! GROUPS_JSON="$(asc testflight beta-groups list --app "${APP_ID}" --output json 2>/dev/null)"; then
+  echo "ERRO: falha ao consultar grupos do TestFlight."
+  exit 5
+fi
 GROUP_ID="$(
   GROUPS_JSON="${GROUPS_JSON}" GROUP_NAME="${GROUP_NAME}" python3 - <<'PY'
 import json
@@ -221,7 +279,10 @@ PY
 
 if [[ -z "${GROUP_ID}" ]]; then
   echo "Criando grupo..."
-  CREATE_JSON="$(asc testflight beta-groups create --app "${APP_ID}" --name "${GROUP_NAME}" --output json)"
+  if ! CREATE_JSON="$(asc testflight beta-groups create --app "${APP_ID}" --name "${GROUP_NAME}" --output json 2>/dev/null)"; then
+    echo "ERRO: falha ao criar o grupo do TestFlight."
+    exit 5
+  fi
   GROUP_ID="$(
     python3 -c 'import json,sys; data=json.loads(sys.stdin.read() or "{}"); print((data.get("id","") or ""))' \
       <<<"${CREATE_JSON}"
@@ -233,7 +294,7 @@ if [[ -z "${GROUP_ID}" ]]; then
   exit 5
 fi
 
-echo "GROUP_ID=${GROUP_ID}"
+echo "GROUP_ID obtido."
 
 if [[ -n "${TESTFLIGHT_TESTER_EMAILS:-}" ]]; then
   echo "==> 6) Adicionando beta testers ao app/grupo..."
@@ -242,9 +303,9 @@ if [[ -n "${TESTFLIGHT_TESTER_EMAILS:-}" ]]; then
   for raw in "${emails[@]}"; do
     email="$(echo "$raw" | xargs)"
     [[ -z "${email}" ]] && continue
-    asc testflight beta-testers add --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null
-    asc testflight beta-testers invite --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null || true
-    echo "- ${email}"
+    asc testflight beta-testers add --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1
+    asc testflight beta-testers invite --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1 || true
+    echo "- tester processado."
   done
 else
   echo "==> 6) Beta testers"
@@ -259,10 +320,10 @@ asc publish testflight \
   --group "${GROUP_ID}" \
   --wait \
   --output json \
+  2>&1 \
+  | redact_sensitive_output \
   | tee "${IPA_DIR}/asc-publish-testflight.json"
 
 echo
 echo "OK"
-echo "- IPA: ${IPA_PATH}"
-echo "- Logs: ${IPA_DIR}/*.log"
-echo "- Publish: ${IPA_DIR}/asc-publish-testflight.json"
+echo "- IPA, logs e resumo redigido: build/ipa"

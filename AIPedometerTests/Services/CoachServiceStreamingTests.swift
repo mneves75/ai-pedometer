@@ -1,3 +1,4 @@
+import Dispatch
 import Foundation
 import Testing
 
@@ -8,9 +9,10 @@ import Testing
 struct CoachServiceStreamingTests {
     @Test("Clearing conversation during stream prevents stale assistant append")
     func clearConversationInvalidatesInFlightResponse() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["Parte 1", "Parte 2", "Parte 3"],
-            delayNanoseconds: 80_000_000
+            startGate: startGate
         )
         let service = makeService(session: session)
 
@@ -18,8 +20,9 @@ struct CoachServiceStreamingTests {
             await service.send(message: "teste")
         }
 
-        try? await Task.sleep(nanoseconds: 25_000_000)
+        await startGate.waitUntilBlocked(1)
         service.clearConversation()
+        await startGate.releaseNext()
         await sendTask.value
 
         #expect(service.messages.isEmpty)
@@ -162,9 +165,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Clearing conversation during stream suppresses stale terminal error")
     func clearConversationSuppressesStaleTerminalError() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["prefixo parcial"],
-            delayNanoseconds: 90_000_000,
+            startGate: startGate,
             terminalError: AIServiceError.generationFailed(underlying: "socket closed")
         )
         let service = makeService(session: session)
@@ -173,8 +177,9 @@ struct CoachServiceStreamingTests {
             await service.send(message: "teste erro")
         }
 
-        try? await Task.sleep(nanoseconds: 25_000_000)
+        await startGate.waitUntilBlocked(1)
         service.clearConversation()
+        await startGate.releaseNext()
         await sendTask.value
 
         #expect(service.messages.isEmpty)
@@ -186,9 +191,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Clearing conversation stops generating state immediately")
     func clearConversationStopsGeneratingStateImmediately() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["resposta lenta"],
-            delayNanoseconds: 150_000_000
+            startGate: startGate
         )
         let service = makeService(session: session)
 
@@ -196,10 +202,11 @@ struct CoachServiceStreamingTests {
             await service.send(message: "mensagem lenta")
         }
 
-        try? await Task.sleep(nanoseconds: 20_000_000)
+        await startGate.waitUntilBlocked(1)
         #expect(service.isGenerating)
 
         service.clearConversation()
+        await startGate.releaseNext()
         #expect(!service.isGenerating)
         #expect(service.currentStreamedContent.isEmpty)
 
@@ -209,9 +216,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Clearing conversation prevents stale streamed markdown render updates")
     func clearConversationPreventsStaleRenderedStreamUpdate() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["**Par", "**Parcial**"],
-            delayNanoseconds: 80_000_000
+            startGate: startGate
         )
         let service = makeService(session: session)
 
@@ -219,8 +227,9 @@ struct CoachServiceStreamingTests {
             await service.send(message: "teste markdown")
         }
 
-        try? await Task.sleep(nanoseconds: 25_000_000)
+        await startGate.waitUntilBlocked(1)
         service.clearConversation()
+        await startGate.releaseNext()
         await sendTask.value
 
         #expect(service.messages.isEmpty)
@@ -229,9 +238,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Service deallocates after clear to avoid streaming task retention cycles")
     func serviceDeallocatesAfterClear() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["Parte 1", "Parte 2", "Parte 3"],
-            delayNanoseconds: 70_000_000
+            startGate: startGate
         )
 
         var service: CoachService? = makeService(session: session)
@@ -241,8 +251,9 @@ struct CoachServiceStreamingTests {
             await service?.send(message: "teste de release")
         }
 
-        try? await Task.sleep(nanoseconds: 20_000_000)
+        await startGate.waitUntilBlocked(1)
         service?.clearConversation()
+        await startGate.releaseNext()
         await sendTask.value
 
         service = nil
@@ -254,9 +265,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Can send a new message after clear without stale response leakage")
     func sendAfterClearDoesNotLeakStaleResponse() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["resposta final"],
-            delayNanoseconds: 120_000_000
+            startGate: startGate
         )
         let service = makeService(session: session)
 
@@ -264,8 +276,9 @@ struct CoachServiceStreamingTests {
             await service.send(message: "primeira")
         }
 
-        try? await Task.sleep(nanoseconds: 20_000_000)
+        await startGate.waitUntilBlocked(1)
         service.clearConversation()
+        await startGate.releaseNext()
         #expect(!service.isGenerating)
 
         await service.send(message: "segunda")
@@ -280,9 +293,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Repeated clear and resend cycles stay deterministic and leak-free")
     func repeatedClearAndResendCyclesStayDeterministic() async {
+        let startGate = StreamStartGate(maximumBlocks: 5)
         let session = MockCoachSession(
             chunks: ["parcial", "resposta final"],
-            delayNanoseconds: 45_000_000
+            startGate: startGate
         )
         let service = makeService(session: session)
 
@@ -291,8 +305,9 @@ struct CoachServiceStreamingTests {
                 await service.send(message: "mensagem \(cycle)")
             }
 
-            try? await Task.sleep(nanoseconds: 12_000_000)
+            await startGate.waitUntilBlocked(cycle)
             service.clearConversation()
+            await startGate.releaseNext()
             await sendTask.value
 
             #expect(service.messages.isEmpty)
@@ -348,16 +363,12 @@ struct CoachServiceStreamingTests {
         let session = CoordinatedCoachSession(
             firstChunk: "**primeira**",
             secondChunk: "**segunda**",
-            renderProbe: renderProbe,
-            finishDelayNanoseconds: 180_000_000
+            renderProbe: renderProbe
         )
         let service = makeService(
             session: session,
             liveRenderer: { document in
-                Task {
-                    await renderProbe.markFirstRenderStarted()
-                }
-                Thread.sleep(forTimeInterval: 0.12)
+                renderProbe.blockFirstRenderUntilSecondChunk()
                 return AIChatMarkdown.renderAttributedString(from: document)
             }
         )
@@ -377,9 +388,10 @@ struct CoachServiceStreamingTests {
 
     @Test("Clear during stream does not publish stale telemetry snapshot")
     func clearDuringStreamDoesNotPublishStaleTelemetry() async {
+        let startGate = StreamStartGate(maximumBlocks: 1)
         let session = MockCoachSession(
             chunks: ["parte 1", "parte 2"],
-            delayNanoseconds: 70_000_000
+            startGate: startGate
         )
         let service = makeService(session: session)
 
@@ -387,8 +399,9 @@ struct CoachServiceStreamingTests {
             await service.send(message: "teste")
         }
 
-        try? await Task.sleep(nanoseconds: 20_000_000)
+        await startGate.waitUntilBlocked(1)
         service.clearConversation()
+        await startGate.releaseNext()
         await sendTask.value
 
         #expect(service.debugLastStreamRenderTelemetry == nil)
@@ -414,27 +427,126 @@ struct CoachServiceStreamingTests {
     }
 }
 
-private actor StreamRenderProbe {
-    private var firstRenderStarted = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+private actor StreamStartGate {
+    private var remainingBlocks: Int
+    private var blockedCount = 0
+    private var releasedCount = 0
 
-    func markFirstRenderStarted() {
-        guard !firstRenderStarted else { return }
-        firstRenderStarted = true
-        let currentWaiters = waiters
-        waiters.removeAll()
-        for waiter in currentWaiters {
-            waiter.resume()
+    init(maximumBlocks: Int) {
+        remainingBlocks = max(0, maximumBlocks)
+    }
+
+    func blockIfNeeded(timeout: Duration = .seconds(5)) async {
+        guard remainingBlocks > 0 else { return }
+
+        remainingBlocks -= 1
+        blockedCount += 1
+        let blockNumber = blockedCount
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while releasedCount < blockNumber {
+            if Task.isCancelled {
+                releasedCount = max(releasedCount, blockNumber)
+                return
+            }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting to release stream block \(blockNumber)")
+                releasedCount = max(releasedCount, blockNumber)
+                return
+            }
+            await Task.yield()
         }
     }
 
-    func waitUntilFirstRenderStarts() async {
-        if firstRenderStarted {
+    func waitUntilBlocked(_ target: Int, timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while blockedCount < target {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for stream block \(target)")
+                releasedCount = max(releasedCount, target)
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func releaseNext() {
+        guard releasedCount < blockedCount else { return }
+        releasedCount += 1
+    }
+}
+
+private final class StreamRenderProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let allowFirstRenderToFinish = DispatchSemaphore(value: 0)
+    private var firstRenderStarted = false
+    private var firstRenderBlocked = false
+    private var isCancelled = false
+    private var hasReleasedFirstRender = false
+
+    func blockFirstRenderUntilSecondChunk() {
+        lock.lock()
+        guard !firstRenderBlocked, !isCancelled else {
+            lock.unlock()
             return
         }
 
-        await withCheckedContinuation { continuation in
-            waiters.append(continuation)
+        firstRenderBlocked = true
+        firstRenderStarted = true
+        lock.unlock()
+
+        guard allowFirstRenderToFinish.wait(timeout: .now() + .seconds(5)) == .success else {
+            lock.lock()
+            hasReleasedFirstRender = true
+            lock.unlock()
+            Issue.record("Timed out waiting for the second stream chunk to release the first render")
+            return
+        }
+    }
+
+    func waitUntilFirstRenderStarts(timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while true {
+            let (didStart, wasCancelled) = lock.withLock {
+                (firstRenderStarted, isCancelled)
+            }
+
+            if didStart || wasCancelled || Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for the first stream render to start")
+                cancel()
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func releaseFirstRender() {
+        lock.lock()
+        let shouldSignal = !hasReleasedFirstRender
+        hasReleasedFirstRender = true
+        lock.unlock()
+
+        if shouldSignal {
+            allowFirstRenderToFinish.signal()
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        isCancelled = true
+        let shouldSignal = !hasReleasedFirstRender
+        hasReleasedFirstRender = true
+        lock.unlock()
+
+        if shouldSignal {
+            allowFirstRenderToFinish.signal()
         }
     }
 }
@@ -444,28 +556,25 @@ private final class CoordinatedCoachSession: CoachSessionProtocol {
     private let firstChunk: String
     private let secondChunk: String
     private let renderProbe: StreamRenderProbe
-    private let finishDelayNanoseconds: UInt64
 
     init(
         firstChunk: String,
         secondChunk: String,
-        renderProbe: StreamRenderProbe,
-        finishDelayNanoseconds: UInt64
+        renderProbe: StreamRenderProbe
     ) {
         self.firstChunk = firstChunk
         self.secondChunk = secondChunk
         self.renderProbe = renderProbe
-        self.finishDelayNanoseconds = finishDelayNanoseconds
     }
 
     func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
         let firstChunk = self.firstChunk
         let secondChunk = self.secondChunk
         let renderProbe = self.renderProbe
-        let finishDelayNanoseconds = self.finishDelayNanoseconds
 
         return AsyncThrowingStream { continuation in
             let task = Task {
+                defer { renderProbe.releaseFirstRender() }
                 continuation.yield(firstChunk)
                 await renderProbe.waitUntilFirstRenderStarts()
 
@@ -475,15 +584,11 @@ private final class CoordinatedCoachSession: CoachSessionProtocol {
                 }
 
                 continuation.yield(secondChunk)
-
-                if finishDelayNanoseconds > 0 {
-                    try? await Task.sleep(nanoseconds: finishDelayNanoseconds)
-                }
-
                 continuation.finish()
             }
 
             continuation.onTermination = { @Sendable _ in
+                renderProbe.cancel()
                 task.cancel()
             }
         }
@@ -588,17 +693,17 @@ struct AICoachErrorPresentationPolicyTests {
 @MainActor
 private final class MockCoachSession: CoachSessionProtocol {
     private let chunks: [String]
-    private let delayNanoseconds: UInt64
+    private let startGate: StreamStartGate?
     private let terminalError: AIServiceError?
     private(set) var prompts: [String] = []
 
     init(
         chunks: [String],
-        delayNanoseconds: UInt64 = 0,
+        startGate: StreamStartGate? = nil,
         terminalError: AIServiceError? = nil
     ) {
         self.chunks = chunks
-        self.delayNanoseconds = delayNanoseconds
+        self.startGate = startGate
         self.terminalError = terminalError
     }
 
@@ -606,21 +711,14 @@ private final class MockCoachSession: CoachSessionProtocol {
         prompts.append(prompt)
 
         let chunks = self.chunks
-        let delayNanoseconds = self.delayNanoseconds
+        let startGate = self.startGate
         let terminalError = self.terminalError
 
         return AsyncThrowingStream { continuation in
             let task = Task {
+                await startGate?.blockIfNeeded()
+
                 for chunk in chunks {
-                    if Task.isCancelled {
-                        continuation.finish(throwing: CancellationError())
-                        return
-                    }
-
-                    if delayNanoseconds > 0 {
-                        try? await Task.sleep(nanoseconds: delayNanoseconds)
-                    }
-
                     if Task.isCancelled {
                         continuation.finish(throwing: CancellationError())
                         return

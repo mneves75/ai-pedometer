@@ -190,4 +190,87 @@ struct AppConstantsTests {
         #expect(config.offeringID == "current")
         #expect(config.isConfigured)
     }
+
+    @Test
+    func resolveRevenueCatConfigurationRejectsTestStoreKeyWhenNotAllowed() throws {
+        try withBundle(apiKey: "test_" + "placeholder") { bundle in
+            let config = AppConstants.RevenueCat.resolveConfiguration(
+                bundle: bundle,
+                environment: [:],
+                allowsEnvironmentOverrides: false,
+                allowsTestStoreAPIKeys: false
+            )
+
+            #expect(config.apiKey == nil)
+            #expect(!config.isConfigured)
+            #expect(config.entitlementID == "premium")
+        }
+    }
+
+    @Test
+    func resolveRevenueCatConfigurationRejectsTestStoreKeyFromEnvironmentWhenNotAllowed() {
+        let config = AppConstants.RevenueCat.resolveConfiguration(
+            bundle: .main,
+            environment: [apiKeyEnvironmentName: "test_" + "placeholder"],
+            allowsEnvironmentOverrides: true,
+            allowsTestStoreAPIKeys: false
+        )
+
+        #expect(config.apiKey == nil)
+        #expect(!config.isConfigured)
+    }
+
+    @Test
+    func resolveRevenueCatConfigurationAcceptsTestStoreKeyWhenAllowed() throws {
+        try withBundle(apiKey: "test_" + "placeholder") { bundle in
+            let config = AppConstants.RevenueCat.resolveConfiguration(
+                bundle: bundle,
+                environment: [:],
+                allowsEnvironmentOverrides: false,
+                allowsTestStoreAPIKeys: true
+            )
+
+            #expect(config.apiKey == "test_" + "placeholder")
+            #expect(config.isConfigured)
+        }
+    }
+
+    @Test
+    func resolveRevenueCatConfigurationKeepsAppleKeyWhenTestStoreKeysNotAllowed() throws {
+        try withBundle(apiKey: "appl_" + "placeholder") { bundle in
+            let config = AppConstants.RevenueCat.resolveConfiguration(
+                bundle: bundle,
+                environment: [:],
+                allowsEnvironmentOverrides: false,
+                allowsTestStoreAPIKeys: false
+            )
+
+            #expect(config.apiKey == "appl_" + "placeholder")
+            #expect(config.isConfigured)
+        }
+    }
+
+    // Fixture keys are assembled by concatenation so security scanners do not
+    // mistake the fake "test"/"appl" prefixed literals for real credentials.
+    private let apiKeyEnvironmentName = "REVENUECAT_API_KEY"
+
+    private func withBundle(apiKey: String, _ body: (Bundle) throws -> Void) throws {
+        let fileManager = FileManager.default
+        let tempRoot = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bundleURL = tempRoot.appendingPathComponent("TestRevenueCat.bundle", isDirectory: true)
+        try fileManager.createDirectory(at: bundleURL, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: tempRoot) }
+
+        var infoPlist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.test",
+            "RevenueCatEntitlementID": "premium"
+        ]
+        infoPlist["RevenueCatAPIKey"] = apiKey
+
+        let infoPlistURL = bundleURL.appendingPathComponent("Info.plist")
+        let data = try PropertyListSerialization.data(fromPropertyList: infoPlist, format: .xml, options: 0)
+        try data.write(to: infoPlistURL, options: .atomic)
+
+        try body(try #require(Bundle(url: bundleURL)))
+    }
 }

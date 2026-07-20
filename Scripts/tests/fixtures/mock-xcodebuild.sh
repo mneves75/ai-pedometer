@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 echo "$*" >> "${XCODEBUILD_LOG}"
+if [[ "${1:-}" == "-version" ]]; then
+  printf 'Xcode %s\nBuild version TEST\n' "${MOCK_XCODE_VERSION:-26.6}"
+  exit 0
+fi
 if [[ "$*" == *"-showBuildSettings"* ]]; then
   # Real projects can emit hundreds of kilobytes here. Keep this fixture larger
   # than a pipe buffer so the installer cannot safely feed it through a here-string.
