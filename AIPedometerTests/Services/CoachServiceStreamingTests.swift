@@ -407,6 +407,39 @@ struct CoachServiceStreamingTests {
         #expect(service.debugLastStreamRenderTelemetry == nil)
     }
 
+    @Test("send rebuilds a nil session lazily when availability flips to available")
+    func sendRebuildsSessionAfterAvailabilityFlip() async {
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.availability = .unavailable(reason: .appleIntelligenceNotEnabled)
+
+        let healthKit = MockHealthKitService()
+        let goalService = GoalService(persistence: PersistenceController(inMemory: true))
+        let session = MockCoachSession(chunks: ["recovered response"])
+
+        var builderCallCount = 0
+        let service = CoachService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: goalService,
+            sessionBuilder: { _, _ in
+                builderCallCount += 1
+                return session
+            }
+        )
+        #expect(builderCallCount == 0)
+
+        // Simulates the OS availability flip while the app is running (2026-07-20 iOS 27
+        // stale-banner bug): no foreground refresh runs, but the next send must self-heal
+        // instead of answering with the "not available" fallback.
+        foundationModels.availability = .available
+        await service.send(message: "olá")
+
+        #expect(builderCallCount == 1)
+        #expect(session.prompts == ["olá"])
+        #expect(service.messages.last?.content == "recovered response")
+        #expect(service.lastError == nil)
+    }
+
     private func makeService(
         session: any CoachSessionProtocol,
         liveRenderer: CoachService.LiveMarkdownRenderer? = nil
