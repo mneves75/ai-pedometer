@@ -368,7 +368,7 @@ struct CoachServiceStreamingTests {
         let service = makeService(
             session: session,
             liveRenderer: { document in
-                renderProbe.blockFirstRenderUntilSecondChunk()
+                renderProbe.blockFirstRenderUntilNextRenderStarts()
                 return AIChatMarkdown.renderAttributedString(from: document)
             }
         )
@@ -516,27 +516,39 @@ private actor StreamStartGate {
 private final class StreamRenderProbe: @unchecked Sendable {
     private let lock = NSLock()
     private let allowFirstRenderToFinish = DispatchSemaphore(value: 0)
+    private var renderInvocationCount = 0
     private var firstRenderStarted = false
-    private var firstRenderBlocked = false
     private var isCancelled = false
     private var hasReleasedFirstRender = false
 
-    func blockFirstRenderUntilSecondChunk() {
+    /// Renders race the response loop's generation bump: a render that finishes before the
+    /// loop schedules the newer generation commits as "current", which made the stale-after-render
+    /// assertion flaky under load. The deterministic fix: the FIRST render blocks until a SECOND
+    /// render invocation begins (which only happens after the loop scheduled the newer
+    /// generation), so the first render's apply is structurally guaranteed to be stale.
+    func blockFirstRenderUntilNextRenderStarts() {
         lock.lock()
-        guard !firstRenderBlocked, !isCancelled else {
+        renderInvocationCount += 1
+        let isFirstInvocation = renderInvocationCount == 1
+        if !isFirstInvocation {
+            let shouldSignal = !hasReleasedFirstRender
+            hasReleasedFirstRender = true
             lock.unlock()
+            if shouldSignal {
+                allowFirstRenderToFinish.signal()
+            }
             return
         }
-
-        firstRenderBlocked = true
         firstRenderStarted = true
+        let cancelled = isCancelled
         lock.unlock()
 
+        guard !cancelled else { return }
         guard allowFirstRenderToFinish.wait(timeout: .now() + .seconds(5)) == .success else {
             lock.lock()
             hasReleasedFirstRender = true
             lock.unlock()
-            Issue.record("Timed out waiting for the second stream chunk to release the first render")
+            Issue.record("Timed out waiting for a subsequent render to release the first render")
             return
         }
     }
