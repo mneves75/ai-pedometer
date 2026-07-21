@@ -14,8 +14,8 @@
 - Unit suite: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO -only-testing:AIPedometerTests test`.
 - UI suite: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO -only-testing:AIPedometerUITests test`.
 - Static analysis: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze`.
-- Script regressions: `for test_script in Scripts/tests/*.sh; do bash "$test_script"; done` and `python3 Scripts/tests/test_xcresult_summary.py`.
-- Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh` and `actionlint`.
+- Script regressions: `for test_script in Scripts/tests/*.sh; do bash "$test_script"; done`.
+- Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh Scripts/lib/*.sh .githooks/pre-commit` and `actionlint`.
 - Project metadata: `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`.
 - ASC auth health: `asc doctor`.
 

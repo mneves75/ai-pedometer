@@ -360,18 +360,26 @@ struct CoachServiceStreamingTests {
     @Test("Slow live renderer records stale-after-render telemetry")
     func slowRendererRecordsAfterRenderStale() async throws {
         let renderProbe = StreamRenderProbe()
+        let serviceReference = WeakRef<CoachService>(nil)
         let session = CoordinatedCoachSession(
             firstChunk: "**primeira**",
             secondChunk: "**segunda**",
-            renderProbe: renderProbe
+            renderProbe: renderProbe,
+            hasConsumedSecondChunk: {
+                serviceReference.value?.currentStreamedContent == "**segunda**"
+            },
+            hasRecordedAfterRenderStale: {
+                (serviceReference.value?.debugStreamRenderStaleDiscardedAfterRender ?? 0) >= 1
+            }
         )
         let service = makeService(
             session: session,
             liveRenderer: { document in
-                renderProbe.blockFirstRenderUntilNextRenderStarts()
+                renderProbe.blockFirstRenderUntilReleased()
                 return AIChatMarkdown.renderAttributedString(from: document)
             }
         )
+        serviceReference.value = service
 
         await service.send(message: "slow-render")
 
@@ -521,12 +529,10 @@ private final class StreamRenderProbe: @unchecked Sendable {
     private var isCancelled = false
     private var hasReleasedFirstRender = false
 
-    /// Renders race the response loop's generation bump: a render that finishes before the
-    /// loop schedules the newer generation commits as "current", which made the stale-after-render
-    /// assertion flaky under load. The deterministic fix: the FIRST render blocks until a SECOND
-    /// render invocation begins (which only happens after the loop scheduled the newer
-    /// generation), so the first render's apply is structurally guaranteed to be stale.
-    func blockFirstRenderUntilNextRenderStarts() {
+    /// The fixture releases the first render only after the response loop consumes the second
+    /// chunk, which guarantees that applying the first result exercises the stale-after-render path.
+    /// A later render invocation may also release it once the newer generation is already scheduled.
+    func blockFirstRenderUntilReleased() {
         lock.lock()
         renderInvocationCount += 1
         let isFirstInvocation = renderInvocationCount == 1
@@ -601,21 +607,29 @@ private final class CoordinatedCoachSession: CoachSessionProtocol {
     private let firstChunk: String
     private let secondChunk: String
     private let renderProbe: StreamRenderProbe
+    private let hasConsumedSecondChunk: @MainActor () -> Bool
+    private let hasRecordedAfterRenderStale: @MainActor () -> Bool
 
     init(
         firstChunk: String,
         secondChunk: String,
-        renderProbe: StreamRenderProbe
+        renderProbe: StreamRenderProbe,
+        hasConsumedSecondChunk: @escaping @MainActor () -> Bool,
+        hasRecordedAfterRenderStale: @escaping @MainActor () -> Bool
     ) {
         self.firstChunk = firstChunk
         self.secondChunk = secondChunk
         self.renderProbe = renderProbe
+        self.hasConsumedSecondChunk = hasConsumedSecondChunk
+        self.hasRecordedAfterRenderStale = hasRecordedAfterRenderStale
     }
 
     func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
         let firstChunk = self.firstChunk
         let secondChunk = self.secondChunk
         let renderProbe = self.renderProbe
+        let hasConsumedSecondChunk = self.hasConsumedSecondChunk
+        let hasRecordedAfterRenderStale = self.hasRecordedAfterRenderStale
 
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -629,6 +643,15 @@ private final class CoordinatedCoachSession: CoachSessionProtocol {
                 }
 
                 continuation.yield(secondChunk)
+                await Self.waitUntil(
+                    hasConsumedSecondChunk,
+                    failureMessage: "Timed out waiting for the second stream chunk to be consumed"
+                )
+                renderProbe.releaseFirstRender()
+                await Self.waitUntil(
+                    hasRecordedAfterRenderStale,
+                    failureMessage: "Timed out waiting for stale-after-render telemetry"
+                )
                 continuation.finish()
             }
 
@@ -636,6 +659,24 @@ private final class CoordinatedCoachSession: CoachSessionProtocol {
                 renderProbe.cancel()
                 task.cancel()
             }
+        }
+    }
+
+    private static func waitUntil(
+        _ predicate: @MainActor () -> Bool,
+        failureMessage: String,
+        timeout: Duration = .seconds(5)
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !predicate() {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("\(failureMessage)")
+                return
+            }
+            await Task.yield()
         }
     }
 }

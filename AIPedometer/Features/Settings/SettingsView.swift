@@ -97,7 +97,14 @@ struct SettingsView: View {
                 initialGoal: trackingService.currentGoal,
                 unitName: activityMode.unitName
             ) { updatedGoal in
-                Task { await trackingService.updateGoalAndRefresh(updatedGoal) }
+                SettingsSideEffects.persistGoalAndScheduleRefresh(
+                    goal: updatedGoal,
+                    persistGoal: { trackingService.updateGoal($0) },
+                    refreshAfterSave: {
+                        await trackingService.refreshStreak()
+                        _ = await trackingService.refreshWeeklySummaries()
+                    }
+                )
             }
             .presentationDetents([.medium])
         }
@@ -683,16 +690,18 @@ struct SettingsView: View {
 struct GoalEditorSheet: View {
     let initialGoal: Int
     let unitName: String
-    let onSave: (Int) -> Void
+    let onSave: (Int) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var tempGoal: Double
+    @State private var isSaving = false
+    @State private var showSaveError = false
     @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.xl
 
     private var boundedGoalValueFontSize: CGFloat {
         min(max(goalValueFontSize, DesignTokens.FontSize.xl), DesignTokens.FontSize.xxl)
     }
 
-    init(initialGoal: Int, unitName: String, onSave: @escaping (Int) -> Void) {
+    init(initialGoal: Int, unitName: String, onSave: @escaping (Int) async -> Bool) {
         self.initialGoal = initialGoal
         self.unitName = unitName
         self.onSave = onSave
@@ -749,13 +758,32 @@ struct GoalEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L10n.localized("Save", comment: "Button to save changes")) {
-                        HapticService.shared.confirm()
-                        onSave(Int(tempGoal))
-                        dismiss()
+                        Task { @MainActor in
+                            isSaving = true
+                            let didSave = await onSave(Int(tempGoal))
+                            isSaving = false
+                            if didSave {
+                                HapticService.shared.confirm()
+                                dismiss()
+                            } else {
+                                HapticService.shared.error()
+                                showSaveError = true
+                            }
+                        }
                     }
                     .fontWeight(.semibold)
+                    .disabled(isSaving)
                     .accessibilityIdentifier(A11yID.GoalEditor.saveButton)
                 }
+            }
+            .alert(
+                L10n.localized(
+                    "Unable to save goal. Please try again.",
+                    comment: "Goal editor save failure alert title"
+                ),
+                isPresented: $showSaveError
+            ) {
+                Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) {}
             }
         }
     }
@@ -802,5 +830,5 @@ struct GoalEditorSheet: View {
 }
 
 #Preview("Goal Editor") {
-    GoalEditorSheet(initialGoal: 10000, unitName: ActivityTrackingMode.steps.unitName) { _ in }
+    GoalEditorSheet(initialGoal: 10000, unitName: ActivityTrackingMode.steps.unitName) { _ in true }
 }

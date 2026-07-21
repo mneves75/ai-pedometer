@@ -230,11 +230,10 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 }
 
                 isUsingMotionFallback = false
-                let distance = await resolveDistance(steps: hkSteps, start: startOfDay, end: currentDate)
-                guard !Task.isCancelled else { return }
-                let floors = await resolveFloors(start: startOfDay, end: currentDate)
-                guard !Task.isCancelled else { return }
-                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                async let distanceResult = resolveDistance(steps: hkSteps, start: startOfDay, end: currentDate)
+                async let floorsResult = resolveFloors(start: startOfDay, end: currentDate)
+                async let heartRateResult = resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                let (distance, floors, heartRate) = await (distanceResult, floorsResult, heartRateResult)
                 guard !Task.isCancelled else { return }
                 todaySteps = hkSteps
                 todayDistance = distance
@@ -256,11 +255,10 @@ final class StepTrackingService: StepTrackingServiceProtocol {
                 isUsingMotionFallback = false
                 let pushes = try await healthKitService.fetchWheelchairPushes(from: startOfDay, to: currentDate)
                 guard !Task.isCancelled else { return }
-                let distance = await resolveDistance(steps: pushes, start: startOfDay, end: currentDate)
-                guard !Task.isCancelled else { return }
-                let floors = await resolveFloors(start: startOfDay, end: currentDate)
-                guard !Task.isCancelled else { return }
-                let heartRate = await resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                async let distanceResult = resolveDistance(steps: pushes, start: startOfDay, end: currentDate)
+                async let floorsResult = resolveFloors(start: startOfDay, end: currentDate)
+                async let heartRateResult = resolveLatestHeartRate(start: startOfDay, end: currentDate)
+                let (distance, floors, heartRate) = await (distanceResult, floorsResult, heartRateResult)
                 guard !Task.isCancelled else { return }
                 todaySteps = pushes
                 todayDistance = distance
@@ -366,18 +364,21 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
-    func updateGoal(_ goal: Int) {
-        guard goal > 0 else { return }
-        goalService.setGoal(goal)
+    @discardableResult
+    func updateGoal(_ goal: Int) -> Bool {
+        guard goal > 0 else { return false }
+        guard goalService.setGoal(goal) else { return false }
         currentGoal = goal
         updateSharedData()
+        return true
     }
 
-    func updateGoalAndRefresh(_ goal: Int) async {
-        guard goal > 0 else { return }
-        updateGoal(goal)
+    @discardableResult
+    func updateGoalAndRefresh(_ goal: Int) async -> Bool {
+        guard updateGoal(goal) else { return false }
         await refreshStreak()
         _ = await refreshWeeklySummaries()
+        return true
     }
 
     /// Triggers the system prompt for Motion & Fitness permissions (if needed).

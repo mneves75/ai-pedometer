@@ -62,6 +62,8 @@ final class WorkoutSessionController {
     private var lastPersistedAt: Date?
     private var accumulatedSteps: Int = 0
     private var accumulatedDistance: Double = 0
+    private var lastLiveActivityUpdateAt: Date?
+    private var lastLiveActivityUpdateSteps: Int?
     private var isTerminatingSession = false
     private var recoveryLookupSucceeded = false
 
@@ -72,6 +74,9 @@ final class WorkoutSessionController {
     private(set) var recoverableSession: WorkoutSession?
     private(set) var isExpeditionModeActive = false
     var isPresenting = false
+
+    private static let liveActivityUpdateInterval: TimeInterval = 20
+    private static let liveActivityStepDelta = 25
 
     init(
         modelContext: ModelContext,
@@ -196,6 +201,7 @@ final class WorkoutSessionController {
         metricsSource.stop()
         updateTask?.cancel()
         transition(.pause)
+        resetLiveActivityThrottle()
     }
 
     func resumeWorkout() {
@@ -215,6 +221,7 @@ final class WorkoutSessionController {
         }
         lastError = nil
         transition(.resume)
+        resetLiveActivityThrottle()
         startMetricsLoop()
     }
 
@@ -499,34 +506,50 @@ private extension WorkoutSessionController {
         metrics.steps = totalSteps
         metrics.distance = totalDistance
         metrics.calories = calories
-        metrics.lastUpdated = now()
+        let updateDate = now()
+        metrics.lastUpdated = updateDate
         self.metrics = metrics
 
         session.steps = totalSteps
         session.distance = totalDistance
         session.activeCalories = calories
-        session.updatedAt = now()
+        session.updatedAt = updateDate
 
         if shouldPersistMetrics() {
             do {
                 try saveModelContext(modelContext)
-                lastPersistedAt = now()
+                lastPersistedAt = updateDate
             } catch {
                 Loggers.workouts.error("workout.metrics_save_failed", metadata: ["error": error.localizedDescription])
             }
         }
 
-        let distanceKilometers = totalDistance / 1000
-        await liveActivityManager.update(
-            steps: totalSteps,
-            distance: distanceKilometers,
-            calories: calories
-        )
+        if shouldUpdateLiveActivity(steps: totalSteps, at: updateDate) {
+            let distanceKilometers = totalDistance / 1000
+            await liveActivityManager.update(
+                steps: totalSteps,
+                distance: distanceKilometers,
+                calories: calories
+            )
+            lastLiveActivityUpdateAt = updateDate
+            lastLiveActivityUpdateSteps = totalSteps
+        }
     }
 
     func shouldPersistMetrics() -> Bool {
         guard let lastPersistedAt else { return true }
         return now().timeIntervalSince(lastPersistedAt) >= 60
+    }
+
+    func shouldUpdateLiveActivity(steps: Int, at updateDate: Date) -> Bool {
+        guard let lastLiveActivityUpdateAt, let lastLiveActivityUpdateSteps else { return true }
+        return updateDate.timeIntervalSince(lastLiveActivityUpdateAt) >= Self.liveActivityUpdateInterval ||
+            abs(steps - lastLiveActivityUpdateSteps) >= Self.liveActivityStepDelta
+    }
+
+    func resetLiveActivityThrottle() {
+        lastLiveActivityUpdateAt = nil
+        lastLiveActivityUpdateSteps = nil
     }
 
     func endLiveMetrics() async {
@@ -542,6 +565,7 @@ private extension WorkoutSessionController {
         lastPersistedAt = nil
         accumulatedSteps = 0
         accumulatedDistance = 0
+        resetLiveActivityThrottle()
         isExpeditionModeActive = false
         stateMachine = WorkoutStateMachine()
         state = .idle
@@ -559,6 +583,7 @@ private extension WorkoutSessionController {
         lastPersistedAt = nil
         accumulatedSteps = 0
         accumulatedDistance = 0
+        resetLiveActivityThrottle()
         isExpeditionModeActive = false
         isPresenting = false
     }

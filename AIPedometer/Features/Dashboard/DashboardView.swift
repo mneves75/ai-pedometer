@@ -140,6 +140,12 @@ struct DashboardView: View {
         }
         .tabBarAwareScrollContentBottomInset()
         .accessibilityIdentifier(A11yID.Dashboard.view)
+        .uiTestMarker(
+            A11yID.AIAvailability.banner,
+            when: !premiumAccessStore.isResolvingAccess
+                && premiumAccessStore.canAccessAIFeatures
+                && !aiService.availability.isAvailable
+        )
         .background(DesignTokens.Colors.surfaceGrouped)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)

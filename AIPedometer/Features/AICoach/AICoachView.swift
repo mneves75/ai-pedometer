@@ -138,6 +138,12 @@ struct AICoachView: View {
             }
         }
         .uiTestMarker(A11yID.AICoach.marker)
+        .uiTestMarker(
+            A11yID.AICoach.unavailableState,
+            when: !premiumAccessStore.isResolvingAccess
+                && premiumAccessStore.canAccessAIFeatures
+                && !aiService.availability.isAvailable
+        )
     }
 
     private var messagesScrollView: some View {
@@ -301,6 +307,7 @@ struct AICoachView: View {
                     .submitLabel(.send)
                     .onSubmit(sendMessage)
                     .accessibilityLabel(L10n.localized("Message", comment: "AI Coach message input label"))
+                    .accessibilityIdentifier(A11yID.AICoach.input)
 
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
@@ -310,7 +317,7 @@ struct AICoachView: View {
                 .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 .disabled(!canSend)
                 .accessibilityLabel(L10n.localized("Send Message", comment: "AI Coach send button accessibility label"))
-                .accessibilityIdentifier("ai_coach_send_button")
+                .accessibilityIdentifier(A11yID.AICoach.sendButton)
             }
             .padding(DesignTokens.Spacing.md)
             .background(.bar)

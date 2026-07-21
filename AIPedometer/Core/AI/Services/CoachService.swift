@@ -124,6 +124,10 @@ final class CoachService {
     private(set) var lastError: AIServiceError?
     @ObservationIgnored private(set) var debugLastStreamRenderTelemetry: StreamRenderTelemetry?
 
+    var debugStreamRenderStaleDiscardedAfterRender: Int {
+        streamRenderStaleDiscardedAfterRender
+    }
+
     /// Guardrail: live markdown rendering is intentionally capped.
     /// We always render the final message, but we avoid repeated heavy renders for very large streams.
     static let maxLiveMarkdownChars = 20_000
@@ -318,7 +322,7 @@ final class CoachService {
                 return
             }
 
-            let mappedError = mapError(error)
+            let mappedError = Self.mapError(error)
             lastError = mappedError
 
             let hasPartialResponse = !fullResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -575,22 +579,13 @@ final class CoachService {
         }
     }
     
-    private func mapError(_ error: any Error) -> AIServiceError {
+    static func mapError(_ error: any Error) -> AIServiceError {
         if let aiError = error as? AIServiceError {
             return aiError
         }
         
         if let sessionError = error as? LanguageModelSession.GenerationError {
-            switch sessionError {
-            case .exceededContextWindowSize:
-                return .tokenLimitExceeded
-            case .guardrailViolation, .refusal:
-                return .guardrailViolation
-            case .assetsUnavailable:
-                return .modelUnavailable(.modelNotReady)
-            default:
-                return .generationFailed(underlying: error.localizedDescription)
-            }
+            return AIServiceError(generationError: sessionError)
         }
         
         return .generationFailed(underlying: error.localizedDescription)

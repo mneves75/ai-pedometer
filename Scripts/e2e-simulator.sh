@@ -7,6 +7,19 @@ cd "$ROOT_DIR"
 source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh"
 source "${ROOT_DIR}/Scripts/lib/simulator-lifecycle.sh"
 source "${ROOT_DIR}/Scripts/lib/logged-command.sh"
+
+require_cmd() {
+  local command_name="$1"
+  local brew_formula="$2"
+  if ! command -v "${command_name}" >/dev/null 2>&1; then
+    echo "ERRO: comando ausente: ${command_name}" >&2
+    echo "Instale com: brew install ${brew_formula}" >&2
+    exit 1
+  fi
+}
+
+require_cmd rg ripgrep
+require_cmd python3 python
 aipedometer_select_xcode_26
 
 echo "Verificando entitlements..."

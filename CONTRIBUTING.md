@@ -16,6 +16,7 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig
 - macOS 15+ (Sequoia)
 - Xcode 26+
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+- Local gate tools: `brew install ast-grep ripgrep shellcheck`
 
 ### Setup
 
@@ -23,6 +24,9 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig
 # Clone the repository
 git clone https://github.com/mneves75/ai-pedometer.git
 cd ai-pedometer
+
+# Enable the repository's tracked pre-commit checks
+git config core.hooksPath .githooks
 
 # Install XcodeGen
 brew install xcodegen
@@ -53,11 +57,13 @@ open AIPedometer.xcodeproj
 ### Running Tests
 
 ```bash
-# All tests
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
+# Unit tests
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -parallel-testing-enabled NO -only-testing:AIPedometerTests test
 
-# Unit tests only
-xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test -only-testing:AIPedometerTests
+# UI tests
+DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -parallel-testing-enabled NO -only-testing:AIPedometerUITests test
 ```
 
 ## Pull Requests

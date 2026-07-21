@@ -5,6 +5,11 @@ import StoreKit
 @MainActor
 @Observable
 final class TipJarStore {
+    private enum PurchaseMarkerPhase: String {
+        case attempting
+        case pending
+    }
+
     struct TipJarProduct: Equatable, Sendable {
         let id: String
         let displayPrice: String
@@ -38,6 +43,7 @@ final class TipJarStore {
     private var hasPersistedPendingPurchase: Bool
 
     private static let pendingPurchaseKey = "TipJarStore.pendingPurchase"
+    private static let pendingPurchasePhaseKey = "TipJarStore.pendingPurchasePhase"
     private static let verifiedSettlementKey = "TipJarStore.verifiedSettlement"
 
     private static var verificationFailureMessage: String {
@@ -66,12 +72,15 @@ final class TipJarStore {
             // A verified transaction was handed off before a previous process ended.
             // StoreKit will redeliver it if it was not finished; it is no longer pending.
             pendingPurchaseDefaults.removeObject(forKey: Self.pendingPurchaseKey)
+            pendingPurchaseDefaults.removeObject(forKey: Self.pendingPurchasePhaseKey)
             pendingPurchaseDefaults.removeObject(forKey: Self.verifiedSettlementKey)
         }
         let hasPersistedPendingPurchase = pendingPurchaseDefaults.bool(forKey: Self.pendingPurchaseKey)
         self.hasPersistedPendingPurchase = hasPersistedPendingPurchase
         if hasPersistedPendingPurchase {
-            purchaseState = .pending
+            purchaseState = Self.purchaseMarkerPhase(in: pendingPurchaseDefaults) == .attempting
+                ? .purchasing
+                : .pending
         }
         startTransactionListener()
     }
@@ -163,6 +172,7 @@ final class TipJarStore {
                 return
             }
             loadState = .loaded(product)
+            await reconcilePurchaseAttempt()
         } catch is CancellationError {
             loadState = .idle
         } catch {
@@ -219,7 +229,7 @@ final class TipJarStore {
         guard product != nil else { return }
         guard !hasPurchaseInFlight else { return }
 
-        setPendingPurchase(true)
+        setPurchaseMarker(.attempting)
         purchaseState = .purchasing
 
         do {
@@ -231,13 +241,14 @@ final class TipJarStore {
                     "product_id": AppConstants.TipJar.productID
                 ])
             case .pending:
+                setPurchaseMarker(.pending)
                 purchaseState = .pending
                 Loggers.app.info("tip_jar.purchase_pending")
             case .cancelled:
                 setPendingPurchase(false)
                 purchaseState = .cancelled
             case .failedVerification:
-                setPendingPurchase(true)
+                setPurchaseMarker(.pending)
                 purchaseState = .failed(Self.verificationFailureMessage)
             case .unknown:
                 setPendingPurchase(false)
@@ -246,7 +257,7 @@ final class TipJarStore {
         } catch let error as TipJarDriverError {
             switch error {
             case .failedVerification:
-                setPendingPurchase(true)
+                setPurchaseMarker(.pending)
             case .productUnavailable:
                 setPendingPurchase(false)
             }
@@ -285,7 +296,7 @@ final class TipJarStore {
                     guard productID == AppConstants.TipJar.productID else { break }
                     switch self.purchaseState {
                     case .pending, .purchasing:
-                        self.setPendingPurchase(true)
+                        self.setPurchaseMarker(.pending)
                         self.purchaseState = .failed(Self.verificationFailureMessage)
                     default:
                         break
@@ -302,7 +313,32 @@ final class TipJarStore {
             pendingPurchaseDefaults.set(true, forKey: Self.pendingPurchaseKey)
         } else {
             pendingPurchaseDefaults.removeObject(forKey: Self.pendingPurchaseKey)
+            pendingPurchaseDefaults.removeObject(forKey: Self.pendingPurchasePhaseKey)
         }
+    }
+
+    private func setPurchaseMarker(_ phase: PurchaseMarkerPhase) {
+        setPendingPurchase(true)
+        pendingPurchaseDefaults.set(phase.rawValue, forKey: Self.pendingPurchasePhaseKey)
+    }
+
+    private func reconcilePurchaseAttempt() async {
+        guard Self.purchaseMarkerPhase(in: pendingPurchaseDefaults) == .attempting else { return }
+        if await driver.hasVerifiedUnfinishedTransaction(productID: AppConstants.TipJar.productID) {
+            setPurchaseMarker(.pending)
+            purchaseState = .pending
+        } else {
+            setPendingPurchase(false)
+            purchaseState = .idle
+        }
+    }
+
+    private static func purchaseMarkerPhase(in defaults: UserDefaults) -> PurchaseMarkerPhase? {
+        guard defaults.bool(forKey: pendingPurchaseKey) else { return nil }
+        guard let rawValue = defaults.string(forKey: pendingPurchasePhaseKey) else {
+            return .pending
+        }
+        return PurchaseMarkerPhase(rawValue: rawValue) ?? .pending
     }
 
     private func settleVerifiedTransaction(
@@ -340,6 +376,7 @@ protocol TipJarDriver: Actor {
     nonisolated var canMakePayments: Bool { get }
     func loadProduct() async throws -> TipJarStore.TipJarProduct?
     func purchase() async throws -> TipJarPurchaseOutcome
+    func hasVerifiedUnfinishedTransaction(productID: String) async -> Bool
     func finish(transactionID: String) async
     func transactionEvents() -> AsyncStream<TipJarTransactionEvent>
 }
@@ -412,6 +449,16 @@ actor StoreKitTipJarDriver: TipJarDriver {
         @unknown default:
             return .unknown
         }
+    }
+
+    func hasVerifiedUnfinishedTransaction(productID: String) async -> Bool {
+        for await result in Transaction.unfinished {
+            guard case .verified(let transaction) = result else { continue }
+            if transaction.productID == productID {
+                return true
+            }
+        }
+        return false
     }
 
     func transactionEvents() -> AsyncStream<TipJarTransactionEvent> {

@@ -14,6 +14,19 @@ enum SmartReminderSchedulingResult: Equatable {
 }
 
 enum SettingsSideEffects {
+    @MainActor
+    static func persistGoalAndScheduleRefresh(
+        goal: Int,
+        persistGoal: @MainActor (Int) -> Bool,
+        refreshAfterSave: @escaping @MainActor () async -> Void
+    ) -> Bool {
+        guard persistGoal(goal) else { return false }
+        Task { @MainActor in
+            await refreshAfterSave()
+        }
+        return true
+    }
+
     static func smartReminderAccessDecision(
         isEnabled: Bool,
         premiumEnabled: Bool,

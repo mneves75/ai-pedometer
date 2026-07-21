@@ -26,6 +26,7 @@ final class FakePurchasesClient: PurchasesClientProtocol {
     private(set) var customerInfoStreamCallCount = 0
     private var customerInfoContinuation: CheckedContinuation<Void, Never>?
     var shouldSuspendFirstPurchase = false
+    var verifiedUnfinishedProductIDs: Set<String> = []
     private var purchaseContinuation: CheckedContinuation<Void, Never>?
 
     func isConfigured() -> Bool {
@@ -80,6 +81,10 @@ final class FakePurchasesClient: PurchasesClientProtocol {
     func resumePurchase() {
         purchaseContinuation?.resume()
         purchaseContinuation = nil
+    }
+
+    func hasVerifiedUnfinishedTransaction(productID: String) async -> Bool {
+        verifiedUnfinishedProductIDs.contains(productID)
     }
 
     func showManageSubscriptions() async throws {
@@ -611,6 +616,44 @@ struct PremiumAccessStoreTests {
         #expect(await firstPurchase.value == true)
     }
 
+    @Test("refresh does not release a purchase owned by the current store")
+    func refreshPreservesLivePurchaseSingleFlight() async throws {
+        let client = FakePurchasesClient()
+        client.purchaseResult = .success(
+            PremiumPurchaseResult(
+                customerInfo: makeCustomerInfo(activeEntitlementIDs: []),
+                userCancelled: true
+            )
+        )
+        client.shouldSuspendFirstPurchase = true
+        let store = makePremiumAccessStore(client: client)
+        let firstPurchase = Task { await store.purchase(makePremiumPackage(identifier: "monthly")) }
+        defer { client.resumePurchase() }
+
+        try await waitUntilPremiumCondition("First RevenueCat purchase did not start") {
+            client.purchaseCallCount == 1
+        }
+
+        let productID = makePremiumPackage().storeProduct.productIdentifier
+        client.customerInfoResult = .success(
+            makeCustomerInfo(
+                activeEntitlementIDs: [],
+                activeProductIDs: [productID],
+                purchaseDate: .now.addingTimeInterval(60),
+                expirationDate: .now.addingTimeInterval(86_460)
+            )
+        )
+        await store.refresh()
+        let overlappingPurchase = await store.purchase(makePremiumPackage(identifier: "annual"))
+
+        #expect(store.isPurchaseInProgress)
+        #expect(overlappingPurchase == false)
+        #expect(client.purchaseCallCount == 1)
+
+        client.resumePurchase()
+        #expect(await firstPurchase.value == false)
+    }
+
     @Test("purchase fails closed and reports failed entitlement verification")
     func purchaseFailsClosedForInvalidVerification() async {
         let client = FakePurchasesClient()
@@ -727,6 +770,176 @@ struct PremiumAccessStoreTests {
             pendingPurchaseDefaults: defaults
         )
         #expect(resolvedStore.isPurchaseInProgress == false)
+    }
+
+    @Test("orphaned pre-await purchase marker is cleared during launch refresh")
+    func orphanedPurchaseAttemptIsClearedOnRecreation() async throws {
+        let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let interruptedClient = FakePurchasesClient()
+        interruptedClient.shouldSuspendFirstPurchase = true
+        interruptedClient.purchaseResult = .success(
+            PremiumPurchaseResult(
+                customerInfo: makeCustomerInfo(activeEntitlementIDs: []),
+                userCancelled: true
+            )
+        )
+        let interruptedStore = makePremiumAccessStore(
+            client: interruptedClient,
+            pendingPurchaseDefaults: defaults
+        )
+        let interruptedPurchase = Task {
+            await interruptedStore.purchase(makePremiumPackage())
+        }
+        defer {
+            interruptedClient.resumePurchase()
+            interruptedPurchase.cancel()
+        }
+        try await waitUntilPremiumCondition("Interrupted RevenueCat purchase did not start") {
+            interruptedClient.purchaseCallCount == 1
+        }
+
+        let recreatedClient = FakePurchasesClient()
+        recreatedClient.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        recreatedClient.syncResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        recreatedClient.purchaseResult = .success(
+            PremiumPurchaseResult(
+                customerInfo: makeCustomerInfo(activeEntitlementIDs: []),
+                userCancelled: true
+            )
+        )
+        let recreatedStore = makePremiumAccessStore(
+            client: recreatedClient,
+            pendingPurchaseDefaults: defaults
+        )
+
+        await recreatedStore.refresh()
+
+        #expect(recreatedStore.isPurchaseInProgress == false)
+        _ = await recreatedStore.purchase(makePremiumPackage())
+        #expect(recreatedClient.purchaseCallCount == 1)
+    }
+
+    @Test("interrupted attempt survives when StoreKit is finished but RevenueCat sync fails")
+    func interruptedAttemptSurvivesFailedRevenueCatSync() async throws {
+        let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let interruptedClient = FakePurchasesClient()
+        interruptedClient.shouldSuspendFirstPurchase = true
+        let interruptedStore = makePremiumAccessStore(
+            client: interruptedClient,
+            pendingPurchaseDefaults: defaults
+        )
+        let interruptedPurchase = Task {
+            await interruptedStore.purchase(makePremiumPackage())
+        }
+        defer {
+            interruptedClient.resumePurchase()
+            interruptedPurchase.cancel()
+        }
+        try await waitUntilPremiumCondition("Interrupted RevenueCat purchase did not start") {
+            interruptedClient.purchaseCallCount == 1
+        }
+
+        let recreatedClient = FakePurchasesClient()
+        recreatedClient.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        recreatedClient.syncResult = .failure(CocoaError(.fileReadUnknown))
+        let recreatedStore = makePremiumAccessStore(
+            client: recreatedClient,
+            pendingPurchaseDefaults: defaults
+        )
+
+        await recreatedStore.refresh()
+
+        #expect(recreatedClient.syncCallCount == 1)
+        #expect(recreatedStore.isPurchaseInProgress)
+        _ = await recreatedStore.purchase(makePremiumPackage())
+        #expect(recreatedClient.purchaseCallCount == 0)
+    }
+
+    @Test("launch reconciliation keeps customer info returned by a fresh RevenueCat sync")
+    func launchReconciliationKeepsSyncedCustomerInfo() async throws {
+        let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let productID = "com.mneves.aipedometer.premium.monthly"
+        let interruptedClient = FakePurchasesClient()
+        interruptedClient.shouldSuspendFirstPurchase = true
+        let interruptedStore = makePremiumAccessStore(
+            client: interruptedClient,
+            pendingPurchaseDefaults: defaults
+        )
+        let interruptedPurchase = Task {
+            await interruptedStore.purchase(makePremiumPackage())
+        }
+        defer {
+            interruptedClient.resumePurchase()
+            interruptedPurchase.cancel()
+        }
+        try await waitUntilPremiumCondition("Interrupted RevenueCat purchase did not start") {
+            interruptedClient.purchaseCallCount == 1
+        }
+
+        let recreatedClient = FakePurchasesClient()
+        recreatedClient.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        recreatedClient.syncResult = .success(
+            makeCustomerInfo(
+                activeEntitlementIDs: ["premium"],
+                activeProductIDs: [productID],
+                purchaseDate: .now.addingTimeInterval(60),
+                expirationDate: .now.addingTimeInterval(86_460)
+            )
+        )
+        let recreatedStore = makePremiumAccessStore(
+            client: recreatedClient,
+            pendingPurchaseDefaults: defaults
+        )
+
+        await recreatedStore.refresh()
+
+        #expect(recreatedClient.syncCallCount == 1)
+        #expect(recreatedStore.isPremiumActive)
+        #expect(recreatedStore.isPurchaseInProgress == false)
+    }
+
+    @Test("verified unfinished transaction promotes an interrupted attempt to pending")
+    func unfinishedTransactionPromotesInterruptedAttempt() async throws {
+        let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let productID = "com.mneves.aipedometer.premium.monthly"
+        let interruptedClient = FakePurchasesClient()
+        interruptedClient.shouldSuspendFirstPurchase = true
+        let interruptedStore = makePremiumAccessStore(
+            client: interruptedClient,
+            pendingPurchaseDefaults: defaults
+        )
+        let interruptedPurchase = Task {
+            await interruptedStore.purchase(makePremiumPackage())
+        }
+        defer {
+            interruptedClient.resumePurchase()
+            interruptedPurchase.cancel()
+        }
+        try await waitUntilPremiumCondition("Interrupted RevenueCat purchase did not start") {
+            interruptedClient.purchaseCallCount == 1
+        }
+
+        let recreatedClient = FakePurchasesClient()
+        recreatedClient.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        recreatedClient.verifiedUnfinishedProductIDs = [productID]
+        let recreatedStore = makePremiumAccessStore(
+            client: recreatedClient,
+            pendingPurchaseDefaults: defaults
+        )
+
+        await recreatedStore.refresh()
+
+        #expect(recreatedStore.isPurchaseInProgress)
+        _ = await recreatedStore.purchase(makePremiumPackage())
+        #expect(recreatedClient.purchaseCallCount == 0)
     }
 
     @Test("purchase does not call RevenueCat when configuration is missing")

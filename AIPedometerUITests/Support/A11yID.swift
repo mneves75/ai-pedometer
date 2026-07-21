@@ -35,6 +35,11 @@ enum A11yID {
         static let routeRemoveButton = "workouts_route_remove_button"
         static let premiumRoutesGate = "workouts_premium_routes_gate"
         static let recentWorkoutsEmptyState = "workouts_recent_empty_state"
+        static let recentWorkoutsCarousel = "workouts_recent_carousel"
+        static let recoveryCard = "workouts_recovery_card"
+        static let finishRecoveredWorkoutButton = "workouts_finish_recovered_workout_button"
+        static let discardRecoveredWorkoutButton = "workouts_discard_recovered_workout_button"
+        static let confirmDiscardRecoveredWorkoutButton = "workouts_confirm_discard_recovered_workout_button"
     }
 
     enum TrainingPlans {
@@ -45,6 +50,7 @@ enum A11yID {
     enum ActiveWorkout {
         static let view = "active_workout_view"
         static let endButton = "active_workout_end_button"
+        static let confirmEndButton = "active_workout_confirm_end_button"
     }
 
     enum More {
@@ -92,6 +98,13 @@ enum A11yID {
     enum AICoach {
         static let view = "ai_coach_view"
         static let marker = "ai_coach_marker"
+        static let unavailableState = "ai_unavailable_state"
+        static let input = "ai_coach_input"
+        static let sendButton = "ai_coach_send_button"
+    }
+
+    enum AIAvailability {
+        static let banner = "ai_availability_banner"
     }
 
     enum HealthAccessHelp {

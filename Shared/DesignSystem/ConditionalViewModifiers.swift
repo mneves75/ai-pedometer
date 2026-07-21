@@ -40,6 +40,17 @@ extension View {
             self
         }
     }
+
+    /// Adds a marker for a state that is meaningful to UI automation without
+    /// requiring the corresponding visual content to be onscreen.
+    @ViewBuilder
+    func uiTestMarker(_ identifier: String, when condition: Bool) -> some View {
+        if condition {
+            uiTestMarker(identifier)
+        } else {
+            self
+        }
+    }
 }
 
 private struct MotionEnabledTransform<Base: View, Content: View>: View {

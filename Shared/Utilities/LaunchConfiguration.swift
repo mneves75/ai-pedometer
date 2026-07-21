@@ -8,6 +8,8 @@ enum LaunchConfiguration {
     private static let forceHealthKitSyncOnArgument = "-force-healthkit-sync-on"
     private static let forcePremiumOffArgument = "-force-premium-off"
     private static let forcePremiumOnArgument = "-force-premium-on"
+    private static let forceAIUnavailableArgument = "-force-ai-unavailable"
+    private static let seedUnfinishedWorkoutArgument = "-seed-unfinished-workout"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
     private static let demoDeterministicEnvironmentKey = "DEMO_DETERMINISTIC"
     private static let premiumEnabledEnvironmentKey = "PREMIUM_ENABLED"
@@ -96,6 +98,32 @@ enum LaunchConfiguration {
         }
 
         return nil
+    }
+
+    static func isAIUnavailableForced(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(forceAIUnavailableArgument)
+    }
+
+    static func shouldSeedUnfinishedWorkout(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(seedUnfinishedWorkoutArgument)
     }
 
     /// Whether forced test-only launch overrides should be honored in this binary.

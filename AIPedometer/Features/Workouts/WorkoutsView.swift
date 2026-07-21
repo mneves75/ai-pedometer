@@ -109,6 +109,14 @@ struct WorkoutsView: View {
         }
         .tabBarAwareScrollContentBottomInset()
         .accessibilityIdentifier(A11yID.Workouts.scroll)
+        .uiTestMarker(
+            A11yID.Workouts.recentWorkoutsEmptyState,
+            when: completedRecentWorkouts.isEmpty
+        )
+        .uiTestMarker(
+            A11yID.Workouts.recentWorkoutsCarousel,
+            when: !completedRecentWorkouts.isEmpty
+        )
         .toolbar(.hidden, for: .navigationBar)
         .background(DesignTokens.Colors.surfaceGrouped)
         .sheet(isPresented: $workoutController.isPresenting) {
@@ -144,6 +152,7 @@ struct WorkoutsView: View {
             ) {
                 handleRecovery(discard: true)
             }
+            .accessibilityIdentifier(A11yID.Workouts.confirmDiscardRecoveredWorkoutButton)
             Button(L10n.localized("Cancel", comment: "Cancel action"), role: .cancel) {}
         } message: {
             Text(L10n.localized(
@@ -612,7 +621,6 @@ struct WorkoutsView: View {
         .frame(maxWidth: .infinity)
         .padding(DesignTokens.Spacing.xl)
         .glassCard()
-        .accessibilityIdentifier(A11yID.Workouts.recentWorkoutsEmptyState)
         .padding(.horizontal, DesignTokens.Spacing.md)
     }
 

@@ -3,14 +3,6 @@ import Observation
 import UserNotifications
 
 @MainActor
-protocol NotificationServiceProtocol: AnyObject {
-    func authorizationStatus() async -> UNAuthorizationStatus
-    func requestAuthorization() async throws -> Bool
-    func scheduleDailyGoalReminder(hour: Int, minute: Int) async throws
-    func cancelDailyGoalReminder()
-}
-
-@MainActor
 protocol UserNotificationCenterProtocol: AnyObject {
     func authorizationStatus() async -> UNAuthorizationStatus
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
@@ -26,7 +18,7 @@ extension UNUserNotificationCenter: UserNotificationCenterProtocol {
 
 @MainActor
 @Observable
-final class NotificationService: NotificationServiceProtocol {
+final class NotificationService {
     private let center: any UserNotificationCenterProtocol
 
     init(center: any UserNotificationCenterProtocol = UNUserNotificationCenter.current()) {

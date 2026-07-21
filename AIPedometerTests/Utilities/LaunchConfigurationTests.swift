@@ -43,6 +43,28 @@ struct LaunchConfigurationTests {
     }
 
     @Test
+    func detectsForcedAIUnavailableOnlyInUITesting() {
+        let arguments = ["-ui-testing", "-force-ai-unavailable"]
+
+        #expect(LaunchConfiguration.isAIUnavailableForced(arguments: arguments, environment: [:]))
+        #expect(!LaunchConfiguration.isAIUnavailableForced(
+            arguments: ["-force-ai-unavailable"],
+            environment: [:]
+        ))
+    }
+
+    @Test
+    func detectsUnfinishedWorkoutSeedOnlyInUITesting() {
+        let arguments = ["-ui-testing", "-seed-unfinished-workout"]
+
+        #expect(LaunchConfiguration.shouldSeedUnfinishedWorkout(arguments: arguments, environment: [:]))
+        #expect(!LaunchConfiguration.shouldSeedUnfinishedWorkout(
+            arguments: ["-seed-unfinished-workout"],
+            environment: [:]
+        ))
+    }
+
+    @Test
     func detectsForcedPremiumEnvironmentFlag() {
         let environment = ["PREMIUM_ENABLED": "false"]
         #expect(LaunchConfiguration.forcedPremiumEnabled(arguments: [], environment: environment) == false)
@@ -55,7 +77,9 @@ struct LaunchConfigurationTests {
             "-reset-state",
             "-skip-onboarding",
             "-force-healthkit-sync-off",
-            "-force-premium-on"
+            "-force-premium-on",
+            "-force-ai-unavailable",
+            "-seed-unfinished-workout"
         ]
         let environment = [
             "UI_TESTING": "1",
@@ -95,6 +119,16 @@ struct LaunchConfigurationTests {
             environment: environment,
             allowsOverrides: false
         ) == nil)
+        #expect(!LaunchConfiguration.isAIUnavailableForced(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
+        #expect(!LaunchConfiguration.shouldSeedUnfinishedWorkout(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
         #expect(!LaunchConfiguration.isDeterministicDemoDataEnabled(
             arguments: arguments,
             environment: environment,

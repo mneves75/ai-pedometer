@@ -16,6 +16,9 @@ actor FakeTipJarDriver: TipJarDriver {
     private var listenerGeneration = 0
     private var shouldSuspendFinish = false
     private var finishContinuation: CheckedContinuation<Void, Never>?
+    private var shouldSuspendFirstPurchase = false
+    private var purchaseContinuation: CheckedContinuation<Void, Never>?
+    private var verifiedUnfinishedProductIDs: Set<String> = []
 
     init(canMakePayments: Bool) {
         self.canMakePayments = canMakePayments
@@ -33,6 +36,10 @@ actor FakeTipJarDriver: TipJarDriver {
         shouldSuspendFinish = shouldSuspend
     }
 
+    func setShouldSuspendFirstPurchase(_ shouldSuspend: Bool) {
+        shouldSuspendFirstPurchase = shouldSuspend
+    }
+
     func loadProduct() async throws -> TipJarStore.TipJarProduct? {
         loadCallCount += 1
         guard !loadResults.isEmpty else { return nil }
@@ -41,7 +48,26 @@ actor FakeTipJarDriver: TipJarDriver {
 
     func purchase() async throws -> TipJarPurchaseOutcome {
         purchaseCallCount += 1
+        if shouldSuspendFirstPurchase, purchaseCallCount == 1 {
+            await withCheckedContinuation { continuation in
+                purchaseContinuation = continuation
+            }
+        }
         return try purchaseResult.get()
+    }
+
+    func resumePurchase() {
+        purchaseContinuation?.resume()
+        purchaseContinuation = nil
+        shouldSuspendFirstPurchase = false
+    }
+
+    func setVerifiedUnfinishedProductIDs(_ productIDs: Set<String>) {
+        verifiedUnfinishedProductIDs = productIDs
+    }
+
+    func hasVerifiedUnfinishedTransaction(productID: String) async -> Bool {
+        verifiedUnfinishedProductIDs.contains(productID)
     }
 
     func finish(transactionID: String) async {
@@ -220,6 +246,69 @@ struct TipJarStoreTests {
         #expect(resolvedStore.purchaseState == .idle)
         #expect(resolvedStore.canPurchase)
         #expect(await driver.finishCallCount == 1)
+    }
+
+    @Test("Orphaned pre-await Tip Jar marker is cleared after recreation")
+    func orphanedPurchaseAttemptIsClearedOnRecreation() async throws {
+        let suiteName = "TipJarStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let driver = FakeTipJarDriver(canMakePayments: true)
+        await driver.setPurchaseResult(.success(.cancelled))
+        await driver.setShouldSuspendFirstPurchase(true)
+        let interruptedStore = await makeLoadedTipJarStore(
+            driver: driver,
+            pendingPurchaseDefaults: defaults
+        )
+        let interruptedPurchase = Task { await interruptedStore.purchase() }
+        defer {
+            Task { await driver.resumePurchase() }
+            interruptedPurchase.cancel()
+        }
+        try await waitUntil("Interrupted Tip Jar purchase did not start") {
+            await driver.purchaseCallCount == 1
+        }
+
+        let recreatedStore = await makeLoadedTipJarStore(
+            driver: driver,
+            pendingPurchaseDefaults: defaults
+        )
+
+        #expect(recreatedStore.purchaseState == .idle)
+        #expect(recreatedStore.canPurchase)
+    }
+
+    @Test("Verified unfinished Tip Jar transaction promotes an interrupted attempt to pending")
+    func unfinishedTransactionPromotesInterruptedAttempt() async throws {
+        let suiteName = "TipJarStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let interruptedDriver = FakeTipJarDriver(canMakePayments: true)
+        await interruptedDriver.setShouldSuspendFirstPurchase(true)
+        let interruptedStore = await makeLoadedTipJarStore(
+            driver: interruptedDriver,
+            pendingPurchaseDefaults: defaults
+        )
+        let interruptedPurchase = Task { await interruptedStore.purchase() }
+        defer {
+            Task { await interruptedDriver.resumePurchase() }
+            interruptedPurchase.cancel()
+        }
+        try await waitUntil("Interrupted Tip Jar purchase did not start") {
+            await interruptedDriver.purchaseCallCount == 1
+        }
+
+        let recreatedDriver = FakeTipJarDriver(canMakePayments: true)
+        await recreatedDriver.setVerifiedUnfinishedProductIDs([AppConstants.TipJar.productID])
+        let recreatedStore = await makeLoadedTipJarStore(
+            driver: recreatedDriver,
+            pendingPurchaseDefaults: defaults
+        )
+
+        #expect(recreatedStore.purchaseState == .pending)
+        #expect(recreatedStore.canPurchase == false)
+        await recreatedStore.purchase()
+        #expect(await recreatedDriver.purchaseCallCount == 0)
     }
 
     @Test("cancelled purchase returns to an available non-success state")

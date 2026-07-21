@@ -5,6 +5,35 @@ import Testing
 @Suite("SettingsSideEffects")
 @MainActor
 struct SettingsSideEffectsTests {
+    @Test("Goal persistence returns before its follow-up refresh finishes")
+    func goalPersistenceDoesNotAwaitRefresh() async {
+        var persistedGoal: Int?
+        var refreshFinished = false
+        let refreshStarted = SettingsAsyncTestLatch()
+        let releaseRefresh = SettingsAsyncTestLatch()
+
+        let didSave = SettingsSideEffects.persistGoalAndScheduleRefresh(
+            goal: 12_000,
+            persistGoal: { goal in
+                persistedGoal = goal
+                return true
+            },
+            refreshAfterSave: {
+                refreshStarted.signal()
+                await releaseRefresh.wait()
+                refreshFinished = true
+            }
+        )
+
+        #expect(didSave)
+        #expect(persistedGoal == 12_000)
+        await refreshStarted.wait()
+        #expect(refreshFinished == false)
+        releaseRefresh.signal()
+        await Task.yield()
+        #expect(refreshFinished)
+    }
+
     @Test("HealthKit sync change refreshes today data even when disabling sync")
     func healthKitSyncChangeRefreshesTodayDataWhenDisabling() async {
         var refreshedToday = 0
