@@ -60,12 +60,20 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     // (proven on-device 2026-07-20, iOS 27: notEnabled → available without relaunch). The model
     // is Observation.Observable, so track it and re-publish through `refreshAvailability`;
     // snapshotting only at launch/foreground leaves the banner stuck on a stale reason.
+    // The flag keeps re-arming single-flight: each fire disarms before the handler re-arms,
+    // so direct handler calls (tests) can never accumulate registrations.
+    private var isObservingSystemAvailability = false
+
     private func startObservingSystemAvailability() {
+        guard !isObservingSystemAvailability else { return }
+        isObservingSystemAvailability = true
         withObservationTracking {
             _ = SystemLanguageModel.default.availability
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                self?.handleSystemAvailabilityChange()
+                guard let self else { return }
+                self.isObservingSystemAvailability = false
+                self.handleSystemAvailabilityChange()
             }
         }
     }
