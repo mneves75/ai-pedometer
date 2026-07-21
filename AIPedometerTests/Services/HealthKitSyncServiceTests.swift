@@ -41,14 +41,6 @@ struct SyncPolicyTests {
         #expect(SyncPolicy.pullToRefreshWindow == expectedInterval)
     }
     
-    @Test("Stale data prune threshold is 30 days")
-    func staleDataPruneThresholdIs30Days() {
-        let expectedDays = 30.0
-        let expectedInterval = expectedDays * 24 * 60 * 60
-        
-        #expect(SyncPolicy.staleDataPruneThreshold == expectedInterval)
-    }
-    
 }
 
 // MARK: - SyncStateKey Tests
@@ -69,6 +61,78 @@ struct SyncStateKeyTests {
 @Suite("HealthKitSyncService Tests")
 @MainActor
 struct HealthKitSyncServiceTests {
+    @Test("Pending workout export descriptor is bounded and excludes ineligible rows")
+    func pendingWorkoutExportDescriptorIsBoundedAndSelective() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let eligible = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-600),
+            endTime: .now,
+            healthKitExportState: .pending
+        )
+        let notRequired = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now.addingTimeInterval(-1_200),
+            endTime: .now,
+            healthKitExportState: .notRequired
+        )
+        let unfinished = WorkoutSession(
+            type: .outdoorWalk,
+            startTime: .now,
+            healthKitExportState: .pending
+        )
+        context.insert(eligible)
+        context.insert(notRequired)
+        context.insert(unfinished)
+        try context.save()
+
+        let descriptor = HealthKitSyncService.pendingWorkoutExportDescriptor(fetchLimit: 1)
+        let fetched = try context.fetch(descriptor)
+
+        #expect(descriptor.fetchLimit == 1)
+        #expect(fetched.count == 1)
+        #expect(fetched.first === eligible)
+    }
+
+    @Test("Production pending workout export descriptor applies the batch limit")
+    func pendingWorkoutExportBatchDescriptorIsBounded() {
+        let descriptor = HealthKitSyncService.pendingWorkoutExportBatchDescriptor()
+
+        #expect(descriptor.fetchLimit == 20)
+        #expect(descriptor.sortBy.count == 2)
+    }
+
+    @Test("Cold start requests exactly 30 calendar days")
+    func coldStartRequestsThirtyCalendarDays() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .autoupdatingCurrent
+        let (service, mockHealthKit, _, _) = makeTestEnvironment(calendar: calendar)
+
+        try await service.performColdStartSync()
+
+        let range = try #require(mockHealthKit.lastFetchDailySummariesRangeArgs)
+        let startDay = calendar.startOfDay(for: range.startDate)
+        let endDay = calendar.startOfDay(for: range.endDate)
+        let dayCount = try #require(calendar.dateComponents([.day], from: startDay, to: endDay).day) + 1
+        #expect(dayCount == 30)
+    }
+
+    @Test("Pull to refresh requests exactly 7 calendar days")
+    func pullToRefreshRequestsSevenCalendarDays() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .autoupdatingCurrent
+        let (service, mockHealthKit, _, _) = makeTestEnvironment(calendar: calendar)
+
+        try await service.performPullToRefresh()
+
+        let range = try #require(mockHealthKit.lastFetchDailySummariesRangeArgs)
+        let startDay = calendar.startOfDay(for: range.startDate)
+        let endDay = calendar.startOfDay(for: range.endDate)
+        let dayCount = try #require(calendar.dateComponents([.day], from: startDay, to: endDay).day) + 1
+        #expect(dayCount == 7)
+    }
+
     @Test("Automatic sync retries pending workouts even inside the foreground throttle window")
     func automaticSyncRetriesPendingWorkoutInsideThrottleWindow() async throws {
         let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
@@ -339,7 +403,10 @@ struct HealthKitSyncServiceTests {
     }
 
     
-    private func makeTestEnvironment(calendar: Calendar = .autoupdatingCurrent) -> (
+    private func makeTestEnvironment(
+        calendar: Calendar = .autoupdatingCurrent,
+        now: @escaping @MainActor () -> Date = { .now }
+    ) -> (
         service: HealthKitSyncService,
         mockHealthKit: MockHealthKitService,
         userDefaults: UserDefaults,
@@ -359,10 +426,53 @@ struct HealthKitSyncServiceTests {
             modelContext: modelContext,
             goalService: goalService,
             userDefaults: userDefaults,
-            calendar: calendar
+            calendar: calendar,
+            now: now
         )
         
         return (service, mockHealthKit, userDefaults, modelContext)
+    }
+
+    @Test("Cold-start and pull-to-refresh day counts survive DST transitions")
+    func syncWindowCountsSurviveDSTTransitions() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles") ?? .autoupdatingCurrent
+        let referenceDates = [
+            try #require(calendar.date(from: DateComponents(year: 2026, month: 3, day: 10, hour: 12))),
+            try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 3, hour: 12)))
+        ]
+
+        for referenceDate in referenceDates {
+            let (coldStartService, coldStartHealthKit, _, _) = makeTestEnvironment(
+                calendar: calendar,
+                now: { referenceDate }
+            )
+            try await coldStartService.performColdStartSync()
+            let coldStartRange = try #require(coldStartHealthKit.lastFetchDailySummariesRangeArgs)
+            let coldStartDays = try #require(
+                calendar.dateComponents(
+                    [.day],
+                    from: calendar.startOfDay(for: coldStartRange.startDate),
+                    to: calendar.startOfDay(for: coldStartRange.endDate)
+                ).day
+            ) + 1
+            #expect(coldStartDays == 30)
+
+            let (refreshService, refreshHealthKit, _, _) = makeTestEnvironment(
+                calendar: calendar,
+                now: { referenceDate }
+            )
+            try await refreshService.performPullToRefresh()
+            let refreshRange = try #require(refreshHealthKit.lastFetchDailySummariesRangeArgs)
+            let refreshDays = try #require(
+                calendar.dateComponents(
+                    [.day],
+                    from: calendar.startOfDay(for: refreshRange.startDate),
+                    to: calendar.startOfDay(for: refreshRange.endDate)
+                ).day
+            ) + 1
+            #expect(refreshDays == 7)
+        }
     }
     
     @Test("Needs cold start sync when never synced")
@@ -792,7 +902,8 @@ struct HealthKitSyncServiceTests {
     func syncPreservesHistoricalWorkouts() async throws {
         let (service, _, _, modelContext) = makeTestEnvironment()
 
-        let oldEnd = Date.now.addingTimeInterval(-SyncPolicy.staleDataPruneThreshold - 3600)
+        // Keep this fixture older than the historical 30-day cleanup boundary.
+        let oldEnd = Date.now.addingTimeInterval(-(30 * 24 * 60 * 60 + 3600))
         let ended = WorkoutSession(type: .outdoorWalk, startTime: oldEnd, endTime: oldEnd)
         let inProgress = WorkoutSession(type: .outdoorWalk, startTime: oldEnd, endTime: nil)
 

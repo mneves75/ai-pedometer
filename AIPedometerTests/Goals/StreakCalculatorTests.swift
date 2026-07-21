@@ -202,5 +202,5 @@ private final class FakeGoalService: GoalServiceProtocol {
 
     var currentGoal: Int { currentGoalValue }
     func goal(for date: Date) -> Int? { goalForDate(date) }
-    func setGoal(_ value: Int) {}
+    func setGoal(_ value: Int) -> Bool { true }
 }

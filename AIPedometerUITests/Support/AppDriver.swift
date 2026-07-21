@@ -32,7 +32,9 @@ final class AppDriver {
     func launch(
         skipOnboarding: Bool = true,
         forcedHealthKitSyncEnabled: Bool? = nil,
-        forcedPremiumEnabled: Bool? = nil
+        forcedPremiumEnabled: Bool? = nil,
+        forceAIUnavailable: Bool = false,
+        seedUnfinishedWorkout: Bool = false
     ) {
         app.launchArguments.append(contentsOf: [
             "-ui-testing",
@@ -46,6 +48,12 @@ final class AppDriver {
         }
         if let forcedPremiumEnabled {
             app.launchArguments.append(forcedPremiumEnabled ? "-force-premium-on" : "-force-premium-off")
+        }
+        if forceAIUnavailable {
+            app.launchArguments.append("-force-ai-unavailable")
+        }
+        if seedUnfinishedWorkout {
+            app.launchArguments.append("-seed-unfinished-workout")
         }
 
         app.launchEnvironment["UI_TESTING"] = "1"
@@ -137,10 +145,10 @@ final class AppDriver {
     func tap(id: String, timeout: TimeInterval) {
         func candidates() -> [XCUIElement] {
             [
-                app.buttons[id],
-                app.cells[id],
-                app.otherElements[id],
-                app.staticTexts[id],
+                app.buttons.matching(identifier: id).firstMatch,
+                app.cells.matching(identifier: id).firstMatch,
+                app.otherElements.matching(identifier: id).firstMatch,
+                app.staticTexts.matching(identifier: id).firstMatch,
             ]
         }
 
@@ -276,7 +284,7 @@ final class AppDriver {
         )
     }
 
-    func assertWorkoutsLoaded() {
+    func assertWorkoutsLoaded(requireStartButton: Bool = true) {
         UITestWait.assertAnyExists(
             [
                 app.scrollViews[A11yID.Workouts.scroll],
@@ -285,6 +293,8 @@ final class AppDriver {
             ],
             timeout: 8
         )
+
+        guard requireStartButton else { return }
 
         let startButton = app.buttons[A11yID.Workouts.startWorkoutButton]
         XCTAssertTrue(startButton.waitForExistence(timeout: 8))

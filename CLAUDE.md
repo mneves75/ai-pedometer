@@ -129,7 +129,7 @@ Do not skip the reproducer step. `Executed 0 tests` is not evidence.
 ## Verification and Closeout
 
 - For browser-rendered changes, verify every affected surface with agent-browser (`/browser gstack`) and fix UI/UX issues before stopping. For docs, tooling, schemas, or native-only changes without a browser surface, record why browser QA is not applicable and run the relevant CLI/native checks.
-- After non-trivial changes, run the `autoreview` skill in local mode, verify every finding in context, and fix all justified in-scope issues.
+- After non-trivial changes, run the `review` skill in local mode, verify every finding in context, and fix all justified in-scope issues.
 
 ## Shell Rules
 

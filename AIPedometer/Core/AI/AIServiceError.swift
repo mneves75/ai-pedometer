@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import FoundationModels
 
 /// Errors that can occur when using AI services
 enum AIServiceError: Error, Sendable {
@@ -9,6 +10,25 @@ enum AIServiceError: Error, Sendable {
     case tokenLimitExceeded
     case guardrailViolation
     case invalidResponse
+}
+
+extension AIServiceError {
+    init(generationError: LanguageModelSession.GenerationError) {
+        switch generationError {
+        case .exceededContextWindowSize:
+            self = .tokenLimitExceeded
+        case .guardrailViolation, .refusal:
+            self = .guardrailViolation
+        case .assetsUnavailable:
+            self = .modelUnavailable(.modelNotReady)
+        case .unsupportedGuide, .unsupportedLanguageOrLocale, .decodingFailure:
+            self = .invalidResponse
+        case .rateLimited, .concurrentRequests:
+            self = .generationFailed(underlying: "Please try again in a moment")
+        @unknown default:
+            self = .generationFailed(underlying: generationError.localizedDescription)
+        }
+    }
 }
 
 /// Reasons why the AI model may be unavailable

@@ -60,7 +60,6 @@ enum AppConstants {
         static let currentStreak = "currentStreak"
         static let onboardingCompleted = "onboardingCompleted"
         static let sharedStepData = "sharedStepData"
-        static let lastWidgetRefresh = "lastWidgetRefresh"
         static let activityTrackingMode = "activityTrackingMode"
         static let distanceEstimationMode = "distanceEstimationMode"
         static let manualStepLengthMeters = "manualStepLengthMeters"

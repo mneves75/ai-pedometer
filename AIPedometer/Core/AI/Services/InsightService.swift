@@ -12,11 +12,16 @@ final class InsightService {
     private let now: @MainActor () -> Date
     
     private var cachedDailyInsight: (date: Date, steps: Int, goal: Int, insight: DailyInsight)?
-    private var cachedWeeklyAnalysis: (weekStart: Date, analysis: WeeklyTrendAnalysis)?
+    private var cachedWeeklyAnalysis: (
+        weekStart: Date,
+        activityMode: ActivityTrackingMode,
+        analysis: WeeklyTrendAnalysis
+    )?
     private var cachedWorkoutRecommendation: (date: Date, steps: Int, goal: Int, recommendation: AIWorkoutRecommendation)?
     private var weeklyAnalysisFlight: (
         id: UUID,
         weekStart: Date,
+        activityMode: ActivityTrackingMode,
         cacheGeneration: UInt64,
         task: Task<WeeklyTrendAnalysis, Never>
     )?
@@ -96,10 +101,12 @@ final class InsightService {
             let calendar = Calendar.current
             let currentDate = now()
             let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
+            let activityMode = ActivitySettings.current(userDefaults: userDefaults).activityMode
             let cacheGeneration = weeklyAnalysisCacheGeneration
 
             if !forceRefresh,
                let cached = cachedWeeklyAnalysis,
+               cached.activityMode == activityMode,
                calendar.isDate(cached.weekStart, equalTo: weekStart, toGranularity: .weekOfYear) {
                 return cached.analysis
             }
@@ -110,6 +117,7 @@ final class InsightService {
 
                 guard isWeeklyAnalysisResultCurrent(
                     weekStart: flight.weekStart,
+                    activityMode: flight.activityMode,
                     cacheGeneration: flight.cacheGeneration
                 ) else { continue }
                 return analysis
@@ -121,15 +129,17 @@ final class InsightService {
             let task = Task { @MainActor in
                 await self.performWeeklyAnalysis(
                     weekStart: weekStart,
+                    activityMode: activityMode,
                     cacheGeneration: cacheGeneration
                 )
             }
-            weeklyAnalysisFlight = (flightID, weekStart, cacheGeneration, task)
+            weeklyAnalysisFlight = (flightID, weekStart, activityMode, cacheGeneration, task)
 
             let analysis = await task.value
             finishWeeklyAnalysisFlight(id: flightID)
             guard isWeeklyAnalysisResultCurrent(
                 weekStart: weekStart,
+                activityMode: activityMode,
                 cacheGeneration: cacheGeneration
             ) else { continue }
             return analysis
@@ -138,6 +148,7 @@ final class InsightService {
 
     private func performWeeklyAnalysis(
         weekStart: Date,
+        activityMode: ActivityTrackingMode,
         cacheGeneration: UInt64
     ) async -> WeeklyTrendAnalysis {
         let signpostState = Signposts.ai.begin("WeeklyAnalysis")
@@ -152,6 +163,7 @@ final class InsightService {
                 fallback,
                 error: error,
                 weekStart: weekStart,
+                activityMode: activityMode,
                 cacheGeneration: cacheGeneration
             )
             Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
@@ -166,6 +178,7 @@ final class InsightService {
                 fallback,
                 error: mappedError,
                 weekStart: weekStart,
+                activityMode: activityMode,
                 cacheGeneration: cacheGeneration
             )
             Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
@@ -180,6 +193,7 @@ final class InsightService {
             publishWeeklyAnalysis(
                 fallback,
                 weekStart: weekStart,
+                activityMode: activityMode,
                 cacheGeneration: cacheGeneration
             )
             Loggers.ai.info("ai.weekly_analysis_fallback", metadata: [
@@ -198,6 +212,7 @@ final class InsightService {
             publishWeeklyAnalysis(
                 analysis,
                 weekStart: weekStart,
+                activityMode: activityMode,
                 cacheGeneration: cacheGeneration
             )
             Loggers.ai.info("ai.weekly_analysis_generated")
@@ -213,6 +228,7 @@ final class InsightService {
                 fallback,
                 error: error,
                 weekStart: weekStart,
+                activityMode: activityMode,
                 cacheGeneration: cacheGeneration
             )
             Loggers.ai.warning("ai.weekly_analysis_fallback", metadata: [
@@ -337,25 +353,29 @@ final class InsightService {
         _ analysis: WeeklyTrendAnalysis,
         error: AIServiceError? = nil,
         weekStart: Date,
+        activityMode: ActivityTrackingMode,
         cacheGeneration: UInt64
     ) {
         guard isWeeklyAnalysisResultCurrent(
             weekStart: weekStart,
+            activityMode: activityMode,
             cacheGeneration: cacheGeneration
         ) else { return }
 
-        cachedWeeklyAnalysis = (weekStart, analysis)
+        cachedWeeklyAnalysis = (weekStart, activityMode, analysis)
         lastError = error
     }
 
     private func isWeeklyAnalysisResultCurrent(
         weekStart: Date,
+        activityMode: ActivityTrackingMode,
         cacheGeneration: UInt64
     ) -> Bool {
         let calendar = Calendar.current
         let currentDate = now()
         let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
         return cacheGeneration == weeklyAnalysisCacheGeneration
+            && activityMode == ActivitySettings.current(userDefaults: userDefaults).activityMode
             && calendar.isDate(weekStart, equalTo: currentWeekStart, toGranularity: .weekOfYear)
     }
 

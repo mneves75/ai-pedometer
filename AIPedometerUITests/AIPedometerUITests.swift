@@ -262,7 +262,7 @@ final class AIPedometerUITests: XCTestCase {
         d.captureScreen(named: "Training Plans")
     }
 
-    func testStartWorkoutShowsActiveWorkoutSheet() throws {
+    func testStartAndFinishWorkoutUpdatesRecentList() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
@@ -277,6 +277,95 @@ final class AIPedometerUITests: XCTestCase {
             timeout: navigationTimeout
         )
         d.captureScreen(named: "Active Workout")
+
+        d.tap(id: A11yID.ActiveWorkout.endButton, timeout: navigationTimeout)
+        d.tap(id: A11yID.ActiveWorkout.confirmEndButton, timeout: navigationTimeout)
+        XCTAssertTrue(
+            d.app.buttons[A11yID.ActiveWorkout.endButton].waitForNonExistence(timeout: navigationTimeout),
+            "Active workout sheet should dismiss after finishing"
+        )
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.recentWorkoutsCarousel],
+                d.app.staticTexts[A11yID.Workouts.recentWorkoutsCarousel],
+            ],
+            timeout: navigationTimeout
+        )
+        XCTAssertFalse(d.app.descendants(matching: .any)[A11yID.Workouts.recentWorkoutsEmptyState].exists)
+    }
+
+    func testRecoveredWorkoutCanBeFinished() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, seedUnfinishedWorkout: true)
+
+        d.openTab(.workouts)
+        d.assertWorkoutsLoaded(requireStartButton: false)
+        UITestWait.assertAnyExists(
+            [d.app.otherElements[A11yID.Workouts.recoveryCard]],
+            timeout: navigationTimeout
+        )
+        d.tap(id: A11yID.Workouts.finishRecoveredWorkoutButton, timeout: navigationTimeout)
+        XCTAssertTrue(
+            d.app.otherElements[A11yID.Workouts.recoveryCard].waitForNonExistence(timeout: navigationTimeout)
+        )
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.recentWorkoutsCarousel],
+                d.app.staticTexts[A11yID.Workouts.recentWorkoutsCarousel],
+            ],
+            timeout: navigationTimeout
+        )
+    }
+
+    func testRecoveredWorkoutCanBeDiscarded() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, seedUnfinishedWorkout: true)
+
+        d.openTab(.workouts)
+        d.assertWorkoutsLoaded(requireStartButton: false)
+        d.tap(id: A11yID.Workouts.discardRecoveredWorkoutButton, timeout: navigationTimeout)
+        d.tap(id: A11yID.Workouts.confirmDiscardRecoveredWorkoutButton, timeout: navigationTimeout)
+        XCTAssertTrue(
+            d.app.otherElements[A11yID.Workouts.recoveryCard].waitForNonExistence(timeout: navigationTimeout)
+        )
+        d.assertWorkoutsLoaded()
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.Workouts.recentWorkoutsEmptyState],
+                d.app.staticTexts[A11yID.Workouts.recentWorkoutsEmptyState],
+            ],
+            timeout: navigationTimeout
+        )
+    }
+
+    func testAICoachShowsUnavailableStateAndNoInputWhenForced() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, forcedPremiumEnabled: true, forceAIUnavailable: true)
+
+        d.openTab(.aiCoach)
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.AICoach.unavailableState],
+                d.app.staticTexts[A11yID.AICoach.unavailableState],
+            ],
+            timeout: navigationTimeout
+        )
+        XCTAssertFalse(d.app.textFields[A11yID.AICoach.input].exists)
+        XCTAssertFalse(d.app.buttons[A11yID.AICoach.sendButton].exists)
+    }
+
+    func testDashboardShowsAIUnavailableBannerWhenForced() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, forcedPremiumEnabled: true, forceAIUnavailable: true)
+
+        d.assertDashboardLoaded()
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.AIAvailability.banner],
+                d.app.staticTexts[A11yID.AIAvailability.banner],
+            ],
+            timeout: navigationTimeout
+        )
     }
 
     func testWorkoutsShowPremiumGatesWhenPremiumIsForcedOff() throws {

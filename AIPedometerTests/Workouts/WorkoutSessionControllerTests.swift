@@ -356,6 +356,40 @@ struct WorkoutSessionControllerTests {
         await controller.discardWorkout()
     }
 
+    @Test("Live Activity updates are throttled until cadence or step delta is meaningful")
+    func liveActivityUpdatesAreThrottled() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 100, distance: 80, floorsAscended: 0)
+        let liveActivity = MockLiveActivityManager()
+        var currentDate = Date(timeIntervalSince1970: 1_000)
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity,
+            now: { currentDate }
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        let initialUpdateCount = liveActivity.updateCount
+
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 110, distance: 88, floorsAscended: 0)
+        await controller.refreshMetrics()
+        #expect(liveActivity.updateCount == initialUpdateCount)
+
+        currentDate = currentDate.addingTimeInterval(20)
+        await controller.refreshMetrics()
+        #expect(liveActivity.updateCount == initialUpdateCount + 1)
+
+        currentDate = currentDate.addingTimeInterval(1)
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 135, distance: 108, floorsAscended: 0)
+        await controller.refreshMetrics()
+        #expect(liveActivity.updateCount == initialUpdateCount + 2)
+
+        await controller.discardWorkout()
+    }
+
     @Test
     func pausedStepsAreNotIncludedAfterResume() async throws {
         let persistence = PersistenceController(inMemory: true)

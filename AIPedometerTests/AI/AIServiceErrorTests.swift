@@ -1,9 +1,47 @@
+import Foundation
+import FoundationModels
 import Testing
 
 @testable import AIPedometer
 
 @Suite("AIServiceError Tests")
 struct AIServiceErrorTests {
+    @Test("Generation errors map identically in both AI services")
+    @MainActor
+    func generationErrorsMapIdentically() {
+        let context = LanguageModelSession.GenerationError.Context(debugDescription: "test")
+        let refusal = LanguageModelSession.GenerationError.Refusal(transcriptEntries: [])
+        let cases: [(LanguageModelSession.GenerationError, ExpectedAIError)] = [
+            (.exceededContextWindowSize(context), .tokenLimitExceeded),
+            (.assetsUnavailable(context), .modelNotReady),
+            (.guardrailViolation(context), .guardrailViolation),
+            (.refusal(refusal, context), .guardrailViolation),
+            (.unsupportedGuide(context), .invalidResponse),
+            (.unsupportedLanguageOrLocale(context), .invalidResponse),
+            (.decodingFailure(context), .invalidResponse),
+            (.rateLimited(context), .retryableGenerationFailure),
+            (.concurrentRequests(context), .retryableGenerationFailure)
+        ]
+
+        for (generationError, expected) in cases {
+            let foundationError = FoundationModelsService.mapError(generationError)
+            let coachError = CoachService.mapError(generationError)
+
+            #expect(expected.matches(foundationError))
+            #expect(expected.matches(coachError))
+            #expect(foundationError.logDescription == coachError.logDescription)
+        }
+    }
+
+    @Test("Non-generation errors retain the generic fallback")
+    @MainActor
+    func nonGenerationErrorUsesGenericFallback() {
+        let error = MappingProbeError()
+
+        #expect(ExpectedAIError.genericGenerationFailure.matches(FoundationModelsService.mapError(error)))
+        #expect(ExpectedAIError.genericGenerationFailure.matches(CoachService.mapError(error)))
+    }
+
     @Test("Token limit message is localized")
     func tokenLimitMessageIsLocalized() {
         let message = AIServiceError.tokenLimitExceeded.localizedDescription
@@ -62,5 +100,35 @@ struct AIServiceErrorTests {
             comment: "Inline warning for partial AI response interrupted by token/context limit"
         )
         #expect(notice == expected)
+    }
+}
+
+private struct MappingProbeError: Error, LocalizedError {
+    var errorDescription: String? { "mapping probe" }
+}
+
+private enum ExpectedAIError {
+    case tokenLimitExceeded
+    case modelNotReady
+    case guardrailViolation
+    case invalidResponse
+    case retryableGenerationFailure
+    case genericGenerationFailure
+
+    func matches(_ error: AIServiceError) -> Bool {
+        switch (self, error) {
+        case (.tokenLimitExceeded, .tokenLimitExceeded),
+             (.guardrailViolation, .guardrailViolation),
+             (.invalidResponse, .invalidResponse):
+            true
+        case (.modelNotReady, .modelUnavailable(.modelNotReady)):
+            true
+        case (.retryableGenerationFailure, .generationFailed(let underlying)):
+            underlying == "Please try again in a moment"
+        case (.genericGenerationFailure, .generationFailed(let underlying)):
+            underlying == "mapping probe"
+        default:
+            false
+        }
     }
 }

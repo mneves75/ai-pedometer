@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import RevenueCat
+import StoreKit
 import UIKit
 
 struct PremiumPurchaseResult: Sendable {
@@ -17,6 +18,7 @@ protocol PurchasesClientProtocol {
     func restorePurchases() async throws -> CustomerInfo
     func syncPurchases() async throws -> CustomerInfo
     func purchase(package: Package) async throws -> PremiumPurchaseResult
+    func hasVerifiedUnfinishedTransaction(productID: String) async -> Bool
     func showManageSubscriptions() async throws
     func customerInfoStream() -> AsyncStream<CustomerInfo>
 }
@@ -65,6 +67,16 @@ final class RevenueCatPurchasesClient: PurchasesClientProtocol {
         )
     }
 
+    func hasVerifiedUnfinishedTransaction(productID: String) async -> Bool {
+        for await result in StoreKit.Transaction.unfinished {
+            guard case .verified(let transaction) = result else { continue }
+            if transaction.productID == productID {
+                return true
+            }
+        }
+        return false
+    }
+
     func showManageSubscriptions() async throws {
         try await Purchases.shared.showManageSubscriptions()
     }
@@ -77,6 +89,11 @@ final class RevenueCatPurchasesClient: PurchasesClientProtocol {
 @MainActor
 @Observable
 final class PremiumAccessStore {
+    private enum PurchaseMarkerPhase: String {
+        case attempting
+        case pending
+    }
+
     enum State: Equatable {
         case idle
         case loading
@@ -99,8 +116,10 @@ final class PremiumAccessStore {
     private let pendingPurchaseDefaults: UserDefaults
     private var customerInfoTask: Task<Void, Never>?
     private var hasPendingPurchase: Bool
+    private var ownsLivePurchaseAttempt = false
 
     private static let pendingProductKey = "PremiumAccessStore.pendingProduct"
+    private static let pendingPhaseKey = "PremiumAccessStore.pendingPhase"
     private static let pendingStartedAtKey = "PremiumAccessStore.pendingStartedAt"
     private static let pendingBaselinePurchaseDateKey = "PremiumAccessStore.pendingBaselinePurchaseDate"
     private static let pendingBaselineExpirationDateKey = "PremiumAccessStore.pendingBaselineExpirationDate"
@@ -220,8 +239,17 @@ final class PremiumAccessStore {
                 settleRefreshAfterCancellation()
                 return
             }
+            let authoritativeCustomerInfo = if resolvedCustomerInfo.entitlements.verification.isVerified {
+                await reconcilePurchaseAttempt(with: resolvedCustomerInfo)
+            } else {
+                resolvedCustomerInfo
+            }
+            guard !Task.isCancelled else {
+                settleRefreshAfterCancellation()
+                return
+            }
             if !publishCustomerInfo(
-                resolvedCustomerInfo,
+                authoritativeCustomerInfo,
                 failureMessage: Self.publicUnavailableMessage,
                 failureEvent: "premium.customer_info_verification_failed"
             ) {
@@ -305,12 +333,16 @@ final class PremiumAccessStore {
 
     func purchase(_ package: Package) async -> Bool {
         guard isConfigured, !isPurchaseInProgress else { return false }
-        beginPendingPurchase(for: package)
+        ownsLivePurchaseAttempt = true
+        defer { ownsLivePurchaseAttempt = false }
+        beginPurchaseAttempt(for: package)
 
         do {
             let result = try await purchasesClient.purchase(package: package)
             if result.userCancelled {
                 clearPendingPurchase()
+            } else {
+                setPurchaseMarkerPhase(.pending)
             }
             guard publishCustomerInfo(
                 result.customerInfo,
@@ -323,6 +355,7 @@ final class PremiumAccessStore {
             lastError = nil
             return !result.userCancelled
         } catch where Self.isPaymentPending(error) {
+            setPurchaseMarkerPhase(.pending)
             state = .ready
             lastError = nil
             Loggers.app.info("premium.purchase_pending")
@@ -382,15 +415,16 @@ final class PremiumAccessStore {
         }
 
         customerInfo = candidate
-        if pendingPurchaseWasResolved(by: candidate) {
+        if !ownsLivePurchaseAttempt, pendingPurchaseWasResolved(by: candidate) {
             clearPendingPurchase()
         }
         return true
     }
 
-    private func beginPendingPurchase(for package: Package) {
+    private func beginPurchaseAttempt(for package: Package) {
         let productID = package.storeProduct.productIdentifier
         pendingPurchaseDefaults.set(productID, forKey: Self.pendingProductKey)
+        pendingPurchaseDefaults.set(PurchaseMarkerPhase.attempting.rawValue, forKey: Self.pendingPhaseKey)
         pendingPurchaseDefaults.set(Date.now, forKey: Self.pendingStartedAtKey)
         persistOptionalDate(
             customerInfo?.purchaseDate(forProductIdentifier: productID),
@@ -400,6 +434,56 @@ final class PremiumAccessStore {
             customerInfo?.expirationDate(forProductIdentifier: productID),
             forKey: Self.pendingBaselineExpirationDateKey
         )
+        hasPendingPurchase = true
+        isPurchaseInProgress = true
+    }
+
+    private func reconcilePurchaseAttempt(with candidate: CustomerInfo) async -> CustomerInfo {
+        guard !ownsLivePurchaseAttempt else { return candidate }
+        guard purchaseMarkerPhase == .attempting else { return candidate }
+        guard !pendingPurchaseWasResolved(by: candidate) else { return candidate }
+        guard let productID = pendingPurchaseDefaults.string(forKey: Self.pendingProductKey) else {
+            clearPendingPurchase()
+            return candidate
+        }
+
+        if await purchasesClient.hasVerifiedUnfinishedTransaction(productID: productID) {
+            setPurchaseMarkerPhase(.pending)
+            return candidate
+        }
+
+        do {
+            let syncedCustomerInfo = try await purchasesClient.syncPurchases()
+            guard !Task.isCancelled, purchaseMarkerPhase == .attempting else { return candidate }
+            guard syncedCustomerInfo.entitlements.verification.isVerified else {
+                Loggers.app.error("premium.purchase_reconcile_verification_failed")
+                return candidate
+            }
+
+            if !pendingPurchaseWasResolved(by: syncedCustomerInfo) {
+                clearPendingPurchase()
+            }
+            return syncedCustomerInfo
+        } catch is CancellationError {
+            return candidate
+        } catch {
+            Loggers.app.warning("premium.purchase_reconcile_sync_failed", metadata: [
+                "error": error.localizedDescription
+            ])
+            return candidate
+        }
+    }
+
+    private var purchaseMarkerPhase: PurchaseMarkerPhase? {
+        guard pendingPurchaseDefaults.string(forKey: Self.pendingProductKey) != nil else { return nil }
+        guard let rawValue = pendingPurchaseDefaults.string(forKey: Self.pendingPhaseKey) else {
+            return .pending
+        }
+        return PurchaseMarkerPhase(rawValue: rawValue) ?? .pending
+    }
+
+    private func setPurchaseMarkerPhase(_ phase: PurchaseMarkerPhase) {
+        pendingPurchaseDefaults.set(phase.rawValue, forKey: Self.pendingPhaseKey)
         hasPendingPurchase = true
         isPurchaseInProgress = true
     }
@@ -441,6 +525,7 @@ final class PremiumAccessStore {
     private func clearPendingPurchase() {
         for key in [
             Self.pendingProductKey,
+            Self.pendingPhaseKey,
             Self.pendingStartedAtKey,
             Self.pendingBaselinePurchaseDateKey,
             Self.pendingBaselineExpirationDateKey

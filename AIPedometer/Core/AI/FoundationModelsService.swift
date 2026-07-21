@@ -31,7 +31,6 @@ enum AIModelAvailability: Equatable, Sendable {
 @MainActor
 @Observable
 final class FoundationModelsService: FoundationModelsServiceProtocol {
-    private var session: LanguageModelSession?
     private(set) var availability: AIModelAvailability = .checking
     
     private let instructions: String
@@ -43,15 +42,15 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     ) {
         self.instructions = instructions
         self.systemAvailability = systemAvailability
+        if LaunchConfiguration.isAIUnavailableForced() {
+            self.availability = .unavailable(reason: .deviceNotEligible)
+            return
+        }
         if LaunchConfiguration.isUITesting() {
             self.availability = .unavailable(reason: .deviceNotEligible)
-            self.session = nil
             return
         }
         self.availability = checkAvailability()
-        if availability == .available {
-            configureSession()
-        }
         startObservingSystemAvailability()
     }
 
@@ -84,23 +83,24 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
 
     func refreshAvailability() {
+        if LaunchConfiguration.isAIUnavailableForced() {
+            availability = .unavailable(reason: .deviceNotEligible)
+            return
+        }
         if LaunchConfiguration.isUITesting() {
             availability = .unavailable(reason: .deviceNotEligible)
-            session = nil
             return
         }
         let updatedAvailability = checkAvailability()
         if updatedAvailability != availability {
             availability = updatedAvailability
         }
-        if availability == .available {
-            configureSession()
-        } else {
-            session = nil
-        }
     }
 
     func checkAvailability() -> AIModelAvailability {
+        if LaunchConfiguration.isAIUnavailableForced() {
+            return .unavailable(reason: .deviceNotEligible)
+        }
         if LaunchConfiguration.isUITesting() {
             return .unavailable(reason: .deviceNotEligible)
         }
@@ -140,7 +140,7 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
             return response.content
         } catch {
             Loggers.ai.error("ai.response_failed", metadata: ["error": error.localizedDescription])
-            throw mapError(error)
+            throw Self.mapError(error)
         }
     }
     
@@ -165,68 +165,13 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
                 "type": String(describing: type),
                 "error": error.localizedDescription
             ])
-            throw mapError(error)
+            throw Self.mapError(error)
         }
     }
     
-    func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task { @MainActor in
-                guard let session = self.session else {
-                    continuation.finish(throwing: AIServiceError.sessionNotConfigured)
-                    return
-                }
-                do {
-                    let stream = session.streamResponse(to: prompt)
-                    for try await partialResponse in stream {
-                        if Task.isCancelled {
-                            continuation.finish(throwing: CancellationError())
-                            return
-                        }
-                        continuation.yield(partialResponse.content)
-                    }
-                    continuation.finish()
-                    Loggers.ai.info("ai.stream_completed", metadata: ["prompt_length": "\(prompt.count)"])
-                } catch {
-                    Loggers.ai.error("ai.stream_failed", metadata: ["error": error.localizedDescription])
-                    continuation.finish(throwing: mapError(error))
-                }
-            }
-            continuation.onTermination = { @Sendable _ in
-                task.cancel()
-            }
-        }
-    }
-    
-    func configure(with tools: [any Tool]) {
-        session = LanguageModelSession(
-            tools: tools,
-            instructions: instructions
-        )
-        Loggers.ai.info("ai.session_configured", metadata: ["tool_count": "\(tools.count)"])
-    }
-    
-    private func configureSession() {
-        session = LanguageModelSession(instructions: instructions)
-        Loggers.ai.info("ai.session_initialized")
-    }
-    
-    private func mapError(_ error: any Error) -> AIServiceError {
+    static func mapError(_ error: any Error) -> AIServiceError {
         if let sessionError = error as? LanguageModelSession.GenerationError {
-            switch sessionError {
-            case .exceededContextWindowSize:
-                return .tokenLimitExceeded
-            case .guardrailViolation, .refusal:
-                return .guardrailViolation
-            case .assetsUnavailable:
-                return .modelUnavailable(.modelNotReady)
-            case .unsupportedGuide, .unsupportedLanguageOrLocale, .decodingFailure:
-                return .invalidResponse
-            case .rateLimited, .concurrentRequests:
-                return .generationFailed(underlying: "Please try again in a moment")
-            @unknown default:
-                return .generationFailed(underlying: error.localizedDescription)
-            }
+            return AIServiceError(generationError: sessionError)
         }
         return .generationFailed(underlying: error.localizedDescription)
     }

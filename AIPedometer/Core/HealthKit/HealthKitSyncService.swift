@@ -5,7 +5,8 @@ import SwiftData
 
 enum SyncPolicy {
     /// Initial full sync window (30 days)
-    static let coldStartWindow: TimeInterval = 30 * 24 * 60 * 60
+    static let coldStartDayCount = 30
+    static let coldStartWindow: TimeInterval = TimeInterval(coldStartDayCount * 24 * 60 * 60)
     
     /// Overlap period for incremental syncs to catch late-arriving samples
     static let incrementalOverlap: TimeInterval = 1 * 24 * 60 * 60
@@ -14,10 +15,8 @@ enum SyncPolicy {
     static let foregroundMinInterval: TimeInterval = 6 * 60 * 60
     
     /// Window for pull-to-refresh operations
-    static let pullToRefreshWindow: TimeInterval = 7 * 24 * 60 * 60
-    
-    /// Threshold for pruning orphaned cache entries
-    static let staleDataPruneThreshold: TimeInterval = 30 * 24 * 60 * 60
+    static let pullToRefreshDayCount = 7
+    static let pullToRefreshWindow: TimeInterval = TimeInterval(pullToRefreshDayCount * 24 * 60 * 60)
     
 }
 
@@ -30,30 +29,17 @@ enum SyncStateKey: String {
     case syncVersion = "aipedometer.sync.version"
 }
 
-// MARK: - Protocol
-
-@MainActor
-protocol HealthKitSyncServiceProtocol: AnyObject {
-    @discardableResult
-    func performAutomaticSync() async throws -> Bool
-    func performColdStartSync() async throws
-    func performIncrementalSync() async throws
-    func performPullToRefresh() async throws
-    func reconcilePendingWorkoutExports() async throws
-    func updateAIContextSnapshot() async throws
-    func shouldPerformForegroundSync() -> Bool
-}
-
 // MARK: - Implementation
 
 @Observable
 @MainActor
-final class HealthKitSyncService: HealthKitSyncServiceProtocol {
+final class HealthKitSyncService {
     private let healthKitService: any HealthKitServiceProtocol
     private let modelContext: ModelContext
     private let userDefaults: UserDefaults
     private let calendar: Calendar
     private let goalService: GoalService
+    @ObservationIgnored private let now: @MainActor () -> Date
     
     /// Current sync version - increment when sync logic changes materially
     private static let currentSyncVersion = 2
@@ -65,13 +51,15 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         modelContext: ModelContext,
         goalService: GoalService,
         userDefaults: UserDefaults = .standard,
-        calendar: Calendar = .autoupdatingCurrent
+        calendar: Calendar = .autoupdatingCurrent,
+        now: @escaping @MainActor () -> Date = { .now }
     ) {
         self.healthKitService = healthKitService
         self.modelContext = modelContext
         self.goalService = goalService
         self.userDefaults = userDefaults
         self.calendar = calendar
+        self.now = now
     }
 
     /// Selects the appropriate automatic sync without throttling durable workout retries.
@@ -101,8 +89,8 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
         try await ensureAuthorization()
         Loggers.sync.info("sync.cold_start_begin")
         
-        let now = Date.now
-        let startDate = now.addingTimeInterval(-SyncPolicy.coldStartWindow)
+        let now = now()
+        let startDate = startDate(endingAt: now, dayCount: SyncPolicy.coldStartDayCount)
         
         // Sync daily step records
         try await syncDailyRecords(from: startDate, to: now)
@@ -131,7 +119,7 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             return
         }
         try await ensureAuthorization()
-        let now = Date.now
+        let now = now()
         let lastSync = lastSyncDate ?? now.addingTimeInterval(-SyncPolicy.coldStartWindow)
         let startDate = lastSync.addingTimeInterval(-SyncPolicy.incrementalOverlap)
         
@@ -158,8 +146,8 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
             return
         }
         try await ensureAuthorization()
-        let now = Date.now
-        let startDate = now.addingTimeInterval(-SyncPolicy.pullToRefreshWindow)
+        let now = now()
+        let startDate = startDate(endingAt: now, dayCount: SyncPolicy.pullToRefreshDayCount)
         
         Loggers.sync.info("sync.pull_to_refresh_begin")
         
@@ -187,16 +175,38 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     }
 
     private func hasPendingWorkoutExports() throws -> Bool {
+        let descriptor = Self.pendingWorkoutExportDescriptor(fetchLimit: 1)
+        return try modelContext.fetchCount(descriptor) > 0
+    }
+
+    static func pendingWorkoutExportDescriptor(fetchLimit: Int? = nil) -> FetchDescriptor<WorkoutSession> {
         let pendingState = HealthKitWorkoutExportState.pending.rawValue
         let predicate = #Predicate<WorkoutSession> { session in
-            session.healthKitExportStateRaw == pendingState
+            if session.healthKitExportStateRaw == pendingState {
+                if session.endTime != nil {
+                    session.deletedAt == nil && session.healthKitWorkoutID == nil
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         }
-        let descriptor = FetchDescriptor<WorkoutSession>(predicate: predicate)
-        return try modelContext.fetch(descriptor).contains { session in
-            session.deletedAt == nil &&
-                session.healthKitWorkoutID == nil &&
-                session.endTime != nil
+        var descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: predicate,
+            sortBy: [
+                SortDescriptor(\WorkoutSession.healthKitExportLastFailureAt, order: .forward),
+                SortDescriptor(\WorkoutSession.updatedAt, order: .forward)
+            ]
+        )
+        if let fetchLimit {
+            descriptor.fetchLimit = fetchLimit
         }
+        return descriptor
+    }
+
+    static func pendingWorkoutExportBatchDescriptor() -> FetchDescriptor<WorkoutSession> {
+        pendingWorkoutExportDescriptor(fetchLimit: workoutExportBatchLimit)
     }
     
     // MARK: - Foreground Sync Check
@@ -205,8 +215,13 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     func shouldPerformForegroundSync() -> Bool {
         guard isSyncEnabled else { return false }
         guard let lastSync = lastSyncDate else { return true }
-        let elapsed = Date.now.timeIntervalSince(lastSync)
+        let elapsed = now().timeIntervalSince(lastSync)
         return elapsed >= SyncPolicy.foregroundMinInterval
+    }
+
+    private func startDate(endingAt endDate: Date, dayCount: Int) -> Date {
+        let endDay = calendar.startOfDay(for: endDate)
+        return calendar.date(byAdding: .day, value: -(dayCount - 1), to: endDay) ?? endDay
     }
     
     /// Returns true if cold start sync is needed.
@@ -390,30 +405,8 @@ final class HealthKitSyncService: HealthKitSyncServiceProtocol {
     }
     
     private func syncWorkouts(from startDate: Date, to endDate: Date) async throws {
-        let predicate = #Predicate<WorkoutSession> { session in
-            session.deletedAt == nil &&
-            session.healthKitWorkoutID == nil
-        }
-        let descriptor: FetchDescriptor<WorkoutSession> = FetchDescriptor(
-            predicate: predicate,
-            sortBy: [SortDescriptor(\.updatedAt)]
-        )
-        let candidates: [WorkoutSession] = try modelContext.fetch(descriptor)
-        let pending: [WorkoutSession] = candidates.filter { session in
-            session.endTime != nil && session.healthKitExportState == .pending
-        }.sorted { lhs, rhs in
-            switch (lhs.healthKitExportLastFailureAt, rhs.healthKitExportLastFailureAt) {
-            case (nil, nil):
-                return lhs.updatedAt < rhs.updatedAt
-            case (nil, _):
-                return true
-            case (_, nil):
-                return false
-            case let (lhsFailure?, rhsFailure?):
-                if lhsFailure != rhsFailure { return lhsFailure < rhsFailure }
-                return lhs.updatedAt < rhs.updatedAt
-            }
-        }.prefix(Self.workoutExportBatchLimit).map { $0 }
+        let descriptor = Self.pendingWorkoutExportBatchDescriptor()
+        let pending: [WorkoutSession] = try modelContext.fetch(descriptor)
         var exportedCount = 0
         var deferredCount = 0
         var notRequiredCount = 0

@@ -53,14 +53,14 @@ struct HistoryView: View {
             aiAvailable: foundationModelsService.availability.isAvailable,
             premiumResolving: premiumAccessStore.isResolvingAccess
         )) {
-            await loadData()
+            await loadData(forceRefreshAnalysis: false)
         }
         .refreshable {
-            await loadData()
+            await loadData(forceRefreshAnalysis: true)
         }
     }
 
-    private func loadData() async {
+    private func loadData(forceRefreshAnalysis: Bool = false) async {
         isLoading = true
         loadError = nil
         resetWeeklyAnalysis()
@@ -79,7 +79,7 @@ struct HistoryView: View {
             loadError: loadError,
             summaries: trackingService.weeklySummaries
         ) {
-            await loadWeeklyAnalysis(forceRefresh: true)
+            await loadWeeklyAnalysis(forceRefresh: forceRefreshAnalysis)
         }
     }
 

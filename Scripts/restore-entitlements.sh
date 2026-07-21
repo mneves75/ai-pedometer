@@ -10,8 +10,12 @@ write_entitlement() {
   local file="$1"
   local content="$2"
   local temp_file="${file}.tmp.$$"
+  trap 'rm -f "$temp_file"' RETURN
   printf '%s\n' "$content" > "$temp_file"
-  plutil -lint "$temp_file" >/dev/null
+  if ! plutil -lint "$temp_file" >/dev/null; then
+    rm -f "$temp_file"
+    return 1
+  fi
   mv -f "$temp_file" "$file"
   echo "  Restored: $file"
 }

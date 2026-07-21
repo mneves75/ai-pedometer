@@ -5,7 +5,8 @@ import SwiftData
 protocol GoalServiceProtocol: AnyObject, Sendable {
     var currentGoal: Int { get }
     func goal(for date: Date) -> Int?
-    func setGoal(_ value: Int)
+    @discardableResult
+    func setGoal(_ value: Int) -> Bool
 }
 
 @MainActor
@@ -60,7 +61,8 @@ final class GoalService: GoalServiceProtocol, Sendable {
         })?.dailySteps
     }
 
-    func setGoal(_ value: Int) {
+    @discardableResult
+    func setGoal(_ value: Int) -> Bool {
         let context = persistence.container.mainContext
         let descriptor = FetchDescriptor<StepGoal>(
             predicate: #Predicate { $0.deletedAt == nil && $0.endDate == nil },
@@ -99,8 +101,10 @@ final class GoalService: GoalServiceProtocol, Sendable {
                 previousState.goal.updatedAt = previousState.updatedAt
             }
             Loggers.tracking.error("goal.save_failed", metadata: ["error": error.localizedDescription])
+            cachedGoals = nil
+            return false
         }
-        // The context changed regardless of save success; drop the cache either way.
         cachedGoals = nil
+        return true
     }
 }

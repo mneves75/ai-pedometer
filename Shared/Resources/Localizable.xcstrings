@@ -7090,6 +7090,23 @@
         }
       }
     },
+    "Unable to save goal. Please try again." : {
+      "comment" : "Goal editor save failure alert title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to save goal. Please try again."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível salvar a meta. Tente novamente."
+          }
+        }
+      }
+    },
     "Unable to save workout" : {
       "comment" : "Workout error when saving fails",
       "localizations" : {

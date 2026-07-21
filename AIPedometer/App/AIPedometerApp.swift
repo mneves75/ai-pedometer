@@ -69,6 +69,24 @@ struct AIPedometerApp: App {
         let streakCalculator = StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
         let fmService = FoundationModelsService()
         let modelContext = persistence.container.mainContext
+        if LaunchConfiguration.shouldSeedUnfinishedWorkout() {
+            let seededWorkout = WorkoutSession(
+                type: .outdoorWalk,
+                startTime: .now.addingTimeInterval(-10 * 60),
+                steps: 750,
+                distance: 550,
+                activeCalories: 35
+            )
+            modelContext.insert(seededWorkout)
+            do {
+                try modelContext.save()
+            } catch {
+                Loggers.workouts.error(
+                    "ui_testing.workout_seed_failed",
+                    metadata: ["error": error.localizedDescription]
+                )
+            }
+        }
         let demoStore = DemoModeStore()
         let primaryHealthKitService = HealthKitService(
             healthStore: sharedHealthStore,

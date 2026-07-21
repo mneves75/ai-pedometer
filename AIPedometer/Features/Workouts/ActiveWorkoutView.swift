@@ -47,6 +47,7 @@ struct ActiveWorkoutView: View {
             Button(L10n.localized("End Workout", comment: "Confirm ending workout"), role: .destructive) {
                 Task { await workoutController.finishWorkout() }
             }
+            .accessibilityIdentifier(A11yID.ActiveWorkout.confirmEndButton)
         } message: {
             Text(L10n.localized("Ending will save the workout to your history.", comment: "Message explaining that ending saves the workout"))
         }

@@ -477,6 +477,88 @@ struct InsightServiceTests {
         #expect(analysis.recommendation == String(localized: "Enable HealthKit Sync in Settings to see your activity history.", comment: "Weekly trend recommendation when no data is available"))
     }
 
+    @Test("Weekly analysis reuses same-week cache unless refresh is explicit")
+    func weeklyAnalysisReusesCacheUntilExplicitRefresh() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(WeeklyTrendAnalysis(
+            summary: "AI Summary",
+            trend: .stable,
+            observation: "AI Observation",
+            recommendation: "AI Recommendation"
+        ))
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(
+                date: .now,
+                steps: 6_200,
+                distance: 4_900,
+                floors: 3,
+                calories: 250,
+                goal: 7_000
+            )
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        _ = try await service.generateWeeklyAnalysis(forceRefresh: false)
+        _ = try await service.generateWeeklyAnalysis(forceRefresh: false)
+        #expect(foundationModels.respondCallCount == 1)
+
+        _ = try await service.generateWeeklyAnalysis(forceRefresh: true)
+        #expect(foundationModels.respondCallCount == 2)
+    }
+
+    @Test("Weekly analysis cache invalidates when activity mode changes")
+    func weeklyAnalysisCacheInvalidatesOnActivityModeChange() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(WeeklyTrendAnalysis(
+            summary: "AI Summary",
+            trend: .stable,
+            observation: "AI Observation",
+            recommendation: "AI Recommendation"
+        ))
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(
+                date: .now,
+                steps: 6_200,
+                distance: 4_900,
+                floors: 3,
+                calories: 250,
+                goal: 7_000
+            )
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        testDefaults.defaults.set(
+            ActivityTrackingMode.steps.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+        _ = try await service.generateWeeklyAnalysis()
+
+        testDefaults.defaults.set(
+            ActivityTrackingMode.wheelchairPushes.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+        _ = try await service.generateWeeklyAnalysis()
+
+        #expect(foundationModels.respondCallCount == 2)
+        #expect(healthKit.fetchDailySummariesCallCount == 2)
+    }
+
     @Test("Weekly analysis concurrent calls await the same generation")
     func weeklyAnalysisConcurrentCallsAvoidSessionContentionError() async throws {
         let testDefaults = TestUserDefaults()
