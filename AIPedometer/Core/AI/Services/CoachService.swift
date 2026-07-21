@@ -223,6 +223,12 @@ final class CoachService {
             }
         }
         
+        // Self-heal after a live availability flip: the session is built at init/foreground,
+        // but availability can become available while the app runs (2026-07-20 iOS 27 bug).
+        if session == nil, foundationModelsService.availability.isAvailable {
+            configureSession()
+        }
+
         guard let session else {
             if let reason = foundationModelsService.availability.unavailabilityReason {
                 let error = AIServiceError.modelUnavailable(reason)

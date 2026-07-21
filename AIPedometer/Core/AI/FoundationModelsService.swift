@@ -1,6 +1,7 @@
 import Foundation
 import FoundationModels
 import Observation
+import os
 
 @MainActor
 protocol FoundationModelsServiceProtocol: Sendable {
@@ -34,9 +35,14 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     private(set) var availability: AIModelAvailability = .checking
     
     private let instructions: String
-    
-    init(instructions: String = FoundationModelsService.defaultInstructions()) {
+    private let systemAvailability: () -> SystemLanguageModel.Availability
+
+    init(
+        instructions: String = FoundationModelsService.defaultInstructions(),
+        systemAvailability: @escaping () -> SystemLanguageModel.Availability = { SystemLanguageModel.default.availability }
+    ) {
         self.instructions = instructions
+        self.systemAvailability = systemAvailability
         if LaunchConfiguration.isUITesting() {
             self.availability = .unavailable(reason: .deviceNotEligible)
             self.session = nil
@@ -46,6 +52,27 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
         if availability == .available {
             configureSession()
         }
+        startObservingSystemAvailability()
+    }
+
+    // The OS value is not static: Apple Intelligence toggles, settings re-evaluation, and
+    // model-asset downloads flip `SystemLanguageModel.availability` while the app is running
+    // (proven on-device 2026-07-20, iOS 27: notEnabled → available without relaunch). The model
+    // is Observation.Observable, so track it and re-publish through `refreshAvailability`;
+    // snapshotting only at launch/foreground leaves the banner stuck on a stale reason.
+    private func startObservingSystemAvailability() {
+        withObservationTracking {
+            _ = SystemLanguageModel.default.availability
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.handleSystemAvailabilityChange()
+            }
+        }
+    }
+
+    func handleSystemAvailabilityChange() {
+        refreshAvailability()
+        startObservingSystemAvailability()
     }
 
     func refreshAvailability() {
@@ -64,13 +91,18 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
             session = nil
         }
     }
-    
+
     func checkAvailability() -> AIModelAvailability {
         if LaunchConfiguration.isUITesting() {
             return .unavailable(reason: .deviceNotEligible)
         }
-        let model = SystemLanguageModel.default
-        switch model.availability {
+        let currentAvailability = systemAvailability()
+        // Public os_log on purpose: AppLogger redacts every metadata value by design, and this
+        // device-state enum (no personal data) is the only signal that explained the iOS 27
+        // stale-banner bug in a live syslog stream.
+        os_log(.info, log: OSLog(subsystem: AppConstants.bundleIdentifier, category: "ai"),
+               "ai.availability_check %{public}@", String(describing: currentAvailability))
+        switch currentAvailability {
         case .available:
             return .available
         case .unavailable(let reason):
