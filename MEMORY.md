@@ -98,6 +98,12 @@ Also confirm repo scope first with:
 - NOTA STALE (2026-06-13): o runtime watchOS 26.x voltou a existir em `simctl list runtimes`
   (26.5 23T570 presente em 2026-07-15) — revalidar o "toolchain pincer" antes de citar bloqueio de
   distribuição.
+- **PINCER RESOLVIDO (2026-07-21):** archive Release completo com watch embarcado PASSOU no Xcode 26.6
+  estável (`output/archives/AIPedometer-095-gate.xcarchive`, assinado Q96FUTC5G8). Causa da cura: os
+  runtimes de simulador tinham sido apagados da máquina; restaurar iOS 26.5 (23F77) + watchOS 26.5
+  (23T570) via `xcodebuild -downloadPlatform iOS/watchOS` + `simctl runtime match set iphoneos26.5 23F77`
+  destravou o actool. Resta apenas a decisão da key RevenueCat real para uploads (fail-closed em Release
+  com test key).
 
 ## Known Documentation Drift
 
