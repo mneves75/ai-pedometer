@@ -62,12 +62,6 @@ enum DesignTokens {
         }
     }
 
-    enum Shadow {
-        static let subtle = (color: Color.black.opacity(0.08), radius: CGFloat(8), x: CGFloat(0), y: CGFloat(4))
-        static let medium = (color: Color.black.opacity(0.12), radius: CGFloat(16), x: CGFloat(0), y: CGFloat(8))
-        static let strong = (color: Color.black.opacity(0.18), radius: CGFloat(24), x: CGFloat(0), y: CGFloat(12))
-    }
-
     enum Opacity {
         // Keep "magic numbers" centralized as tokens.
         static let textTertiary: Double = 0.8
