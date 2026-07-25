@@ -6,7 +6,6 @@ enum AppConstants {
     static var appStoreID: String { resolveAppStoreID() }
     private static let placeholderAppStoreID = "123456789"
     static let defaultDailyGoal = 10_000
-    static let maxHistoryDays = 365
 
     static func resolveAppStoreID(
         bundle: Bundle = .main,

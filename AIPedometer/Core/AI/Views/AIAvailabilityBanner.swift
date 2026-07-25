@@ -108,22 +108,6 @@ struct AIAvailabilityBanner: View {
     }
 }
 
-/// Compact inline banner for use in smaller spaces
-struct AIAvailabilityInlineBanner: View {
-    let reason: AIUnavailabilityReason
-    
-    var body: some View {
-        Label {
-            Text(reason.userFacingMessage)
-                .font(DesignTokens.Typography.caption)
-        } icon: {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(DesignTokens.Colors.warning)
-        }
-        .foregroundStyle(DesignTokens.Colors.textSecondary)
-    }
-}
-
 /// Full-screen AI unavailable state with a friendly explanation and optional action
 struct AIUnavailableStateView: View {
     let reason: AIUnavailabilityReason
@@ -163,60 +147,6 @@ struct AIUnavailableStateView: View {
     }
 }
 
-/// Loading state view for AI operations
-struct AILoadingView: View {
-    let message: String
-    
-    init(_ message: String = L10n.localized("Thinking...", comment: "AI loading default message")) {
-        self.message = message
-    }
-    
-    var body: some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            ProgressView()
-                .controlSize(.small)
-            
-            Text(message)
-                .font(DesignTokens.Typography.subheadline)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-        }
-        .padding(DesignTokens.Spacing.md)
-    }
-}
-
-/// View modifier to conditionally show AI unavailability banner
-struct AIAvailabilityModifier: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    let availability: AIModelAvailability
-    @State private var isDismissed = false
-    
-    func body(content: Content) -> some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            if case .unavailable(let reason) = availability, !isDismissed {
-                AIAvailabilityBanner(reason: reason) {
-                    withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
-                        isDismissed = true
-                    }
-                }
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.vertical, DesignTokens.Spacing.sm)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-            
-            content
-        }
-        .motionAwareAnimation(DesignTokens.Animation.smooth, value: isDismissed)
-    }
-}
-
-extension View {
-    /// Shows an AI availability banner at the top of the view if AI is unavailable
-    func aiAvailabilityBanner(_ availability: AIModelAvailability) -> some View {
-        modifier(AIAvailabilityModifier(availability: availability))
-    }
-}
-
 #Preview("Device Not Eligible") {
     AIAvailabilityBanner(reason: .deviceNotEligible)
         .padding(DesignTokens.Spacing.md)
@@ -235,14 +165,4 @@ extension View {
 #Preview("Dismissible") {
     AIAvailabilityBanner(reason: .appleIntelligenceNotEnabled) { }
     .padding(DesignTokens.Spacing.md)
-}
-
-#Preview("Inline") {
-    AIAvailabilityInlineBanner(reason: .modelNotReady)
-        .padding(DesignTokens.Spacing.md)
-}
-
-#Preview("Loading") {
-    AILoadingView("Generating insight...")
-        .padding(DesignTokens.Spacing.md)
 }
