@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.95] - 2026-07-25
+
+### Fixed
+
+- Smart reminders are no longer disabled while premium access is still being resolved. Subscription state is briefly indistinguishable from "no subscription" during that window, which could switch a paying subscriber's reminders off.
+
+### Changed
+
+- Removed unused AI availability view variants, the unused design-system shadow tokens, and a dead history-window constant; renamed a test suite that covered only the HealthKit test double so its name no longer implies production coverage.
+
 ## [0.94] - 2026-07-18
 
 ### Added
