@@ -258,11 +258,11 @@ Rules:
 
 ## GUIDELINES-REF
 Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/check-agents-sync.sh`).
-
 GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
 
 Essentials (apply to every task):
 - Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.
+- Do not agree reflexively or flatter: push reasoning to full capacity, surface tradeoffs and weak assumptions, and answer as if the best engineers in the domain will verify the work — deliver the most correct answer, not the most agreeable one. Sacrifice grammar for concision when it sharpens meaning.
 - Read `PRAGMATIC-RULES.md` and `SECURITY-GUIDELINES.md` before starting any task.
 - If instructions conflict, security rules take precedence.
 - Use `INDEX.md` or `GUIDELINES_INDEX.json` to locate task-specific guidance.
