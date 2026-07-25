@@ -10,6 +10,9 @@ struct SettingsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitEnabled = true
     @AppStorage(AppConstants.UserDefaultsKeys.notificationsEnabled) private var notificationsEnabled = false
     @AppStorage(AppConstants.UserDefaultsKeys.smartRemindersEnabled) private var smartRemindersEnabled = false
+    // Only meaningful while `smartRemindersEnabled` is true; cleared whenever the user acts on the
+    // toggle so background enforcement never resumes a reminder the user turned off themselves.
+    @AppStorage(AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess) private var smartRemindersSuspendedByAccess = false
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(HealthKitSyncService.self) private var healthKitSyncService
@@ -87,6 +90,11 @@ struct SettingsView: View {
             await healthAuthorization.refreshStatus()
         }
         .task(id: premiumAccessStore.canAccessAIFeatures) {
+            await enforceSmartReminderAccessIfNeeded()
+        }
+        // Also observed on its own: when access resolves from "unknown" to an authoritative revocation,
+        // `canAccessAIFeatures` is false before and after, so that id alone never changes.
+        .task(id: premiumAccessStore.hasAuthoritativeAccessState) {
             await enforceSmartReminderAccessIfNeeded()
         }
         .task(id: aiService.availability.isAvailable) {
@@ -426,7 +434,14 @@ struct SettingsView: View {
 
     private var smartRemindersRow: some View {
         Group {
-            Toggle(isOn: $smartRemindersEnabled) {
+            // While suspended the preference is intentionally preserved so reminders resume on
+            // resubscribe, but delivery is stopped — so the toggle shows the effective state (off)
+            // rather than a switch that reads on and delivers nothing. The "Premium is required"
+            // caption below explains why, and resuming flips it back on without user action.
+            Toggle(isOn: Binding(
+                get: { smartRemindersEnabled && !smartRemindersSuspendedByAccess },
+                set: { smartRemindersEnabled = $0 }
+            )) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Label(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"), systemImage: "sparkles")
                         .foregroundStyle(DesignTokens.Colors.accent)
@@ -441,7 +456,7 @@ struct SettingsView: View {
                 Task { await updateSmartReminders(enabled: newValue) }
             }
             .accessibilityLabel(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"))
-            .accessibilityValue(smartRemindersEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
+            .accessibilityValue((smartRemindersEnabled && !smartRemindersSuspendedByAccess) ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
             if premiumAccessStore.isResolvingAccess {
                 Text(L10n.localized("Loading...", comment: "Premium loading status"))
                     .font(DesignTokens.Typography.caption)
@@ -596,13 +611,16 @@ struct SettingsView: View {
 
             switch result {
             case .scheduled:
+                smartRemindersSuspendedByAccess = false
                 Loggers.ai.info("notifications.smart_enabled")
             case .stale:
                 break
             case .authorizationDenied:
                 smartRemindersEnabled = false
+                smartRemindersSuspendedByAccess = false
             case .scheduleFailed:
                 smartRemindersEnabled = false
+                smartRemindersSuspendedByAccess = false
                 showNotificationAlert(
                     message: L10n.localized("Unable to schedule notifications. Please try again.", comment: "Alert when scheduling notifications fails"),
                     offersSettings: false
@@ -610,6 +628,7 @@ struct SettingsView: View {
             }
         } else {
             smartNotificationService.cancelAllSmartNotifications()
+            smartRemindersSuspendedByAccess = false
             Loggers.ai.info("notifications.smart_disabled")
         }
     }
@@ -619,22 +638,28 @@ struct SettingsView: View {
             isEnabled: smartRemindersEnabled,
             premiumEnabled: premiumAccessStore.canAccessAIFeatures,
             aiAvailability: aiService.availability,
-            isResolvingAccess: premiumAccessStore.isResolvingAccess
+            hasAuthoritativeAccess: premiumAccessStore.hasAuthoritativeAccessState
         ) {
         case .keep:
             break
         case .disablePremium:
+            // Suspend rather than erase: the toggle is already disabled and captioned "Premium is
+            // required…", so the state stays legible, and the user's preference survives so reminders
+            // resume automatically if they resubscribe. Only explicit user action clears it.
             smartReminderUpdateGeneration &+= 1
             smartNotificationService.cancelAllSmartNotifications()
-            smartRemindersEnabled = false
+            smartRemindersSuspendedByAccess = true
             isUpdatingSmartReminders = false
-            Loggers.ai.info("notifications.smart_disabled", metadata: ["reason": "premium_unavailable"])
+            Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "premium_unavailable"])
         case .disableUnavailableAI:
+            // Also suspend rather than erase: most unavailability reasons are transient (the model can
+            // still be downloading), so destroying the preference would punish the user for a temporary
+            // device state. Automatic enforcement never clears the preference; only the user does.
             smartReminderUpdateGeneration &+= 1
             smartNotificationService.cancelAllSmartNotifications()
-            smartRemindersEnabled = false
+            smartRemindersSuspendedByAccess = true
             isUpdatingSmartReminders = false
-            Loggers.ai.info("notifications.smart_disabled", metadata: ["reason": "ai_unavailable"])
+            Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "ai_unavailable"])
         }
     }
 

@@ -65,6 +65,9 @@ enum AppConstants {
         static let healthKitSyncEnabled = "healthKitSyncEnabled"
         static let notificationsEnabled = "notificationsEnabled"
         static let smartRemindersEnabled = "smartRemindersEnabled"
+        /// Set when Premium access lapsed and delivery was suspended without clearing the user's
+        /// `smartRemindersEnabled` preference, so reminders can resume if access returns.
+        static let smartRemindersSuspendedByAccess = "smartRemindersSuspendedByAccess"
         static let smartNotificationLastDate = "smartNotificationLastDate"
         static let smartNotificationCount = "smartNotificationCount"
         static let expeditionModeEnabled = "expeditionModeEnabled"
