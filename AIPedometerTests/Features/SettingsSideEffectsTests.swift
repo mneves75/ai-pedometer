@@ -97,7 +97,8 @@ struct SettingsSideEffectsTests {
         let decision = SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: true,
             premiumEnabled: false,
-            aiAvailability: .available
+            aiAvailability: .available,
+            hasAuthoritativeAccess: true
         )
 
         #expect(decision == .disablePremium)
@@ -108,7 +109,8 @@ struct SettingsSideEffectsTests {
         let decision = SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: true,
             premiumEnabled: true,
-            aiAvailability: .unavailable(reason: .appleIntelligenceNotEnabled)
+            aiAvailability: .unavailable(reason: .appleIntelligenceNotEnabled),
+            hasAuthoritativeAccess: true
         )
 
         #expect(decision == .disableUnavailableAI(.appleIntelligenceNotEnabled))
@@ -119,25 +121,134 @@ struct SettingsSideEffectsTests {
         let decision = SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: true,
             premiumEnabled: true,
-            aiAvailability: .available
+            aiAvailability: .available,
+            hasAuthoritativeAccess: true
         )
 
         #expect(decision == .keep)
     }
 
-    @Test("Smart reminders survive the window where premium access is still resolving")
+    @Test("Background enforcement never acts while entitlement state is unknown")
+    func accessActionDefersWhileEntitlementUnknown() {
+        // The defect that broke two earlier attempts: `canAccessAIFeatures == false` is value-identical
+        // for "not entitled" and "could not determine". An offline launch reaches `.unavailable` with
+        // no customer info, so acting here cancels a paying subscriber's reminders.
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: true,
+            isSuspended: false,
+            hasAuthoritativeAccess: false,
+            premiumEnabled: false,
+            aiAvailability: .available
+        )
+
+        #expect(action == .none)
+    }
+
+    @Test("Background enforcement suspends delivery once revocation is authoritative")
+    func accessActionSuspendsOnAuthoritativeRevocation() {
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: true,
+            isSuspended: false,
+            hasAuthoritativeAccess: true,
+            premiumEnabled: false,
+            aiAvailability: .available
+        )
+
+        #expect(action == .suspend)
+    }
+
+    @Test("Background enforcement does not suspend twice")
+    func accessActionDoesNotSuspendTwice() {
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: true,
+            isSuspended: true,
+            hasAuthoritativeAccess: true,
+            premiumEnabled: false,
+            aiAvailability: .available
+        )
+
+        #expect(action == .none)
+    }
+
+    @Test("Background enforcement resumes delivery when premium returns")
+    func accessActionResumesWhenPremiumReturns() {
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: true,
+            isSuspended: true,
+            hasAuthoritativeAccess: true,
+            premiumEnabled: true,
+            aiAvailability: .available
+        )
+
+        #expect(action == .resume)
+    }
+
+    @Test("Resume waits for on-device AI because rescheduling regenerates content")
+    func accessActionWaitsForAIBeforeResuming() {
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: true,
+            isSuspended: true,
+            hasAuthoritativeAccess: true,
+            premiumEnabled: true,
+            aiAvailability: .unavailable(reason: .modelNotReady)
+        )
+
+        #expect(action == .none)
+    }
+
+    @Test("Transient AI unavailability never suspends an already-scheduled reminder")
+    func accessActionIgnoresAIAvailabilityWhenEntitled() {
+        // The reminder carries pre-generated content, so a model that is still downloading is not a
+        // reason to stop delivering it.
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: true,
+            isSuspended: false,
+            hasAuthoritativeAccess: true,
+            premiumEnabled: true,
+            aiAvailability: .unavailable(reason: .modelNotReady)
+        )
+
+        #expect(action == .none)
+    }
+
+    @Test("Background enforcement ignores reminders the user turned off")
+    func accessActionIgnoresDisabledReminders() {
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: false,
+            isSuspended: true,
+            hasAuthoritativeAccess: true,
+            premiumEnabled: true,
+            aiAvailability: .available
+        )
+
+        #expect(action == .none)
+    }
+
+    @Test("Settings does not disable reminders while entitlement state is unknown")
     func smartRemindersSurviveUnresolvedPremiumAccess() {
-        // Regression: `canAccessAIFeatures` is false while RevenueCat resolves customer info, which is
-        // value-identical to a real revocation. Treating that window as revocation cancels a paying
-        // user's reminders on every cold launch.
+        // Regression: `premiumEnabled` is false both when RevenueCat is still resolving and when the
+        // fetch failed (offline launch). Treating either as revocation cancels a paying user's reminders
+        // and, before this guard, erased the setting the moment they opened Settings.
         let decision = SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: true,
             premiumEnabled: false,
             aiAvailability: .available,
-            isResolvingAccess: true
+            hasAuthoritativeAccess: false
         )
 
         #expect(decision == .keep)
+    }
+
+    @Test("Settings still disables reminders once revocation is authoritative")
+    func smartRemindersDisableOnAuthoritativeRevocation() {
+        let decision = SettingsSideEffects.smartReminderAccessDecision(
+            isEnabled: true,
+            premiumEnabled: false,
+            aiAvailability: .available,
+            hasAuthoritativeAccess: true
+        )
+
+        #expect(decision == .disablePremium)
     }
 
 

@@ -242,6 +242,60 @@ struct AIPedometerApp: App {
         ))
     }
 
+    /// Suspends or resumes already-scheduled Premium smart reminders when entitlement changes.
+    ///
+    /// Runs at deterministic points — after premium preparation completes at launch, and on each
+    /// foreground — rather than reacting to observable state, so it never depends on whether SwiftUI
+    /// re-evaluates an id at Scene scope. It never clears `smartRemindersEnabled`; suspension is
+    /// reversible so a resubscribing user keeps their setting.
+    private func enforceSmartReminderAccess() async {
+        // Lifecycle side effects are skipped under UI testing, the same contract
+        // `AppLifecycleCoordinator.handle` enforces: XCUITest drives foregrounds via `app.activate()`
+        // during tap retries, so running notification work there perturbs the very interaction under
+        // test. The behavior itself is covered by unit tests over `smartReminderAccessAction`.
+        guard !LaunchConfiguration.isTesting() else { return }
+
+        let defaults = UserDefaults.standard
+        let action = SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
+            isSuspended: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess),
+            hasAuthoritativeAccess: premiumAccessStore.hasAuthoritativeAccessState,
+            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            aiAvailability: foundationModelsService.availability
+        )
+
+        switch action {
+        case .none:
+            break
+        case .suspend:
+            smartNotificationService.cancelAllSmartNotifications()
+            defaults.set(true, forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess)
+            Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "premium_unavailable"])
+        case .resume:
+            let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
+                at: AppConstants.Notifications.defaultSmartReminderHour,
+                minute: AppConstants.Notifications.defaultSmartReminderMinute
+            )
+            guard didSchedule else { return }
+            // Scheduling generates content on-device and takes seconds, during which the user can turn
+            // the toggle off or entitlement can lapse again. Re-validate before committing, and undo the
+            // request otherwise — the same post-await eligibility re-check `scheduleSmartReminderIfCurrent`
+            // performs. Without this a repeating premium reminder can outlive the preference that allowed it.
+            // Undo only on a *definite* loss. Verification can fail mid-generation, which nils customer
+            // info and makes entitlement indeterminate again; cancelling on that would re-introduce the
+            // "cannot determine" == "not entitled" conflation this whole design exists to avoid.
+            let lostEntitlement = premiumAccessStore.hasAuthoritativeAccessState
+                && !premiumAccessStore.canAccessAIFeatures
+            guard defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
+                  !lostEntitlement else {
+                smartNotificationService.cancelAllSmartNotifications()
+                return
+            }
+            defaults.set(false, forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess)
+            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "premium_restored"])
+        }
+    }
+
     private static func resetStateForUITesting() {
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
@@ -282,6 +336,7 @@ struct AIPedometerApp: App {
                             await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
                         }
                     )
+                    await enforceSmartReminderAccess()
                 }
                 .onChange(of: onboardingCompleted) { _, _ in
                     Task { @MainActor in
@@ -295,6 +350,8 @@ struct AIPedometerApp: App {
                     lifecycleTask?.cancel()
                     lifecycleTask = Task { @MainActor in
                         await lifecycleCoordinator.handle(scenePhase: newPhase)
+                        guard newPhase == .active, !Task.isCancelled else { return }
+                        await enforceSmartReminderAccess()
                     }
                 }
         }

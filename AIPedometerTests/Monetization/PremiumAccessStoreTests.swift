@@ -180,6 +180,50 @@ struct PremiumAccessStoreTests {
         #expect(store.lastError != nil)
     }
 
+    @Test("An offline launch is not authoritative evidence that the user lost premium")
+    func offlineLaunchIsNotAuthoritativeAboutEntitlement() async {
+        // Regression guard for the trap that broke two attempts at automatic revocation enforcement:
+        // when the cold-launch fetch fails, state becomes .unavailable with no customer info, so BOTH
+        // `isResolvingAccess` and `canAccessAIFeatures` read false. Anything that treats that pair as
+        // "user is not entitled" cancels reminders for paying subscribers who happen to be offline.
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .failure(URLError(.notConnectedToInternet))
+        client.offeringsResult = .failure(URLError(.notConnectedToInternet))
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.refresh()
+
+        #expect(store.canAccessAIFeatures == false)
+        // The pre-existing signal cannot distinguish this case...
+        #expect(store.isResolvingAccess == false)
+        // ...so enforcement must rely on this one, which correctly reports "we do not know".
+        #expect(store.hasAuthoritativeAccessState == false)
+    }
+
+    @Test("Verified customer info is authoritative evidence about entitlement")
+    func verifiedCustomerInfoIsAuthoritative() async {
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.refresh()
+
+        #expect(store.canAccessAIFeatures == false)
+        #expect(store.hasAuthoritativeAccessState == true)
+    }
+
     @Test("refresh preserves premium access when customer info succeeds and offerings fail")
     func refreshPreservesAccessWhenOfferingsFail() async {
         let client = FakePurchasesClient()

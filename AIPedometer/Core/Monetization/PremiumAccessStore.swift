@@ -183,6 +183,25 @@ final class PremiumAccessStore {
         }
     }
 
+    /// True when entitlement state is known with confidence, so a `false` reading of
+    /// `canAccessAIFeatures` means "this user is not entitled" rather than "we could not find out".
+    ///
+    /// The two are otherwise value-identical, and acting on the second has repeatedly produced
+    /// customer-harming behavior. `isResolvingAccess` is not sufficient on its own: it reports `false`
+    /// for `.unavailable`, which `refresh()` reaches with `customerInfo == nil` whenever the cold-launch
+    /// fetch or verification fails (for example on an offline launch).
+    var hasAuthoritativeAccessState: Bool {
+        // Launch-configured and test overrides are definitive by construction.
+        guard forcedPremiumEnabled == nil else { return true }
+        guard !isTesting else { return true }
+        // No RevenueCat configuration means nobody has premium in this build; that is the documented
+        // fail-closed posture, and it is a definite answer rather than an unknown one.
+        guard isConfigured else { return true }
+        // Otherwise we need verified customer info that we actually fetched.
+        guard let customerInfo else { return false }
+        return customerInfo.entitlements.verification.isVerified
+    }
+
     var isPremiumActive: Bool {
         if let forcedPremiumEnabled {
             return forcedPremiumEnabled
