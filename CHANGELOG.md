@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Smart reminders are no longer disabled while premium access is still being resolved. Subscription state is briefly indistinguishable from "no subscription" during that window, which could switch a paying subscriber's reminders off.
+- Premium smart reminders now stop when a subscription actually ends, instead of continuing until Settings is next opened. Delivery is paused rather than switched off, so reminders resume on their own after resubscribing.
+- Smart reminders are no longer disabled when subscription status simply cannot be checked, such as on an offline launch or while access is still loading. Those states were previously indistinguishable from a cancelled subscription and could switch a paying subscriber's reminders off.
+- A temporarily unavailable on-device AI model, for example while it is still downloading, no longer clears the smart reminders setting.
 
 ### Changed
 
