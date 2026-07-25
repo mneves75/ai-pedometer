@@ -166,6 +166,48 @@ Also confirm repo scope first with:
 - UI-test markers at `opacity(0.01)` are still visible in screenshots. Use the shared fully clear 1×1 accessibility marker and preserve a targeted XCUITest proving both marker discovery and visually clean captures.
 - **0.94 (50) local simulator proof:** stable Xcode 26.6 on iOS 26.5 passed 576/576 unit tests and 16/16 XCUITests. The embedded watch app and widget compiled in the app graph; this is not physical-device, watch-UI, TestFlight, or App Store publication proof.
 
+## Premium Access: "not entitled" vs "cannot tell" (2026-07-24, 0.95)
+
+- `PremiumAccessStore.canAccessAIFeatures` → `isPremiumActive` → **false whenever `customerInfo == nil`**.
+  That value is identical for "user has no subscription" and "we have not resolved yet / cannot reach
+  RevenueCat". Any code that treats a false reading as *revocation* will punish paying subscribers.
+- `isResolvingAccess` distinguishes the loading window, **but it deliberately returns `false` for
+  `state == .unavailable`** (line ~181), and `refresh()` sets `.unavailable` with `customerInfo == nil`
+  on ANY cold-launch fetch failure (~lines 289-290) or verification failure. So `isResolvingAccess`
+  alone is NOT sufficient: a paying user launching **offline** reads `isResolvingAccess == false` and
+  `canAccessAIFeatures == false` together.
+- Consequence proven twice in review: two separate attempts to auto-cancel Premium smart reminders on
+  revocation would each have cancelled reminders and erased `smartRemindersEnabled` for paying users.
+  Both were reverted. Only a protective guard shipped (`smartReminderAccessDecision(isResolvingAccess:)`,
+  defaulted false, can only *prevent* a cancellation).
+- **OPEN, escalated to the user (product/revenue decision, not engineering):** Premium smart reminders
+  are repeating `UNCalendarNotificationTrigger`s and still survive entitlement revocation while Settings
+  is closed. Deciding the fix requires answering (1) when entitlement is undeterminable, keep or cancel?
+  and (2) should enforcement destroy the persisted preference at all, or only cancel the pending
+  notification? Recommended design + full evidence: `implementation-notes.html#finding-095-self-inflicted`.
+  Do not re-attempt without that decision.
+
+## Operator Lessons (added 2026-07-24)
+
+- **Autoreview your OWN uncommitted diff before every commit — it has a far better hit rate than auditing
+  existing code.** In the 0.95 cycle, six review lenses over unchanged source found 0 critical/0 high,
+  while independent review of the agent's own new diff caught TWO customer-harming regressions that the
+  full 613-test suite passed cleanly (no test exercised the unresolved-access window until one was written).
+- **When successive fixes to the same seam each introduce a worse bug, stop and ask whether the underlying
+  question is a product decision, not an engineering one.** Three rounds, three ways to harm paying users
+  was the signal to escalate rather than iterate.
+- **`await Task.yield()` is never a synchronization primitive in a test.** It guarantees only that the
+  *current* task suspends once, not that another task ran to completion. `goalPersistenceDoesNotAwaitRefresh`
+  passed 15/15 isolated but failed under full-suite load for exactly this reason; fixed with an explicit
+  completion latch (same pattern as the 2026-07-21 `StreamRenderProbe` fix), assertion unchanged.
+- **`.supergoal/` contains TRACKED files** (`PROTOCOL.md`, `ROADMAP.md`, `STATE.md`) committed by a prior
+  supergoal run — it is not agent scratch. Run `git ls-files <dir>` before any `rm` in a dot-directory.
+  Safe restore for a *deleted* tracked file is `git show HEAD:<path> > <path>`; `git checkout HEAD -- <path>`
+  is blocked by the dcg guard because it overwrites the working tree.
+- A `** TEST FAILED **` line is not automatically a code failure: `Mach error -308 (ipc/mig) server died`
+  is the simulator server dying under contention. Do not run a full E2E, a targeted test run, and a polling
+  wait-loop against simulators concurrently.
+
 ## Memory Rules
 
 - If the user says "remember this", write it down immediately.
