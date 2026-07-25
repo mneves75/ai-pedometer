@@ -3,10 +3,14 @@ import Testing
 
 @testable import AIPedometer
 
-// MARK: - HealthKitService Protocol Tests
+// MARK: - MockHealthKitService Test-Double Contract
+// These tests pin the MockHealthKitService test double's own configuration behavior (steps,
+// error, authorization tracking). The concrete HealthKitService is intentionally not exercised
+// here because HKHealthStore is unavailable in unit tests; production query/authorization logic
+// is covered by the suites below and by the many suites that depend on this mock.
 
-@Suite("HealthKitService Protocol Tests")
-struct HealthKitServiceProtocolTests {
+@Suite("MockHealthKitService test-double contract")
+struct MockHealthKitServiceContractTests {
 
     @Test("Mock service returns configured steps")
     @MainActor
