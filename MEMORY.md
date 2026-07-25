@@ -45,6 +45,12 @@ Also confirm repo scope first with:
 - RevenueCat is pinned by the immutable annotated-tag object in `project.yml`, while Xcode's
   `Package.resolved` records the resolving commit. Run `Scripts/check-revenuecat-staleness.sh`
   before release and review the upstream release notes; never replace the pin with a moving branch.
+- `asc 3.1.0` has two separate authentication planes. `asc web auth` uses an Apple Account web session
+  for `asc web ...` workflows; normal app, build, TestFlight, and `asc publish ...` commands still
+  require `asc auth` JWT credentials (key ID, Issuer ID, and `.p8`). `asc web auth capabilities` can
+  confirm a team API key and its role, but it does not reveal the Issuer ID. Never substitute web-session
+  provider/team identifiers for the Issuer ID. `Scripts/test-payments-device.sh` is correct to require
+  `asc auth`.
 - `InsightService` weekly generation is single-flight across one Foundation Models session. Cache
   invalidation or week rollover increments an ownership generation; incompatible callers await the
   prior flight and re-evaluate instead of starting a concurrent model session. Stale flights must
