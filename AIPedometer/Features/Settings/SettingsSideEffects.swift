@@ -30,9 +30,14 @@ enum SettingsSideEffects {
     static func smartReminderAccessDecision(
         isEnabled: Bool,
         premiumEnabled: Bool,
-        aiAvailability: AIModelAvailability
+        aiAvailability: AIModelAvailability,
+        isResolvingAccess: Bool = false
     ) -> SmartReminderAccessDecision {
         guard isEnabled else { return .keep }
+        // `canAccessAIFeatures` is false while RevenueCat is still resolving customer info, which is
+        // indistinguishable from a real revocation by value alone. Defer the decision until access is
+        // resolved, otherwise a paying user's reminders get cancelled during the cold-launch window.
+        guard !isResolvingAccess else { return .keep }
         guard premiumEnabled else { return .disablePremium }
 
         if case .unavailable(let reason) = aiAvailability {

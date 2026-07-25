@@ -11,6 +11,10 @@ struct SettingsSideEffectsTests {
         var refreshFinished = false
         let refreshStarted = SettingsAsyncTestLatch()
         let releaseRefresh = SettingsAsyncTestLatch()
+        // Wait on an explicit completion signal rather than a bare `Task.yield()`. A single yield only
+        // guarantees this task suspends once, not that the released refresh task runs to completion, so
+        // the old form failed under full-suite load while passing in isolation.
+        let refreshCompleted = SettingsAsyncTestLatch()
 
         let didSave = SettingsSideEffects.persistGoalAndScheduleRefresh(
             goal: 12_000,
@@ -22,15 +26,17 @@ struct SettingsSideEffectsTests {
                 refreshStarted.signal()
                 await releaseRefresh.wait()
                 refreshFinished = true
+                refreshCompleted.signal()
             }
         )
 
         #expect(didSave)
         #expect(persistedGoal == 12_000)
         await refreshStarted.wait()
+        // The contract under test: persistence returned before the refresh finished.
         #expect(refreshFinished == false)
         releaseRefresh.signal()
-        await Task.yield()
+        await refreshCompleted.wait()
         #expect(refreshFinished)
     }
 
@@ -118,6 +124,22 @@ struct SettingsSideEffectsTests {
 
         #expect(decision == .keep)
     }
+
+    @Test("Smart reminders survive the window where premium access is still resolving")
+    func smartRemindersSurviveUnresolvedPremiumAccess() {
+        // Regression: `canAccessAIFeatures` is false while RevenueCat resolves customer info, which is
+        // value-identical to a real revocation. Treating that window as revocation cancels a paying
+        // user's reminders on every cold launch.
+        let decision = SettingsSideEffects.smartReminderAccessDecision(
+            isEnabled: true,
+            premiumEnabled: false,
+            aiAvailability: .available,
+            isResolvingAccess: true
+        )
+
+        #expect(decision == .keep)
+    }
+
 
     @Test(
         "Smart reminder authorization cannot schedule after eligibility revocation",

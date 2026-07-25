@@ -618,7 +618,8 @@ struct SettingsView: View {
         switch SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: smartRemindersEnabled,
             premiumEnabled: premiumAccessStore.canAccessAIFeatures,
-            aiAvailability: aiService.availability
+            aiAvailability: aiService.availability,
+            isResolvingAccess: premiumAccessStore.isResolvingAccess
         ) {
         case .keep:
             break
