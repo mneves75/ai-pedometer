@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.96] - 2026-07-27
+
+### Fixed
+
+- Brazilian Portuguese now covers the subscription paywall and the AI insight fallback messages. Eleven strings had no catalog entry and rendered in English on Portuguese devices.
+- A workout Live Activity left behind when the app is force-quit or crashes is now cleared on the next launch, and finishing or discarding the recovered workout removes it. Previously it stayed pinned to the Lock Screen with frozen metrics, and starting a new workout added a second one.
+- Home Screen widgets no longer present a previous day's totals as today's progress when the app has not refreshed overnight; day-scoped values reset at the day boundary while the goal is kept.
+- Losing a subscription now stops premium smart reminders as soon as the store confirms it, instead of waiting for the next app launch.
+
+### Security
+
+- Xcode Preview environment overrides can no longer influence persistence behavior in Release builds.
+- GPX import enforces its size limit while reading the file rather than only checking beforehand.
+- App Store Connect private keys, provisioning profiles, and signing material are ignored by Git so they cannot be committed accidentally.
+
+### Changed
+
+- Continuous integration runs again: a guardrail that required a maintainer-only local checkout was failing every run and blocking all build and test steps.
+- Localization coverage is now verified from the source side, so a user-facing string without a catalog entry fails the test suite instead of shipping untranslated.
+
 ## [0.95] - 2026-07-25
 
 ### Fixed

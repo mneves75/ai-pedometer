@@ -5,7 +5,7 @@
 - `AIPedometerWatch/`: watchOS companion app.
 - `AIPedometerWidgets/`: iOS widgets and Live Activities.
 - `Shared/`: shared models, services, utilities, and resources used across targets.
-- `Resources/`: shared assets and catalogs.
+- `Shared/Resources/`: cross-target assets and the `Localizable.xcstrings` catalog.
 - `AIPedometerTests/` and `AIPedometerUITests/`: unit and UI tests.
 
 ## Project Configuration
