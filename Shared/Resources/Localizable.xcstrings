@@ -8420,6 +8420,193 @@
           }
         }
       }
+    },
+    "AI Coach and smart reminders behind one entitlement." : {
+      "comment" : "Premium benefit: AI coach and smart reminders",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Coach and smart reminders behind one entitlement."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Treinador de IA e lembretes inteligentes em uma única assinatura."
+          }
+        }
+      }
+    },
+    "Adaptive training plans with safe fallback logic." : {
+      "comment" : "Premium benefit: adaptive training plans",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adaptive training plans with safe fallback logic."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planos de treino adaptáveis, com alternativas seguras quando a IA não está disponível."
+          }
+        }
+      }
+    },
+    "Choose a plan" : {
+      "comment" : "Paywall section title for subscription options",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a plan"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha um plano"
+          }
+        }
+      }
+    },
+    "Daily AI insight grounded in your real step data." : {
+      "comment" : "Premium benefit: daily AI insight",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily AI insight grounded in your real step data."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Análise diária de IA baseada nos seus dados reais de passos."
+          }
+        }
+      }
+    },
+    "Loading..." : {
+      "comment" : "Paywall loading state while offerings resolve",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading..."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carregando..."
+          }
+        }
+      }
+    },
+    "Choose one day next week to target about 10% above your current average." : {
+      "comment" : "AI insight fallback recommendation when the week was steady",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose one day next week to target about 10% above your current average."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha um dia da próxima semana para mirar cerca de 10% acima da sua média atual."
+          }
+        }
+      }
+    },
+    "Here is a summary based on your latest recorded history." : {
+      "comment" : "AI insight fallback preamble when the model is unavailable",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Here is a summary based on your latest recorded history."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este é um resumo baseado no seu histórico mais recente."
+          }
+        }
+      }
+    },
+    "I used a safe summary based on your recorded history this week." : {
+      "comment" : "AI insight fallback notice when the model is unavailable",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I used a safe summary based on your recorded history this week."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usei um resumo seguro baseado no seu histórico registrado nesta semana."
+          }
+        }
+      }
+    },
+    "Keep this pace and repeat your best-day routine on one lower-activity day next week." : {
+      "comment" : "AI insight fallback recommendation when the week was strong",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep this pace and repeat your best-day routine on one lower-activity day next week."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantenha esse ritmo e repita a rotina do seu melhor dia em um dia de menor atividade na próxima semana."
+          }
+        }
+      }
+    },
+    "Pick two days next week to match your average and recover consistency gradually." : {
+      "comment" : "AI insight fallback recommendation when the week was below average",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick two days next week to match your average and recover consistency gradually."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha dois dias da próxima semana para igualar sua média e recuperar a consistência aos poucos."
+          }
+        }
+      }
+    },
+    "Your strongest day this week was above your average." : {
+      "comment" : "AI insight fallback observation about the best day of the week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your strongest day this week was above your average."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu melhor dia nesta semana ficou acima da sua média."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
