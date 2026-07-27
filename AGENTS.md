@@ -161,6 +161,16 @@ bash Scripts/test-payments-device.sh
 - Localization policy is strict: `pt-BR` devices use Portuguese; all other locales default to English.
 - Do not add cloud AI calls for product AI behavior unless explicitly requested.
 - Do not weaken premium gating; unavailable RevenueCat configuration must not expose premium AI actions.
+- Premium access is a TRI-STATE, not a boolean. `canAccessAIFeatures == false` means either "this user is
+  not entitled" or "entitlement could not be determined", and the two are value-identical. Use
+  `PremiumAccessStore.hasAuthoritativeAccessState` before taking any action that revokes something from the
+  user. `isResolvingAccess` is NOT sufficient: it reports `false` for the `.unavailable` state that
+  `refresh()` reaches whenever the cold-launch fetch or verification fails, which is what an offline launch
+  looks like. Three separate attempts to automate revocation shipped this bug and were reverted; see
+  `implementation-notes.html#finding-095-self-inflicted`.
+- Automatic enforcement never erases a user's persisted preference. Losing access suspends delivery
+  (`smartRemindersSuspendedByAccess`) and regaining it resumes; only explicit user action clears the
+  preference itself.
 - For RevenueCat/App Store payment work, keep the setup aligned with `docs/revenuecat/apple-payments-setup.md`: recurring premium uses RevenueCat + App Store Connect subscriptions, the Tip Jar remains separate through StoreKit 2, and `.p8` files, ASC credentials, RevenueCat secret keys, sandbox accounts, and local Apple account details must never be committed.
 - For Swift, iOS, iPadOS, or watchOS 26 behavior, check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
 - For Swift, iOS, iPadOS, or watchOS 27 behavior, check official Apple documentation in `/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.

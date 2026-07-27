@@ -48,6 +48,10 @@ Do not create standalone completion-report markdown files. Temporary markdown pl
 - Tooling: Swift 6.2, Xcode 26.x, XcodeGen, SwiftUI, Observation, SwiftData, Swift Testing, XCUITest.
 - Source of truth: `project.yml`; regenerate `AIPedometer.xcodeproj` after target/package/entitlement/new Swift source changes. When bumping `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`, **always edit `project.yml` first, then re-run `xcodegen generate`** — the generated `.xcodeproj` snapshots those fields, so a build started after the bump but before regeneration will ship the old version (the installed `Info.plist` will silently lag).
 - Premium behavior: RevenueCat-backed AI surfaces fail closed when not configured.
+- Premium access is a tri-state. `canAccessAIFeatures == false` means "not entitled" OR "could not
+  determine" — check `PremiumAccessStore.hasAuthoritativeAccessState` before revoking anything from the
+  user, and never rely on `isResolvingAccess` alone (it reads `false` on an offline launch). Automatic
+  enforcement suspends delivery; it never erases the user's saved preference.
 - Payment setup: recurring premium uses RevenueCat + App Store Connect subscriptions; the Tip Jar remains separate through StoreKit 2.
 - Privacy posture: health and AI data stays local-first; do not add cloud AI calls unless explicitly requested.
 
