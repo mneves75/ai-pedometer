@@ -31,6 +31,7 @@ struct AIPedometerApp: App {
     private let appLocale: Locale
     @Environment(\.scenePhase) private var scenePhase
     @State private var lifecycleTask: Task<Void, Never>?
+    @State private var isEnforcingSmartReminderAccess = false
 
     init() {
         if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldResetState() {
@@ -255,6 +256,13 @@ struct AIPedometerApp: App {
         // test. The behavior itself is covered by unit tests over `smartReminderAccessAction`.
         guard !LaunchConfiguration.isTesting() else { return }
 
+        // Foreground, launch, and every verified customer-info publication can all fire close together.
+        // Resuming regenerates reminder content on-device, so overlapping runs would burn redundant model
+        // work; this keeps enforcement single-flight.
+        guard !isEnforcingSmartReminderAccess else { return }
+        isEnforcingSmartReminderAccess = true
+        defer { isEnforcingSmartReminderAccess = false }
+
         let defaults = UserDefaults.standard
         let action = SettingsSideEffects.smartReminderAccessAction(
             isEnabled: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
@@ -328,6 +336,12 @@ struct AIPedometerApp: App {
                 .environment(premiumAccessStore)
                 .modelContainer(persistence.container)
                 .task {
+                    // RevenueCat refreshes customer info asynchronously on foreground and publishes the
+                    // result through its stream. Without this hook a revocation arriving that way would
+                    // sit unenforced until the next launch, which is exactly the leak 0.95 set out to close.
+                    premiumAccessStore.onAuthoritativeAccessPublished = {
+                        Task { @MainActor in await enforceSmartReminderAccess() }
+                    }
                     await AppLaunchSequence.start(
                         preparePremiumAccess: {
                             await premiumAccessStore.prepare()

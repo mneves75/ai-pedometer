@@ -634,6 +634,13 @@ struct SettingsView: View {
     }
 
     private func enforceSmartReminderAccessIfNeeded() async {
+        // Recovery first: when premium or the on-device model comes back while Settings is open, a
+        // suspended reminder has to be rescheduled here. The decision function below is one-way — it
+        // returns `.keep` on recovery — so without this the toggle would read off, be tappable again, and
+        // writing the already-true `smartRemindersEnabled` would not fire `.onChange`, leaving delivery
+        // suspended until some later foreground.
+        if await resumeSuspendedSmartRemindersIfPossible() { return }
+
         switch SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: smartRemindersEnabled,
             premiumEnabled: premiumAccessStore.canAccessAIFeatures,
@@ -661,6 +668,41 @@ struct SettingsView: View {
             isUpdatingSmartReminders = false
             Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "ai_unavailable"])
         }
+    }
+
+    /// Reschedules a reminder that background enforcement suspended, once access is authoritatively back.
+    /// Returns true when it handled the state, so the caller skips the one-way disable decision.
+    private func resumeSuspendedSmartRemindersIfPossible() async -> Bool {
+        guard SettingsSideEffects.smartReminderAccessAction(
+            isEnabled: smartRemindersEnabled,
+            isSuspended: smartRemindersSuspendedByAccess,
+            hasAuthoritativeAccess: premiumAccessStore.hasAuthoritativeAccessState,
+            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
+            aiAvailability: aiService.availability
+        ) == .resume else { return false }
+
+        smartReminderUpdateGeneration &+= 1
+        let generation = smartReminderUpdateGeneration
+        let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
+            at: AppConstants.Notifications.defaultSmartReminderHour,
+            minute: AppConstants.Notifications.defaultSmartReminderMinute
+        )
+        guard didSchedule else { return true }
+
+        // Same post-await eligibility re-check the scheduling path uses: generating content takes seconds,
+        // during which the user can toggle off or entitlement can lapse again.
+        let lostEntitlement = premiumAccessStore.hasAuthoritativeAccessState
+            && !premiumAccessStore.canAccessAIFeatures
+        guard smartReminderUpdateGeneration == generation,
+              smartRemindersEnabled,
+              !lostEntitlement else {
+            smartNotificationService.cancelAllSmartNotifications()
+            return true
+        }
+
+        smartRemindersSuspendedByAccess = false
+        Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "access_restored"])
+        return true
     }
 
     private func ensureNotificationAuthorization() async -> Bool {

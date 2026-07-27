@@ -110,6 +110,12 @@ final class PremiumAccessStore {
 
     let configuration: AppConstants.RevenueCatConfiguration
 
+    /// Invoked whenever verified customer info is published, from any source: the launch refresh, the
+    /// customer-info stream, restore, or a purchase. Entitlement can change at any of those points, and
+    /// the stream in particular delivers RevenueCat's asynchronous foreground refresh — a revocation that
+    /// lands there would otherwise go unnoticed until the next launch.
+    var onAuthoritativeAccessPublished: (@MainActor () -> Void)?
+
     private let forcedPremiumEnabled: Bool?
     private let isTesting: Bool
     private let purchasesClient: any PurchasesClientProtocol
@@ -437,6 +443,9 @@ final class PremiumAccessStore {
         if !ownsLivePurchaseAttempt, pendingPurchaseWasResolved(by: candidate) {
             clearPendingPurchase()
         }
+        // Only the verified path notifies: a failed verification nils `customerInfo`, which makes access
+        // non-authoritative, and consumers must not act on a state they cannot determine.
+        onAuthoritativeAccessPublished?()
         return true
     }
 

@@ -312,6 +312,41 @@ struct PremiumAccessStoreTests {
         #expect(client.customerInfoStreamCallCount == 0)
     }
 
+    @Test("A revocation arriving through the customer info stream notifies access consumers")
+    func streamedRevocationNotifiesAccessConsumers() async throws {
+        // Regression: RevenueCat refreshes customer info asynchronously on foreground and publishes the
+        // result through this stream. Enforcement that only samples at launch/foreground reads the stale
+        // still-active cache, so a subscription that lapsed while backgrounded kept its premium reminder
+        // scheduled until some later launch. The publication itself must notify.
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: ["premium"]))
+        client.offeringsResult = .failure(CocoaError(.fileReadUnknown))
+        let (customerInfoStream, streamContinuation) = AsyncStream<CustomerInfo>.makeStream()
+        client.customerInfoStreamOverride = customerInfoStream
+        defer { streamContinuation.finish() }
+
+        let store = makePremiumAccessStore(client: client)
+        var notifications = 0
+        store.onAuthoritativeAccessPublished = { notifications += 1 }
+
+        await store.prepare()
+        try await waitUntilPremiumCondition("RevenueCat customer info stream did not start") {
+            client.customerInfoStreamCallCount == 1
+        }
+        let afterPrepare = notifications
+        #expect(afterPrepare >= 1)
+        #expect(store.canAccessAIFeatures == true)
+
+        // The subscription lapses and RevenueCat publishes the verified revocation.
+        streamContinuation.yield(makeCustomerInfo(activeEntitlementIDs: []))
+        try await waitUntilPremiumCondition("Streamed revocation did not notify access consumers") {
+            notifications > afterPrepare
+        }
+
+        #expect(store.canAccessAIFeatures == false)
+        #expect(store.hasAuthoritativeAccessState == true)
+    }
+
     @Test("Customer info stream does not retain the premium store")
     func customerInfoStreamDoesNotRetainStore() async throws {
         let client = FakePurchasesClient()
