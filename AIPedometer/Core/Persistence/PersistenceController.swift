@@ -4,8 +4,12 @@ import SwiftData
 @MainActor
 final class PersistenceController {
     static let shared: PersistenceController = {
-        let environment = ProcessInfo.processInfo.environment
-        let isPreview = environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        // Preview relaxes the store requirements, so it must never be reachable in Release. Environment
+        // variables are attacker-supplied input on a device (they can be set through devicectl), and
+        // honoring one here would let a Release build silently fall back to a private or in-memory store
+        // instead of failing closed — masking the failure and losing data at process exit. This mirrors
+        // `LaunchConfiguration.isOverridable`, which is unconditionally false in Release.
+        let isPreview = PersistenceController.isRunningInXcodePreview
         return PersistenceController(
             inMemory: false,
             requireSharedContainer: !isPreview,
@@ -13,6 +17,14 @@ final class PersistenceController {
             allowInMemoryFallback: isPreview
         )
     }()
+
+    static var isRunningInXcodePreview: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        #else
+        return false
+        #endif
+    }
 
     let container: ModelContainer
 

@@ -81,6 +81,14 @@ Config/Local.xcconfig
 Secrets/
 credentials.json
 GoogleService-Info.plist
+# App Store Connect API private keys. These are commonly downloaded straight into a project
+# directory rather than into Secrets/, and a committed .p8 is burned even after deletion.
+*.p8
+AuthKey_*.p8
+# Provisioning profiles and signing material
+*.mobileprovision
+*.provisionprofile
+*.p12
 
 # Archives
 *.ipa
