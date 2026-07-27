@@ -149,7 +149,12 @@ targets:
         WK_COMPANION_APP_BUNDLE_IDENTIFIER: com.mneves.aipedometer
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        SKIP_INSTALL: NO
+        # Must be YES: the watch app ships embedded at AIPedometer.app/Watch/. With SKIP_INSTALL=NO it is
+        # ALSO installed as a top-level product, so an archive contains two apps under
+        # Products/Applications, Xcode cannot identify the primary one, and it writes no
+        # ApplicationProperties — which makes `xcodebuild -exportArchive` report zero valid distribution
+        # methods and blocks every App Store/TestFlight upload.
+        SKIP_INSTALL: YES
         # watchOS does not support arm64e; opt out of the Enhanced Security pointer-auth cascade.
         ENABLE_POINTER_AUTHENTICATION: NO
     dependencies: []
