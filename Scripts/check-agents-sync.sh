@@ -12,9 +12,18 @@ if [[ ! -f "${LOCAL_AGENTS}" ]]; then
 fi
 
 if [[ ! -f "${UPSTREAM_AGENTS}" ]]; then
-  echo "GUIDELINES-REF AGENTS.md not found at ${UPSTREAM_AGENTS}" >&2
-  echo "Set GUIDELINES_REF_ROOT to override the location." >&2
-  exit 1
+  # The canonical copy lives outside this repository, so it is absent on CI runners and on any clean
+  # clone. Hard-failing there does not detect drift, it just breaks the build: this gate ran first in a
+  # single serial CI job and silently blocked every build and test step for days. Skip when the
+  # reference is unavailable, and keep it strict where it can actually be checked.
+  if [[ "${REQUIRE_GUIDELINES_REF:-0}" == "1" ]]; then
+    echo "GUIDELINES-REF AGENTS.md not found at ${UPSTREAM_AGENTS}" >&2
+    echo "REQUIRE_GUIDELINES_REF=1 made its absence fatal." >&2
+    exit 1
+  fi
+  echo "GUIDELINES-REF checkout not present at ${GUIDELINES_REF_ROOT}; skipping mirror comparison."
+  echo "Set GUIDELINES_REF_ROOT to point at it, or REQUIRE_GUIDELINES_REF=1 to treat absence as a failure."
+  exit 0
 fi
 
 local_section="$(
