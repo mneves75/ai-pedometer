@@ -851,8 +851,19 @@ struct InsightServiceTests {
         #expect(foundationModels.respondCallCount == 1)
         #expect(!analysis.summary.isEmpty)
         #expect(analysis.summary != String(localized: "No Activity Data", comment: "Weekly trend summary when no data is available"))
-        #expect(analysis.observation.contains("safe summary"))
-        #expect(analysis.recommendation.contains("next week"))
+        // Assert through the same localization lookup production uses. These previously matched raw
+        // English fragments, which only worked because the strings had no catalog entry and fell back to
+        // their keys; once translated they resolve to Portuguese on a pt-BR host.
+        #expect(analysis.observation.contains(
+            String(
+                localized: "I used a safe summary based on your recorded history this week.",
+                comment: "AI insight fallback notice when the model is unavailable"
+            )
+        ))
+        #expect(analysis.recommendation == String(
+            localized: "Keep this pace and repeat your best-day routine on one lower-activity day next week.",
+            comment: "AI insight fallback recommendation when the week was strong"
+        ))
     }
 
     @Test("Weekly analysis prompt includes non-medical safety rules")
