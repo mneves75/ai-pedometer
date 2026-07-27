@@ -101,6 +101,12 @@ final class WorkoutSessionController {
         self.now = now
         self.isExpeditionModeEnabled = isExpeditionModeEnabled
         loadRecoverableSession()
+        // Nothing can be live in-process at init, so any activity still running belongs to a previous
+        // launch and is showing frozen metrics. Clear it here rather than waiting for the user to act on
+        // the recovered session, which they may never do.
+        Task { [liveActivityManager] in
+            await liveActivityManager.endOrphanedActivities()
+        }
     }
 
     var isActive: Bool {
