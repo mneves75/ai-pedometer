@@ -199,3 +199,64 @@ struct UserDefaultsSharedStepDataTests {
         #expect(data.isStale(referenceDate: nextDayReference, calendar: calendar))
     }
 }
+
+@Suite("SharedStepData render normalization")
+struct SharedStepDataRenderNormalizationTests {
+    private func makeData(lastUpdated: Date) -> SharedStepData {
+        SharedStepData(
+            todaySteps: 12_340,
+            goalSteps: 10_000,
+            goalProgress: 1.234,
+            currentStreak: 7,
+            lastUpdated: lastUpdated,
+            weeklySteps: [5400, 6100, 7200, 8300, 9100, 10_200, 12_340]
+        )
+    }
+
+    /// 2023-11-14 00:00:00 UTC. Fixtures are offset from an explicit start-of-day so that "same day"
+    /// cases cannot silently cross midnight.
+    private static let dayStart = Date(timeIntervalSince1970: 1_699_920_000)
+
+    private var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }
+
+    @Test("A payload from an earlier day is not presented as today's progress")
+    func previousDayPayloadIsResetForToday() {
+        // Regression: widgets re-read the app-group payload on their own 30-minute timeline. With no
+        // overnight write — background refresh is not guaranteed — yesterday's 12,340 steps and completed
+        // goal ring were rendered as today's, congratulating the user for steps they had not taken.
+        let calendar = utcCalendar
+        let lastNight = Self.dayStart.addingTimeInterval(22 * 3600)
+        let nextMorning = Self.dayStart.addingTimeInterval(32 * 3600)
+        #expect(!calendar.isDate(lastNight, inSameDayAs: nextMorning))
+
+        let normalized = makeData(lastUpdated: lastNight)
+            .normalizedForRendering(at: nextMorning, calendar: calendar)
+
+        #expect(normalized.todaySteps == 0)
+        #expect(normalized.goalProgress == 0)
+        // The goal and streak are not day-scoped, so they survive and the ring keeps a target.
+        #expect(normalized.goalSteps == 10_000)
+        #expect(normalized.currentStreak == 7)
+    }
+
+    @Test("Same-day data is left untouched even when it is over an hour old")
+    func sameDayPayloadSurvivesEvenWhenOld() {
+        // Narrower than `isStale` on purpose: an hour-old payload is still today's best-known progress,
+        // and zeroing it would erase real steps for anyone whose app simply has not refreshed recently.
+        let calendar = utcCalendar
+        let morning = Self.dayStart.addingTimeInterval(8 * 3600)
+        let sameDayLater = Self.dayStart.addingTimeInterval(11 * 3600)
+        #expect(calendar.isDate(morning, inSameDayAs: sameDayLater))
+        #expect(makeData(lastUpdated: morning).isStale(referenceDate: sameDayLater, calendar: calendar))
+
+        let normalized = makeData(lastUpdated: morning)
+            .normalizedForRendering(at: sameDayLater, calendar: calendar)
+
+        #expect(normalized.todaySteps == 12_340)
+        #expect(normalized.goalProgress == 1.234)
+    }
+}

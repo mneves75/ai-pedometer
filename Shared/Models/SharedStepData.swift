@@ -59,4 +59,27 @@ struct SharedStepData: Codable, Sendable {
         let age = referenceDate.timeIntervalSince(lastUpdated)
         return !(0...3600).contains(age)
     }
+
+    /// Returns the payload as it should be presented at `renderDate`.
+    ///
+    /// Widget timeline entries are rendered long after they are built, and the app may not have written
+    /// since. When this payload belongs to an earlier day its day-scoped values are not today's, so
+    /// presenting them would credit the user for steps they have not taken and show a completed goal ring.
+    /// Those fields are reset while the goal is kept, so the ring still has a target.
+    ///
+    /// Deliberately narrower than `isStale`, which is also true for same-day data more than an hour old:
+    /// that is still today's best-known progress and must be shown as-is.
+    func normalizedForRendering(at renderDate: Date, calendar: Calendar = .autoupdatingCurrent) -> SharedStepData {
+        guard !calendar.isDate(lastUpdated, inSameDayAs: renderDate) else { return self }
+
+        return SharedStepData(
+            todaySteps: 0,
+            goalSteps: goalSteps,
+            goalProgress: 0,
+            currentStreak: currentStreak,
+            lastUpdated: lastUpdated,
+            weeklySteps: weeklySteps,
+            schemaVersion: schemaVersion
+        )
+    }
 }
