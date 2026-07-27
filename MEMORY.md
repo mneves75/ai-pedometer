@@ -208,6 +208,45 @@ Also confirm repo scope first with:
   is the simulator server dying under contention. Do not run a full E2E, a targeted test run, and a polling
   wait-loop against simulators concurrently.
 
+## App Store Export / TestFlight — hard-won mechanics (2026-07-27)
+
+- **`SKIP_INSTALL` on the watch target is release-critical.** With `SKIP_INSTALL: NO`, an archive gets TWO
+  apps under `Products/Applications` (app + watch). Xcode then cannot identify a primary app, writes **no
+  `ApplicationProperties`** into the archive `Info.plist`, and `xcodebuild -exportArchive` reports an EMPTY
+  set of distribution methods. It surfaces as
+  `exportOptionsPlist error for key "method" expected one {} but found app-store-connect`.
+  **Empty braces `{}` mean "no valid methods", NOT a bad method name** — do not waste time swapping
+  `app-store` / `app-store-connect`. Fixed in `af03e6b` (`SKIP_INSTALL: YES`); the watch still ships
+  embedded at `AIPedometer.app/Watch/`. This had blocked every possible App Store export.
+- **Verify an archive before trusting it:** `PlistBuddy -c "Print :ApplicationProperties" <archive>/Info.plist`
+  must print a dict, and `Products/Applications/` must contain exactly one `.app`.
+- **`asc` has two auth planes and only one can publish.** `asc web auth login` = browser session for
+  `asc web ...` only; its whole family is auth/sandbox/apps/removed-apps/bundle-ids/privacy/review/
+  subscriptions/analytics/xcode-cloud — **no build-upload command exists there**. Publishing needs
+  `asc auth login --key-id --issuer-id --private-key`. `asc web auth` cannot mint an API key
+  (login/status/capabilities/logout only); Apple issues keys only in the ASC web UI.
+- **The Issuer ID equals `publicProviderId` from `asc web auth status`** (`69a6de76-5827-47e3-e053-5b8c7c11a4d1`).
+  Registered key: `5UP9Q47FW7`, `.p8` in `~/Documents`. `asc auth login` **rejects a world-readable `.p8`** —
+  `chmod 600` first.
+- **Never trust `~/.asc/config.json`'s `app_id`.** It held `6780245377` = **Paquera AI**, not AIPedometer.
+  AIPedometer is **`6778799265`** (`com.mneves.aipedometer`). Always pass `--app` explicitly or a build
+  lands on the wrong app record.
+- **A certificate is only usable with its private key.** The pre-existing `…20260613` App Store profiles bind
+  to a cert (sha1 `2338C9E9…`) whose key is NOT on this Mac. The local `Apple Distribution (Q96FUTC5G8)`
+  is serial `5CE04BA3…` = ASC cert **`F89PNB2UU2`**; profiles must be created against that one
+  (`asc profiles create --bundle <resourceId> --certificate F89PNB2UU2 --profile-type IOS_APP_STORE`).
+  Bundle resource IDs: app `MFC5ZFX752`, widgets `XXF8R97RZM`, watch `5GK358UYP5`.
+- A development-signed archive is normal; `-exportArchive` does the distribution re-signing.
+- Pass `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID` to **both** `archive` and
+  `-exportArchive`, or the log says `Failed to find an account with App Store Connect access for team …`.
+- **Read the real logs:** `/var/folders/**/T/AIPedometer_*.xcdistributionlogs/IDEDistribution.standard.log`.
+  The CLI's one-line error (`Copy failed`) is useless on its own.
+- **Still unresolved (2026-07-27):** export fails with `Cloud signing permission error` (automatic) or
+  `Copy failed` at `IDEDistributionPackagingStep` (manual, profiles+bundle IDs verified correct).
+  **Check the API key's role first — cloud signing needs Admin/App Manager, not Developer.** Xcode has no
+  account configured, so `Xcode → Settings → Accounts` + Organizer → Distribute App is the likeliest
+  working path now that the archive structure is fixed.
+
 ## Memory Rules
 
 - If the user says "remember this", write it down immediately.
