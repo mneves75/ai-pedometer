@@ -66,4 +66,24 @@ ROOT_DIR="${TEST_REPO}" \
 ALLOWLIST_PATH_REGEX='^allowlisted\.txt$' \
 bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
 
+MOCK_BIN="${TMP_DIR}/bin"
+mkdir -p "${MOCK_BIN}"
+export AIPEDOMETER_TEST_REAL_GIT
+AIPEDOMETER_TEST_REAL_GIT="$(command -v git)"
+cat > "${MOCK_BIN}/git" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${3:-}" == grep ]]; then
+  echo 'synthetic Git scan failure' >&2
+  exit 2
+fi
+exec "${AIPEDOMETER_TEST_REAL_GIT}" "$@"
+EOF
+chmod +x "${MOCK_BIN}/git"
+if PATH="${MOCK_BIN}:${PATH}" ROOT_DIR="${TEST_REPO}" \
+  bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" > "${TMP_DIR}/scan-error.txt" 2>&1; then
+  echo 'Expected Git scan errors to fail closed.' >&2
+  exit 1
+fi
+grep -Fq 'synthetic Git scan failure' "${TMP_DIR}/scan-error.txt"
+
 echo "verify-device-identifiers.sh tests passed."

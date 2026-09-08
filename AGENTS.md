@@ -1,720 +1,154 @@
 # AGENTS.md
 
-This file governs the entire repository. It is the operating contract for coding agents working on `AIPedometer`, a Swift 6.2 iOS/watchOS pedometer with local Apple Foundation Models AI, HealthKit, widgets, Live Activities, and RevenueCat-backed premium gating.
-
-## Purpose and Code Quality
-
-- Act as a senior Apple-platform engineer; bring the same production standard to any TypeScript, web, or Expo surface that enters this repository.
-- Keep responses concise, state uncertainty before coding, and challenge assumptions with evidence instead of agreeing reflexively.
-- Push reasoning to full capacity and answer as if the best engineers in the domain will verify the work; deliver the most correct answer, not the most agreeable one. Sacrifice grammar for concision when it sharpens meaning.
-- Follow KISS. Prefer clear, maintainable, current platform patterns over cleverness or speculative abstraction.
-- Do not write code merely to make a check pass. Add comments only where non-obvious constraints or tradeoffs need explanation.
-- Review and verify the result twice before declaring completion.
-- List any unresolved questions at the end of a response; never paper over open uncertainty to look finished.
-
-## Startup Order
-
-Before doing anything else in this repo:
-
-1. Run `pwd`.
-2. Run `git rev-parse --show-toplevel`.
-3. Read `MEMORY.md`.
-4. Read `memory/YYYY-MM-DD.md` for today if it exists.
-5. Read `FOR_YOU_KNOW.md`.
-6. Read `PRAGMATIC-RULES.md` and `SECURITY-GUIDELINES.md`.
-
-If `MEMORY.md`, today's `memory/YYYY-MM-DD.md`, or `FOR_YOU_KNOW.md` do not exist yet, create them before continuing.
-
-## Repository Shape
-
-Use the current codebase as truth before quoting docs:
-
-- `project.yml` is the XcodeGen source of truth for targets, packages, settings, and generated project structure.
-- `AIPedometer/` contains the main iOS app, composition root, lifecycle coordinators, services, and features.
-- `Shared/` contains cross-target models, utilities, constants, design system code, and shared resources.
-- `AIPedometerWatch/` is the watchOS companion app.
-- `AIPedometerWidgets/` contains widgets and Live Activity code.
-- `AIPedometerTests/` and `AIPedometerUITests/` contain Swift Testing and XCUITest coverage.
-- `Config/` contains local xcconfig overrides and strict compiler settings.
-- `StoreKit/` contains local StoreKit configuration for tip jar testing.
-- `docs/appstore/` and `docs/revenuecat/` hold operational release and premium setup docs; use `docs/revenuecat/apple-payments-setup.md` for App Store Connect subscriptions, RevenueCat products/entitlements/offerings, Apple payments validation, and go-live checks.
-
-Current platform assumptions:
-
-- iOS 26.0+, watchOS 26.0+, Xcode 26.x, Swift 6.2.
-- Strict concurrency is complete and warnings are errors.
-- AI is on-device through Apple Foundation Models, not cloud inference.
-- Health data stays local-first through HealthKit/CoreMotion and must degrade safely.
-- Premium AI surfaces fail closed when RevenueCat is not configured.
-
-## Source-of-Truth Docs
-
-Read these before changing behavior, commands, or documentation:
-
-- `README.md` for user-facing setup, current version, and public project summary.
-- `TECH_STACK.md` for current technology inventory.
-- `APP_FLOW.md` for navigation and feature flow.
-- `docs/agents/build-and-dev.md` for build, install, and operational commands.
-- `docs/agents/testing.md` for test framework and conventions.
-- `docs/agents/project-structure.md` for target layout.
-- `docs/agents/coding-style.md` for Swift and localization style.
-- `docs/agents/git-workflow.md` for commits, hooks, PR notes, and changelog expectations.
-- `docs/revenuecat/README.md` and `docs/revenuecat/apple-payments-setup.md` before changing premium, RevenueCat, App Store payments, StoreKit subscription, entitlement, offering, paywall, or purchase/restore behavior.
-
-Do not create new markdown docs unless the requested change needs a new durable surface. Prefer updating existing docs.
-Do not create standalone completion-report markdown files. If temporary markdown planning is necessary, keep it under `agent_planning/` and move obsolete plans to `agent_planning/archive/`. Do not use emojis in repository documentation.
-For complex features or significant refactors, run an ExecPlan — a living execution plan per `~/dev/GUIDELINES-REF/EXECPLANS-GUIDELINES.md` — kept under `agent_planning/` while active.
-
-## Code Discovery and AST-Grep
-
-- Use the codebase knowledge graph first for code discovery when it is available.
-- For syntax-aware or structural matching, default to `ast-grep --lang swift -p '<pattern>'`; choose the correct `--lang` for non-Swift files. Use `rg` or `grep` only for intentional plain-text, config, log, or documentation searches, or when ast-grep cannot express the query.
-- Run the exact repository linter with `bash .githooks/pre-commit`; it materializes the staged Git snapshot and invokes ast-grep with every ignore source disabled so manual gate verification matches commit enforcement.
-- The active `.githooks/pre-commit` hook materializes and scans the exact staged Git snapshot, then blocks commits on findings or when ast-grep is unavailable. Do not bypass it; enable the tracked hooks with `git config core.hooksPath .githooks` when needed.
-
-## Bug Report Protocol
-
-When there is a bug report, do not start by trying to fix it.
-
-1. First write a regression test that reproduces the bug.
-2. Confirm the test fails for the expected reason.
-3. Then have bounded subagents try to fix the bug when delegation is useful.
-4. Accept a fix only after the reproducer passes and any relevant surrounding tests still pass.
-
-Never claim a bug is fixed without proof from the reproducer.
-
-## Execution Routing
-
-- Keep planning, user-facing UI, visual review, product copy, and the hardest judgment calls in the primary session.
-- For independent backend, bulk, or mechanically heavy implementation, write a self-contained specification with acceptance checks and dispatch it when delegation is useful. Prefer `gpt-5.6-sol` at high reasoning through Codex for substantial unsupervised implementation when that runtime is available; use `/goal` only on runtimes that expose it.
-- Intelligence and correctness outrank taste, which outranks cost. Review delegated output against the repository contract before accepting it, and escalate or redo weak work without asking merely to change models.
-- Mechanics: `gpt-5.6` is reachable only through the Codex CLI (`codex exec`, `codex review`); Claude models run via the Agent/Workflow `model` parameter. When a workflow or subagent needs a Codex-side model such as `gpt-5.6-terra`, spawn a thin low-effort Claude wrapper whose only job is to run `codex exec` with a self-contained prompt and return the result.
-
-Model defaults (user-maintained; rankings higher = better, cost = user's actual spend, not list price):
-
-| model | cost | intelligence | taste |
-|-------|------|--------------|-------|
-| gpt-5.6-terra (xhigh) | 9 | 7 | 5 |
-| gpt-5.6-sol (high) | 7 | 9 | 7 |
-| sonnet-5 | 5 | 5 | 7 |
-| opus-5 | 4 | 7 | 8 |
-| fable-5 | 2 | 9 | 9 |
-| kimi k3 | 8 | 8 | 9 |
-
-- These are defaults, not limits: if a cheaper model's output misses the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag.
-- Bulk or mechanical work (clear-spec implementation, data analysis, migrations): `gpt-5.6-terra` (high) — effectively free.
-- Anything user-facing (UI, copy, API design) needs taste ≥ 7.
-- Reviews of plans/implementations: `fable-5` or `opus-5`, optionally `gpt-5.6-sol` (xhigh) as an extra independent perspective.
-- Never use Haiku.
-
-## Build and Test Commands
-
-Toolchain pin: if `xcode-select` points at an Xcode beta (this machine defaults to Xcode 27 beta), prefix every `xcodebuild` with `DEVELOPER_DIR=/Applications/Xcode.app` — the project contract is Xcode 26.x and the pinned RevenueCat revision fails test builds under the beta toolchain. If the stable Xcode reports "iOS X.Y is not installed" while `simctl` lists the runtime, run `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
-
-Regenerate the project after target, package, entitlement, or new Swift source changes (`Scripts/restore-entitlements.sh` runs as the postGen hook and is the ONLY place entitlements may be edited; the iOS app's Enhanced Security hardened-process keys are staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1` pending a one-time interactive provisioning-profile refresh — see `xcode-security-settings.md`):
-
-```bash
-xcodegen generate
-Scripts/restore-entitlements.sh
-```
-
-Default simulator commands:
-
-```bash
-DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' build
-DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test
-```
-
-Targeted test example (Swift Testing functions need the trailing `()` — without it the run reports a green "0 tests"):
-
-```bash
-DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' test '-only-testing:AIPedometerTests/DailyStepCalculatorTests'
-```
-
-Full simulator E2E:
-
-```bash
-bash Scripts/e2e-simulator.sh
-```
-
-Physical device install:
-
-```bash
-bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --launch
-bash Scripts/install-on-device.sh --device-name "<iPhone Name>" --watch-name "<Apple Watch Name>" --launch
-```
-
-Do not hardcode UDIDs, ECIDs, provisioning identifiers, tokens, or local account details in source or docs.
-
-Payment/TestFlight validation:
-
-```bash
-bash Scripts/test-payments-device.sh
-```
-
-## Swift and Apple Platform Rules
-
-- Prefer SwiftUI, Observation, SwiftData, HealthKit, CoreMotion, WidgetKit, WatchConnectivity, StoreKit, MetricKit, and Foundation Models patterns already present in the repo.
-- Use existing services and shared models before adding new abstractions.
-- Keep cross-target behavior in `Shared/` when it belongs to iOS, watchOS, widgets, or Live Activities.
-- Keep user-facing strings in `Shared/Resources/Localizable.xcstrings` with clear comments.
-- Localization policy is strict: `pt-BR` devices use Portuguese; all other locales default to English.
-- Do not add cloud AI calls for product AI behavior unless explicitly requested.
-- Do not weaken premium gating; unavailable RevenueCat configuration must not expose premium AI actions.
-- Premium access is a TRI-STATE, not a boolean. `canAccessAIFeatures == false` means either "this user is
-  not entitled" or "entitlement could not be determined", and the two are value-identical. Use
-  `PremiumAccessStore.hasAuthoritativeAccessState` before taking any action that revokes something from the
-  user. `isResolvingAccess` is NOT sufficient: it reports `false` for the `.unavailable` state that
-  `refresh()` reaches whenever the cold-launch fetch or verification fails, which is what an offline launch
-  looks like. Three separate attempts to automate revocation shipped this bug and were reverted; see
-  `implementation-notes.html#finding-095-self-inflicted`.
-- Automatic enforcement never erases a user's persisted preference. Losing access suspends delivery
-  (`smartRemindersSuspendedByAccess`) and regaining it resumes; only explicit user action clears the
-  preference itself.
-- For RevenueCat/App Store payment work, keep the setup aligned with `docs/revenuecat/apple-payments-setup.md`: recurring premium uses RevenueCat + App Store Connect subscriptions, the Tip Jar remains separate through StoreKit 2, and `.p8` files, ASC credentials, RevenueCat secret keys, sandbox accounts, and local Apple account details must never be committed.
-- For Swift, iOS, iPadOS, or watchOS 26 behavior, check official Apple documentation in `/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
-- For Swift, iOS, iPadOS, or watchOS 27 behavior, check official Apple documentation in `/Applications/Xcode-beta.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation` before guessing.
-- Prefer Context7 for current third-party documentation when it is available; otherwise use primary official documentation.
-
-## Security, Audit, and Data
-
-- Do not expose a predictable `/admin` page. If an administrative web surface is ever required, use a non-obvious route only as an additional defense and still require authentication, authorization, rate limiting, audit events, and `noindex`.
-- Do not accept passwords or authentication controls that can be brute-forced in about one minute; use platform password hashing, throttling, lockout/backoff, and MFA where appropriate.
-- Production data operations must not hard-delete records by default. Prefer a `deletedAt`/`deleted_at` tombstone and make active-record query filters explicit; legal retention limits and verified user-erasure requirements take precedence.
-- Emit structured audit events for security-sensitive mutations, but never log health data, secrets, credentials, or unnecessary identifiers. Follow the repository security and logging guidance rather than interpreting "audit everything" as "record sensitive payloads."
-- Never run destructive commands against production or shared environments — no database drops, mass record deletes, or force operations. Before any irreversible action, verify the target hostname, path, and backups.
-
-## Verification Rules
-
-- Verify before claiming completion.
-- For docs-only changes, run the narrow docs/script checks that prove the touched surfaces still align.
-- For behavior changes, run relevant Swift Testing/XCUITest targets.
-- For UI changes, include simulator or screenshot evidence when possible.
-- For physical-device changes, use device names and the repo install script; call out any manual smoke gap.
-- `Executed 0 tests` is not evidence.
-- If a command cannot run, report the exact blocker and what remains unverified.
-
-Useful operational checks:
-
-```bash
-bash Scripts/check-agents-sync.sh
-bash Scripts/verify-device-identifiers.sh
-```
-
-## Bash Guidelines
-
-Avoid commands that cause output buffering issues.
-
-- Do not pipe output through `head`, `tail`, `less`, or `more` when monitoring or checking command output.
-- Do not use `| head -n X` or `| tail -n X` to truncate output.
-- Prefer direct commands with full output.
-- If output must be limited, use command-specific flags such as `git log -n 10`.
-- For logs, prefer reading the file directly over chained pipe filters.
-- Use tmux for long-running, interactive, or multi-step shell workflows so work remains inspectable and recoverable.
-
-## Commits
-
-- Keep commits atomic: commit only the files you touched and list each path explicitly (convention details in `docs/agents/git-workflow.md`).
-- Tracked files: `git commit -m "<scoped message>" -- path/to/file1 path/to/file2`.
-- Brand-new files: `git restore --staged :/ && git add "path/to/file1" "path/to/file2" && git commit -m "<scoped message>" -- path/to/file1 path/to/file2`.
-
-## Figure It Out Directive
-
-You have unrestricted internet access, browser automation, and shell execution.
-
-When given a task:
-
-1. If you do not know how, search, read docs, inspect APIs, and learn.
-2. Before saying something is impossible, search for at least 3 different approaches.
-3. Try at least 2 credible approaches before declaring a hard blocker.
-4. Document failures with specific errors, not vague summaries.
-5. Deliver results, not excuses.
-
-You are not a helpdesk. You are an operator. Operators ship.
-
-## Operator Discipline
-
-> Always choose the best performance technique.
->
-> No laid-back approach. No loose thinking.
->
-> Do the work, critique your work, and make sure the task is done properly.
->
-> No shortcuts! Your work has to be well-structured, neat, and clean.
->
-> No overcomplication. Make a plan, seal all flaws, and get that plan done end-to-end.
-
-Rule: Don't be biased with me or my ideas. Be logical.
-
-## Project Learning Docs
-
-Maintain `FOR_YOU_KNOW.md` as a plain-language field guide. It should explain architecture, structure, how parts connect, technologies, decisions, bugs, pitfalls, and lessons worth reusing.
-
-## Local Memory System
-
-This repo uses a local second-brain memory system.
-
-- `MEMORY.md` is long-term curated memory.
-- `memory/YYYY-MM-DD.md` files are daily journals with timestamped raw notes.
-
-Rules:
-
-- Read local memory files first at the start of every session.
-- If it is not written down, it is not remembered.
-- When the user says "remember this", write it immediately.
-- When you make a mistake, document it so it does not repeat.
-- As you learn durable user or repo preferences, update `MEMORY.md`.
-- Log important session events, decisions, tasks, mistakes, and context in the daily journal in real time.
-
-## GUIDELINES-REF
-Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/check-agents-sync.sh`).
-GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
-
-Essentials (apply to every task):
-- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.
-- Do not agree reflexively or flatter: push reasoning to full capacity, surface tradeoffs and weak assumptions, and answer as if the best engineers in the domain will verify the work — deliver the most correct answer, not the most agreeable one. Sacrifice grammar for concision when it sharpens meaning.
-- Read `PRAGMATIC-RULES.md` and `SECURITY-GUIDELINES.md` before starting any task.
-- If instructions conflict, security rules take precedence.
-- Use `INDEX.md` or `GUIDELINES_INDEX.json` to locate task-specific guidance.
-- Do not create new markdown docs unless required by a behavior/API change or explicitly requested.
-- Run notes: write per-run notes to `notes/run-YYYY-MM-DD*.txt` and reuse them between sessions.
-- Treat this as a private repo: no public disclosure, use `SECURITY.md` for vulnerability reporting.
-- Follow `.github/pull_request_template.md` and keep review routing aligned with `OWNERS.md`/`.github/CODEOWNERS`.
-
-Mandatory change workflow:
-- After changes that affect browser-rendered artifacts, verify the affected artifact with agent-browser (`/browser gstack`) or a concrete local HTML/report target and fix any UI/UX issues before stopping. For docs, metadata, schemas, and tooling-only changes without a rendered UI surface, record why browser QA is not applicable and use the relevant CLI checks instead.
-- When there is a bug report, do not start by trying to fix it. Start by writing a test that reproduces the bug. Then have subagents try to fix the bug and prove it with a passing test.
-- When all done, use the `autoreview` skill and fix all justified findings.
-
-Security:
-- NÃO publique uma página `/admin` sem proteção explícita. Admin deve ter autenticação, autorização, rate limiting, auditoria e `noindex`; se o produto exigir URL não óbvia, trate isso apenas como defesa adicional, nunca como controle de acesso.
-- NÃO tenha uma senha que brute force quebra em 1 minuto.
-
-Common commands:
-- `bun --bun tools/kb-check-all.ts`
-- `bun --bun tools/kb-check-all.ts --critical-only`
-- `bun --bun tools/kb-check-references.ts`
-- `bun --bun tools/kb-check-index.ts`
-- `bun --bun tools/kb-check-staleness.ts`
-- `bun --bun tools/readiness-check.ts --format=html --output=report.html`
-- `firecrawl --status`
-- `xcodebuild -version`
-- `swift --version`
-- `node -v`
-- `bun --version`
-
-Additional kb-tools commands:
-- `cd tools && bun test lib/__tests__/repo.test.ts`
-- `cd tools && bun test lib/__tests__/typescript-adapter.test.ts`
-- `cd tools && bun test __tests__/kb-check-staleness.test.ts __tests__/cli-entrypoints.test.ts`
-- `cd tools && bun test`
-- `cd tools && bun run typecheck`
-- `cd tools && bun run lint`
-- `TODO: promote a generic targeted Biome lint command after more run-note evidence (current single-run example: bunx biome check lib/adapters/typescript.ts lib/__tests__/typescript-adapter.test.ts --formatter-enabled=false from notes/run-2026-02-20.txt)`
-- `TODO: evaluate/promote targeted staleness lint command after repeated post-Biome-2.4 evidence beyond notes/run-2026-04-24-full-refresh.txt.`
-- `TODO: no further command promotions until a newer notes/run-*.txt (newer than 2026-04-26) captures repeated execution evidence beyond the currently promoted command set.`
-- `TODO: as of 2026-06-01, run-note inventory now includes notes/run-2026-06-01-full-refresh.txt (full 2026+ guideline refresh); this is a single run, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
-- `TODO: as of 2026-07-05, run-note inventory adds notes/run-2026-07-05-guidelines-refresh.txt (release 2026.07.05.0: Expo SDK 57 / RN 0.86 baseline convergence + patch bumps); still single-run per release, so keep command/workflow promotions frozen until repeated execution evidence accrues.`
-- `TODO: as of 2026-07-13, run-note inventory adds notes/run-2026-07-13-guidelines-refresh.txt (release 2026.07.13.0: July baselines + fail-closed tooling + routing/CI hardening); retain the command-promotion freeze until repeated evidence accrues.`
-- `TODO: as of 2026-07-19, run-note inventory adds notes/run-2026-07-19-guidelines-refresh.txt (release 2026.07.19.0: deep all-docs 2026+ refresh + AI-code-security de-symlink + pnpm-default enforcement); retain the command-promotion freeze until repeated evidence accrues.`
-- `bun --bun tools/kb-check-anchors.ts`
-- `bun --bun tools/kb-check-consistency.ts`
-- `bun --bun tools/kb-check-baselines.ts`
-- `bun --bun tools/kb-check-schemas.ts` (validates `GUIDELINES_INDEX.json`, `baselines.json`, `.claude/skill-triggers.json`, and `.claude/guidelines.json`)
-- `bun --bun tools/kb-check-schemas.ts --verbose`
-- `bun --bun tools/kb-check-tldr.ts`
-- `bun --bun tools/kb-check-tldr-quality.ts`
-- `bun --bun tools/kb-check-tldr-quality.ts --verbose`
-- `bun --bun tools/kb-check-deprecated.ts`
-- `bun --bun tools/kb-context-filter.ts [--project <path>] [--json]`
-- `bun --bun tools/kb-verify.ts <path>#Section`
-- `bun --bun tools/kb-proof-citations.ts --git`
-- `bun --bun tools/kb-bundle.ts`
-- `bun --bun tools/kb-backup.ts`
-- `bun --bun tools/kb-audit-log.ts`
-- `bun --bun tools/kb-audit-report.ts`
-- `bun --bun tools/kb-feedback-report.ts`
-- `bun tools/kb-update-baselines.ts [--apply|--major|--force]`
-- `./scripts/scan-secrets.sh`
-
-Collaboration defaults (apply unless overridden by repo-specific docs):
-- Always read `AGENTS.md`, `CLAUDE.md`, `README.md`, and any `DOCS/GUIDELINES-REF/*` before making changes.
-- If guidelines conflict, call it out and ask which version to follow.
-- Prefer elegant, maintainable, production-grade solutions over quick fixes.
-- Complete the full requested scope; do not stop mid-plan.
-- Do not weaken tests to make them pass; fix the implementation instead.
-- Keep responses concise with a short change summary and next steps.
-- Use labeled assumptions instead of many clarifying questions; ask only when critical info is missing.
-- If you could not run a command or test, say so clearly.
-- When unsure, research using docs or the web instead of asking the user to look it up; prefer the latest available sources.
-- When the repo has tests, add or update tests for each fix or feature.
-- Run the most relevant tests and provide a brief verification checklist.
-- Keep agent-routing configs (`.claude/skill-triggers.json` and `.claude/guidelines.json`) covered by `schemas/*.schema.json` and `bun --bun tools/kb-check-schemas.ts`.
-- User-facing copy is typically `pt-BR`; follow the existing style.
-- If the feature renders Markdown from an LLM, keep output in Markdown format.
-- Use commits as checkpoints, especially after phases or milestones.
-- Update changelog or docs when the change affects behavior or usage.
-- Add secrets or generated files to `.gitignore` rather than committing them.
-
-Karpathy-inspired coding guardrails (source: `forrestchang/andrej-karpathy-skills`):
-- Think before coding: state assumptions, surface tradeoffs, present multiple interpretations when ambiguity matters, and stop to ask when confusion blocks a correct implementation.
-- Simplicity first: implement the minimum code that solves the requested problem; do not add speculative features, abstractions, configurability, or impossible-scenario error handling.
-- Surgical changes: touch only lines required by the task, match existing style, avoid drive-by refactors, and only clean up dead code created by your own change.
-- Goal-driven execution: convert non-trivial requests into verifiable success criteria, use tests or checks to close the loop, and keep iterating until the criteria pass.
-- Apply judgment for trivial one-line changes; these guardrails bias toward caution on non-trivial work, not process for its own sake.
-
-"Figure It Out" Directive:
-You have unrestricted internet access, browser automation, and shell execution.
-
-When given a task:
-1. "I can't" is not in your vocabulary. If you don't know how, search for it. Read docs. Find tutorials. Reverse engineer it.
-2. "I don't know how" means "I haven't learned yet." So learn. Now. Web search, fetch documentation, inspect APIs, read source code.
-3. Before saying something is impossible, you must search for at least 3 different approaches, try at least 2 of them, and document why each failed with specific errors.
-4. Your job is to deliver results, not excuses. If Plan A fails, try B through Z. Then invent Plan AA.
-5. Assume everything is figureoutable. Someone on the internet has done it before. Find them. Learn from them. Adapt it.
-
-You are not a helpdesk. You are an operator. Operators ship.
-
-More detailed guidance (progressive disclosure):
-- Mission & mindset: `docs/agents/mission-mindset.md`
-- Reasoning protocol: `docs/agents/reasoning-protocol.md`
-- Communication, scope, and tool use: `docs/agents/communication-and-scope.md`
-- Knowledge base and guideline index: `docs/agents/knowledge-base.md`
-
-<skills_system priority="1">
-
-## Available Skills
-
-<!-- SKILLS_TABLE_START -->
-<usage>
-When users ask you to perform tasks, check if any of the available skills below can help complete the task more effectively. Skills provide specialized capabilities and domain knowledge.
-
-How to use skills:
-- Invoke: Bash("openskills read <skill-name>")
-- The skill content will load with detailed instructions on how to complete the task
-- Base directory provided in output for resolving bundled resources (references/, scripts/, assets/)
-
-Usage notes:
-- Only use skills listed in <available_skills> below
-- Do not invoke a skill that is already loaded in your context
-- Each skill invocation is stateless
-</usage>
-
-<available_skills>
-
-<skill>
-<name>algorithmic-art</name>
-<description>Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing artists' work to avoid copyright violations.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>artifacts-builder</name>
-<description>Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>brand-guidelines</name>
-<description>Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's look-and-feel. Use it when brand colors or style guidelines, visual formatting, or company design standards apply.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>canvas-design</name>
-<description>Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-app-store-changelog</name>
-<description>Create user-facing App Store release notes by collecting and summarizing all user-impacting changes since the last git tag (or a specified ref). Use when asked to generate a comprehensive release changelog, App Store "What's New" text, or release notes based on git history or tags.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-gh-issue-fix-flow</name>
-<description>End-to-end GitHub issue fix workflow using gh, local code changes, builds/tests, and git push. Use when asked to take an issue number, inspect the issue via gh, implement a fix, run XcodeBuildMCP builds/tests, commit with a closing message, and push.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-ios-debugger-agent</name>
-<description>Use XcodeBuildMCP to build, run, launch, and debug the current iOS project on a booted simulator. Trigger when asked to run an iOS app, interact with the simulator UI, inspect on-screen state, capture logs/console output, or diagnose runtime behavior using XcodeBuildMCP tools.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-macos-spm-app-packaging</name>
-<description>Scaffold, build, and package SwiftPM-based macOS apps without an Xcode project. Use when you need a from-scratch macOS app layout, SwiftPM targets/resources, a custom .app bundle assembly script, or signing/notarization/appcast steps outside Xcode.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-swift-concurrency-expert</name>
-<description>Swift Concurrency review and remediation for Swift 6.2+. Use when asked to review Swift Concurrency usage, improve concurrency compliance, or fix Swift concurrency compiler errors in a feature or file.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-swiftui-liquid-glass</name>
-<description>Implement, review, or improve SwiftUI features using the iOS 26+ Liquid Glass API. Use when asked to adopt Liquid Glass in new SwiftUI UI, refactor an existing feature to Liquid Glass, or review Liquid Glass usage for correctness, performance, and design alignment.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-swiftui-performance-audit</name>
-<description>Audit and improve SwiftUI runtime performance from code review and architecture. Use for requests to diagnose slow rendering, janky scrolling, high CPU/memory usage, excessive view updates, or layout thrash in SwiftUI apps, and to provide guidance for user-run Instruments profiling when code review alone is insufficient.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-swiftui-ui-patterns</name>
-<description>Best practices and example-driven guidance for building SwiftUI views and components. Use when creating or refactoring SwiftUI UI, designing tab architecture with TabView, composing screens, or needing component-specific patterns and examples.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>dimillian-swiftui-view-refactor</name>
-<description>Refactor and review SwiftUI view files for consistent structure, dependency injection, and Observation usage. Use when asked to clean up a SwiftUI view’s layout/ordering, handle view models safely (non-optional when possible), or standardize how dependencies and @Observable state are initialized and passed.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>agent-readiness</name>
-<description>Evaluate codebase readiness for AI coding agents using automated assessment. Use when onboarding repos, diagnosing agent struggles, or planning infrastructure improvements. Factory.ai aligned with 9 pillars, 51+ checks, multi-language support.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-agent-workflows</name>
-<description>Enforce AGENTS.md compliance for mandatory guideline references, code quality standards, workflow standards (tmux, git commits), testing, logging/audit requirements, and security-first principles</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-ai-code-security</name>
-<description>Enforce AI-CODE-SECURITY-GUIDELINES.md compliance for AI-generated code - prevent XSS (86% failure rate), SQL injection, hardcoded secrets, dependency hallucination, and other AI-specific vulnerabilities</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-api-design</name>
-<description>Enforce REST/HTTP API design standards including endpoint naming, error responses, rate limiting, versioning, OpenAPI specs, and security headers (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-audit</name>
-<description>Enforce AUDIT-GUIDELINES.md compliance for complete audit trails with immutability, privacy-first logging, multi-tenant isolation, GDPR compliance, and retention policies</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-brazilian-legal-contracts</name>
-<description>Enforce Brazilian legal contracts compliance for IP ownership (CLT/PJ/co-founders), API terms (SLAs, rate limits), SaaS contracts, Marco Civil, and CDC requirements.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-bun</name>
-<description>Enforce BUN-GUIDELINES.md compliance for Bun 1.3.13+ runtime with native TypeScript, bun:sqlite, bun:test, Workspace support, and built-in APIs (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-ci-cd</name>
-<description>Enforce CI/CD standards for GitHub Actions workflows with matrix builds, caching strategies, secret management, deployment gates, and release automation (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-cloudflare</name>
-<description>Enforce CLOUDFLARE-GUIDELINES.md compliance for Cloudflare Workers, Pages, Workers AI, D1, Durable Objects, Pipelines, R2, Hyperdrive, Zero Trust, post-quantum (PQ) networking, and observability (2025-2026)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-database</name>
-<description>Enforce DB-GUIDELINES.md compliance - soft deletes, indexes, transactions, parameterized queries, normalization, and database security</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-dev-standards</name>
-<description>Enforce DEV-GUIDELINES.md compliance for code quality, type safety, error handling, security, performance, testing, and John Carmack-level review standards</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-execution-planning</name>
-<description>Enforce EXECPLANS-GUIDELINES.md (PLANS.md) compliance for creating living execution plans (ExecPlans) that are self-contained, novice-guiding, outcome-focused, with Progress tracking, Decision Logs, and Surprises & Discoveries documentation</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-expo</name>
-<description>Enforce EXPO-GUIDELINES.md compliance for Expo SDK 55+, EAS Build, Config Plugins, dev-client, native modules, OTA updates, and Expo Router patterns (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-git-workflow</name>
-<description>Enforce git workflow standards including conventional commits, atomic commits, branch naming, pre-commit hooks, PR templates, and trunk-based development patterns (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-ios</name>
-<description>Enforce IOS-GUIDELINES.md compliance for iOS 26+, iPadOS 26+, macOS 26+ with Xcode 26.4+, Swift 6.3+, SwiftUI, SwiftData, Observation framework, App Store compliance, MetricKit instrumentation, and native Apple platform delivery</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-lgpd-compliance</name>
-<description>Enforce Brazilian LGPD (Lei Geral de Proteção de Dados) compliance for data processing, consent management, data subject rights, retention policies, and ANPD requirements.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-liquid-glass-ui</name>
-<description>Enforce iOS 26+ Liquid Glass design system compliance with translucent materials, depth effects, smooth animations, haptic feedback, and premium UI polish for Expo and SwiftUI</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-logging</name>
-<description>Enforce LOG-GUIDELINES.md compliance for structured logging, observability, privacy-first data handling, request context propagation, cost tracking, and retention policies</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-mcporter</name>
-<description>Enforce MCPORTER-GUIDELINES.md compliance for MCP server tool calls using mcporter CLI (list, call, generate-cli, emit-ts commands) with proper timeout handling, output formats, and TypeScript generation</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-mercado-pago</name>
-<description>Enforce MERCADO-PAGO-API-GUIDELINES.md compliance for Brazilian payment processing with Payment Link API, PIX/card/boleto support, HMAC webhook verification, LGPD compliance, and Hono best practices (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-mobile-development</name>
-<description>Enforce MOBILE-GUIDELINES.md compliance for iOS 26+, Android 15/16, Expo SDK 55, React Native 0.83 managed / 0.85 bare stacks - New Architecture, React Compiler, performance, accessibility, offline-first patterns</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-nextjs</name>
-<description>Enforce WEB-NEXTJS-GUIDELINES.md compliance for Next.js 16.2+ projects - App Router, Server Components, Server Actions, Turbopack, Cache Components, and production deployment</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-python</name>
-<description>Enforce PYTHON-GUIDELINES.md compliance for Python 3.12+/3.14, type hints, uv package manager, ruff linting, pytest testing, async patterns, and modern Python idioms (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-rag-chatbot</name>
-<description>Enforce RAG-CHATBOT-GUIDELINES.md compliance for AI SDK RAG chatbots with pgvector embeddings, chunking strategies, retrieval optimization, citations, rate limiting, and streaming responses (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-react</name>
-<description>Enforce REACT-GUIDELINES.md compliance for React 19+ projects - React Compiler, new hooks (use, useActionState, useOptimistic), Server Components, concurrent rendering, and modern patterns</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-react-useeffect</name>
-<description>Enforce REACT_USE_EFFECT-GUIDELINES.md compliance - proper useEffect usage, dependency arrays, cleanup functions, and avoiding common anti-patterns</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-security</name>
-<description>Enforce SECURITY-GUIDELINES.md compliance - defense-in-depth, CSP, input validation, secure authentication, OWASP best practices, and vulnerability prevention</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-sqlite</name>
-<description>Enforce SQLITE-GUIDELINES.md compliance for WAL mode, STRICT tables, concurrency patterns, indexing strategies, soft deletes, and Cloudflare D1 edge deployment (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-supabase</name>
-<description>Enforce SUPABASE-GUIDELINES.md compliance for Supabase Auth, Database (Postgres + pgvector), Edge Functions, Queues, Cron, Branching 2.0, RLS, Storage, Realtime, Analytics Buckets, and observability (2025-2026)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-swift</name>
-<description>Enforce SWIFT-GUIDELINES.md compliance for Swift 6+ with Xcode 26, data-race safety, typed errors, ownership types, macros, SwiftData migrations, Swift Testing, privacy manifests, and audit logging</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-testing</name>
-<description>Enforce TESTING-IN-MEMORY-DATABASE-GUIDELINES.md compliance for unit/integration testing with Jest, Vitest, in-memory database patterns, mock strategies, coverage thresholds, and test-first development (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-typescript</name>
-<description>Enforce TYPESCRIPT-GUIDELINES.md compliance for TypeScript 7 GA, with a documented TypeScript 6 compatibility lane, strict configuration, runtime validation, type-only imports, and build/testing standards</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-ui</name>
-<description>Enforce opinionated UI/UX design constraints for building interfaces inspired by Mercury, Notion, Apple, and Vercel. This skill should be used when designing or implementing frontend interfaces, creating new components, or reviewing UI code. Triggers on requests like "design my app", "create a landing page", "build UI components", or any frontend development task.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-vercel</name>
-<description>Enforce VERCEL-GUIDELINES.md compliance for Vercel deployments with Next.js 16+, Fluid compute, Rolling Releases, Cron Jobs, Edge Config, Observability Plus, WAF/Protectd security, and audit logging (2025-2026)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-web-development</name>
-<description>Enforce WEB-GUIDELINES.md compliance for Next.js 16.2+, React 19+, Vite 8 projects - Core Web Vitals (INP, LCP, CLS), WCAG 2.2 accessibility, modern CSS, security (CSP/CORS), and 2025/2026 web standards</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mneves-whatsapp-bot</name>
-<description>Enforce EVOLUTION-API-GUIDELINES.md compliance for WhatsApp automation via Evolution API or WAHA with webhook handling, message deduplication, rate limiting, and multi-instance management (user)</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>vercel-react-best-practices</name>
-<description>React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance patterns. Triggers on tasks involving React components, Next.js pages, data fetching, bundle optimization, or performance improvements.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>web-design-guidelines</name>
-<description>Review UI code for Web Interface Guidelines compliance. Use when asked to "review my UI", "check accessibility", "audit design", "review UX", or "check my site against best practices".</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>webapp-testing</name>
-<description>Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.</description>
-<location>global</location>
-</skill>
-
-</available_skills>
-<!-- SKILLS_TABLE_END -->
-
-</skills_system>
+This is the canonical agent contract for AIPedometer. CLAUDE.md imports it.
+The product is a native SwiftUI iOS/watchOS app with widgets, Live Activities,
+HealthKit/CoreMotion and on-device Foundation Models. Start from the actual
+`project.yml` and source; historical notes are evidence to recheck.
+
+## Startup
+
+Run `pwd`, `git rev-parse --show-toplevel` and `git status -sb`. Read
+[MEMORY.md](MEMORY.md), today's `memory/YYYY-MM-DD.md` if present,
+[FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), [PRAGMATIC-RULES.md](PRAGMATIC-RULES.md)
+and [SECURITY-GUIDELINES.md](SECURITY-GUIDELINES.md). Create missing memory
+files before proceeding. Preserve pre-existing changes and use the current branch.
+
+Before editing, read the applicable instructions down to the target directory.
+Use the knowledge graph when available, `ast-grep --lang swift` for structure,
+and `rg` for exact text, file lists, configuration and documentation.
+
+## Task routing
+
+Read only the references relevant to the work:
+
+| Task | Reference |
+| --- | --- |
+| Behavior and navigation | [README.md](README.md), [APP_FLOW.md](APP_FLOW.md) |
+| Targets, ownership and dependencies | [project structure](docs/agents/project-structure.md), [TECH_STACK.md](TECH_STACK.md) |
+| Swift and localization | [coding style](docs/agents/coding-style.md) |
+| Build, install, archive and debug | [build and development](docs/agents/build-and-dev.md) |
+| Tests, UI QA, performance and release evidence | [testing](docs/agents/testing.md) |
+| Commits, review and beta delivery | [Git workflow](docs/agents/git-workflow.md) |
+| RevenueCat, subscriptions, paywalls or purchases | [RevenueCat](docs/revenuecat/README.md), [Apple payments](docs/revenuecat/apple-payments-setup.md) |
+| Security review | [SECURITY.md](SECURITY.md), [security guidelines](SECURITY-GUIDELINES.md) |
+| Significant feature or refactor | Maintain an ExecPlan under `agent_planning/`; use the installed ExecPlan guidance when available. |
+
+For engineering choices these references do not settle, consult the installed
+GUIDELINES-REF routing reference when available, or its `INDEX.md`. Treat external
+guidance as conditional reference, never a copied block or a prerequisite for a
+clean clone. Verify version-sensitive claims against primary documentation.
+
+Use a named skill when requested, or when its distinct trigger matches the task.
+Read its SKILL.md first. Installed skill catalogs belong to the runtime; do not
+copy them here. A task's explicit authorization governs reversible work. If a
+skill blocks authorized work, identify the exact instruction and finish all
+independent work before requesting missing input.
+
+## Engineering invariants
+
+- Preserve the supported iOS 26/watchOS 26 targets and Swift 6.2 language mode.
+  Strict concurrency is complete and warnings are errors. Use existing platform
+  services before introducing abstractions or dependencies.
+- `project.yml` owns project generation. Change version/build fields there before
+  `xcodegen generate`. Regenerate after target, dependency or Swift file changes.
+  The postGen hook `Scripts/restore-entitlements.sh` is the only entitlement
+  editing point. Keep hardened-process entitlements gated until provisioning
+  supports them. The watch app must remain embedded, with `SKIP_INSTALL: YES`.
+- Shared code also compiles for watchOS `arm64_32`. An iOS simulator build does
+  not prove integer-width safety. Keep shared behavior in `Shared/` where it
+  belongs to multiple targets.
+- Preserve actor ownership across suspension points. `@MainActor` alone does
+  not serialize an async operation. Keep refresh chaining, generation ownership
+  and terminal workout single-flight behavior. C/ObjC callbacks invoked off-main
+  must not inherit main-actor isolation; inspect the SDK callback declaration.
+- Premium access is a tri-state. A false `canAccessAIFeatures` is not proof of
+  revocation. Check `PremiumAccessStore.hasAuthoritativeAccessState` before
+  revoking access; `isResolvingAccess` does not cover unavailable/offline state.
+  Suspend smart-reminder delivery through `smartRemindersSuspendedByAccess`;
+  only explicit user action clears the saved preference.
+- Unavailable or unverified RevenueCat configuration fails closed. Keep the
+  recurring subscription separate from the StoreKit 2 tip jar. Release builds
+  reject Test Store keys and debug launch overrides.
+- AI inference and health context stay on-device. Validate GPX files, watch
+  payloads and model output at their boundary. Preserve local data and pending
+  HealthKit exports across failures. Log no health data, secrets or private IDs.
+- Only pt-BR uses Portuguese; other locales use English. Put product strings in
+  `Shared/Resources/Localizable.xcstrings` via the existing localization helpers.
+  Preserve accessibility, focus and design tokens; verify affected form factors.
+- Use pnpm for JavaScript tooling, with the version in `package.json` and
+  `pnpm install --frozen-lockfile`. Swift packages remain managed by Xcode/SPM.
+  Keep one JavaScript lockfile; never hand-edit it or dependency directories.
+
+## Execution and review
+
+Deliver the smallest robust implementation. Trace consumers before deleting
+wrappers or tests; callback isolation and regression seams can look redundant.
+For a bug, first write and run a failing reproducer, then fix the implementation
+and rerun the relevant surrounding tests. Use explicit test synchronization.
+
+Keep requirements, UI/copy, integration and final acceptance in the primary
+session. Delegate substantial independent work with disjoint file ownership and
+falsifiable acceptance checks. Tell workers to preserve other changes, avoid
+nested delegation and leave cross-session memory to the primary.
+
+Model selection belongs to the runtime, not hardcoded rankings in this file.
+Honor an explicit Sol-with-Astra request: Sol executes; Astra advises on difficult
+decisions or reviews independently with fresh context. For Fable 5.1 or GPT-6
+Astra sessions, give concrete completion criteria, continue authorized work,
+batch independent reads, preserve steering and constraints across compaction,
+and report meaningful progress. Revalidate model availability and effort in the
+tool schema instead of assuming a CLI alias or model ranking is current.
+
+Review the actual final diff against the task and repository standards. When
+autoreview is requested or required by a release, use the installed skill on a
+frozen candidate, with P3 coverage and outputs outside the repository. Resolve
+justified findings and recheck affected evidence. One initial review and one
+post-fix rerun is the normal bound; repeated defects require simplifying the
+design. Do not treat a reviewer claim as proof or a bound as permission to ship
+a known material defect.
+
+## Verification
+
+[Testing](docs/agents/testing.md) is the canonical gate list. Start with the
+smallest check that can falsify the change, then run its required gate.
+Complete releases need nonzero unit/UI results, static analysis, shell/workflow
+checks, project/privacy checks, watch `arm64_32` compilation and a valid archive.
+Failed, skipped or inconsistent test results remain unresolved.
+
+Run `bash .githooks/pre-commit` on the exact staged candidate. It scans with
+ast-grep ignore sources disabled, then validates agent instructions and tracked
+device identifiers. Missing tools or configuration fail the gate. Enable the
+tracked hook through `git config core.hooksPath .githooks`; never bypass it.
+
+For mobile interaction use the installed Argent instructions and matching skill.
+List devices first, avoid a simulator another session owns, use accessibility
+trees for targets and serialize simulator test jobs. Only stop servers used by
+this session. HealthKit, motion, notification delivery and payment checks that
+need a real device must remain explicit gaps until exercised there.
+
+For visible browser artifacts, inspect the rendered local artifact. For
+non-rendered docs and tooling, use CLI checks and state why browser QA is
+inapplicable. A performance claim needs a reproducible baseline and comparison
+on the same input and host conditions; fewer lines or allocations alone do not
+prove lower latency or battery usage.
+
+## Delivery and memory
+
+Follow the user's authorization for commit, push and deployment. Review every
+staged path for secrets and unrelated content. Use Conventional Commits and
+explicit paths; never clear unrelated staging or switch branches implicitly.
+Keep builds, traces, credentials and local configuration out of Git.
+
+Before beta delivery, bump the numeric version/build in `project.yml`, regenerate,
+update [CHANGELOG.md](CHANGELOG.md) and relevant docs, then freeze and review.
+Inspect actual archive and IPA versions, products, entitlements and Release
+configuration. A beta tag identifies the immutable shipped commit and uses
+`v<version>-beta<count>`; never move a pushed tag. TestFlight upload, processing,
+group availability and App Store production release are distinct actions.
+Deployment does not authorize tester invitations.
+
+Update the daily journal for important evidence, decisions and mistakes.
+Curate durable project facts in MEMORY.md and lessons in FOR_YOU_KNOW.md; mark
+superseded guidance. Keep working notes in `agent_planning/`, archive spent plans,
+and prefer existing documentation over new reports. Final responses stand alone:
+outcome, actual checks, measured results and exact remaining blockers.

@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.97] - 2026-09-07
+
+### Changed
+
+- AI streaming snapshot processing avoids repeated Unicode character-count traversals while preserving incremental Markdown behavior.
+- Removed unused AI response models, an empty widget source, and redundant workout-list projections and mirror tests.
+- Consolidated agent instructions in AGENTS.md with a CLAUDE.md import, conditional task references and a portable staged-content validator.
+- Documented isolated build output, simulator ownership, nonzero test-result validation, 32-bit watch builds and beta artifact verification.
+- Updated the existing Wrangler development tooling and retained pnpm as its single package manager.
+
+### Fixed
+
+- Test-result validation now rejects skipped runs and inconsistent totals instead of treating partial execution as complete proof.
+- Payment release automation now follows ASC 5 command names and JSON response envelopes, and validates the resolved archive configuration before export.
+
+### Security
+
+- Payment release output paths are validated after resolving traversal and symlinks, before directory creation or artifact removal.
+- Payment-script regression fixtures now prove sensitive-output redaction and preserve failed command exit codes.
+- The commit hook now checks staged device identifiers even when the working tree contains different content.
 
 ## [0.96] - 2026-07-27
 

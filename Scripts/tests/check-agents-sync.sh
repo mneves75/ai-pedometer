@@ -3,46 +3,44 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TMP_DIR}"' EXIT
 
-cleanup() {
-  rm -rf "${TMP_DIR}"
+mkdir -p "${TMP_DIR}/docs"
+printf '%s\n' '# Local verification' > "${TMP_DIR}/docs/testing.md"
+printf '%s\n' '# AGENTS.md' '' '## Verification' '' '[Tests](docs/testing.md)' > "${TMP_DIR}/AGENTS.md"
+printf '%s\n' '@AGENTS.md' > "${TMP_DIR}/CLAUDE.md"
+
+check_contract() {
+  GUIDELINES_REF_ROOT="${TMP_DIR}/no-external-checkout" \
+    LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
+    bash "${ROOT_DIR}/Scripts/check-agents-sync.sh" "${TMP_DIR}"
 }
-trap cleanup EXIT
 
-GUIDELINES_DIR="${TMP_DIR}/guidelines"
-mkdir -p "${GUIDELINES_DIR}"
+expect_failure() {
+  if check_contract; then
+    echo "Expected invalid instruction contract to fail: $1" >&2
+    exit 1
+  fi
+}
 
-cat > "${GUIDELINES_DIR}/AGENTS.md" <<'EOF'
-# AGENTS.md
+check_contract
+printf '%s\n' 'Duplicated rules' >> "${TMP_DIR}/CLAUDE.md"
+expect_failure 'Claude duplicates rules'
+printf '%s\n' '@AGENTS.md' > "${TMP_DIR}/CLAUDE.md"
 
-GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
+mv "${TMP_DIR}/docs/testing.md" "${TMP_DIR}/docs/moved.md"
+expect_failure 'missing linked document'
+mv "${TMP_DIR}/docs/moved.md" "${TMP_DIR}/docs/testing.md"
 
-Essentials (apply to every task):
-- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.
-EOF
+printf '\n## Verification\n' >> "${TMP_DIR}/AGENTS.md"
+expect_failure 'duplicate section'
+printf '%s\n' '# AGENTS.md' '' '## Verification' '' '[Tests](docs/testing.md)' > "${TMP_DIR}/AGENTS.md"
 
-cat > "${TMP_DIR}/AGENTS.md" <<'EOF'
-# Repository Guidelines
+python3 -c 'import sys; print("x" * 16001)' >> "${TMP_DIR}/AGENTS.md"
+expect_failure 'oversized always-loaded contract'
+printf '%s\n' '# AGENTS.md' > "${TMP_DIR}/AGENTS.md"
+expect_failure 'empty contract'
+rm "${TMP_DIR}/AGENTS.md"
+expect_failure 'missing contract'
 
-## GUIDELINES-REF
-Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/check-agents-sync.sh`).
-GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.
-
-Essentials (apply to every task):
-- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.
-EOF
-
-GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-bash "${ROOT_DIR}/Scripts/check-agents-sync.sh"
-
-printf "\nEXTRA\n" >> "${TMP_DIR}/AGENTS.md"
-
-if GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-  LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-  bash "${ROOT_DIR}/Scripts/check-agents-sync.sh"; then
-  echo "Expected mismatch to fail but it passed." >&2
-  exit 1
-fi
-
-echo "check-agents-sync.sh tests passed."
+echo 'Agent instruction contract tests passed.'

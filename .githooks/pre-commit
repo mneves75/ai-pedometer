@@ -39,5 +39,5 @@ fi
     --error=no-suppress-all
 )
 
-bash "${ROOT_DIR}/Scripts/check-agents-sync.sh"
-bash "${ROOT_DIR}/Scripts/verify-device-identifiers.sh"
+bash "${INDEX_SNAPSHOT}/Scripts/check-agents-sync.sh"
+ROOT_DIR="${ROOT_DIR}" bash "${INDEX_SNAPSHOT}/Scripts/verify-device-identifiers.sh" --staged

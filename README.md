@@ -39,30 +39,27 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 # Install XcodeGen (if needed)
 brew install xcodegen
 
-# Generate Xcode project
-xcodegen generate && Scripts/restore-entitlements.sh
+# Generate Xcode project (the postGen hook restores entitlements)
+xcodegen generate
 
 # Open project
 open AIPedometer.xcodeproj
 ```
 
-Local signing override (recommended for physical-device builds):
+Local signing and premium configuration (copy once, then edit the existing file):
 
 ```bash
-cp Config/Local.xcconfig.example Config/Local.xcconfig
-# then set DEVELOPMENT_TEAM in Config/Local.xcconfig
-```
-
-Premium / RevenueCat setup:
-
-```bash
-cp Config/Local.xcconfig.example Config/Local.xcconfig
+test -f Config/Local.xcconfig || cp Config/Local.xcconfig.example Config/Local.xcconfig
 # set DEVELOPMENT_TEAM
 # set REVENUECAT_API_KEY
 # optionally override REVENUECAT_ENTITLEMENT_ID and REVENUECAT_OFFERING_ID
 ```
 
 If `REVENUECAT_API_KEY` is not configured, premium surfaces fail closed and the app shows an unavailable subscriptions state instead of exposing gated AI actions. RevenueCat Trusted Entitlements verification is enabled in informational mode, and failed verification is treated as untrusted data that does not unlock Premium AI.
+
+Release/TestFlight requires the Apple RevenueCat configuration; Test Store keys are development-only. Follow the [payment runbook](docs/revenuecat/apple-payments-setup.md) for actual sandbox purchase validation.
+
+Agent setup and verification commands live in [AGENTS.md](AGENTS.md) and the [testing guide](docs/agents/testing.md). CLAUDE.md imports the same contract. Native builds use Xcode/SPM; optional JavaScript development tooling uses the pinned pnpm version and `pnpm install --frozen-lockfile`.
 
 ## Project Structure
 
@@ -127,7 +124,7 @@ DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.96" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "0.97" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -186,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.96
+**Current**: 0.97 (53)
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

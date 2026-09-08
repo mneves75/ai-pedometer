@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT_DIR"
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh"
@@ -22,6 +22,38 @@ require_env() {
     echo "ERRO: variavel de ambiente obrigatoria nao definida: ${name}"
     exit 1
   fi
+}
+
+asc_resource_id() {
+  python3 -c '
+import json
+import sys
+
+mode, expected = sys.argv[1:]
+try:
+    document = json.load(sys.stdin)
+    resources = document["data"]
+    if mode == "created-group":
+        resources = [resources]
+    if not isinstance(resources, list):
+        raise ValueError("expected resource collection")
+    resource_type = "apps" if mode == "app" else "betaGroups"
+    attribute = "bundleId" if mode == "app" else "name"
+    matches = []
+    for resource in resources:
+        if not isinstance(resource, dict) or resource.get("type") != resource_type:
+            raise ValueError("unexpected resource")
+        if resource.get("attributes", {}).get(attribute) == expected:
+            identifier = resource["id"]
+            if not isinstance(identifier, str) or not identifier.strip():
+                raise ValueError("invalid resource identifier")
+            matches.append(identifier)
+    if len(matches) > 1:
+        raise ValueError("ambiguous resource")
+except (KeyError, TypeError, AttributeError, ValueError):
+    sys.exit("ERRO: resposta ASC invalida ou ambigua; esperado envelope JSON data.")
+print(matches[0] if matches else "")
+' "$1" "$2"
 }
 
 redact_sensitive_output() {
@@ -66,54 +98,37 @@ for line in sys.stdin:
 }
 
 OUTPUT_ROOT="${ROOT_DIR}/build/ipa"
+require_cmd python3
 
 canonical_output_path() {
-  local raw_path="$1"
-  local absolute_path
-  if [[ "${raw_path}" = /* ]]; then
-    absolute_path="${raw_path}"
-  else
-    absolute_path="${ROOT_DIR}/${raw_path}"
-  fi
+  python3 - "${ROOT_DIR}" "${OUTPUT_ROOT}" "$1" <<'PY'
+from pathlib import Path
+import sys
 
-  case "${absolute_path}" in
-    "${OUTPUT_ROOT}"|"${OUTPUT_ROOT}/"*) ;;
-    *)
-      echo "ERRO: caminho de saida fora de build/ipa." >&2
-      exit 1
-      ;;
-  esac
-
-  local parent
-  parent="$(dirname "${absolute_path}")"
-  mkdir -p "${parent}"
-
-  local parent_real
-  parent_real="$(cd "${parent}" && pwd -P)"
-  local resolved
-  resolved="${parent_real}/$(basename "${absolute_path}")"
-
-  case "${resolved}" in
-    "${OUTPUT_ROOT}"|"${OUTPUT_ROOT}/"*)
-      printf '%s\n' "${resolved}"
-      ;;
-    *)
-      echo "ERRO: caminho de saida fora de build/ipa." >&2
-      exit 1
-      ;;
-  esac
+root, output, raw = sys.argv[1:]
+try:
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = Path(root) / candidate
+    # Resolve the complete path, including a symlink or '..' in the final component,
+    # without creating directories for input that has not passed containment.
+    resolved = candidate.resolve()
+    resolved.relative_to(Path(output))
+    if any(character in str(resolved) for character in "\r\n"):
+        raise ValueError("unsupported path separator")
+except (OSError, RuntimeError, ValueError):
+    sys.exit("ERRO: caminho de saida fora de build/ipa ou invalido.")
+print(resolved)
+PY
 }
 
 safe_rm_rf() {
-  local target="$1"
-  if [[ -z "${target}" || "${target}" == "/" ]]; then
-    echo "ERRO: recusando remover caminho invalido." >&2
-    exit 1
-  fi
+  local target
+  target="$(canonical_output_path "$1")" || return 1
 
   case "${target}" in
     "${OUTPUT_ROOT}/"*)
-      rm -rf "${target}" >/dev/null 2>&1 || true
+      rm -rf -- "${target}"
       ;;
     *)
       echo "ERRO: recusando remover caminho fora de build/ipa." >&2
@@ -128,6 +143,33 @@ GROUP_NAME="${TESTFLIGHT_GROUP_NAME:-IAP Sandbox}"
 IPA_DIR="$(canonical_output_path "${IPA_DIR:-build/ipa}")"
 ARCHIVE_PATH="$(canonical_output_path "${ARCHIVE_PATH:-${IPA_DIR}/AIPedometer.xcarchive}")"
 IPA_PATH="$(canonical_output_path "${IPA_PATH:-${IPA_DIR}/AIPedometer.ipa}")"
+EXPORT_PATH="$(canonical_output_path "${IPA_DIR}/export")"
+
+python3 - "${OUTPUT_ROOT}" "${IPA_DIR}" "${ARCHIVE_PATH}" "${IPA_PATH}" "${EXPORT_PATH}" <<'PY'
+from pathlib import Path
+import sys
+
+output, ipa_dir, archive, ipa, export = map(Path, sys.argv[1:])
+
+def overlaps(left, right):
+    return left == right or left in right.parents or right in left.parents
+
+if (archive == output or archive == ipa_dir or archive in ipa_dir.parents
+        or ipa == ipa_dir or ipa in ipa_dir.parents
+        or overlaps(archive, export) or overlaps(archive, ipa) or overlaps(export, ipa)
+        or (ipa.exists() and ipa.is_dir())):
+    sys.exit("ERRO: caminhos de saida sobrepostos ou invalidos.")
+
+for name in ("ExportOptions-TestFlight.plist", "xcodebuild-archive.log",
+             "xcodebuild-export.log", "asc-publish-testflight.json"):
+    try:
+        artifact = (ipa_dir / name).resolve()
+        artifact.relative_to(output)
+        if overlaps(artifact, archive) or overlaps(artifact, ipa) or overlaps(artifact, export):
+            raise ValueError("overlapping artifact")
+    except (OSError, RuntimeError, ValueError):
+        sys.exit("ERRO: caminho de artefato fora de build/ipa ou sobreposto.")
+PY
 
 if [[ "${AIPEDOMETER_TEST_PAYMENTS_VALIDATE_PATHS_ONLY:-0}" == "1" ]]; then
   echo "Path validation OK"
@@ -141,14 +183,15 @@ require_cmd rg
 aipedometer_select_xcode_26
 
 mkdir -p "${IPA_DIR}"
+mkdir -p "$(dirname "${ARCHIVE_PATH}")" "$(dirname "${IPA_PATH}")"
 
 echo "==> 1) Verificando auth do asc (App Store Connect CLI)..."
-if ! asc auth status >/dev/null 2>&1; then
+if ! asc auth status --output table >/dev/null 2>&1; then
   echo "ERRO: falha ao executar 'asc auth status'."
   exit 1
 fi
 
-if asc auth status 2>/dev/null | rg -n "No credentials stored" >/dev/null 2>&1; then
+if asc auth status --output table 2>/dev/null | rg -n "No credentials stored" >/dev/null 2>&1; then
   echo "Sem credenciais do App Store Connect no asc."
   echo "Para autenticar sem interacao, defina:"
   echo "- ASC_KEY_ID"
@@ -172,8 +215,7 @@ if ! APP_JSON="$(asc apps list --bundle-id "${APP_BUNDLE_ID}" --output json 2>/d
   exit 3
 fi
 APP_ID="$(
-  python3 -c 'import json,sys; data=json.loads(sys.stdin.read() or "[]"); print((data[0].get("id","") if isinstance(data,list) and data else "") or "")' \
-    <<<"${APP_JSON}"
+  asc_resource_id app "${APP_BUNDLE_ID}" <<<"${APP_JSON}"
 )"
 
 if [[ -z "${APP_ID}" ]]; then
@@ -227,7 +269,7 @@ cat > "${EXPORT_OPTIONS_PLIST}" <<'PLIST'
 PLIST
 
 safe_rm_rf "${ARCHIVE_PATH}"
-safe_rm_rf "${IPA_DIR}/export"
+safe_rm_rf "${EXPORT_PATH}"
 
 xcodebuild \
   -project AIPedometer.xcodeproj \
@@ -240,52 +282,44 @@ xcodebuild \
   | redact_sensitive_output \
   | tee "${IPA_DIR}/xcodebuild-archive.log"
 
+python3 "${ROOT_DIR}/Scripts/validate-release-artifact.py" \
+  --archive "${ARCHIVE_PATH}" --bundle-id "${APP_BUNDLE_ID}"
+
 xcodebuild \
   -archivePath "${ARCHIVE_PATH}" \
   -exportArchive \
   -exportOptionsPlist "${EXPORT_OPTIONS_PLIST}" \
-  -exportPath "${IPA_DIR}/export" \
+  -exportPath "${EXPORT_PATH}" \
   2>&1 \
   | redact_sensitive_output \
   | tee "${IPA_DIR}/xcodebuild-export.log"
 
-if [[ ! -f "${IPA_DIR}/export/AIPedometer.ipa" ]]; then
+if [[ ! -s "${EXPORT_PATH}/AIPedometer.ipa" ]]; then
   echo "ERRO: IPA nao encontrada apos export."
   exit 4
 fi
 
-cp -f "${IPA_DIR}/export/AIPedometer.ipa" "${IPA_PATH}"
+cp -f "${EXPORT_PATH}/AIPedometer.ipa" "${IPA_PATH}"
+python3 "${ROOT_DIR}/Scripts/validate-release-artifact.py" \
+  --archive "${ARCHIVE_PATH}" --ipa "${IPA_PATH}" --bundle-id "${APP_BUNDLE_ID}"
 
 echo "==> 5) Garantindo o grupo configurado do TestFlight."
-if ! GROUPS_JSON="$(asc testflight beta-groups list --app "${APP_ID}" --output json 2>/dev/null)"; then
+if ! GROUPS_JSON="$(asc testflight groups list --app "${APP_ID}" --paginate --output json 2>/dev/null)"; then
   echo "ERRO: falha ao consultar grupos do TestFlight."
   exit 5
 fi
 GROUP_ID="$(
-  GROUPS_JSON="${GROUPS_JSON}" GROUP_NAME="${GROUP_NAME}" python3 - <<'PY'
-import json
-import os
-
-name = os.environ.get("GROUP_NAME", "").strip()
-data = json.loads(os.environ.get("GROUPS_JSON") or "[]")
-gid = ""
-for g in (data if isinstance(data, list) else []):
-    if (g.get("name") or "").strip() == name:
-        gid = g.get("id") or ""
-        break
-print(gid)
-PY
+  asc_resource_id group "${GROUP_NAME}" <<<"${GROUPS_JSON}"
 )"
 
 if [[ -z "${GROUP_ID}" ]]; then
   echo "Criando grupo..."
-  if ! CREATE_JSON="$(asc testflight beta-groups create --app "${APP_ID}" --name "${GROUP_NAME}" --output json 2>/dev/null)"; then
+  if ! CREATE_JSON="$(asc testflight groups create --app "${APP_ID}" --name "${GROUP_NAME}" --output json 2>/dev/null)"; then
     echo "ERRO: falha ao criar o grupo do TestFlight."
     exit 5
   fi
   GROUP_ID="$(
-    python3 -c 'import json,sys; data=json.loads(sys.stdin.read() or "{}"); print((data.get("id","") or ""))' \
-      <<<"${CREATE_JSON}"
+    asc_resource_id created-group "${GROUP_NAME}" <<<"${CREATE_JSON}"
   )"
 fi
 
@@ -303,8 +337,8 @@ if [[ -n "${TESTFLIGHT_TESTER_EMAILS:-}" ]]; then
   for raw in "${emails[@]}"; do
     email="$(echo "$raw" | xargs)"
     [[ -z "${email}" ]] && continue
-    asc testflight beta-testers add --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1
-    asc testflight beta-testers invite --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1 || true
+    asc testflight testers add --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1
+    asc testflight testers invite --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1 || true
     echo "- tester processado."
   done
 else

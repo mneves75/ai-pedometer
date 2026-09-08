@@ -9,6 +9,13 @@ if ! git -C "${ROOT_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+scan_options=(-n -I -E)
+case "${1:-}" in
+  '') ;;
+  --staged) scan_options+=(--cached) ;;
+  *) echo 'Usage: verify-device-identifiers.sh [--staged]' >&2; exit 2 ;;
+esac
+
 # Apple physical UDID format often appears as 8 hex + '-' + 16 hex.
 physical_udid='[A-F0-9]{8}-[A-F0-9]{16}'
 # CoreDevice UUID/hash or generic UUID.
@@ -34,10 +41,10 @@ fail=0
 for pattern in "${patterns[@]}"; do
   matches="$(
     {
-      git -C "${ROOT_DIR}" grep -n -I -E -- "${pattern}" || true
+      git -C "${ROOT_DIR}" grep "${scan_options[@]}" -- "${pattern}" || [[ "$?" -eq 1 ]]
     } |
       awk -F: -v re="${ALLOWLIST_PATH_REGEX}" '
-        $1 !~ re { print }
+        $1 !~ re { print $1 ":" $2 ": identificador de device omitido" }
       '
   )"
 

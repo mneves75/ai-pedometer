@@ -1,5 +1,13 @@
 # FOR_YOU_KNOW.md
 
+## Audit lessons, September 2026
+
+Agent instructions now have one owner: AGENTS.md. CLAUDE.md imports it, and task-specific guides explain the commands. Copying a global skill catalog into the app made triggers stale and hid the rules the app actually needs. The local validator checks this structure even on a clean clone without the maintainer's external guideline repository.
+
+Verification tooling needs its own failure examples. A test report with skipped cases is incomplete, and a redaction test that emits no sensitive-shaped data proves nothing. The release-script fixtures run the production script against a temporary app tree, preserve a harmless output marker, and assert that failures stop later steps.
+
+Keep release evidence separate: generated project version, compiled app version, archive shape, exported IPA, uploaded build and TestFlight availability each need a check. Payment configuration and authentication are external prerequisites; passing local tests cannot supply them.
+
 This project is a pedometer app, but that description undersells what is really here.
 
 Think of it as three products sharing one nervous system:

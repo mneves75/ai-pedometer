@@ -111,11 +111,11 @@ struct WorkoutsView: View {
         .accessibilityIdentifier(A11yID.Workouts.scroll)
         .uiTestMarker(
             A11yID.Workouts.recentWorkoutsEmptyState,
-            when: completedRecentWorkouts.isEmpty
+            when: recentWorkouts.isEmpty
         )
         .uiTestMarker(
             A11yID.Workouts.recentWorkoutsCarousel,
-            when: !completedRecentWorkouts.isEmpty
+            when: !recentWorkouts.isEmpty
         )
         .toolbar(.hidden, for: .navigationBar)
         .background(DesignTokens.Colors.surfaceGrouped)
@@ -595,7 +595,7 @@ struct WorkoutsView: View {
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
-            if completedRecentWorkouts.isEmpty {
+            if recentWorkouts.isEmpty {
                 emptyWorkoutsView
             } else {
                 recentWorkoutsCarousel
@@ -644,7 +644,7 @@ struct WorkoutsView: View {
 
     private var workoutCardsRow: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            ForEach(completedRecentWorkouts) { workout in
+            ForEach(recentWorkouts) { workout in
                 WorkoutCard(workout: workout)
             }
         }
@@ -675,7 +675,7 @@ struct WorkoutsView: View {
     }
 
     private func importRoute(from result: Result<[URL], any Error>) {
-        guard Self.canImportRoute(premiumEnabled: premiumAccessStore.canAccessAIFeatures) else {
+        guard premiumAccessStore.canAccessAIFeatures else {
             routeImportError = RouteImportError(
                 message: L10n.localized(
                     "Premium is required to import GPX routes.",
@@ -732,10 +732,6 @@ struct WorkoutsView: View {
         return workoutRecommendation.map { $0.intent.localizedDescription }
     }
 
-    private var completedRecentWorkouts: [WorkoutSession] {
-        Self.recentCompletedWorkouts(from: recentWorkouts)
-    }
-
     private var trainingPlansSubtitle: String {
         if let activePlan {
             return activePlan.planDescription
@@ -743,16 +739,6 @@ struct WorkoutsView: View {
         return L10n.localized("Get personalized plans powered by AI", comment: "Training plans card subtitle")
     }
 
-    static func recentCompletedWorkouts(
-        from workouts: [WorkoutSession],
-        limit: Int = 6
-    ) -> [WorkoutSession] {
-        Array(workouts.filter { $0.endTime != nil }.prefix(limit))
-    }
-
-    static func canImportRoute(premiumEnabled: Bool) -> Bool {
-        premiumEnabled
-    }
 }
 
 private struct RouteImportError: Identifiable {

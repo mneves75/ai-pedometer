@@ -30,6 +30,11 @@ def validation_errors(summary: TestSummary) -> list[str]:
         errors.append("nenhum teste foi executado")
     if summary.failed != 0:
         errors.append(f"{summary.failed} teste(s) falharam")
+    if summary.skipped != 0:
+        errors.append(f"{summary.skipped} teste(s) foram pulados")
+    counts = (summary.total, summary.passed, summary.failed, summary.skipped)
+    if any(count < 0 for count in counts) or summary.total != sum(counts[1:]):
+        errors.append("contagens de testes inconsistentes")
     if summary.result.strip().lower() not in SUCCESS_RESULTS:
         errors.append(f"resultado nao indica sucesso: {summary.result!r}")
     return errors
@@ -69,8 +74,10 @@ def read_test_summary(bundle_path: Path) -> TestSummary:
             failures.append(name.strip())
 
     def _int(key: str) -> int:
-        v = data.get(key, 0)
-        return int(v) if isinstance(v, (int, float)) else 0
+        value = data.get(key)
+        if type(value) is not int:
+            raise ValueError(f"contagem ausente ou nao inteira: {key}")
+        return value
 
     return TestSummary(
         result=str(data.get("result", "Unknown")),
@@ -113,7 +120,7 @@ def main() -> int:
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="Falha se nenhum teste executou, houver falhas ou o resultado nao indicar sucesso",
+        help="Exige testes aprovados, sem falhas ou pulos e com contagens consistentes",
     )
     args = parser.parse_args()
 

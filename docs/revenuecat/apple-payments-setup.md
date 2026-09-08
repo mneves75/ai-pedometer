@@ -311,6 +311,10 @@ bash Scripts/test-payments-device.sh
 
 O script valida auth local do `asc`, encontra o app por bundle ID, prepara IPA Release, cria/usa grupo TestFlight e orienta o fluxo de sandbox tester. Ele exige credenciais ASC configuradas fora do repo e redige do console e dos logs os emails, IDs e caminhos de credenciais conhecidos.
 
+O fluxo usa os comandos e envelopes JSON do ASC 5. Antes de exportar, `Scripts/validate-release-artifact.py` exige um app principal, watch app e extensão WidgetKit com versões/builds iguais, executáveis presentes e configuração RevenueCat Apple resolvida. Depois da exportação, compara os produtos do IPA com o archive sem extrair o ZIP. Chave Test Store, produto ausente ou metadata divergente interrompem a publicação. Assinaturas, provisioning, entitlements e transações sandbox ainda precisam de validação real; o prefixo da chave não prova que produtos e offerings estejam configurados.
+
+Para verificar também a versão/build esperados de forma independente, use o comando do [guia de testes](../agents/testing.md#app-store-connect-gate). Não defina `TESTFLIGHT_TESTER_EMAILS` sem autorização para adicionar ou convidar testers.
+
 Também é útil rodar antes:
 
 ```bash

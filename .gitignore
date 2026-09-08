@@ -5,6 +5,7 @@
 xcuserdata/
 
 # Build products
+node_modules/
 build/
 DerivedData/
 .build-benchmark/

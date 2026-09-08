@@ -176,18 +176,6 @@ enum TrainingGoal: String, Codable, Sendable, CaseIterable {
 }
 
 @Generable
-struct CoachResponse: Sendable {
-    @Guide(description: "The main response to the user's question")
-    let message: String
-    
-    @Guide(description: "Whether this response includes health-related advice")
-    let containsHealthAdvice: Bool
-    
-    @Guide(description: "Suggested follow-up questions the user might ask", .count(0...3))
-    let suggestedFollowUps: [String]
-}
-
-@Generable
 struct AchievementCelebration: Sendable {
     @Guide(description: "Personalized congratulatory message")
     let congratulation: String
@@ -197,22 +185,4 @@ struct AchievementCelebration: Sendable {
     
     @Guide(description: "Encouragement to keep going with next challenge")
     let nextChallenge: String
-}
-
-@Generable
-struct ActivityPrediction: Sendable {
-    @Guide(description: "Predicted step count by end of day", .range(0...100000))
-    let predictedSteps: Int
-    
-    @Guide(description: "Confidence level 0-100", .range(0...100))
-    let confidencePercent: Int
-    
-    @Guide(description: "Explanation of the prediction")
-    let explanation: String
-    
-    @Guide(description: "Whether user is likely to meet their goal")
-    let willMeetGoal: Bool
-    
-    @Guide(description: "Suggested time to reach goal if currently behind")
-    let suggestedCompletionTime: String?
 }

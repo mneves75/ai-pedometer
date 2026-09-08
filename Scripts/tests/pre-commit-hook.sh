@@ -9,9 +9,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-GUIDELINES_DIR="${TMP_DIR}/guidelines"
-mkdir -p "${GUIDELINES_DIR}"
-
 PASS_AST_GREP="${TMP_DIR}/ast-grep-pass"
 FAIL_AST_GREP="${TMP_DIR}/ast-grep-fail"
 STAGED_SNAPSHOT_AST_GREP="${TMP_DIR}/ast-grep-staged-snapshot"
@@ -44,40 +41,16 @@ chmod +x "${PASS_AST_GREP}" "${FAIL_AST_GREP}" "${STAGED_SNAPSHOT_AST_GREP}"
 
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" read-tree HEAD
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" add -- \
+  AGENTS.md CLAUDE.md Scripts/check-agents-sync.sh Scripts/verify-device-identifiers.sh \
   sgconfig.yml \
   rules/ast-grep/swift-no-force-cast.yml \
   rules/ast-grep/swift-no-force-try.yml
 
-printf '%s\n' \
-  '# AGENTS.md' \
-  '' \
-  'GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.' \
-  '' \
-  'Essentials (apply to every task):' \
-  '- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.' \
-  > "${GUIDELINES_DIR}/AGENTS.md"
-
-# shellcheck disable=SC2016 # The fixture intentionally contains literal backticks.
-printf '%s\n' \
-  '# Repository Guidelines' \
-  '' \
-  '## GUIDELINES-REF' \
-  'Synced from `~/dev/GUIDELINES-REF/AGENTS.md` (use `bash Scripts/update-agents-guidelines.sh` then `bash Scripts/check-agents-sync.sh`).' \
-  'GUIDELINES-REF is a curated, opinionated knowledge base for building production software with AI agents across security, logging/audit, web/mobile, databases, infra, and language runtimes.' \
-  '' \
-  'Essentials (apply to every task):' \
-  '- Always work through lists/todo/plans items; do not stop until all work is done and you are certain it works.' \
-  > "${TMP_DIR}/AGENTS.md"
-
-GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
 AST_GREP_BIN="${PASS_AST_GREP}" \
 GIT_INDEX_FILE="${TEST_INDEX}" \
 bash "${ROOT_DIR}/.githooks/pre-commit"
 
-if GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-  LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-  AST_GREP_BIN="${FAIL_AST_GREP}" \
+if AST_GREP_BIN="${FAIL_AST_GREP}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
   bash "${ROOT_DIR}/.githooks/pre-commit"; then
   echo "Expected pre-commit to fail when ast-grep reports a finding." >&2
@@ -90,9 +63,7 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
   --skip-worktree StagedOnly.swift
 
-if GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-  LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-  AST_GREP_BIN="${STAGED_SNAPSHOT_AST_GREP}" \
+if AST_GREP_BIN="${STAGED_SNAPSHOT_AST_GREP}" \
   STAGED_SNAPSHOT_MARKER="${STAGED_SNAPSHOT_MARKER}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
   bash "${ROOT_DIR}/.githooks/pre-commit"; then
@@ -118,9 +89,7 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
   --add --cacheinfo "100644,${IGNORE_RULE_BLOB},.gitignore"
 
-if GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-  LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-  AST_GREP_BIN="ast-grep" \
+if AST_GREP_BIN="ast-grep" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
   bash "${ROOT_DIR}/.githooks/pre-commit" > "${IGNORED_SCAN_OUTPUT}" 2>&1; then
   echo "Expected pre-commit to reject an ignored path present in the staged snapshot." >&2
@@ -136,11 +105,30 @@ fi
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index --force-remove IgnoredStaged.swift
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" add .gitignore
 
-printf "\nEXTRA\n" >> "${TMP_DIR}/AGENTS.md"
+# This synthetic identifier exists only in the index, never in the working tree.
+SYNTHETIC_DEVICE_LABEL='Device ID'
+STAGED_DEVICE_BLOB="$(printf '%s: %s\n' "${SYNTHETIC_DEVICE_LABEL}" '12345678-1234-1234-1234-123456789ABC' | git -C "${ROOT_DIR}" hash-object -w --stdin)"
+GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
+  --add --cacheinfo "100644,${STAGED_DEVICE_BLOB},StagedDevice.txt"
+if AST_GREP_BIN="${PASS_AST_GREP}" \
+  GIT_INDEX_FILE="${TEST_INDEX}" \
+  bash "${ROOT_DIR}/.githooks/pre-commit" > "${TMP_DIR}/device-scan.txt" 2>&1; then
+  echo "Expected pre-commit to reject a device identifier present only in the index." >&2
+  exit 1
+fi
+grep -Fq 'StagedDevice.txt' "${TMP_DIR}/device-scan.txt"
+if grep -Fq '12345678-1234-1234-1234-123456789ABC' "${TMP_DIR}/device-scan.txt"; then
+  echo 'Device verification must not print the prohibited identifier.' >&2
+  exit 1
+fi
+GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index --force-remove StagedDevice.txt
 
-if GUIDELINES_REF_ROOT="${GUIDELINES_DIR}" \
-  LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-  AST_GREP_BIN="${PASS_AST_GREP}" \
+# The working tree remains valid; only the staged Claude import is invalid.
+INVALID_IMPORT_BLOB="$(printf '%s\n' '@missing.md' | git -C "${ROOT_DIR}" hash-object -w --stdin)"
+GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
+  --add --cacheinfo "100644,${INVALID_IMPORT_BLOB},CLAUDE.md"
+
+if AST_GREP_BIN="${PASS_AST_GREP}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
   bash "${ROOT_DIR}/.githooks/pre-commit"; then
   echo "Expected pre-commit to fail but it passed." >&2

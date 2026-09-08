@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "wrangler": "4.127.1"
+  },
+  "packageManager": "pnpm@11.20.0"
+}

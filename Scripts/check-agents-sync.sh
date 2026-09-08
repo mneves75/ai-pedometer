@@ -1,57 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-LOCAL_AGENTS="${LOCAL_AGENTS:-${ROOT_DIR}/AGENTS.md}"
-GUIDELINES_REF_ROOT="${GUIDELINES_REF_ROOT:-${HOME}/dev/GUIDELINES-REF}"
-UPSTREAM_AGENTS="${GUIDELINES_REF_ROOT}/AGENTS.md"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+python3 - "${1:-${ROOT_DIR}}" <<'PY'
+import re
+import sys
+from pathlib import Path
 
-if [[ ! -f "${LOCAL_AGENTS}" ]]; then
-  echo "AGENTS.md not found at ${LOCAL_AGENTS}" >&2
-  exit 1
-fi
+root = Path(sys.argv[1]).resolve()
+errors = []
+agents_path = root / "AGENTS.md"
+claude_path = root / "CLAUDE.md"
+if not agents_path.is_file() or not claude_path.is_file():
+    sys.exit("AGENTS.md and CLAUDE.md must both exist.")
 
-if [[ ! -f "${UPSTREAM_AGENTS}" ]]; then
-  # The canonical copy lives outside this repository, so it is absent on CI runners and on any clean
-  # clone. Hard-failing there does not detect drift, it just breaks the build: this gate ran first in a
-  # single serial CI job and silently blocked every build and test step for days. Skip when the
-  # reference is unavailable, and keep it strict where it can actually be checked.
-  if [[ "${REQUIRE_GUIDELINES_REF:-0}" == "1" ]]; then
-    echo "GUIDELINES-REF AGENTS.md not found at ${UPSTREAM_AGENTS}" >&2
-    echo "REQUIRE_GUIDELINES_REF=1 made its absence fatal." >&2
-    exit 1
-  fi
-  echo "GUIDELINES-REF checkout not present at ${GUIDELINES_REF_ROOT}; skipping mirror comparison."
-  echo "Set GUIDELINES_REF_ROOT to point at it, or REQUIRE_GUIDELINES_REF=1 to treat absence as a failure."
-  exit 0
-fi
+agents = agents_path.read_text()
+if not agents.startswith("# AGENTS.md\n") or not re.search(r"^## .+", agents, re.M):
+    errors.append("AGENTS.md must contain its title and a structured contract.")
+if len(agents.encode()) > 16000:
+    errors.append("AGENTS.md exceeds the 16 KB local instruction budget; disclose task references.")
+if claude_path.read_text().strip() != "@AGENTS.md":
+    errors.append("CLAUDE.md must import @AGENTS.md without duplicating rules.")
 
-local_section="$(
-  awk '
-    found { print }
-    /^## GUIDELINES-REF/ { found = 1; next }
-  ' "${LOCAL_AGENTS}"
-)"
+headings = re.findall(r"^## (.+)$", agents, re.M)
+if len(headings) != len(set(heading.casefold() for heading in headings)):
+    errors.append("AGENTS.md contains duplicate sections.")
+if "<skills_system" in agents or "SKILLS_TABLE_START" in agents:
+    errors.append("Installed skill catalogs must not be copied into AGENTS.md.")
 
-if [[ -z "${local_section}" ]]; then
-  echo "Failed to locate ## GUIDELINES-REF section in ${LOCAL_AGENTS}" >&2
-  exit 1
-fi
+for link in re.findall(r"\[[^\]]+\]\(([^)]+)\)", agents):
+    target = link.split("#", 1)[0]
+    if not target or re.match(r"[a-zA-Z][a-zA-Z0-9+.-]*:", target):
+        continue
+    resolved = (root / target).resolve()
+    if not resolved.is_relative_to(root) or not resolved.is_file():
+        errors.append(f"Missing or nonportable instruction reference: {target}")
 
-if [[ "${local_section}" == Synced\ from* ]]; then
-  local_section="$(printf "%s\n" "${local_section}" | tail -n +2)"
-fi
-
-local_section="$(printf "%s\n" "${local_section}" | awk 'BEGIN{skip=1} { if (skip && $0=="") next; skip=0; print }')"
-
-upstream_section="$(
-  tail -n +2 "${UPSTREAM_AGENTS}" | awk 'BEGIN{skip=1} { if (skip && $0=="") next; skip=0; print }'
-)"
-
-if ! diff -u <(printf "%s\n" "${upstream_section}") <(printf "%s\n" "${local_section}"); then
-  echo "" >&2
-  echo "AGENTS.md GUIDELINES-REF section is out of sync with ${UPSTREAM_AGENTS}" >&2
-  exit 1
-fi
-
-echo "AGENTS.md GUIDELINES-REF section is in sync with ${UPSTREAM_AGENTS}"
+if errors:
+    sys.exit("\n".join(errors))
+print("Agent instructions: canonical import, size, sections and local references passed.")
+PY
