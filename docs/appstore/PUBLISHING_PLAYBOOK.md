@@ -121,11 +121,10 @@ asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submiss
 - [ ] TestFlight validado para compra/sandbox.
 - [ ] Plano de rollout (imediato ou phased release) definido.
 
-## Evidências da execução desta rodada
+## Evidências
 
-- Capturas iPhone base: `output/appstore-capture-iphone/screens/ui/named`.
-- Capturas iPad base: `output/appstore-capture-ipad/screens/onboarding/named`.
-- Pacote final gerado em: `output/appstore-publishing/screenshots`.
+Os artefatos de captura ficam em `output/`, que é ignorado pelo Git: registre os caminhos e
+hashes da rodada no diário do dia, não neste documento.
 
 ## Referências oficiais
 

@@ -32,8 +32,12 @@ Provide a calm, reliable, on-device step tracking experience with AI-guided insi
 - Subscription failures must not expose premium-only AI features.
 
 ## Out of Scope (Current)
-- Cloud backends or remote AI services.
+- Remote AI inference and any cloud storage of health or activity data: inference and health
+  context stay on device. Purchase commerce is the deliberate exception, over Apple's StoreKit
+  for the tip jar and RevenueCat for subscription entitlements, as stated under Non-Functional
+  Requirements.
 
 ## Open Questions
-- App Store ID and release channel details for remote ASC validation.
+- Release channel details for remote ASC validation. The App Store app record exists; its
+  identifier belongs in the release runbook and the daily journal, not in product docs.
 - Final public support, marketing, and privacy-policy URLs for App Store metadata.

@@ -1,263 +1,117 @@
 # MEMORY.md
 
-This is the repo-local long-term memory for `ai-pedometer`.
+Repo-local long-term memory for `ai-pedometer`. Current state, durable decisions and
+open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering failure
+modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
+[CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current verification context (2026-09-09)
+## Current state (2026-09-09)
 
-- AGENTS.md is the canonical project contract; CLAUDE.md imports it. The portable instruction check validates the local staged contract without a separate GUIDELINES-REF checkout. Do not restore copied guideline/skill catalogs or the retired update-agents-guidelines script.
-- The historical premium-reminder "OPEN" note below is superseded by the 0.95/0.96 implementation: authoritative access loss suspends delivery while preserving the preference; unresolved access does not revoke it. Preserve the current state machine and its tests.
-- Environment inspection: native SwiftUI, not React Native; iOS/watchOS 26 targets; XcodeGen; stable Xcode 26.6 with iOS/watchOS 26.5 SDKs. The selected system Xcode is beta, so use the explicit stable developer directory. Swift language mode remains 6.2.
-- Current source is 0.98 (54), not a deployed release. The September 8–9 residual audit and verification results are in memory/2026-09-08.md and memory/2026-09-09.md; repeatable gates are in docs/agents/testing.md. Approved production payment configuration, ASC authentication and physical acceptance remain open.
-- The June distribution/toolchain notes below are historical and superseded where they conflict with current evidence: stable Xcode now builds the embedded watch product. Use the direct watch target for arm64_32 verification, as CI does; the watch scheme can pull in incompatible iPhone dependencies. Do not remove the embedded watch to obtain a passing build.
-- ASC 5 uses `testflight groups`/`testflight testers` and JSON `data` envelopes. A successful archive is not proof of export, upload, processing or tester access.
+- Source is 0.98 (54) in `project.yml`, pushed at `5145374`, not a deployed release.
+  Hosted CI 34309651078 and CodeQL 34309651111 both passed on that commit.
+- Open before any beta or production delivery: approved App Store Connect credentials,
+  Apple (non-Test-Store) RevenueCat configuration, a signed artifact, and physical-device
+  acceptance for HealthKit, motion, notifications, paired watch and purchases.
+- Toolchain: native SwiftUI, iOS/watchOS 26 targets, Swift 6.2, XcodeGen. The selected
+  system Xcode is a beta, so every build/test/analyze command needs an explicit stable
+  developer directory — see the [build guide](docs/agents/build-and-dev.md).
+- AGENTS.md is the canonical contract and CLAUDE.md imports it. Do not restore copied
+  guideline or skill catalogs; `Scripts/check-agents-sync.sh` validates the staged contract
+  without an external checkout.
 
-## User Working Style
+## User working style
 
-- Prefers operator behavior over hand-holding.
-- Wants evidence, not optimism.
-- Expects root checks before work: `pwd` and `git rev-parse --show-toplevel`.
-- Wants bug work to be reproducer-first: write the test, prove failure, then fix.
-- Dislikes buffered shell inspection patterns such as `head`, `tail`, `less`, and `more` in evidence flows.
-- Wants project memory written to disk, not kept implicit in chat.
+- Operator behavior over hand-holding; evidence over optimism.
+- Root checks before work: `pwd`, `git rev-parse --show-toplevel`, `git status -sb`.
+- Bug work is reproducer-first: write the test, prove it fails, then fix.
+- No buffered shell inspection (`head`, `tail`, `less`, `more`) in evidence flows.
+- Project memory is written to disk, not left implicit in chat.
 
-## Repo Startup Order
+## Project layout
 
-Read these before touching code or docs:
+`AIPedometer/` app, `Shared/` cross-target code, `AIPedometerWatch/` watch companion,
+`AIPedometerWidgets/` widgets and Live Activity, `AIPedometerTests/` unit tests,
+`AIPedometerUITests/` UI tests. `project.yml` generates the Xcode project.
 
-1. `MEMORY.md`
-2. `memory/YYYY-MM-DD.md` for today
-3. `FOR_YOU_KNOW.md`
+## Durable technical decisions
 
-Also confirm repo scope first with:
+- The canonical `DEVELOPMENT_TEAM` for device installs lives in `Config/Local.xcconfig`.
+  Do not derive it from `security find-identity`: that returns the personal Apple
+  Development team suffix and provisioning lookup then fails.
+- Swift 6.2 with complete strict concurrency and warnings-as-errors is enforced in
+  `project.yml`, not in the xcconfigs.
+- AI inference runs on-device through Apple Foundation Models; health context stays local.
+- RevenueCat gates premium AI surfaces and fails closed when unconfigured or when Trusted
+  Entitlements verification fails. It is pinned by an immutable annotated-tag object in
+  `project.yml` while `Package.resolved` records the resolving commit; run
+  `Scripts/check-revenuecat-staleness.sh` before release and never swap the pin for a branch.
+- A `test_…` RevenueCat key is rejected outside DEBUG by
+  `AppConstants.RevenueCat.resolveConfiguration` (`allowsTestStoreAPIKeys`), so premium fails
+  closed instead of reaching the SDK's own Release trap. Reproducers live in `AppConstantsTests`.
+  `Config/Local.xcconfig` is gitignored and carries a Test Store key, so Release installs with
+  it are unsupported by design.
+- `asc` has two authentication planes and only one can publish: `asc web auth` is a browser
+  session for `asc web …` and cannot mint an API key or upload a build; app, build, TestFlight
+  and `asc publish` need `asc auth login` with key ID, issuer ID and a `chmod 600` `.p8`.
+  Never substitute web-session provider identifiers for the issuer ID, and always pass `--app`
+  explicitly rather than trusting the CLI's default app ID.
+- `SKIP_INSTALL: YES` on the watch target is release-critical. With `NO`, the archive holds two
+  apps under `Products/Applications`, Xcode writes no `ApplicationProperties`, and
+  `-exportArchive` reports an empty set of distribution methods (`expected one {}` means "no
+  valid methods", not a bad method name). The watch still ships embedded at `AIPedometer.app/Watch/`.
+- A certificate is usable only with its private key on this Mac; profiles must be created
+  against the local distribution certificate. Pass the authentication key to both `archive`
+  and `-exportArchive`, and read the real distribution logs under
+  `…/T/AIPedometer_*.xcdistributionlogs/IDEDistribution.standard.log` rather than the CLI's
+  one-line error. Cloud signing needs an Admin/App Manager key role, not Developer.
+- Entitlements are rewritten on every `xcodegen generate` by `Scripts/restore-entitlements.sh`;
+  entitlement changes belong in that script. Hardened-process keys stay staged behind
+  `ENHANCED_SECURITY_ENTITLEMENTS=1` until provisioning supports the capability.
+- In Release, `LaunchConfiguration.isOverridable` is unconditionally false: launch arguments and
+  environment are attacker input through `devicectl`. Do not reintroduce Release overrides.
+- Because the project is XcodeGen-generated, new Swift files need `xcodegen generate`, and version
+  fields must change in `project.yml` *before* generation or the built bundle keeps the old version.
 
-1. `pwd`
-2. `git rev-parse --show-toplevel`
+## Operator lessons
 
-## Project Snapshot
+- The reproducer test is the contract for a bug report, and `Executed 0 tests` is not evidence.
+- A concurrency regression test is trustworthy only if it fails without the fix: instrument a
+  max-concurrent counter, bypass the guard once to see red, then restore.
+- `@MainActor` is not a reentrancy guard for `async` methods. "Idempotent under @MainActor" is a
+  false justification; a prior cycle made exactly that mistake on `refreshTodayData()`.
+- `await Task.yield()` is never a synchronization primitive in a test — it guarantees only that the
+  current task suspends once. Use an explicit completion latch.
+- A "no user-visible effect" justification must trace every consumer, not the obvious UI. Duplicate
+  `EarnedBadge` rows were invisible in the grid but surfaced through the AI prompt.
+- Review-agent findings inflate severity and misread code: verify every claimed critical or high
+  against real source first. In one cycle all fourteen were refuted, and applying the suggested
+  "fixes" would have introduced bugs (inverting a `max(by:)` comparator, breaking open-ended goal
+  semantics, flipping RevenueCat verification mode).
+- Autoreview your own uncommitted diff before committing; it has a far better hit rate than
+  auditing unchanged code. Six review lenses over existing source found nothing while review of the
+  new diff caught two customer-harming regressions that a 613-test suite passed cleanly.
+- When successive fixes to the same seam each introduce a worse bug, the underlying question is
+  probably a product decision, not an engineering one. Escalate instead of iterating.
+- Dot-directories can hold tracked files. Run `git ls-files <dir>` before any `rm`, and restore a
+  deleted tracked file with `git show HEAD:<path> > <path>`.
+- Warnings-as-errors applies to test doubles too; fake clients must be warning-clean before their
+  results mean anything.
+- Serialize simulator jobs. A `** TEST FAILED **` line can be `Mach error -308 … server died`, the
+  simulator server dying under contention, and a single full-suite XCUITest "element not found" on
+  a loaded machine is usually a launch-timing flake — confirm by isolated re-run before treating
+  either as a regression.
+- Large `xcodebuild -showBuildSettings` output must be parsed from a file. Capturing it in a shell
+  variable and feeding it to `awk` through a here-string can fill Bash's pipe and deadlock after an
+  otherwise successful build.
+- `Scripts/lib/logged-command.sh` enables `pipefail` inside its own subshell; a helper cannot assume
+  its caller did, or `xcodebuild | tee` reports success for a failed build.
+- `Scripts/install-on-device.sh --launch` exits non-zero when the phone is locked at launch time
+  even though build and install succeeded. Verify independently with
+  `xcrun devicectl device info apps --device <name> --bundle-id com.mneves.aipedometer`.
 
-- Product: iOS + watchOS pedometer with on-device AI coaching and training features.
-- Main app target: `AIPedometer/`
-- Shared cross-target code: `Shared/`
-- watchOS companion: `AIPedometerWatch/`
-- Widgets and Live Activity: `AIPedometerWidgets/`
-- Unit tests: `AIPedometerTests/`
-- UI tests: `AIPedometerUITests/`
-- Build configuration is generated by XcodeGen via `project.yml`.
-
-## Technical Decisions Worth Remembering
-
-- The canonical `DEVELOPMENT_TEAM` for device installs lives in `Config/Local.xcconfig` (currently `<LOCAL_DEVELOPMENT_TEAM_ID>`). Do not parse it out of `security find-identity` — that returns the Apple Development identity suffix (e.g. `<PERSONAL_TEAM_ID>`) which is the personal team, not the project team, and provisioning profile lookup will fail.
-- Swift 6.2 and strict concurrency are enforced project-wide.
-- AI is on-device through Apple Foundation Models, not cloud inference.
-- Health data is read through HealthKit, with graceful fallback behavior when data or permissions are unavailable.
-- RevenueCat gates premium AI surfaces and is designed to fail closed when not configured or when Trusted Entitlements verification fails.
-- RevenueCat is pinned by the immutable annotated-tag object in `project.yml`, while Xcode's
-  `Package.resolved` records the resolving commit. Run `Scripts/check-revenuecat-staleness.sh`
-  before release and review the upstream release notes; never replace the pin with a moving branch.
-- `asc 3.1.0` has two separate authentication planes. `asc web auth` uses an Apple Account web session
-  for `asc web ...` workflows; normal app, build, TestFlight, and `asc publish ...` commands still
-  require `asc auth` JWT credentials (key ID, Issuer ID, and `.p8`). `asc web auth capabilities` can
-  confirm a team API key and its role, but it does not reveal the Issuer ID. Never substitute web-session
-  provider/team identifiers for the Issuer ID. `Scripts/test-payments-device.sh` is correct to require
-  `asc auth`.
-- `InsightService` weekly generation is single-flight across one Foundation Models session. Cache
-  invalidation or week rollover increments an ownership generation; incompatible callers await the
-  prior flight and re-evaluate instead of starting a concurrent model session. Stale flights must
-  not publish cache or `lastError`.
-- Badge celebration generation uses UUID ownership. Cancellation, dismissal, failure, and a
-  replacement request invalidate the prior owner so a late response cannot publish content or
-  clear the current celebration.
-- Expedition Mode is a Premium workouts capability: the Workouts UI owns the toggle, while `WorkoutSessionController` rechecks premium-gated persisted state before reducing live metrics cadence.
-- Routes & GPX is presently a local GPX import/summary/MapKit-preview feature, not full live maps, offline maps, or Apple Watch maps.
-- `GPXRouteImporter` owns the Routes & GPX import seam: security-scoped file access, pre-allocation size rejection, mapped file reads, parsing, and storage. `WorkoutsView` should only keep UI state and call this module.
-- `TrainingPlanRecord` owns active training-plan workout projection through `currentWorkoutRecommendation` and `currentWorkoutRecommendationSummary`; keep goal-to-intent, difficulty, estimated-minutes, and current-week fallback logic out of `WorkoutsView`.
-- Heart rate support is current-day latest-sample display only; keep it out of medical/training-zone claims unless a later safety pass explicitly expands scope.
-- Watch and widgets rely on shared models plus app-group-backed shared state.
-- `StreakCalculator` reads its historical window through the `StepHistoryProviding` seam (conformed by the `StepDataAggregator` actor). `fetchDailySteps(from:to:)` returns one bucketed `HKStatisticsCollectionQuery` result keyed by start-of-day; the streak loop iterates that in memory instead of issuing one `HKStatisticsQuery` per day (the old path made up to 400 serial round-trips that scaled with streak length). Keep the bucketed-query approach — `HealthKitService.fetchDailyTotalsCollection` is the sibling pattern. Inside an `actor`, bind `calendar` to a local `let` before the `enumerateStatistics` block; capturing `self.calendar` trips Swift 6 "sending '<local>' risks causing data races".
-- `StepTrackingService.refreshTodayData()` is serialized via a chained `Task` (`refreshChain`). It is `@MainActor` but `async` with many `await` points, and ~5 independent callers (Dashboard `.task` + pull-to-refresh, `AppLifecycleCoordinator` foreground, `BackgroundTaskService`, `SettingsSideEffects`) can fire it concurrently. `@MainActor` only serializes *synchronous* regions, so without the chain two overlapping refreshes interleave and a stale-low HealthKit read overwrites a newer `todaySteps` and clamps the `seedLiveBaseline` Apple-Watch offset to 0 (visible step regression until the next clean refresh). Keep the run-to-completion chain; do NOT switch it to a drop/coalesce guard — a dropped refresh after a settings change is a different bug. The serialization test lives in `AIPedometerTests/Services/HealthKitServiceTests.swift` (there is NO `StepTrackingServiceTests.swift`; that suite file is mis-named relative to what it covers). `refreshTodayDataSerializesConcurrentCalls` uses a mock `fetchSteps` that tracks `maxConcurrentFetchSteps` and asserts it stays at 1. Known-accepted gap (0.85 cycle, verified real, deliberately NOT fixed): live CMPedometer ticks reach `updateLiveData` via `MotionService`'s `Task { @MainActor }` delivery and mutate the same `todaySteps`/`liveBaseline`/`pendingBaseline` state WITHOUT going through `refreshChain`, so a tick inside a refresh's `await` can interleave. It is LOW/self-healing (the refresh's synchronous tail re-seeds authoritatively); chaining live updates onto `refreshChain` was rejected because it breaks the synchronous live-update contract (~6 tests assert `todaySteps` right after `simulateLiveUpdate`) and adds a hot-path `Task` hop per tick. See `implementation-notes.html#finding-085-live-interleave` before "fixing" it.
-- `HealthKitSyncService.fetchEarnedBadgeCount()` counts DISTINCT `badgeRaw` values, not raw rows, because the count feeds `AIContextSnapshot.totalBadgesEarned` → the AI coaching prompt and older stores can hold duplicate `EarnedBadge` rows. Keep it consistent with `BadgeService.deduplicateBadges`; a raw `fetchCount` would make the AI over-report the badge total.
-
-## Toolchain Pincer Blocking Distribution Builds (2026-06-13)
-
-- **O app record `com.mneves.aipedometer` EXISTE no ASC** (ID `6778799265`, "AIPedometer - aipedometer", SKU `AIPEDOMETER`). A nota de 2026-06-10 dizendo que não existia está OBSOLETA — deploy não está bloqueado por falta de app record. `asc doctor` ok (perfil `palavras`).
-- **Nenhum toolchain desta máquina produz um archive/device-build distribuível com o watch embarcado:**
-  - **Xcode 26.6 (estável)**: o `actool` do watch exige device de thinning "Apple Watch Series 7 (45mm)" na era watchOS 26.5 (versão do SDK), incompatível com o único runtime instalado (watchOS 27.0). O runtime watchOS 26.x foi removido e a Apple NÃO o disponibiliza para download. Falha idêntica em build de simulador E em `xcodebuild archive` de device.
-  - **Xcode 27 beta**: tem SDK watchOS 27 (resolve o actool), mas o RevenueCat pinado (`89c9d14`) não compila sob Swift 6.4 (`PaywallColor.swift: invalid redeclaration of synthesized memberwise init`; `CustomerCenterConfigData.swift: ambiguous use of init`) — falha em build *release/archive* também, não só em test (corrige a impressão anterior de que release passava no beta).
-  - Resultado: **staging (TestFlight), prod (App Store) e install no iMarcus estão todos bloqueados** até: (a) restaurar um runtime watchOS 26.x (fora do nosso controle), ou (b) bumpar o RevenueCat para uma revisão compatível com Swift 6.4 e arquivar com o beta. (b) é revenue-critical — NÃO fazer autonomamente; recomendar ao usuário.
-  - Build de simulador iOS continua possível removendo TEMP o `- target: AIPedometerWatch` das deps do app em `project.yml` (nunca commitar; o autoreview pega).
-- **Ponto-cego de 32 bits**: `Shared/` compila no target watchOS (arm64_32, `Int` de 32 bits). Literais inteiros que cabem em Int64 mas estouram Int32 (ex.: a constante de hash de Knuth `2_654_435_761`) passam no build de simulador (arm64, Int 64-bit) E no autoreview do Codex, mas QUEBRAM o build do watch/device. Use `UInt32`/`UInt64` com aritmética de wrapping (`&*`,`&+`) para hashing em código de `Shared/`. O build de device do iMarcus foi o que pegou o bug (0.90). LIÇÃO: verificação só em simulador 64-bit + review estático NÃO cobre overflow de 32 bits; um build de watch/device é necessário para fechar essa classe.
-- **GitHub push**: `gh`/git resolve para a conta `conhecendoia` (sem write em `mneves75/ai-pedometer`) → 403. `gh auth switch --user mneves75` antes de push (ambas no keyring; mneves75 é dono).
-
-## RevenueCat Test Store key crasha builds Release de propósito (2026-07-15)
-
-- O crash "app crashes on imarcus" de 2026-07-15 (2x às 20:00, EXC_BREAKPOINT/SIGTRAP tipo 309,
-  cooperative pool, ~0,7s pós-launch) era o RevenueCat pinado executando
-  `checkForSimulatedStoreAPIKeyInRelease`: em build **não-DEBUG** com key `test_…` (Test/Simulated
-  Store), o SDK loga → mostra alerta → `fatalError` **quando o alerta é dispensado**. Por isso um
-  "launch sobreviveu N segundos" NÃO prova ausência desse crash — o trap espera interação.
-- `Config/Local.xcconfig` carrega uma key RevenueCat de Test Store (prefixo test) (dev). Install em device com
-  `--configuration Release` + essa key = crash garantido na primeira interação. Debug é o modo
-  suportado para a test key (`install-on-device.sh` default).
-- Guard no app (2026-07-15): `AppConstants.RevenueCat.resolveConfiguration` tem
-  `allowsTestStoreAPIKeys` (default `#if DEBUG`); key `test_…` vira `nil` quando não permitida →
-  premium fail-closed em vez do fatalError do SDK. Reproducer: `AppConstantsTests`
-  (`resolveRevenueCatConfigurationRejectsTestStoreKey*`). Red→green provado em 2026-07-15.
-- Correção definitiva para Release/TestFlight: key Apple real (`appl_…`) do dashboard RevenueCat
-  (app record ASC 6778799265 existe) — decisão do usuário, revenue-critical, não autônoma.
-- Diagnóstico de crash em iMarcus sem USB: o device aparece em `pymobiledevice3 usbmux list` como
-  `ConnectionType: Network` quando está no mesmo Wi-Fi; `idevicecrashreport -n -u <UDID-nativo> -k <dir>`
-  puxa os `.ips` por rede. `devicectl` pode reportar "could not be established" e voltar sozinho depois.
-- iMarcus roda iOS 27.0 beta (24A5380h) desde ≤2026-07-14; runtime de sim iOS 27.0 (24A5380g) está
-  instalado e o app 0.93 buildado com SDK 26.5 roda nele sem crash (fresh install, 5 abas). No iOS 27
-  o fluxo de autorização HealthKit ganhou um passo extra ("Past 30 Days" vs "Full History").
-- NOTA STALE (2026-06-13): o runtime watchOS 26.x voltou a existir em `simctl list runtimes`
-  (26.5 23T570 presente em 2026-07-15) — revalidar o "toolchain pincer" antes de citar bloqueio de
-  distribuição.
-- **PINCER RESOLVIDO (2026-07-21):** archive Release completo com watch embarcado PASSOU no Xcode 26.6
-  estável (`output/archives/AIPedometer-095-gate.xcarchive`, assinado Q96FUTC5G8). Causa da cura: os
-  runtimes de simulador tinham sido apagados da máquina; restaurar iOS 26.5 (23F77) + watchOS 26.5
-  (23T570) via `xcodebuild -downloadPlatform iOS/watchOS` + `simctl runtime match set iphoneos26.5 23F77`
-  destravou o actool. Resta apenas a decisão da key RevenueCat real para uploads (fail-closed em Release
-  com test key).
-
-## Known Documentation Drift
-
-- `README.md` references `AGENTS.md` and `CLAUDE.md`; these are now present locally.
-- `PRD.md` says subscriptions are out of scope, but the current codebase clearly includes RevenueCat-backed premium gating.
-- Some architecture references can drift as files move; verify actual file paths before quoting docs as truth.
-
-## Toolchain (2026-06-10)
-
-- `xcode-select` desta máquina aponta para o Xcode 27 beta (Swift 6.4); o projeto exige Xcode 26.x → use `DEVELOPER_DIR=/Applications/Xcode.app` em todo build/test/analyze.
-- O RevenueCat pinado não compila em TEST builds sob Swift 6.4 (PaywallColor memberwise init); o build normal passa — não confundir com bug do repo.
-- Se o Xcode 26.x não enxergar NENHUM simulador ("iOS X.Y is not installed") com runtimes presentes no simctl: é SDK/runtime build drift — `xcrun simctl runtime match list` e `xcrun simctl runtime match set iphoneosX.Y <buildInstalado>`.
-- Seletores `-only-testing:` para Swift Testing precisam de `()` no nome da função; sem isso o run termina verde com `0 tests` (não é evidência).
-- Device builds/installs também DEVEM usar `DEVELOPER_DIR=/Applications/Xcode.app`: sob o beta, RevenueCat falha a compilação fresh também no build de device. O profile da equipe em cache assina normalmente sem conta no Xcode, DESDE que nenhuma capability nova seja exigida.
-- Entitlements hardened-process (Enhanced Security) estão STAGED atrás de `ENHANCED_SECURITY_ENTITLEMENTS=1` no restore-entitlements.sh — exigem login interativo no Xcode para regenerar o profile com a capability. Não promova a default sem isso.
-- Entitlements são reescritos a cada `xcodegen generate` por `Scripts/restore-entitlements.sh` — mudanças de entitlement (incl. Enhanced Security/hardened-process) vivem NESSE script, nunca nos `.entitlements` diretamente. O mesmo script re-asserta `iOSPackagesShouldBuildARM64e` no WorkspaceSettings (pointer auth + SPM).
-- Em Release, `LaunchConfiguration.isOverridable` é `false` incondicional (2026-06-10): launch args/env são input de atacante via `devicectl`; a justificativa antiga "uncheatable by launch args" estava errada. Não reintroduzir overrides de Release.
-
-## Concurrency Landmine: isolated closures + non-`@Sendable` ObjC callbacks (0.89)
-
-- The 0.88 launch crash (EXC_BREAKPOINT/SIGTRAP, crash type 309, `swift_task_isCurrentExecutor`/`dispatch_assert_queue`) was `MotionService.query`: it satisfies a `@MainActor` protocol requirement, so its inline completion closure inherited MainActor isolation. `CMPedometerHandler` is a plain ObjC block (NOT `@Sendable`) and CoreMotion calls it on a background queue → MainActor-isolated closure runs off-main → iOS 26 runtime traps. Latent since v0.1; only crashed once the motion-fallback path was actually exercised on device.
-- RULE: any completion-handler/callback from a C/ObjC framework whose block is NOT `@Sendable`, invoked from a `@MainActor` (or `actor`) context, that the framework calls on a background queue, WILL trap at runtime on iOS 26. The fix pattern (already used for `startLiveUpdates`): extract a `nonisolated static func makeXCallback(continuation:) -> @Sendable (…) -> Void` so the closure is formally nonisolated; `CheckedContinuation` is Sendable so it captures cleanly. Mirror `MotionService.makeQueryCallback`/`makePedometerCallback`.
-- Why HealthKit paths never crashed despite `@MainActor HealthKitService`: HealthKit's modern query handlers are `@Sendable`/`@preconcurrency`-imported, so those closures are nonisolated. CoreMotion's `CMPedometerHandler` typedef has no `@Sendable` (verified in the iOS SDK header). When auditing, check the SDK swiftinterface/header for `@Sendable` on the specific handler param — that annotation is the dividing line between safe and crash.
-- "Smart reminders crashing" was the SAME bug seen from a different entry point: the background-refresh path (BackgroundTaskService → `refreshTodayData` → motion fallback → `MotionService.query`), not a separate SmartNotificationService defect.
-
-## Operator Lessons
-
-- For bug reports, the reproducer test is the contract.
-- `Executed 0 tests` is not evidence; rerun until real tests execute.
-- Prefer canonical build metadata and project settings over hardcoded DerivedData guesses.
-- Serialized verification is safer than overlapping simulator test runs on a single destination.
-- When Xcode says the embedded watch app runtime is missing, inspect `xcrun simctl list runtimes --json` for watch build-version drift, not just presence/absence of a watchOS runtime.
-- For this repo, a matching watch simulator runtime plus a freshly paired watch device can be required before any `AIPedometer` scheme build/test/install path will start.
-- Because the repo uses XcodeGen, any new Swift source files require `xcodegen generate` before Xcode can see them.
-- Always bump `project.yml` BEFORE running `xcodegen generate`. The generated `.xcodeproj` snapshots the version fields, so a later edit to `project.yml` will not reach device or TestFlight builds until `xcodegen generate` is re-run. Symptom: the installed `Info.plist` still carries the previous `CFBundleShortVersionString`/`CFBundleVersion` even though `project.yml` and the commit look correct.
-- The project-level design system has `DesignTokens.IconSize` (`xs=20`, `sm=24`, `md=32`, `lg=36`, `touchTarget=44`, `hero=100`) and extended `DesignTokens.Sizing` (workoutCardWidth, routePreviewHeight, badgeCardMinHeight, chartHeight, chartBarMaxHeight, chatBubbleGutter, onboardingPageBottomInset). New SwiftUI UI should consume these tokens instead of literal frame/cornerRadius/spacer values; enforcement greps are `\.frame(width: [0-9]` and `cornerRadius: [0-9]`.
-- Swift `warnings as errors` applies to test doubles too; fake clients must be warning-clean before test results are meaningful.
-- `@MainActor` is NOT a reentrancy guard for `async` methods — it serializes only synchronous regions; every `await` releases the actor and lets another invocation interleave. Any `async` method with shared mutable state and multiple concurrent callers needs an explicit serialization/in-flight guard. ("Idempotent under @MainActor" is a false justification for an `async` method — a prior cycle made exactly this mistake on `refreshTodayData()`.)
-- A concurrency regression test is only trustworthy if it FAILS without the fix. Prove teeth: instrument the mock with a max-concurrent-entries counter, bypass the guard once to confirm the red, then restore.
-- A "no user-visible effect" justification must trace EVERY consumer of the value, not just the obvious UI. (Duplicate `EarnedBadge` rows were invisible in the Badges grid but surfaced through the AI prompt via `fetchEarnedBadgeCount`.)
-- A single full-suite XCUITest "element not found" failure (e.g. `tab_more`) on a loaded machine is usually a launch-timing flake — confirm by isolated re-run before treating it as a regression or blocking a release.
-- Review-agent (Explore/general-purpose) findings inflate severity and misread code; verify EVERY claimed critical/high against real source before changing anything. In the 2026-05-31 cycle all ~14 claimed critical/highs were refuted. Concrete traps: `max(by: { $0.earnedAt < $1.earnedAt })` correctly returns the NEWEST (the proposed `>` "fix" would invert it); `GoalService.goal(for:)` nil-`endDate` matching future dates is intended open-ended-goal semantics; RevenueCat `.informational` mode is documented-intentional with manual fail-closed at `PremiumAccessStore` (do NOT flip to `.enforced` autonomously — revenue-affecting); `Config/Local.xcconfig` is gitignored (0 history) so its test key is not committed; a non-detached `Task {}` inside a `@MainActor` class already inherits main isolation. A "fix" that the reviewer suggested but that real code refutes can INTRODUCE a bug.
-- DesignTokens enforcement: of the literal `frame`/`cornerRadius` hits, only convert those with an EXACT-value token match (e.g. 24→`IconSize.sm`, 20→`CornerRadius.xl`/`IconSize.xs`) for a zero-visual-change edit. Widget chart/ring geometry (ProgressRing 80, WeeklyChart bars 10/8/70/40) has no semantic token; inventing tokens is a new abstraction with layout-regression risk — leave and justify.
-- `Scripts/install-on-device.sh --launch` exits 1 if the device is LOCKED at launch time (`FBSOpenApplicationErrorDomain error 7`, "device was not, or could not be, unlocked") even though the build + install both succeeded. A physical iPhone cannot be unlocked remotely. Verify the install independently with `xcrun devicectl device info apps --device <name> --bundle-id com.mneves.aipedometer` (check the Bundle Version) instead of trusting the script's exit code; the app launches normally once the device is unlocked (tap the icon or re-run `--launch`).
-- **2026-07-13 superseding device proof:** stable Xcode built and signed the full iPhone + widget + embedded-watch bundle, installed 0.91 (47) on iMarcus, and the launched process survived checks at 5 and 20 seconds while the phone remained unlocked. The previous claim that install was categorically blocked is stale.
-- Large `xcodebuild -showBuildSettings` output must be parsed from a file. Capturing it in a shell variable and then feeding it to `awk` with a here-string can fill Bash's heredoc pipe and deadlock after an otherwise successful device build.
-- Because the app uses `GENERATE_INFOPLIST_FILE=NO`, `INFOPLIST_KEY_*` settings do not populate its manual plist reliably. App orientation declarations belong in `AIPedometer/Resources/Info.plist`; preserve the regression test that checks both iPhone and iPad arrays, and inspect the built plist for device-release proof.
-- Terminal workout operations are main-actor single-flight. Any new finish/discard path must preserve retry after local save failure and must not duplicate HealthKit/Live Activity side effects across an `await`.
-- Historical summaries use `GoalService.goal(for: date)`; the current goal is only a fallback. The watch companion receives data through WatchConnectivity and does not need HealthKit or app-group entitlements.
-- **0.92 (48) closeout:** stable Xcode installed and launched the final build on iMarcus, and a separate process query confirmed it remained alive. Simulator proof is 504/504 unit tests, 16/16 XCUITests, clean analysis, and a successful Release build. HealthKit forced-failure retry and the write-rate walking trace remain manual smokes.
-- **0.93 (49) HealthKit retry closeout:** the physical forced-failure smoke proved a real completed workout remained durable with one pending export, but its first relaunch exposed that the six-hour daily-sync throttle also skipped pending reconciliation. `performAutomaticSync()` now keeps the heavy throttle while always retrying durable workout exports; its local preflight avoids HealthKit authorization when there is no pending export. On iMarcus the fixed relaunch exported the same row, a second relaunch kept exactly one stable export ID and one HealthKit ID, the process remained alive, and the original Workouts permission was restored. The representative walking signpost trace remains deferred because it requires a person carrying the phone.
-- Large scanner output must be piped into its filter, not captured and replayed through a Bash here-string. Entitlement absence checks must first prove every input is an existing, syntactically valid plist.
-- `Scripts/lib/logged-command.sh` must enable `pipefail` inside its own subshell. A helper cannot assume its Bash/Zsh caller enabled pipeline failure propagation; otherwise `xcodebuild | tee` can report success when the build failed.
-- UI-test markers at `opacity(0.01)` are still visible in screenshots. Use the shared fully clear 1×1 accessibility marker and preserve a targeted XCUITest proving both marker discovery and visually clean captures.
-- **0.94 (50) local simulator proof:** stable Xcode 26.6 on iOS 26.5 passed 576/576 unit tests and 16/16 XCUITests. The embedded watch app and widget compiled in the app graph; this is not physical-device, watch-UI, TestFlight, or App Store publication proof.
-
-## Premium Access: "not entitled" vs "cannot tell" (2026-07-24, 0.95)
-
-- `PremiumAccessStore.canAccessAIFeatures` → `isPremiumActive` → **false whenever `customerInfo == nil`**.
-  That value is identical for "user has no subscription" and "we have not resolved yet / cannot reach
-  RevenueCat". Any code that treats a false reading as *revocation* will punish paying subscribers.
-- `isResolvingAccess` distinguishes the loading window, **but it deliberately returns `false` for
-  `state == .unavailable`** (line ~181), and `refresh()` sets `.unavailable` with `customerInfo == nil`
-  on ANY cold-launch fetch failure (~lines 289-290) or verification failure. So `isResolvingAccess`
-  alone is NOT sufficient: a paying user launching **offline** reads `isResolvingAccess == false` and
-  `canAccessAIFeatures == false` together.
-- Consequence proven twice in review: two separate attempts to auto-cancel Premium smart reminders on
-  revocation would each have cancelled reminders and erased `smartRemindersEnabled` for paying users.
-  Both were reverted. Only a protective guard shipped (`smartReminderAccessDecision(isResolvingAccess:)`,
-  defaulted false, can only *prevent* a cancellation).
-- **OPEN, escalated to the user (product/revenue decision, not engineering):** Premium smart reminders
-  are repeating `UNCalendarNotificationTrigger`s and still survive entitlement revocation while Settings
-  is closed. Deciding the fix requires answering (1) when entitlement is undeterminable, keep or cancel?
-  and (2) should enforcement destroy the persisted preference at all, or only cancel the pending
-  notification? Recommended design + full evidence: `implementation-notes.html#finding-095-self-inflicted`.
-  Do not re-attempt without that decision.
-
-## Operator Lessons (added 2026-07-24)
-
-- **Autoreview your OWN uncommitted diff before every commit — it has a far better hit rate than auditing
-  existing code.** In the 0.95 cycle, six review lenses over unchanged source found 0 critical/0 high,
-  while independent review of the agent's own new diff caught TWO customer-harming regressions that the
-  full 613-test suite passed cleanly (no test exercised the unresolved-access window until one was written).
-- **When successive fixes to the same seam each introduce a worse bug, stop and ask whether the underlying
-  question is a product decision, not an engineering one.** Three rounds, three ways to harm paying users
-  was the signal to escalate rather than iterate.
-- **`await Task.yield()` is never a synchronization primitive in a test.** It guarantees only that the
-  *current* task suspends once, not that another task ran to completion. `goalPersistenceDoesNotAwaitRefresh`
-  passed 15/15 isolated but failed under full-suite load for exactly this reason; fixed with an explicit
-  completion latch (same pattern as the 2026-07-21 `StreamRenderProbe` fix), assertion unchanged.
-- **`.supergoal/` contains TRACKED files** (`PROTOCOL.md`, `ROADMAP.md`, `STATE.md`) committed by a prior
-  supergoal run — it is not agent scratch. Run `git ls-files <dir>` before any `rm` in a dot-directory.
-  Safe restore for a *deleted* tracked file is `git show HEAD:<path> > <path>`; `git checkout HEAD -- <path>`
-  is blocked by the dcg guard because it overwrites the working tree.
-- A `** TEST FAILED **` line is not automatically a code failure: `Mach error -308 (ipc/mig) server died`
-  is the simulator server dying under contention. Do not run a full E2E, a targeted test run, and a polling
-  wait-loop against simulators concurrently.
-
-## App Store Export / TestFlight — hard-won mechanics (2026-07-27)
-
-- **`SKIP_INSTALL` on the watch target is release-critical.** With `SKIP_INSTALL: NO`, an archive gets TWO
-  apps under `Products/Applications` (app + watch). Xcode then cannot identify a primary app, writes **no
-  `ApplicationProperties`** into the archive `Info.plist`, and `xcodebuild -exportArchive` reports an EMPTY
-  set of distribution methods. It surfaces as
-  `exportOptionsPlist error for key "method" expected one {} but found app-store-connect`.
-  **Empty braces `{}` mean "no valid methods", NOT a bad method name** — do not waste time swapping
-  `app-store` / `app-store-connect`. Fixed in `af03e6b` (`SKIP_INSTALL: YES`); the watch still ships
-  embedded at `AIPedometer.app/Watch/`. This had blocked every possible App Store export.
-- **Verify an archive before trusting it:** `PlistBuddy -c "Print :ApplicationProperties" <archive>/Info.plist`
-  must print a dict, and `Products/Applications/` must contain exactly one `.app`.
-- **`asc` has two auth planes and only one can publish.** `asc web auth login` = browser session for
-  `asc web ...` only; its whole family is auth/sandbox/apps/removed-apps/bundle-ids/privacy/review/
-  subscriptions/analytics/xcode-cloud — **no build-upload command exists there**. Publishing needs
-  `asc auth login --key-id --issuer-id --private-key`. `asc web auth` cannot mint an API key
-  (login/status/capabilities/logout only); Apple issues keys only in the ASC web UI.
-- **The Issuer ID equals `publicProviderId` from `asc web auth status`** (`69a6de76-5827-47e3-e053-5b8c7c11a4d1`).
-  Registered key: `5UP9Q47FW7`, `.p8` in `~/Documents`. `asc auth login` **rejects a world-readable `.p8`** —
-  `chmod 600` first.
-- **Never trust `~/.asc/config.json`'s `app_id`.** It held `6780245377` = **Paquera AI**, not AIPedometer.
-  AIPedometer is **`6778799265`** (`com.mneves.aipedometer`). Always pass `--app` explicitly or a build
-  lands on the wrong app record.
-- **A certificate is only usable with its private key.** The pre-existing `…20260613` App Store profiles bind
-  to a cert (sha1 `2338C9E9…`) whose key is NOT on this Mac. The local `Apple Distribution (Q96FUTC5G8)`
-  is serial `5CE04BA3…` = ASC cert **`F89PNB2UU2`**; profiles must be created against that one
-  (`asc profiles create --bundle <resourceId> --certificate F89PNB2UU2 --profile-type IOS_APP_STORE`).
-  Bundle resource IDs: app `MFC5ZFX752`, widgets `XXF8R97RZM`, watch `5GK358UYP5`.
-- A development-signed archive is normal; `-exportArchive` does the distribution re-signing.
-- Pass `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID` to **both** `archive` and
-  `-exportArchive`, or the log says `Failed to find an account with App Store Connect access for team …`.
-- **Read the real logs:** `/var/folders/**/T/AIPedometer_*.xcdistributionlogs/IDEDistribution.standard.log`.
-  The CLI's one-line error (`Copy failed`) is useless on its own.
-- **Still unresolved (2026-07-27):** export fails with `Cloud signing permission error` (automatic) or
-  `Copy failed` at `IDEDistributionPackagingStep` (manual, profiles+bundle IDs verified correct).
-  **Check the API key's role first — cloud signing needs Admin/App Manager, not Developer.** Xcode has no
-  account configured, so `Xcode → Settings → Accounts` + Organizer → Distribute App is the likeliest
-  working path now that the archive structure is fixed.
-
-## Memory Rules
+## Memory rules
 
 - If the user says "remember this", write it down immediately.
-- When a mistake happens, record the mistake and the prevention rule.
-- Distill durable lessons from daily journals back into this file.
+- Record the mistake and its prevention rule when something goes wrong.
+- Distill durable lessons from the daily journals into this file, and delete entries the source
+  no longer supports.

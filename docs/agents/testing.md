@@ -57,6 +57,9 @@ physical checks. Use synthetic data or data the owner explicitly authorizes:
 | Purchase, restore and offline access | Real sandbox transactions unlock only verified access; unavailable state does not erase preferences. |
 | Upgrade from an existing installation | History and pending exports survive; a clean-install pass is insufficient. |
 
+On iOS 27 the HealthKit authorization flow gained an extra step ("Past 30 Days" versus
+"Full History"); a script or UI driver that assumes the older sheet will stall there.
+
 The [payment runbook](../revenuecat/apple-payments-setup.md) owns the complete
 purchase matrix. Simulation, launch overrides and mocked SDK calls do not close
 these physical checks.

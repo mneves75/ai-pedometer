@@ -26,7 +26,7 @@ assignees: mneves75
 
 ## Environment
 
-- **App Version**: <!-- e.g., 0.6.3 -->
+- **App Version**: <!-- e.g., 0.98 (54) -->
 - **Device**: <!-- e.g., iPhone 16 Pro -->
 - **iOS Version**: <!-- e.g., iOS 26.0 -->
 - **Xcode Version**: <!-- e.g., Xcode 26.0 -->

@@ -13,8 +13,8 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig
 
 ### Prerequisites
 
-- macOS 15+ (Sequoia)
-- Xcode 26+
+- macOS 15+
+- Xcode 26.x (the 27 toolchain does not compile the pinned RevenueCat revision)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 - Local gate tools: `brew install ast-grep ripgrep shellcheck`
 
@@ -31,8 +31,8 @@ git config core.hooksPath .githooks
 # Install XcodeGen
 brew install xcodegen
 
-# Generate Xcode project (always restore entitlements after — xcodegen resets them)
-xcodegen generate && Scripts/restore-entitlements.sh
+# Generate Xcode project (the postGen hook restores entitlements automatically)
+xcodegen generate
 
 # Open project
 open AIPedometer.xcodeproj

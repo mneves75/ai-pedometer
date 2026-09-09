@@ -10,6 +10,11 @@ This file captures the design tokens and component styling currently implemented
 - Weight emphasis: .bold(), .weight(.medium), .weight(.semibold).
 
 ## Color
+Semantic roles come from `DesignTokens.Colors` (accent, accentMuted, accentSoft, text and
+surface roles). It resolves platform-specific values, because watchOS does not expose the
+UIKit tertiary/quaternary label colors. Use the tokens rather than the raw SwiftUI colors
+listed below, which describe current usage.
+
 - Primary text: .primary
 - Secondary text: .secondary
 - Tertiary text: .tertiary
@@ -50,10 +55,23 @@ This file captures the design tokens and component styling currently implemented
 - xl: 20
 - xxl: 28
 
+## Opacity Tokens
+- textTertiary: 0.8
+- textQuaternary: 0.6
+- surfaceElevated: 0.06
+- surfaceQuaternary: 0.04
+- borderMuted: 0.12
+
+## Point-Size Tokens
+Explicit `.font(.system(size:))` values, used mostly for SF Symbol glyphs and for the large
+hero numbers in onboarding, settings and the widgets. Body text uses the semantic scale above.
+- xxl: 80, xl: 64, lg: 60, md: 48, sm: 44, xs: 40
+- widgetLg: 36, widgetMd: 32, widgetSm: 30
+
 ## Shadows
-- subtle: black 8% opacity, radius 8, y 4
-- medium: black 12% opacity, radius 16, y 8
-- strong: black 18% opacity, radius 24, y 12
+There is no shadow token set. Elevation comes from glass surfaces and materials; the few
+remaining `.shadow(...)` calls are local and should not be generalized into tokens without
+a deliberate design pass.
 
 ## Motion
 - defaultDuration: 0.25
@@ -105,3 +123,19 @@ This file captures the design tokens and component styling currently implemented
 - accessibleCard(label, hint)
 - accessibleProgress(label, value, total)
 - accessibleStatistic(title, value)
+
+## Using the tokens
+
+New UI consumes tokens instead of literal `frame` and `cornerRadius` values; the enforcement
+greps are `\.frame(width: [0-9]` and `cornerRadius: [0-9]`. Convert an existing literal only
+when a token matches its exact value, so the edit is visually neutral. Widget chart and ring
+geometry has no semantic token, and inventing one to satisfy the grep risks a layout regression.
+
+## Patterns to repeat
+- Route interactive accents through `DesignTokens.Colors.accent` rather than a literal color.
+- Use the single `AIUnavailableStateView` for unavailable AI, so an expected state does not
+  read as an error.
+- Use capsule-plus-icon status badges for goal outcomes, and mute locked achievements with a
+  subtle lock badge instead of a louder treatment.
+- Prefer `minHeight` over a fixed `height` on text-bearing cards and charts so large Dynamic
+  Type sizes do not clip.

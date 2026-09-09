@@ -19,9 +19,9 @@
 
 `steps,pedometer,fitness,workout,walking,healthkit,apple watch,goals`
 
-## What's New (0.94)
+## What's New (0.98)
 
-`Improved workout recovery, step and Watch reliability, accessibility, privacy safeguards, premium validation, and on-device AI consistency.`
+`Safer App Store screenshot uploads, stricter release verification, and updated development dependencies. Improved workout recovery, step and Watch reliability, accessibility, privacy safeguards, premium validation, and on-device AI consistency.`
 
 ## URLs
 

@@ -87,7 +87,9 @@ NavigationSplitView sidebar:
 - Version info
 
 ## More
-- Links to Badges and Settings
+- Badges
+- Support AI Pedometer (opens About, the tip jar and subscription entry point)
+- Settings
 
 ## watchOS
 - Step summary view

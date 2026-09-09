@@ -6,6 +6,9 @@
   - Review `git diff` and `git diff --cached`, then stage explicit task-owned paths with `git add -- path/to/file1 path/to/file2`.
   - Run `bash .githooks/pre-commit` and commit the reviewed candidate. Preserve unrelated staging; do not clear the index to prepare a commit.
 - Enable repo hooks: `git config core.hooksPath .githooks`. The hook checks the staged Swift sources, instruction contract and device identifiers.
+- `gh` and `git` can resolve to a keyring account without write access to this repository,
+  which fails an authorized push with HTTP 403. Confirm the active account before pushing
+  (`gh auth status`) and switch to the owning account rather than retrying the push.
 
 ## Parallel work
 

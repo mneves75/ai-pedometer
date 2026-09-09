@@ -25,7 +25,27 @@ the clear 1×1 `uiTestMarker` and its primary-tabs regression.
 `StepTrackingService` combines activity sources, updates current metrics and
 shared snapshots, and triggers weekly summaries and badges. Weekly-summary and
 streak calculations use latest-request-wins generations so older results cannot
-overwrite newer state. Today's refresh serialization is a separate invariant.
+overwrite newer state.
+
+`refreshTodayData()` is serialized separately, by a chained `Task` (`refreshChain`).
+It is `@MainActor` but `async`, and about five callers can fire it concurrently;
+`@MainActor` serializes only synchronous regions, so without the chain a stale-low
+HealthKit read overwrites a newer `todaySteps` and clamps the `seedLiveBaseline`
+Apple Watch offset to 0. Keep it run-to-completion: a drop/coalesce guard trades
+this bug for a different one. The regression is `refreshTodayDataSerializesConcurrentCalls`
+in `AIPedometerTests/Services/StepTrackingServiceTests.swift`, which asserts a mock's
+`maxConcurrentFetchSteps` stays at 1. Known-accepted gap: live CMPedometer ticks reach
+`updateLiveData` outside the chain, so a tick inside an `await` can interleave. It is
+low severity and self-healing, and chaining live updates was rejected because it breaks
+the synchronous live-update contract that several tests assert. Read
+`implementation-notes.html#finding-085-live-interleave` before "fixing" it.
+
+`StreakCalculator` reads history through the `StepHistoryProviding` seam on the
+`StepDataAggregator` actor. `fetchDailySteps(from:to:)` issues one bucketed
+`HKStatisticsCollectionQuery` keyed by start-of-day and the streak loop iterates that
+in memory, instead of up to 400 serial per-day queries. Inside the actor, bind
+`calendar` to a local `let` before `enumerateStatistics`, or Swift 6 reports a
+sending-risk data race.
 
 `InsightService` serializes Foundation Models access through a generation-tagged
 flight. Incompatible callers wait and re-evaluate after invalidation or week
@@ -34,6 +54,11 @@ rollover. Obsolete generations cannot repopulate the cache.
 Badge celebrations use UUID ownership. Dismissal, failure, cancellation and
 replacement invalidate that owner before a late response can publish or clear
 state. Inspect ownership cleanup before changing the view.
+
+`HealthKitSyncService.fetchEarnedBadgeCount()` counts distinct `badgeRaw` values rather
+than rows, because the count feeds the AI coaching prompt and older stores can hold
+duplicate `EarnedBadge` rows. Keep it consistent with `BadgeService.deduplicateBadges`;
+a raw `fetchCount` would make the AI over-report the total.
 
 `WorkoutSessionController` snapshots mutable fields and commits transitions only
 after SwiftData saves succeed. Failed start, resume, finish or discard operations
@@ -58,6 +83,14 @@ neither HealthKit nor app-group entitlements. The fallback service supports deni
 permissions and unavailable HealthKit; deterministic demo data belongs to explicit
 test/demo flows.
 
+A callback from a C or Objective-C framework whose block is not `@Sendable`, invoked from a
+`@MainActor` or actor context and called by the framework on a background queue, traps at
+runtime. Extract a `nonisolated static func makeXCallback(continuation:) -> @Sendable (…) -> Void`
+so the closure is formally nonisolated; `MotionService.makeQueryCallback` and
+`makePedometerCallback` are the reference, mirrored in `HealthKitService` and `WatchSyncService`.
+Check the SDK header for `@Sendable` on the specific handler parameter — that annotation is the
+dividing line, and it is why the HealthKit paths never crashed while CoreMotion did.
+
 `FoundationModelsService` checks device availability and owns text/structured
 generation. Feature services own insights, coaching, plans and smart notifications.
 Health context and AI inference stay on-device. Heart rate is the latest current-day
@@ -67,16 +100,30 @@ sample for display; it is not a training-zone or medical recommendation.
 unrelated entitlements, expired products and failed Trusted Entitlements verification
 cannot unlock AI. Informational SDK verification still requires the app to reject
 `.failed`. UI tests use explicit premium flags; `isUITesting` alone grants no access.
-Unavailable access is distinct from authoritative revocation, as specified in AGENTS.md.
+
+Access is a tri-state, and `canAccessAIFeatures == false` also means "cannot tell":
+`isPremiumActive` is false whenever `customerInfo` is nil, and `isResolvingAccess`
+deliberately returns false for `.unavailable`, which any cold-launch fetch or
+verification failure sets. So a paying subscriber launching offline reads both as
+false. Check `hasAuthoritativeAccessState` before treating a false reading as
+revocation. Two separate attempts to auto-cancel premium smart reminders on such a
+reading would each have cancelled reminders and erased `smartRemindersEnabled` for
+paying users; both were reverted. The shipped design suspends delivery through
+`smartRemindersSuspendedByAccess` and resumes it, and only explicit user action clears
+the saved preference — see `SettingsSideEffects.smartReminderAccessAction` and the
+enforcement in `AIPedometerApp`.
 
 Expedition Mode has both a premium UI gate and a controller check of persisted
 preferences before changing live-metric cadence. Keep the controller check.
 
 GPX imports currently provide a local summary and MapKit preview. They do not
 implement live navigation, offline maps or watch maps. `GPXRouteImporter` owns
-security-scoped access, size preflight, mapped reading, parsing handoff and storage.
-`GPXRouteParser` validates XML and builds the summary; `ImportedRouteStorage`
-retains only the last summary. Keep file ingest out of `WorkoutsView`.
+security-scoped access, the bounded read, parsing handoff and storage. It reads at
+most `maxFileSizeBytes + 1` through a `FileHandle` and rejects the file when the read
+exceeds the cap; a `stat` preflight is deliberately not used, because reported size is
+not a bound on what the handle yields. `GPXRouteParser` validates XML and builds the
+summary; `ImportedRouteStorage` retains only the last summary. Keep file ingest out of
+`WorkoutsView`.
 
 `TrainingPlanRecord.currentWorkoutRecommendation` and
 `currentWorkoutRecommendationSummary` own current-week selection, intent,
@@ -121,3 +168,27 @@ or battery usage.
 - AGENTS.md owns agent instructions; CLAUDE.md imports it. A copied global skill
   catalog hid project rules and made triggers stale. Keep references conditional
   and validate the portable contract on a clean clone.
+- After any push, check the hosted run before calling a cycle verified. Local green
+  is not CI green; a red workflow went unnoticed for a week.
+- Never wholesale-rewrite a tool-owned file. Reserializing `Localizable.xcstrings`
+  through a generic JSON writer reformatted every line and lost Xcode's own key
+  collation. Preserve original order and formatting, then confirm the diff is
+  purely additive.
+- `#expect(!localized.isEmpty)` is satisfied by the returned key itself, so a set of
+  localization assertions written that way cannot fail. Two suites had encoded the
+  missing translations as expected behavior and only failed once the strings were
+  actually translated. Assert the resolved value, not mere non-emptiness.
+- When a structural argument and an experiment disagree, the experiment wins. Bisect
+  before defending a hypothesis, and scope any find/replace to the specific call.
+
+## Settled non-findings (do not re-audit)
+
+- `ProgressClamp.percent` intentionally has no high-side clamp. It guards `isFinite`
+  and clamps low to zero; the watch's 32-bit `Int` would only trap above roughly
+  21 million times the goal, which real step data cannot reach.
+- `Shared/` and `AIPedometerWatch/` were swept for the 32-bit overflow class. The only
+  large constant was the wrapping-`UInt32` hash already fixed in 0.90. Shared code still
+  compiles for `arm64_32`, so new hashing there needs explicit wrapping arithmetic.
+- Fresh SwiftData stores in private Application Support are the mitigation for the store
+  boundary. Existing app-group stores stay in place to avoid upgrade data loss, and
+  SwiftData has no public relocation API — do not implement a raw SQLite/WAL move.
