@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CodeQL targets one simulator architecture to avoid compiling the same Swift sources twice; the separate watch 32-bit build remains required.
 - Reduced mandatory startup notes while preserving concurrency, persistence, premium and verification lessons.
 - Updated agent guidance for Fable 5.1 and GPT-6 Astra, with concrete completion, retained task context and targeted edits.
 - Documented release prerequisites, physical-device acceptance, simulator ownership and promotion of the same verified build from TestFlight to the App Store.

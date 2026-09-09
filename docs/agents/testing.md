@@ -61,6 +61,13 @@ The [payment runbook](../revenuecat/apple-payments-setup.md) owns the complete
 purchase matrix. Simulation, launch overrides and mocked SDK calls do not close
 these physical checks.
 
+CodeQL builds the complete app scheme for `arm64` once. GitHub recommends a single
+architecture for Swift analysis; a generic simulator build otherwise compiles the
+same sources for arm64 and x86_64. Preserve the separate watch `arm64_32` gate.
+When changing the scan build, compare the database's production-source archive and
+extraction diagnostics against the prior successful analysis. Nonzero query coverage
+and a published analysis for the exact SHA are required; zero alerts alone is insufficient.
+
 ## Performance evidence
 
 Measure an identified hot path before changing it. Keep the baseline and candidate inputs, compiler optimization, host and iterations identical; use interleaved runs where feasible. Include ASCII, pt-BR and emoji for text processing. Report the distribution and workload, not just the best run.
