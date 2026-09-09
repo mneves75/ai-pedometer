@@ -61,7 +61,9 @@ The [payment runbook](../revenuecat/apple-payments-setup.md) owns the complete
 purchase matrix. Simulation, launch overrides and mocked SDK calls do not close
 these physical checks.
 
-CodeQL builds the complete app scheme for `arm64` once. GitHub recommends a single
+CodeQL builds the complete app scheme once with `ARCHS=arm64`. Do not combine the
+`-arch` option with its generic simulator destination: Xcode rejects that pair.
+GitHub recommends a single
 architecture for Swift analysis; a generic simulator build otherwise compiles the
 same sources for arm64 and x86_64. Preserve the separate watch `arm64_32` gate.
 When changing the scan build, compare the database's production-source archive and
