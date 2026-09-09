@@ -169,12 +169,19 @@ aipedometer_github_get() {
     --location
     --silent
     --show-error
+    --user-agent "OpenAI File Downloader, XaiImageApiFetch/1.0"
     --header "Accept: application/vnd.github+json"
     --header "X-GitHub-Api-Version: 2022-11-28"
   )
 
   if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-    curl_args+=(--header "Authorization: Bearer ${GITHUB_TOKEN}")
+    if [[ "${GITHUB_TOKEN}" == *$'\r'* || "${GITHUB_TOKEN}" == *$'\n'* ]]; then
+      echo "ERRO: GITHUB_TOKEN contem quebra de linha invalida." >&2
+      return 1
+    fi
+    printf 'Authorization: Bearer %s\n' "${GITHUB_TOKEN}" |
+      env GITHUB_TOKEN= curl "${curl_args[@]}" --header @- "${url}" >"${output_file}"
+    return
   fi
   curl "${curl_args[@]}" "${url}" >"${output_file}"
 }

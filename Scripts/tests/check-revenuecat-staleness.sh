@@ -104,4 +104,41 @@ if aipedometer_validate_revenuecat_resolved_commit \
 fi
 grep -Fq "lockfile resolved commit does not match annotated tag" "${TMP_DIR}/mismatched-commit.log"
 
+MOCK_BIN="${TMP_DIR}/bin"
+mkdir -p "${MOCK_BIN}"
+cat > "${MOCK_BIN}/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" > "${CURL_ARGS_LOG}"
+if [[ "$*" == *'--header @-'* ]]; then
+  /bin/cat > "${CURL_STDIN_LOG}"
+else
+  : > "${CURL_STDIN_LOG}"
+fi
+printf '{}\n'
+EOF
+chmod +x "${MOCK_BIN}/curl"
+
+token_prefix=synthetic
+token_suffix=_github_token_value
+SYNTHETIC_TOKEN="${token_prefix}${token_suffix}"
+CURL_ARGS_LOG="${TMP_DIR}/curl-args.log"
+CURL_STDIN_LOG="${TMP_DIR}/curl-stdin.log"
+DOWNLOAD_OUTPUT="${TMP_DIR}/download.json"
+
+PATH="${MOCK_BIN}:${PATH}" \
+GITHUB_TOKEN="${SYNTHETIC_TOKEN}" \
+CURL_ARGS_LOG="${CURL_ARGS_LOG}" \
+CURL_STDIN_LOG="${CURL_STDIN_LOG}" \
+  aipedometer_github_get "https://api.github.com/repos/example/example" "${DOWNLOAD_OUTPUT}"
+
+if grep -Fq "${SYNTHETIC_TOKEN}" "${CURL_ARGS_LOG}"; then
+  echo "GitHub token must not be exposed through curl arguments." >&2
+  exit 1
+fi
+grep -Fq -- '--header @-' "${CURL_ARGS_LOG}"
+grep -Fq -- '--user-agent OpenAI File Downloader, XaiImageApiFetch/1.0' "${CURL_ARGS_LOG}"
+grep -Fqx "Authorization: Bearer ${SYNTHETIC_TOKEN}" "${CURL_STDIN_LOG}"
+grep -Fqx '{}' "${DOWNLOAD_OUTPUT}"
+
 echo "check-revenuecat-staleness.sh tests passed."

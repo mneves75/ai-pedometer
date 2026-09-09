@@ -53,6 +53,26 @@ git -C "${TEST_REPO}" commit -m "Remove hardcoded IDs" >/dev/null
 
 ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
 
+# Only files that actually contain the scanner's own patterns may be allowlisted.
+# A stale future path must not become a hiding place for a device identifier.
+mkdir -p "${TEST_REPO}/Scripts"
+printf 'Device ID: %s\n' "${coredevice_uuid}" > "${TEST_REPO}/Scripts/verify-device-ids.sh"
+git -C "${TEST_REPO}" add Scripts/verify-device-ids.sh
+git -C "${TEST_REPO}" commit -m "Add identifier under stale allowlist path" >/dev/null
+
+if ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" \
+  > "${TMP_DIR}/stale-allowlist.txt" 2>&1; then
+  echo "Expected a stale allowlist path to be scanned." >&2
+  exit 1
+fi
+if grep -Fq "${coredevice_uuid}" "${TMP_DIR}/stale-allowlist.txt"; then
+  echo "Device verification must redact identifiers found under stale paths." >&2
+  exit 1
+fi
+
+git -C "${TEST_REPO}" rm Scripts/verify-device-ids.sh >/dev/null
+git -C "${TEST_REPO}" commit -m "Remove stale allowlist fixture" >/dev/null
+
 # A large allowlisted match set must be drained by the filter instead of being
 # replayed through a here-string, which can fill Bash's heredoc pipe.
 : > "${TEST_REPO}/allowlisted.txt"

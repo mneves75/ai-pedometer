@@ -2,13 +2,13 @@
 
 This is the repo-local long-term memory for `ai-pedometer`.
 
-## Current verification context (2026-09-07)
+## Current verification context (2026-09-09)
 
 - AGENTS.md is the canonical project contract; CLAUDE.md imports it. The portable instruction check validates the local staged contract without a separate GUIDELINES-REF checkout. Do not restore copied guideline/skill catalogs or the retired update-agents-guidelines script.
 - The historical premium-reminder "OPEN" note below is superseded by the 0.95/0.96 implementation: authoritative access loss suspends delivery while preserving the preference; unresolved access does not revoke it. Preserve the current state machine and its tests.
 - Environment inspection: native SwiftUI, not React Native; iOS/watchOS 26 targets; XcodeGen; stable Xcode 26.6 with iOS/watchOS 26.5 SDKs. The selected system Xcode is beta, so use the explicit stable developer directory. Swift language mode remains 6.2.
-- The 2026-09-07 baseline passed 627 unit tests with no skips or failures. This is historical baseline evidence, not the final candidate result. Current gates and repeatable commands are in docs/agents/testing.md.
-- The corrected audit candidate passed 628 unit tests, 20 UI tests, static analysis and the explicit arm64_32 watch build. Its Release archive failed from disk exhaustion; this is not a new SDK compatibility failure. Detailed results and remaining release prerequisites are in memory/2026-09-07.md.
+- Current source is 0.98 (54), not a deployed release. The September 8–9 residual audit and verification results are in memory/2026-09-08.md and memory/2026-09-09.md; repeatable gates are in docs/agents/testing.md. Approved production payment configuration, ASC authentication and physical acceptance remain open.
+- The June distribution/toolchain notes below are historical and superseded where they conflict with current evidence: stable Xcode now builds the embedded watch product. Use the direct watch target for arm64_32 verification, as CI does; the watch scheme can pull in incompatible iPhone dependencies. Do not remove the embedded watch to obtain a passing build.
 - ASC 5 uses `testflight groups`/`testflight testers` and JSON `data` envelopes. A successful archive is not proof of export, upload, processing or tester access.
 
 ## User Working Style

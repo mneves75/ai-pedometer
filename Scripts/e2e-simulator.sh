@@ -22,15 +22,11 @@ require_cmd rg ripgrep
 require_cmd python3 python
 aipedometer_select_xcode_26
 
-echo "Verificando entitlements..."
-bash Scripts/verify-entitlements.sh
-
 STAMP="$(date +"%Y-%m-%d-%H%M%S")"
 OUT_DIR="${E2E_OUT_DIR:-output/e2e-${STAMP}}"
 DERIVED_DATA_ROOT="${E2E_DERIVED_DATA_ROOT:-${OUT_DIR}-DerivedData}"
 IOS_DERIVED_DATA="${DERIVED_DATA_ROOT}/iOS"
 WATCH_DERIVED_DATA="${DERIVED_DATA_ROOT}/watchOS"
-mkdir -p "${OUT_DIR}/screens"
 
 IOS_UDID="${E2E_IOS_UDID:-}"
 WATCH_UDID="${E2E_WATCH_UDID:-}"
@@ -41,94 +37,142 @@ ERASE_IOS_SIM="${E2E_ERASE_IOS_SIM:-0}"
 ERASE_WATCH_SIM="${E2E_ERASE_WATCH_SIM:-0}"
 SET_STATUS_BAR="${E2E_SET_STATUS_BAR:-0}"
 
-if [[ "${ENABLE_WATCH}" != "1" ]]; then
-  WATCH_UDID=""
+if [[ "${E2E_IOS_DEST+x}" == "x" || "${E2E_WATCH_DEST+x}" == "x" ]]; then
+  echo "ERRO: E2E_IOS_DEST e E2E_WATCH_DEST nao sao mais aceitos; use E2E_IOS_UDID e E2E_WATCH_UDID." >&2
+  exit 2
 fi
 
-if [[ -z "${IOS_UDID}" || ( "${ENABLE_WATCH}" == "1" && -z "${WATCH_UDID}" ) ]]; then
-  UDIDS="$(
-    python3 - <<'PY'
-import json
-import os
-import subprocess
+case "${ENABLE_WATCH}" in
+  0) WATCH_UDID="" ;;
+  1) ;;
+  *) echo "ERRO: E2E_ENABLE_WATCH deve ser 0 ou 1." >&2; exit 2 ;;
+esac
 
-data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "--json"], text=True))
-devices = data.get("devices", {})
-enable_watch = (os.environ.get("E2E_ENABLE_WATCH", "1") == "1")
+HOSTED_AUTO_SELECTION=0
+if [[ "${GITHUB_ACTIONS:-}" == "true" && "${RUNNER_ENVIRONMENT:-}" == "github-hosted" ]]; then
+  HOSTED_AUTO_SELECTION=1
+fi
+
+if [[ "${HOSTED_AUTO_SELECTION}" != "1" ]]; then
+  if [[ -z "${IOS_UDID}" ]]; then
+    echo "ERRO: defina E2E_IOS_UDID com o simulador iOS reservado para esta sessao." >&2
+    exit 2
+  fi
+  if [[ "${ENABLE_WATCH}" == "1" && -z "${WATCH_UDID}" ]]; then
+    echo "ERRO: defina E2E_WATCH_UDID quando E2E_ENABLE_WATCH=1." >&2
+    exit 2
+  fi
+fi
+
+SELECTION="$(
+  xcrun simctl list devices --json |
+    python3 -c '
+import json
+import sys
+
+requested_ios, requested_watch, enable_watch_raw, hosted_raw = sys.argv[1:]
+enable_watch = enable_watch_raw == "1"
+hosted = hosted_raw == "1"
+
+try:
+    data = json.load(sys.stdin)
+    devices = data["devices"]
+    if not isinstance(devices, dict):
+        raise TypeError
+except (json.JSONDecodeError, KeyError, TypeError):
+    raise SystemExit("ERRO: simctl retornou uma lista de devices invalida.")
 
 def iter_devices():
     for runtime, devs in devices.items():
+        if not isinstance(runtime, str) or not isinstance(devs, list):
+            raise SystemExit("ERRO: simctl retornou uma lista de devices invalida.")
         for d in devs:
+            if not isinstance(d, dict):
+                raise SystemExit("ERRO: simctl retornou uma lista de devices invalida.")
             yield runtime, d
 
-def runtime_sort_key(runtime: str) -> tuple:
-    # Example runtimes:
-    # com.apple.CoreSimulator.SimRuntime.iOS-26-2
-    # com.apple.CoreSimulator.SimRuntime.watchOS-26-2
-    parts = runtime.split(".")[-1].split("-")
-    if not parts:
-        return (0, 0, 0)
-    family = parts[0]
-    nums = [int(p) for p in parts[1:] if p.isdigit()]
+def runtime_family(runtime):
+    leaf = runtime.rsplit(".", 1)[-1]
+    if leaf.startswith("iOS-"):
+        return "iOS"
+    if leaf.startswith("watchOS-"):
+        return "watchOS"
+    return None
+
+def runtime_sort_key(runtime):
+    leaf = runtime.rsplit(".", 1)[-1]
+    nums = [int(part) for part in leaf.split("-")[1:] if part.isdigit()]
     while len(nums) < 3:
         nums.append(0)
-    fam_rank = {"iOS": 3, "watchOS": 2}.get(family, 0)
-    return (fam_rank, nums[0], nums[1])
+    return tuple(nums[:3])
 
-def pick_udid(family: str, name_prefixes: tuple[str, ...]) -> str:
-    # Prefer stability over "whatever is booted" for watchOS. New watch models
-    # sometimes trigger noisy toolchain warnings (e.g. actool trait set).
-    prefer_booted = (family != "watchOS")
-    if prefer_booted:
-        for prefix in name_prefixes:
-            for runtime, d in iter_devices():
-                if family not in runtime:
-                    continue
-                if d.get("state") != "Booted":
-                    continue
-                name = d.get("name", "")
-                if name.startswith(prefix):
-                    return d["udid"]
+def is_available(device):
+    return device.get("isAvailable") is True and device.get("state") in ("Booted", "Shutdown")
 
-    # Otherwise pick the newest runtime and first matching device.
-    candidates = [(runtime, d) for runtime, d in iter_devices() if family in runtime]
+def validate_udid(udid, family, label):
+    matches = [(runtime, device) for runtime, device in iter_devices() if device.get("udid") == udid]
+    if len(matches) != 1:
+        raise SystemExit(f"ERRO: simulador {label} desconhecido.")
+    runtime, device = matches[0]
+    if runtime_family(runtime) != family:
+        raise SystemExit(f"ERRO: simulador {label} nao pertence a familia {family}.")
+    if not is_available(device):
+        raise SystemExit(f"ERRO: simulador {label} indisponivel.")
+    return udid
+
+def pick_udid(family, name_prefixes):
+    candidates = [
+        (runtime, device)
+        for runtime, device in iter_devices()
+        if runtime_family(runtime) == family and is_available(device)
+    ]
     candidates.sort(key=lambda x: runtime_sort_key(x[0]), reverse=True)
     for prefix in name_prefixes:
-        for runtime, d in candidates:
-            name = d.get("name", "")
-            if name.startswith(prefix):
-                return d["udid"]
-    raise SystemExit(f"no simulator device found for {family}")
+        for _, device in candidates:
+            name = device.get("name")
+            udid = device.get("udid")
+            if isinstance(name, str) and name.startswith(prefix) and isinstance(udid, str) and udid:
+                return udid
+    raise SystemExit(f"ERRO: nenhum simulador {family} disponivel no runner hospedado.")
 
-ios_udid = pick_udid("iOS", ("iPhone",))
+if requested_ios:
+    ios_udid = validate_udid(requested_ios, "iOS", "iOS")
+elif hosted:
+    ios_udid = pick_udid("iOS", ("iPhone",))
+else:
+    raise SystemExit("ERRO: defina E2E_IOS_UDID com o simulador iOS reservado para esta sessao.")
+
 watch_udid = ""
 if enable_watch:
-    try:
+    if requested_watch:
+        watch_udid = validate_udid(requested_watch, "watchOS", "watchOS")
+    elif hosted:
         watch_udid = pick_udid("watchOS", ("Apple Watch SE", "Apple Watch Ultra", "Apple Watch Series", "Apple Watch"))
-    except SystemExit:
-        watch_udid = ""
-print(f"{ios_udid} {watch_udid}")
-PY
-  )"
+    else:
+        raise SystemExit("ERRO: defina E2E_WATCH_UDID quando E2E_ENABLE_WATCH=1.")
 
-  IOS_UDID="${IOS_UDID:-${UDIDS%% *}}"
-  WATCH_UDID="${WATCH_UDID:-${UDIDS#* }}"
-fi
+print(f"{ios_udid}\t{watch_udid}")
+' "${IOS_UDID}" "${WATCH_UDID}" "${ENABLE_WATCH}" "${HOSTED_AUTO_SELECTION}"
+)"
+
+IOS_UDID="${SELECTION%%$'\t'*}"
+WATCH_UDID="${SELECTION#*$'\t'}"
 
 IOS_DEST="platform=iOS Simulator,id=${IOS_UDID}"
 WATCH_DEST="platform=watchOS Simulator,id=${WATCH_UDID}"
 
-IOS_DEST="${E2E_IOS_DEST:-$IOS_DEST}"
-WATCH_DEST="${E2E_WATCH_DEST:-$WATCH_DEST}"
+echo "Verificando entitlements..."
+bash Scripts/verify-entitlements.sh
+
+mkdir -p "${OUT_DIR}/screens"
 
 echo "E2E (simulador) - saída: ${OUT_DIR}"
 echo "DerivedData: ${DERIVED_DATA_ROOT}"
 echo "iOS - destino: ${IOS_DEST}"
-if [[ "${ENABLE_WATCH}" == "1" && -n "${WATCH_UDID}" ]]; then
+if [[ "${ENABLE_WATCH}" == "1" ]]; then
   echo "watchOS - destino: ${WATCH_DEST}"
 else
   echo "watchOS - desativado (E2E_ENABLE_WATCH=${ENABLE_WATCH})"
-  ENABLE_WATCH="0"
   ERASE_WATCH_SIM="0"
 fi
 

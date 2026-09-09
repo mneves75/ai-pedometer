@@ -29,6 +29,7 @@ Read only the references relevant to the work:
 | Build, install, archive and debug | [build and development](docs/agents/build-and-dev.md) |
 | Tests, UI QA, performance and release evidence | [testing](docs/agents/testing.md) |
 | Commits, review and beta delivery | [Git workflow](docs/agents/git-workflow.md) |
+| Issue-linked acceptance and Spec review | [issue tracker](docs/agents/issue-tracker.md) |
 | RevenueCat, subscriptions, paywalls or purchases | [RevenueCat](docs/revenuecat/README.md), [Apple payments](docs/revenuecat/apple-payments-setup.md) |
 | Security review | [SECURITY.md](SECURITY.md), [security guidelines](SECURITY-GUIDELINES.md) |
 | Significant feature or refactor | Maintain an ExecPlan under `agent_planning/`; use the installed ExecPlan guidance when available. |
@@ -94,10 +95,13 @@ nested delegation and leave cross-session memory to the primary.
 Model selection belongs to the runtime, not hardcoded rankings in this file.
 Honor an explicit Sol-with-Astra request: Sol executes; Astra advises on difficult
 decisions or reviews independently with fresh context. For Fable 5.1 or GPT-6
-Astra sessions, give concrete completion criteria, continue authorized work,
-batch independent reads, preserve steering and constraints across compaction,
-and report meaningful progress. Revalidate model availability and effort in the
-tool schema instead of assuming a CLI alias or model ranking is current.
+Astra sessions, define observable completion criteria and execute authorized
+follow-through. Batch independent reads; keep dependent edits and shared-device
+jobs sequential. Preserve the original objective, user steering, rejected approaches,
+artifact paths and open gates across compaction. Report meaningful progress and
+prefer targeted edits. Revalidate model availability and effort in the tool schema.
+Current prompting sources and task-specific verification belong in the ExecPlan,
+so a model release does not add another copied instruction catalog here.
 
 Review the actual final diff against the task and repository standards. When
 autoreview is requested or required by a release, use the installed skill on a
@@ -125,6 +129,10 @@ List devices first, avoid a simulator another session owns, use accessibility
 trees for targets and serialize simulator test jobs. Only stop servers used by
 this session. HealthKit, motion, notification delivery and payment checks that
 need a real device must remain explicit gaps until exercised there.
+
+Before expensive release builds, check available storage, toolchain, signing and
+authorized release configuration. Bind evidence to the exact candidate and resolved
+configuration; a later payment-configuration change requires a new archive.
 
 For visible browser artifacts, inspect the rendered local artifact. For
 non-rendered docs and tooling, use CLI checks and state why browser QA is

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.98] - 2026-09-08
+
+### Fixed
+
+- Direct App Store screenshot uploads now validate image dimensions before resolving the destination or uploading.
+- Local E2E runs require explicit simulator IDs and use those same devices for preparation, testing and recovery. Hosted CI retains automatic selection; requested watch coverage cannot disappear silently.
+
+### Security
+
+- Removed obsolete device-identifier scanner exemptions that allowed identifiers in newly created files to bypass the commit guard.
+- Updated the development image-processing dependency affected by GHSA-rgj7-g3m4-5g8c; dependency checks now explicitly include development tooling.
+- Dependency freshness requests keep the GitHub token out of process arguments.
+
+### Changed
+
+- Reduced mandatory startup notes while preserving concurrency, persistence, premium and verification lessons.
+- Updated agent guidance for Fable 5.1 and GPT-6 Astra, with concrete completion, retained task context and targeted edits.
+- Documented release prerequisites, physical-device acceptance, simulator ownership and promotion of the same verified build from TestFlight to the App Store.
+
 ## [0.97] - 2026-09-07
 
 ### Changed

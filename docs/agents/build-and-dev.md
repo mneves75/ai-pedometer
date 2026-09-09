@@ -15,7 +15,12 @@
 - `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`: confirm generated Xcode metadata matches `project.yml`.
 - `asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
 - `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`: remote TestFlight readiness once a processed build exists.
-- Full simulator E2E (iOS tests + widget build + watch build + screenshots): `bash Scripts/e2e-simulator.sh`
+- Full simulator E2E: select available dedicated iPhone/watch IDs with Argent, then
+  run `E2E_IOS_UDID="<selected-iphone-id>" E2E_WATCH_UDID="<selected-watch-id>" bash Scripts/e2e-simulator.sh`.
+  For an explicit iPhone-only run, use `E2E_IOS_UDID="<selected-iphone-id>" E2E_ENABLE_WATCH=0 bash Scripts/e2e-simulator.sh`.
+  Local IDs are required; `CI=true` alone does not enable auto-selection. Only
+  GitHub-hosted Actions runners auto-select. The script rejects obsolete
+  `E2E_IOS_DEST`/`E2E_WATCH_DEST` overrides so test and recovery targets cannot diverge.
 - Build/install on physical device by name (no hardcoded UDID): `DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh --device-name <DeviceName>`
 - Build/install on iPhone + explicit install/verify on paired Watch: `DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh --device-name <DeviceName> --watch-name "<Apple Watch Name>" --launch`
 - Retry/timeout knobs for flaky device/watch connectivity:

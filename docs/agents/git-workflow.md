@@ -12,6 +12,10 @@
 - Use the current checkout unless the user requests a worktree. Give parallel workers disjoint file ownership; keep project generation, staging and release in one session.
 - For an authorized worktree, give it a distinct DerivedData directory and simulator. Share immutable package downloads where supported, but never share mutable build output or a running app's data store.
 - Before retrying a stalled build, identify the process and owning repository. Do not stop another checkout's simulator or build process.
+- Keep ignored `Config/Local.xcconfig` scoped to the checkout. Provision authorized
+  release configuration separately, and verify its resolved kind before archiving.
+  Record simulator ownership and output paths in the task plan so another session
+  can avoid contention. Recheck ownership after a pause or resumed session.
 
 ## Beta delivery
 
@@ -20,6 +24,16 @@
 - Review staged files for private data before an authorized push. This repository's visibility must be checked live; historical notes are not an access-control guarantee.
 - Tag the shipped commit `v<version>-beta<count>` using the next unused count. Never move an existing remote tag.
 - Verify archive/IPA version and build, upload processing and existing TestFlight group availability separately. Do not infer App Store publication or tester-invitation authority from a beta request.
+- Required CI and CodeQL must finish successfully for the pushed candidate. The
+  RevenueCat freshness workflow is tracked separately: exit 10 needs a current
+  update/retention decision; network/provenance failure remains unresolved.
+
+## Production delivery
+
+When explicitly authorized, promote the verified TestFlight build after the testing
+guide's physical and App Store gates pass. Use `v<version>` for the immutable shipped
+commit. App Store submission is not publication; record Apple approval and verify
+availability in the intended storefront before reporting production delivery.
 
 ## Pull Requests
 - Include a brief summary and testing notes.

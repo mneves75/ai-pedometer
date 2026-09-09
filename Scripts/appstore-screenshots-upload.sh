@@ -78,6 +78,9 @@ if [[ ! -d "${SCREENSHOTS_ROOT}/iphone_65" || ! -d "${SCREENSHOTS_ROOT}/ipad_13"
   exit 1
 fi
 
+bash "${REPO_ROOT}/Scripts/appstore-screenshots-validate.sh" \
+  --screenshots-root "${SCREENSHOTS_ROOT}"
+
 resolve_version_localization_id() {
   if [[ -n "${VERSION_LOCALIZATION_ID}" ]]; then
     return 0

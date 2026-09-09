@@ -1,367 +1,123 @@
-# FOR_YOU_KNOW.md
-
-## Audit lessons, September 2026
-
-Agent instructions now have one owner: AGENTS.md. CLAUDE.md imports it, and task-specific guides explain the commands. Copying a global skill catalog into the app made triggers stale and hid the rules the app actually needs. The local validator checks this structure even on a clean clone without the maintainer's external guideline repository.
-
-Verification tooling needs its own failure examples. A test report with skipped cases is incomplete, and a redaction test that emits no sensitive-shaped data proves nothing. The release-script fixtures run the production script against a temporary app tree, preserve a harmless output marker, and assert that failures stop later steps.
-
-Keep release evidence separate: generated project version, compiled app version, archive shape, exported IPA, uploaded build and TestFlight availability each need a check. Payment configuration and authentication are external prerequisites; passing local tests cannot supply them.
-
-This project is a pedometer app, but that description undersells what is really here.
-
-Think of it as three products sharing one nervous system:
-
-1. an iPhone app that tracks movement and turns it into a calm daily dashboard
-2. a watch companion that shows the important bits without ceremony
-3. a set of widgets and Live Activities that keep the app visible even when it is not open
-
-Then there is the extra twist: it also tries to be a private, on-device AI coach. No cloud round-trips. No "send your health data somewhere and hope for the best." The codebase is built around that promise.
-
-## The big picture
-
-If you want one mental model for the whole app, use this:
-
-"HealthKit is the source of truth, `StepTrackingService` is the traffic cop, SwiftUI is the storefront, and the watch/widgets are satellite displays."
-
-Most of the repository makes sense once you see that pattern.
-
-## How the app starts
-
-The front door is [`AIPedometer/App/AIPedometerApp.swift`](AIPedometer/App/AIPedometerApp.swift). This file is not just app boilerplate. It is the composition root. It creates the major services once, wires them together, and injects the resulting shared state into the app.
-
-That matters because this app has a lot of moving parts:
-
-- HealthKit authorization
-- motion fallback behavior
-- shared app-group data
-- on-device AI services
-- workout tracking
-- notifications
-- premium access state
-- watch sync
-- background refresh
-
-`AIPedometerApp` builds these pieces up front so the rest of the app can behave like a coherent system instead of a pile of independently invented singletons.
-
-Two coordinator objects keep startup civilized:
-
-- [`AIPedometer/App/AppStartupCoordinator.swift`](AIPedometer/App/AppStartupCoordinator.swift) handles the one-time "get the engine running" sequence
-- `AppLifecycleCoordinator` handles refresh work when the app comes back into the foreground
-
-This is a good engineering choice. It keeps startup policy out of random views and stops lifecycle logic from leaking everywhere.
-
-## Navigation: what users actually see
-
-[`AIPedometer/Features/RootView.swift`](AIPedometer/Features/RootView.swift) decides whether the user goes through onboarding or lands in the main app.
-
-After that, [`AIPedometer/Features/MainTabView/MainTabView.swift`](AIPedometer/Features/MainTabView/MainTabView.swift) takes over:
-
-- iPhone gets a `TabView`
-- iPad gets a `NavigationSplitView`
-
-That split is worth remembering. If a navigation bug appears only on one device class, do not assume the other layout proves anything. They share concepts, not the same container code.
-
-SwiftUI can omit a `Label` accessibility identifier from the concrete tab-bar button. The XCUITest
-driver therefore prefers identifiers but can select the five stable iPhone tabs by ordinal; it still
-requires the destination screen's own accessibility marker after every tap. Keep that marker check —
-an ordinal-only tap is navigation input, not proof that the correct screen rendered.
-
-The main product areas are straightforward and intentionally product-shaped:
-
-- Dashboard
-- History
-- Workouts
-- AI Coach
-- Badges
-- Settings
-- More
-
-`APP_FLOW.md` is the quick map. The feature directories under `AIPedometer/Features/` are the street-level detail.
-
-## The heart of the app: step tracking
-
-If the app were a small city, [`AIPedometer/Core/StepTracking/StepTrackingService.swift`](AIPedometer/Core/StepTracking/StepTrackingService.swift) would be the traffic control center.
-
-It is responsible for:
-
-- refreshing today's numbers
-- deciding when to fall back from HealthKit to Motion
-- calculating distance, floors, calories, and streak-related state
-- updating shared data used by widgets and the watch
-- refreshing weekly summaries
-- triggering badge evaluation
-
-This service is the place where "raw activity inputs" become "product behavior."
-
-That is an important distinction. HealthKit tells you facts. `StepTrackingService` decides what the app should do with those facts.
-
-Weekly-summary and streak refreshes can overlap. They deliberately use latest-request-wins generation
-counters: an older HealthKit calculation may finish, but it cannot overwrite state published by a
-newer refresh.
-
-Weekly AI insights have a stricter constraint: Apple Foundation Models sessions are not treated as
-parallel workers. `InsightService` owns one generation-tagged flight, lets incompatible callers wait
-for it, and re-evaluates after cache invalidation or week rollover. This keeps model access serialized
-without allowing an obsolete result to repopulate the cache.
-
-Badge celebrations use the same ownership idea at UI scale. Every generation has a UUID; dismiss,
-failure, cancellation, or replacement invalidates that UUID before any late response can publish or
-clear state. If a celebration appears stuck, inspect ownership cleanup before adding another view
-workaround.
-
-Workout persistence follows the same trust boundary. `WorkoutSessionController` snapshots mutable
-session fields and only commits state-machine transitions after SwiftData saves succeed. A failed
-start, resume, finish, or discard must remain retryable without leaving a phantom or hidden workout.
-Terminal finish/discard operations are also single-flight on the main actor: once one crosses an
-`await`, a second terminal request must not mutate or persist the same session.
-
-Historical activity must use historical goals. AI tools and training-plan calculations resolve
-`GoalService.goal(for:)` for each summary date; `currentGoal` is only a fallback for dates without a
-stored goal.
-
-## Health data: source of truth, with a parachute
-
-[`AIPedometer/Core/HealthKit/HealthKitService.swift`](AIPedometer/Core/HealthKit/HealthKitService.swift) is the direct bridge into HealthKit. It fetches steps, wheelchair pushes, distance, floors, summaries, and workout data.
-
-The iOS app is the only HealthKit owner. Widgets use the app-group snapshot; the Apple Watch app
-receives its snapshot through WatchConnectivity and intentionally has neither HealthKit nor
-app-group entitlements.
-
-Completed workouts cross an explicit durability boundary before HealthKit export. SwiftData schema
-V2 stores `pending`/`exported` state, a stable external UUID, and privacy-safe failure metadata.
-Startup, foreground, pull-to-refresh, and background reconciliation retry bounded pending batches
-even when the heavier daily sync is inside its six-hour throttle window; the automatic preflight
-stays local and does not request HealthKit authorization when no export is pending. The HealthKit
-adapter first resolves `HKMetadataKeyExternalUUID`, so a crash after the remote commit
-cannot create a duplicate workout. Keep the V1→V2 migration fixture and idempotency tests whenever
-this state machine changes.
-
-But the more revealing file is [`AIPedometer/Core/HealthKit/HealthKitServiceFallback.swift`](AIPedometer/Core/HealthKit/HealthKitServiceFallback.swift).
-
-That file tells you what kind of engineers built this app. They expected reality to be messy:
-
-- permissions can be denied
-- HealthKit can be unavailable
-- test and demo flows need deterministic behavior
-- the product still needs to behave gracefully
-
-So instead of pretending the happy path is the only path, the app has an explicit fallback wrapper. That is good product engineering. The user sees "the app still behaves sensibly" instead of "one missing entitlement turned the whole screen into nonsense."
-
-There is also a subtle product truth here: health apps live and die on trust. Returning empty or degraded states deliberately is often better than inventing confidence the system does not have.
-
-## AI: the fancy part, grounded by constraints
-
-The AI layer starts in [`AIPedometer/Core/AI/FoundationModelsService.swift`](AIPedometer/Core/AI/FoundationModelsService.swift).
-
-This file does two jobs:
-
-1. checks whether Apple Foundation Models are available on the current device
-2. wraps prompt/response behavior for both plain-text and structured generation
-
-Around it sit specialized services:
-
-- `InsightService`
-- `CoachService`
-- `TrainingPlanService`
-- `SmartNotificationService`
-
-These live under `AIPedometer/Core/AI/Services/`.
-
-The important design choice is that the code does not treat "AI" like one giant magical box. It treats AI as a lower-level capability, then builds product-specific services on top of it.
-
-That is the difference between a demo and a real app.
-
-Another good sign: the default instructions explicitly avoid medical advice and health claims. That is not just legal hygiene. It is product discipline.
-
-## Premium access: the business layer without pretending it is the product
-
-The revenue system lives under `AIPedometer/Core/Monetization/`.
-
-[`AIPedometer/Core/Monetization/PremiumAccessStore.swift`](AIPedometer/Core/Monetization/PremiumAccessStore.swift) is the key file to understand. It integrates RevenueCat, tracks offerings and entitlement state, and decides whether premium AI features are actually available.
-
-One design decision is especially worth preserving: premium fails closed.
-
-If RevenueCat is not configured, the app does not quietly leak premium capability. It moves into a "not configured" or unavailable state and keeps the boundary intact.
-
-That fail-closed rule also applies after RevenueCat returns data: unrelated active entitlements, expired historical premium products, and `CustomerInfo.entitlements.verification == .failed` must not unlock Premium AI. Trusted Entitlements currently runs in informational mode, but a failed verification result is still treated as untrusted input at the app boundary.
-
-Do not use UI-test convenience as a product entitlement shortcut. UI tests that need premium must pass the explicit forced-premium launch flag; the app must not infer premium access from `isUITesting`, product identifiers, or incomplete RevenueCat configuration.
-
-That is the right instinct. Billing bugs are trust bugs.
-
-The docs now reflect this reality: `PRD.md`, `README.md`, `CHANGELOG.md`, and `docs/revenuecat/README.md` all treat RevenueCat-backed premium access as part of the product, not a future add-on. Keep them aligned whenever the premium boundary changes.
-
-Expedition Mode follows the same rule. The visible toggle lives on Workouts and is only shown to Premium users, but the session controller also rechecks premium-gated `UserDefaults` state before changing live metrics cadence. That keeps battery-saver behavior from becoming an entitlement bypass.
-
-Routes & GPX is currently a local-first premium import surface with a MapKit preview, not full offline mapping. `Shared/Utilities/GPXRouteImporter.swift` owns the file import path: security-scoped URL access, file-size preflight, mapped file read, parser call, and storage. `Shared/Utilities/GPXRouteParser.swift` owns GPX validation and summary creation; `ImportedRouteStorage` stores only the last imported summary. Do not move file-ingest details back into `WorkoutsView`, and do not claim live/offline maps or Apple Watch maps until those are actually built and verified.
-
-Active training plans project into workout cards through `TrainingPlanRecord.currentWorkoutRecommendation` and `currentWorkoutRecommendationSummary`. Keep current-week target selection, goal-to-intent mapping, difficulty, and estimated-minutes logic behind that model interface instead of rebuilding it in `WorkoutsView`.
-
-Heart rate is read as the latest HealthKit sample for the current day and shown on the Dashboard. It is intentionally display-only for now; do not use it for medical advice, training-zone prescriptions, or AI claims without a separate safety review.
-
-## Watch and widgets: the satellites
-
-The watch app is intentionally thin. It is not trying to recreate the whole phone experience.
-
-Two files tell the story:
-
-- [`AIPedometer/Core/WatchConnectivity/WatchSyncService.swift`](AIPedometer/Core/WatchConnectivity/WatchSyncService.swift)
-- [`AIPedometerWatch/WatchSyncClient.swift`](AIPedometerWatch/WatchSyncClient.swift)
-
-The phone sends snapshots of the important state. The watch receives them and updates its local payload. That keeps the watch experience lightweight and practical.
-
-The widget target follows the same philosophy. It does not invent a separate product model. It consumes shared models and shared storage so the widgets remain extensions of the main app instead of little forked apps living in denial.
-
-That shared-code strategy is visible across:
-
-- `Shared/Models/`
-- `Shared/Utilities/`
-- `Shared/Constants/`
-- `Shared/DesignSystem/`
-
-When something needs to work consistently across iPhone, watch, and widgets, the right first question is usually: "should this live in `Shared/`?"
-
-## Persistence and shared state
-
-The repository uses SwiftData for persistence and the Observation framework for app state.
-
-That is a modern Apple-stack choice and it fits the rest of the repo:
-
-- SwiftUI views consume observable state
-- persisted models back history, goals, plans, and related product features
-- SwiftData keeps new stores in the app sandbox; app-group snapshots keep extensions in sync
-
-Production app-group writes are latest-value coalesced with at most five seconds of staleness.
-Goal/streak/week changes, day rollover, 100-step milestones, and lifecycle backgrounding flush
-immediately. Encoding, persistence, widget reload, and watch transport emit Points of Interest
-signposts without step totals or identifiers.
-
-You can think of it this way:
-
-- SwiftData remembers the story
-- Observation keeps the UI alive
-- the bounded app-group snapshot keeps the side screens honest
-
-Fresh installations keep the SwiftData store in the app's private Application Support directory.
-Upgrades that already contain the historical app-group store continue opening it in place so an
-update cannot lose health history. Widgets never open SwiftData; they read only `SharedStepData`
-from app-group `UserDefaults`. Moving legacy SQLite/WAL files is deferred until a supported or fully
-interruption-tested migration can prove data equivalence and recovery; 0.94 must not be described as
-full store isolation for every upgraded installation.
-
-## Build system and repo layout
-
-This repo is generated by XcodeGen from [`project.yml`](project.yml), not maintained as a hand-edited `.pbxproj` artifact.
-
-That is a major practical detail. If a target, entitlement, package, or setting seems wrong, check `project.yml` first. Do not waste time debugging generated output that will be rewritten on the next project generation.
-
-Important layout anchors:
-
-- `AIPedometer/`: app code
-- `Shared/`: cross-target shared code
-- `AIPedometerWatch/`: watchOS app
-- `AIPedometerWidgets/`: widget extension
-- `AIPedometerTests/`: unit tests
-- `AIPedometerUITests/`: UI tests
-- `Scripts/`: operational scripts
-- `Config/`: xcconfig setup and local overrides
-
-## Testing philosophy: the repo is already telling you what "good" looks like
-
-The test suite is broad and feature-shaped:
-
-- AI tests
-- localization tests
-- persistence tests
-- design-system tests
-- workout tests
-- HealthKit and sync tests
-- startup/lifecycle tests
-
-That is a clue. This team already believes in protecting behavior with targeted tests, not just poking around manually.
-
-So when a bug report comes in, the correct posture is not "where do I patch this quickly?"
-
-It is:
-
-1. where should the regression live?
-2. how do I make the failure undeniable?
-3. what is the narrowest production fix that makes the test pass?
-
-That is not bureaucracy. It is how you stop the same bug from coming back wearing a different hat.
-
-## Landmines and pitfalls
-
-Here are the things most likely to waste time if you forget them.
-
-### 1. Doc drift is real here
-
-This repo has had stale generated or supporting docs before. A concrete example from 2026-05-05: `project.yml` had release metadata `0.76 (32)` while the generated `.xcodeproj` still reported `0.74 (30)` until `xcodegen generate && Scripts/restore-entitlements.sh` was rerun.
-
-Lesson: docs and generated files are useful, but they are not always current. Verify against real files and generated project metadata before repeating a claim.
-
-### 2. "Executed 0 tests" is not success
-
-From prior repo work, one of the easiest ways to lie to yourself on Apple platforms is to run the wrong scheme or destination and walk away with a technically green command that validated nothing meaningful.
-
-If no real tests ran, you have no evidence.
-
-### 3. Hardcoded build paths are a trap
-
-For install and packaging flows, derive paths from build settings instead of guessing DerivedData paths by habit. Generated Apple build outputs have a way of punishing assumptions.
-
-### 4. Simulator concurrency can create fake mysteries
-
-Running overlapping simulator test jobs against the same destination is a good way to manufacture crashes that look like app bugs but are really toolchain contention.
-
-Serialize when the tooling is the variable under test.
-
-### 5. A manual Info.plist is the source of truth
-
-The app disables generated plist files. Settings such as `INFOPLIST_KEY_*` in `project.yml` can look
-correct while the signed bundle still lacks the declaration. Put app-level declarations in
-`AIPedometer/Resources/Info.plist`, test that source file, and inspect the built plist before treating
-a device-build warning as closed.
-
-### 6. Health apps need graceful degradation
-
-If a fix "works" only when every permission and entitlement is present, it is probably not finished. This app already bakes in fallback behavior. Respect that design instead of bulldozing it.
-
-### 7. UI-test markers must be visually empty, not almost transparent
-
-SwiftUI elements at `opacity(0.01)` remain visible in screenshots. The shared `uiTestMarker` keeps
-automation identifiers in the accessibility tree with a fully clear 1×1 foreground. Preserve the
-primary-tabs XCUITest whenever changing this helper: the contract is both discoverable automation
-and zero visible marker text.
-
-## Why the repo feels solid
-
-The strongest thing about this project is that it is not built like a toy demo wearing production clothing.
-
-You can see the discipline in the seams:
-
-- startup is coordinated
-- platform-specific work is isolated
-- cross-target logic is shared deliberately
-- AI has guardrails
-- premium boundaries fail closed
-- tests are organized around behaviors users actually care about
-
-Good engineers do not just make features appear. They make the edges boring. This repo has a lot of that energy.
-
-## How to work on it without making it worse
-
-When you touch this codebase:
-
-- start by confirming repo scope
-- read the local memory files first
-- trust `project.yml` more than generated Xcode artifacts
-- add regression tests before bug fixes
-- check real file locations before quoting docs
-- preserve fail-closed behavior in AI, health, and premium boundaries
-- keep shared logic in `Shared/` when multiple targets depend on it
-
-If you remember only one thing, remember this:
-
-This app is less like a single screen stack and more like a small transit system. Phone, watch, widgets, AI, HealthKit, and premium state are all connected. A local change can ripple outward fast. Work like a signal engineer, not like someone swapping light bulbs in isolation.
+# Engineering lessons
+
+The project contract is [AGENTS.md](AGENTS.md). This file records behavior and
+failure modes that are easy to miss when reading individual files. Current
+verification results belong in [MEMORY.md](MEMORY.md) and the daily journal.
+
+## Ownership and navigation
+
+`AIPedometerApp` creates and injects the services. `AppStartupCoordinator` owns
+one-time startup; `AppLifecycleCoordinator` owns foreground refresh. Keep that
+policy out of feature views.
+
+`RootView` selects onboarding or the main app. `MainTabView` uses `TabView` on
+iPhone and `NavigationSplitView` on iPad. Passing one layout does not verify the
+other. [APP_FLOW.md](APP_FLOW.md) maps the product flows.
+
+SwiftUI can omit a `Label` identifier from the concrete tab-bar button. The UI
+driver may select the five stable iPhone tabs by ordinal, but must then assert
+the destination's accessibility marker. A tap alone does not prove navigation.
+Markers must be visually empty: `opacity(0.01)` still renders text. Preserve
+the clear 1×1 `uiTestMarker` and its primary-tabs regression.
+
+## Async state and persistence
+
+`StepTrackingService` combines activity sources, updates current metrics and
+shared snapshots, and triggers weekly summaries and badges. Weekly-summary and
+streak calculations use latest-request-wins generations so older results cannot
+overwrite newer state. Today's refresh serialization is a separate invariant.
+
+`InsightService` serializes Foundation Models access through a generation-tagged
+flight. Incompatible callers wait and re-evaluate after invalidation or week
+rollover. Obsolete generations cannot repopulate the cache.
+
+Badge celebrations use UUID ownership. Dismissal, failure, cancellation and
+replacement invalidate that owner before a late response can publish or clear
+state. Inspect ownership cleanup before changing the view.
+
+`WorkoutSessionController` snapshots mutable fields and commits transitions only
+after SwiftData saves succeed. Failed start, resume, finish or discard operations
+remain retryable. Terminal finish/discard calls are single-flight across awaits.
+
+Completed workouts persist before HealthKit export. Schema V2 stores export state,
+a stable external UUID and privacy-safe failure metadata. Startup, foreground,
+pull-to-refresh and background reconciliation retry bounded pending batches even
+inside the six-hour daily-sync throttle. An empty pending queue must not request
+HealthKit authorization. The adapter resolves `HKMetadataKeyExternalUUID` before
+export so a crash after HealthKit commits cannot create a duplicate. Preserve the
+V1→V2 migration and idempotency tests when changing this path.
+
+Historical activity uses `GoalService.goal(for:)` for each summary date. The
+current goal is only a fallback when no historical goal exists.
+
+## Health, AI and premium boundaries
+
+Only the iOS app owns HealthKit. Widgets read `SharedStepData` from app-group
+UserDefaults; the watch receives snapshots through WatchConnectivity and has
+neither HealthKit nor app-group entitlements. The fallback service supports denied
+permissions and unavailable HealthKit; deterministic demo data belongs to explicit
+test/demo flows.
+
+`FoundationModelsService` checks device availability and owns text/structured
+generation. Feature services own insights, coaching, plans and smart notifications.
+Health context and AI inference stay on-device. Heart rate is the latest current-day
+sample for display; it is not a training-zone or medical recommendation.
+
+`PremiumAccessStore` owns RevenueCat offerings and access. Missing configuration,
+unrelated entitlements, expired products and failed Trusted Entitlements verification
+cannot unlock AI. Informational SDK verification still requires the app to reject
+`.failed`. UI tests use explicit premium flags; `isUITesting` alone grants no access.
+Unavailable access is distinct from authoritative revocation, as specified in AGENTS.md.
+
+Expedition Mode has both a premium UI gate and a controller check of persisted
+preferences before changing live-metric cadence. Keep the controller check.
+
+GPX imports currently provide a local summary and MapKit preview. They do not
+implement live navigation, offline maps or watch maps. `GPXRouteImporter` owns
+security-scoped access, size preflight, mapped reading, parsing handoff and storage.
+`GPXRouteParser` validates XML and builds the summary; `ImportedRouteStorage`
+retains only the last summary. Keep file ingest out of `WorkoutsView`.
+
+`TrainingPlanRecord.currentWorkoutRecommendation` and
+`currentWorkoutRecommendationSummary` own current-week selection, intent,
+difficulty and estimated duration. Views consume those projections.
+
+## Shared storage and performance
+
+App-group snapshot writes coalesce the latest value for at most five seconds.
+Goal/streak/week changes, day rollover, 100-step milestones and backgrounding flush
+immediately. Encoding, persistence, widget reload and watch transport have Points
+of Interest signposts without step totals or identifiers.
+
+Fresh SwiftData stores live in private Application Support. Upgrades with an existing
+app-group store continue opening it in place to preserve history. Widgets never open
+SwiftData. Moving legacy SQLite/WAL files requires an interruption-tested migration;
+the fresh-store policy does not prove isolation for all existing installations.
+
+For streaming text, Swift semantic prefix equality is not byte-prefix equality.
+`K` and `K` exposed a corruption bug when a semantic match reused a UTF-8 offset.
+Use the production accumulator's exact byte-prefix invariant and Unicode regressions.
+The synthetic parser benchmark does not measure SwiftUI rendering, model inference
+or battery usage.
+
+## Verification and release lessons
+
+- XcodeGen snapshots version/build fields. Change `project.yml` before generation,
+  then inspect compiled and archived values. Entitlements are restored by the
+  postGen hook; manual generated-file edits disappear.
+- The app uses a manual `AIPedometer/Resources/Info.plist`. `INFOPLIST_KEY_*` settings
+  alone may not reach the bundle. Test the source plist and inspect the built one.
+- Zero tests, skipped tests and inconsistent xcresult counts do not prove completion.
+  A negative gate needs a violation inside its actual path/selector scope and a
+  clean control. Empty redaction output is not a useful test.
+- Identifier-scanner exemptions must name existing self/fixture paths. Obsolete
+  allowlist entries can silently exempt new files from the privacy gate.
+- On this shared host, inspect destination ownership, available storage and actual
+  service state. Argent reported a boot error in September 2026 while a later
+  inventory showed the requested simulator booted. Reconcile state before retrying.
+- Keep project version, compiled version, archive, IPA, uploaded build, TestFlight
+  availability and App Store availability separate. Release authentication and
+  Apple RevenueCat configuration must exist before building the final artifact.
+- AGENTS.md owns agent instructions; CLAUDE.md imports it. A copied global skill
+  catalog hid project rules and made triggers stale. Keep references conditional
+  and validate the portable contract on a clean clone.

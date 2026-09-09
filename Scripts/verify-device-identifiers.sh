@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-ALLOWLIST_PATH_REGEX="${ALLOWLIST_PATH_REGEX:-^Scripts/verify-device-identifiers\\.sh$|^Scripts/verify-device-ids\\.sh$|^Scripts/tests/verify-device-ids\\.sh$|^Scripts/tests/verify-device-identifiers\\.sh$}"
+ALLOWLIST_PATH_REGEX="${ALLOWLIST_PATH_REGEX:-^Scripts/verify-device-identifiers\\.sh$|^Scripts/tests/verify-device-ids\\.sh$}"
 
 if ! git -C "${ROOT_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "ERRO: ${ROOT_DIR} nao e um repositorio git valido." >&2

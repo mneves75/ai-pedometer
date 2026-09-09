@@ -42,6 +42,7 @@ chmod +x "${PASS_AST_GREP}" "${FAIL_AST_GREP}" "${STAGED_SNAPSHOT_AST_GREP}"
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" read-tree HEAD
 GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" add -- \
   AGENTS.md CLAUDE.md Scripts/check-agents-sync.sh Scripts/verify-device-identifiers.sh \
+  docs/agents/issue-tracker.md \
   sgconfig.yml \
   rules/ast-grep/swift-no-force-cast.yml \
   rules/ast-grep/swift-no-force-try.yml

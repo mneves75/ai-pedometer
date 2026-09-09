@@ -124,7 +124,7 @@ DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.97" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "0.98" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -144,7 +144,7 @@ Swift 6.2 strict concurrency is enforced project-wide:
 The repo uses XcodeGen. If `project.yml` changes, regenerate before building or publishing:
 
 ```bash
-xcodegen generate && Scripts/restore-entitlements.sh
+xcodegen generate
 ```
 
 Privacy and security checks expected before release:
@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current**: 0.97 (53)
+**Current source**: 0.98 (54). Source version does not indicate TestFlight or App Store availability.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
