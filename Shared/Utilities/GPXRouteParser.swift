@@ -51,6 +51,13 @@ enum GPXRouteParser {
     /// memory. Legitimate GPX text nodes (names, elevations, coordinates) are tiny, so this bound is
     /// far above any real value while keeping hostile expansion in check.
     static let maxElementTextCharacters = 1_000_000
+    /// Cap on the stored route name. `maxElementTextCharacters` bounds hostile *expansion*, but a
+    /// GPX file is an exchange format and its `<name>` is attacker-controlled, so without this the
+    /// name reaching storage is bounded only by that 1,000,000-character ceiling. The name is
+    /// JSON-encoded into `UserDefaults` by `ImportedRouteStorage` — reloaded into memory on every
+    /// launch — and laid out in full by Core Text on the Workouts tab (`lineLimit` truncates the
+    /// display, not the layout), including the view holding the button that removes it.
+    static let maxRouteNameCharacters = 200
 
     static func parse(
         data: Data,
@@ -236,7 +243,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
 
         switch elementName {
         case "name" where routeName == nil && waypointDepth == 0:
-            routeName = value
+            routeName = String(value.prefix(GPXRouteParser.maxRouteNameCharacters))
         case "ele":
             if let elevation = Double(value), elevation.isFinite {
                 currentPoint?.elevationMeters = elevation

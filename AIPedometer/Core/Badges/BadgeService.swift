@@ -140,8 +140,8 @@ final class BadgeService {
         let prompt = """
         Generate a personalized achievement celebration for unlocking this badge:
         
-        Badge: \(badgeType.displayName)
-        Description: \(badgeType.badgeDescription)
+        Badge: \(badgeType.localizedTitle)
+        Description: \(badgeType.localizedDescription)
         
         Create:
         1. A congratulatory message (1-2 sentences, enthusiastic)
@@ -189,15 +189,5 @@ final class BadgeService {
         return grouped.values.compactMap { group in
             group.max(by: { $0.earnedAt < $1.earnedAt })
         }
-    }
-}
-
-extension BadgeType {
-    var displayName: String {
-        localizedTitle
-    }
-    
-    var badgeDescription: String {
-        localizedDescription
     }
 }

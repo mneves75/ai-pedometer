@@ -12,11 +12,13 @@
 
 ## Full Local Gate
 
-Use stable Xcode 26 through `DEVELOPER_DIR=/Applications/Xcode.app`. List devices with Argent and select an available iOS 26 simulator; substitute its name and OS in the commands below. Serialize simulator jobs and use a task-specific `-derivedDataPath` and fresh `-resultBundlePath` for each test run.
+Start with `bash Scripts/preflight.sh` (add `--with-tests` for the shell regression suite). It resolves a supported toolchain — Xcode 26.x or 27.x, see the [build guide](build-and-dev.md) — and fails fast when the host cannot build at all, which the fixture-based script tests cannot detect.
 
-- Unit suite: `DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO -only-testing:AIPedometerTests test`.
+List devices with Argent and select an available simulator whose runtime the project supports; substitute its name and OS in the commands below, and always use a **concrete** destination, never `generic/platform=iOS Simulator`. Serialize simulator jobs and use a task-specific `-derivedDataPath` and fresh `-resultBundlePath` for each test run. Prefer `build-for-testing` once followed by `test-without-building` while iterating: the rebuild dominates, the suite itself runs in seconds.
+
+- Unit suite: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>,OS=<OSVersion>' -parallel-testing-enabled NO -only-testing:AIPedometerTests test`.
 - UI suite: the same command with `-only-testing:AIPedometerUITests`.
-- Static analysis: `DEVELOPER_DIR=/Applications/Xcode.app xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=iPhone 17' analyze`.
+- Static analysis: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>,OS=<OSVersion>' analyze`.
 - Script regressions: `bash -c 'set -euo pipefail; for test_script in Scripts/tests/*.sh; do bash "$test_script"; done'`.
 - Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh Scripts/lib/*.sh .githooks/pre-commit` and `actionlint`.
 - Development dependency audit: `pnpm audit --audit-level moderate`. Include dev dependencies; `--prod` omits the Wrangler toolchain and cannot verify it.
@@ -26,7 +28,7 @@ Use stable Xcode 26 through `DEVELOPER_DIR=/Applications/Xcode.app`. List device
 - Release archive: use the [build guide](build-and-dev.md), preserving the embedded watch app. Inspect actual bundle versions and archive `ApplicationProperties`; there must be exactly one primary app under `Products/Applications`.
 - Project metadata: `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`.
 
-Validate every xcresult with `DEVELOPER_DIR=/Applications/Xcode.app python3 Scripts/xcresult-summary.py <result.xcresult> --validate`. Zero, failed, skipped, negative or inconsistent test counts fail validation. Swift Testing function selectors need trailing `()`; prefer suite selectors when possible. Never weaken assertions or count an empty test selection as proof.
+Validate every xcresult with `python3 Scripts/xcresult-summary.py <result.xcresult> --validate`. Zero, failed, skipped, negative or inconsistent test counts fail validation. Swift Testing function selectors need trailing `()`; prefer suite selectors when possible. Never weaken assertions or count an empty test selection as proof.
 
 Before release, also run `bash Scripts/check-revenuecat-staleness.sh` and review upstream notes. Exit 10 reports a newer version and requires a recorded update/retention decision; it is not a passing freshness check or proof of a vulnerability. Network/provenance errors remain unresolved. The separate immutable-pin integrity check above must pass regardless of that decision. A payment SDK update requires relevant purchase/restore and archive validation.
 
@@ -43,6 +45,16 @@ named for another repository is not an available test destination.
 Run relevant onboarding, five-tab navigation, premium unavailable/locked, workout start/end/recovery and settings flows on iPhone; include iPad for layout/navigation changes. Use Argent for manual app interaction and accessibility discovery. Real motion, HealthKit permissions/export, notification delivery, paired watch UI and StoreKit sandbox transactions need an explicitly selected device and remain unverified until exercised there.
 
 Do not add another E2E runner merely to duplicate XCUITest. Add a saved Argent flow when a repeated manual path lacks coverage; record before walking the path and require stable replay evidence.
+
+### Observing a running build without writing a test
+
+You do not need a new XCUITest to look at one seeded screen. On a Debug build:
+
+- Seed and launch: `xcrun simctl launch <udid> com.mneves.aipedometer -ui-testing -reset-state -skip-onboarding -force-premium-on`. `LaunchConfiguration` reads `ProcessInfo.arguments` directly, so every flag works outside XCUITest. The full set is `-ui-testing`, `-reset-state`, `-skip-onboarding`, `-force-healthkit-sync-on|-off`, `-force-premium-on|-off`, `-force-ai-unavailable`, `-seed-unfinished-workout`; environment: `UI_TESTING`, `DEMO_DETERMINISTIC`, `PREMIUM_ENABLED`. All are inert in Release by design — see `LaunchConfiguration.isOverridable`.
+- Screenshot: `xcrun simctl io <udid> screenshot <path>.png`.
+- Logs: `xcrun simctl spawn <udid> log stream --predicate 'subsystem == "com.mneves.aipedometer"'`. Categories are `app, health, motion, tracking, workouts, badges, background, widgets, ai, sync`, plus `metrics`.
+- **Known ceiling:** `AppLogger` replaces every metadata *value* with `[private]` before the payload reaches `os_log`, and wraps the result in `privacy: .private`. A log stream yields event names, levels and timestamps — never a value. To observe state, use the `#if DEBUG` debug section in Settings (`HealthKitDebugView`), or assert it in a test.
+- Debug menu: any Debug build exposes `SettingsView.debugSection` with `HealthKitDebugView` and a fake-data toggle; no test code required.
 
 For production, record the build, device/OS, scenario and observed result for these
 physical checks. Use synthetic data or data the owner explicitly authorizes:

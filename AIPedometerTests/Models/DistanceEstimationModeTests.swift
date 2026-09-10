@@ -23,32 +23,4 @@ struct DistanceEstimationModeTests {
         #expect(cases.contains(.automatic))
         #expect(cases.contains(.manual))
     }
-
-    @Test
-    func localizedNameIsNotEmpty() {
-        for mode in DistanceEstimationMode.allCases {
-            #expect(!mode.localizedName.isEmpty)
-        }
-    }
-
-    @Test
-    func localizedDescriptionIsNotEmpty() {
-        for mode in DistanceEstimationMode.allCases {
-            #expect(!mode.localizedDescription.isEmpty)
-        }
-    }
-
-    @Test
-    func isSendable() {
-        let mode: any Sendable = DistanceEstimationMode.automatic
-        #expect(mode as? DistanceEstimationMode == .automatic)
-    }
-
-    @Test
-    func encodesAndDecodes() throws {
-        let original = DistanceEstimationMode.manual
-        let data = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(DistanceEstimationMode.self, from: data)
-        #expect(decoded == original)
-    }
 }

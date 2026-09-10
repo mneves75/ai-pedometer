@@ -8,14 +8,20 @@ enum L10n {
         locale: Locale? = nil,
         comment: StaticString? = nil
     ) -> String {
-        let resolvedLanguageCode: String
-        if let explicitLocale = locale {
-            resolvedLanguageCode = AppLanguage.supportedLanguageCode(for: explicitLocale.identifier)
+        let resolvedLocale: Locale
+        let resolvedBundle: Bundle
+        if locale == nil, bundle === Bundle.main {
+            // Default path — the overwhelming majority of the 600+ call sites. Language code,
+            // locale and localization bundle are all resolved once per process.
+            // See `AppLanguage.defaultLanguageCode`.
+            resolvedLocale = AppLanguage.defaultLocale
+            resolvedBundle = AppLanguage.defaultLocalizationBundle
         } else {
-            resolvedLanguageCode = AppLanguage.currentLanguageCode
+            let resolvedLanguageCode = locale.map { AppLanguage.supportedLanguageCode(for: $0.identifier) }
+                ?? AppLanguage.defaultLanguageCode
+            resolvedLocale = AppLanguage.locale(for: resolvedLanguageCode)
+            resolvedBundle = AppLanguage.localizationBundle(for: resolvedLanguageCode, bundle: bundle)
         }
-        let resolvedLocale = AppLanguage.locale(for: resolvedLanguageCode)
-        let resolvedBundle = AppLanguage.localizationBundle(for: resolvedLanguageCode, bundle: bundle)
         return String(
             localized: key,
             table: table,

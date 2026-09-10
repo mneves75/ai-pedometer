@@ -6,11 +6,33 @@ enum AppLanguage {
     static let englishLocaleIdentifier = "en-US"
 
     static var currentLanguageCode: String {
-        resolvedLanguageCode()
+        defaultLanguageCode
     }
 
+    /// Language resolution for the default path (`Locale.preferredLanguages`, `.main` bundle),
+    /// resolved once per process.
+    ///
+    /// `L10n.localized` previously re-derived this for every localized string: once via
+    /// `currentLanguageCode`, again in `locale(for:)` and a third time in
+    /// `localizationBundle(for:bundle:)`, so `supportedLanguageCode` — which builds a `Locale`
+    /// and reads its language and region — ran three times per call across 612 call sites.
+    /// iOS requires an app relaunch to change the app language, and `AIPedometerApp` already
+    /// snapshots `appLocale` once at init, so resolving once matches the shipped model.
+    /// Callers that pass an explicit `locale:` or a non-`.main` bundle still resolve normally.
+    static let defaultLanguageCode: String = resolvedLanguageCode()
+
+    static let defaultLocale: Locale = locale(for: defaultLanguageCode)
+
+    /// The `.main`-bundle localization bundle for `defaultLanguageCode`, resolved once.
+    ///
+    /// This is the most expensive third of the old per-string work: `localizationBundle(for:bundle:)`
+    /// re-ran `supportedLanguageCode` *and* did a `Bundle.path(forResource:ofType:)` lookup plus a
+    /// `Bundle(path:)` construction on every localized string. Only the `.main` case is cached;
+    /// callers passing a different bundle (tests loading `pt-BR.lproj` explicitly) resolve normally.
+    static let defaultLocalizationBundle: Bundle = localizationBundle(for: defaultLanguageCode)
+
     static var currentLocale: Locale {
-        locale(for: currentLanguageCode)
+        defaultLocale
     }
 
     static func resolvedLanguageCode(

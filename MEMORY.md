@@ -5,16 +5,24 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-09)
+## Current state (2026-09-10)
 
-- Source is 0.98 (54) in `project.yml`, pushed at `5145374`, not a deployed release.
-  Hosted CI 34309651078 and CodeQL 34309651111 both passed on that commit.
+- Source is 0.99 (55) in `project.yml`, not a deployed release.
 - Open before any beta or production delivery: approved App Store Connect credentials,
   Apple (non-Test-Store) RevenueCat configuration, a signed artifact, and physical-device
   acceptance for HealthKit, motion, notifications, paired watch and purchases.
-- Toolchain: native SwiftUI, iOS/watchOS 26 targets, Swift 6.2, XcodeGen. The selected
-  system Xcode is a beta, so every build/test/analyze command needs an explicit stable
-  developer directory — see the [build guide](docs/agents/build-and-dev.md).
+- Toolchain: native SwiftUI, iOS/watchOS 26 deployment targets, Swift 6.2, XcodeGen.
+  Supported build toolchains are Xcode 26.x and 27.x. Verified 2026-09-10 on Xcode 27.0
+  (27A266a): app, widgets, watch and both test targets build clean; unit suite 607/607.
+  Run `bash Scripts/preflight.sh` before any build — it is the only check that proves the
+  host can build at all, because the shell suites test fixtures and stay green regardless.
+- **Corrected 2026-09-10:** the previous entry claimed the system Xcode was a beta and that
+  every command needed `DEVELOPER_DIR=/Applications/Xcode.app` as "stable Xcode 26". No
+  Xcode 26 was installed; that prefix resolved to 27.0 and was a no-op. The related claim
+  that the pinned RevenueCat revision fails test builds under the 27 toolchain is **false**.
+  What fails is a *generic* simulator destination, which compiles arm64 and x86_64 and
+  reports `RevenueCat.swiftmodule ... built for incompatible target`. Use a concrete
+  destination. A wrong instruction cost more than a missing one would have.
 - AGENTS.md is the canonical contract and CLAUDE.md imports it. Do not restore copied
   guideline or skill catalogs; `Scripts/check-agents-sync.sh` validates the staged contract
   without an external checkout.

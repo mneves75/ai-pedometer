@@ -145,10 +145,6 @@ struct WeeklyTarget: Sendable, Codable {
     
     @Guide(description: "Focus tip for this week")
     let focusTip: String
-    
-    var targetDescription: String {
-        "\(activeDaysRequired) active days, \(dailyStepTarget.formatted()) steps/day"
-    }
 }
 
 @Generable

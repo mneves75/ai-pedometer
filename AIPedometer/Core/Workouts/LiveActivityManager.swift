@@ -55,11 +55,6 @@ final class LiveActivityManager {
         await activity.update(.init(state: state, staleDate: Date.now.addingTimeInterval(staleInterval)))
     }
 
-    nonisolated static func endActivity(id: String, state: WorkoutActivityAttributes.ContentState) async {
-        guard let activity = Activity<WorkoutActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
-        await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .default)
-    }
-
     nonisolated static func endAllActivities() async {
         await endActivities(excluding: nil)
     }

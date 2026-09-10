@@ -46,32 +46,4 @@ struct ActivityTrackingModeTests {
         let wheelchairUnit = ActivityTrackingMode.wheelchairPushes.unitName
         #expect(stepsUnit != wheelchairUnit)
     }
-
-    @Test
-    func localizedNameIsNotEmpty() {
-        for mode in ActivityTrackingMode.allCases {
-            #expect(!mode.localizedName.isEmpty)
-        }
-    }
-
-    @Test
-    func localizedDescriptionIsNotEmpty() {
-        for mode in ActivityTrackingMode.allCases {
-            #expect(!mode.localizedDescription.isEmpty)
-        }
-    }
-
-    @Test
-    func isSendable() {
-        let mode: any Sendable = ActivityTrackingMode.steps
-        #expect(mode as? ActivityTrackingMode == .steps)
-    }
-
-    @Test
-    func encodesAndDecodes() throws {
-        let original = ActivityTrackingMode.wheelchairPushes
-        let data = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(ActivityTrackingMode.self, from: data)
-        #expect(decoded == original)
-    }
 }

@@ -4,7 +4,7 @@ Derived from current code and documentation.
 
 ## Language and Tooling
 - Swift 6.2
-- Xcode 26.x
+- Xcode 26.x or 27.x
 - XcodeGen (project.yml)
 
 ## UI

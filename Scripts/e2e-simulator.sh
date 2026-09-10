@@ -20,7 +20,7 @@ require_cmd() {
 
 require_cmd rg ripgrep
 require_cmd python3 python
-aipedometer_select_xcode_26
+aipedometer_select_xcode
 
 STAMP="$(date +"%Y-%m-%d-%H%M%S")"
 OUT_DIR="${E2E_OUT_DIR:-output/e2e-${STAMP}}"

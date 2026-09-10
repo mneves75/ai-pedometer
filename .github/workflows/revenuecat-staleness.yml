@@ -34,6 +34,11 @@ jobs:
           set -e
           cat revenuecat-staleness.txt >> "$GITHUB_STEP_SUMMARY"
           if [[ ${status} -eq 10 ]]; then
+            # Exit 10 means "a newer upstream release exists" — a known, expected state that
+            # requires a human retention decision, not a broken job. Failing on it kept this
+            # workflow permanently red, which made a REAL network/provenance error (any other
+            # nonzero status) indistinguishable from the routine stale signal.
             echo "::warning::RevenueCat pin is stale; review the reported release manually."
+            exit 0
           fi
           exit "${status}"

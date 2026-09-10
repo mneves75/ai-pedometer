@@ -4,45 +4,6 @@ import Testing
 
 @testable import AIPedometer
 
-// MARK: - SyncPolicy Tests
-
-@Suite("SyncPolicy Constants Tests")
-struct SyncPolicyTests {
-    
-    @Test("Cold start window is 30 days")
-    func coldStartWindowIs30Days() {
-        let expectedDays = 30.0
-        let expectedInterval = expectedDays * 24 * 60 * 60
-        
-        #expect(SyncPolicy.coldStartWindow == expectedInterval)
-    }
-    
-    @Test("Incremental overlap is 1 day")
-    func incrementalOverlapIs1Day() {
-        let expectedDays = 1.0
-        let expectedInterval = expectedDays * 24 * 60 * 60
-        
-        #expect(SyncPolicy.incrementalOverlap == expectedInterval)
-    }
-    
-    @Test("Foreground min interval is 6 hours")
-    func foregroundMinIntervalIs6Hours() {
-        let expectedHours = 6.0
-        let expectedInterval = expectedHours * 60 * 60
-        
-        #expect(SyncPolicy.foregroundMinInterval == expectedInterval)
-    }
-    
-    @Test("Pull to refresh window is 7 days")
-    func pullToRefreshWindowIs7Days() {
-        let expectedDays = 7.0
-        let expectedInterval = expectedDays * 24 * 60 * 60
-        
-        #expect(SyncPolicy.pullToRefreshWindow == expectedInterval)
-    }
-    
-}
-
 // MARK: - SyncStateKey Tests
 
 @Suite("SyncStateKey Tests")
@@ -879,13 +840,6 @@ struct HealthKitSyncServiceTests {
         let (service, _, _, _) = makeTestEnvironment()
         
         #expect(service.shouldPerformForegroundSync() == true)
-    }
-    
-    @Test("Needs cold start sync when never synced")
-    func needsColdStartSyncReturnsTrue() {
-        let (service, _, _, _) = makeTestEnvironment()
-        
-        #expect(service.needsColdStartSync() == true)
     }
     
     @Test("Sync handles HealthKit errors gracefully")

@@ -180,7 +180,7 @@ require_cmd asc
 require_cmd xcodebuild
 require_cmd python3
 require_cmd rg
-aipedometer_select_xcode_26
+aipedometer_select_xcode
 
 mkdir -p "${IPA_DIR}"
 mkdir -p "$(dirname "${ARCHIVE_PATH}")" "$(dirname "${IPA_PATH}")"

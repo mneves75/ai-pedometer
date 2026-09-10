@@ -2,6 +2,19 @@ import Foundation
 import Observation
 
 enum LaunchConfiguration {
+    /// Process-lifetime snapshots backing every `arguments:`/`environment:` default argument below.
+    ///
+    /// Swift evaluates a default-argument expression at the *call site*, before the callee body, so
+    /// an early `guard allowsOverrides else { … }` does not prevent the expression from running.
+    /// `ProcessInfo.processInfo.environment` is not cached by Foundation — each access rebuilds a
+    /// `[String: String]` from the environment block (measured 23.7 µs for 87 variables) — and these
+    /// readers are called from SwiftUI modifier bodies (`GlassModifiers`, `ConditionalViewModifiers`,
+    /// `MotionEffects`), which re-run at live-pedometer cadence. Neither the argument vector nor the
+    /// environment changes during the process lifetime, so snapshotting once is behavior-preserving.
+    /// Tests keep passing explicit values through the same parameters.
+    private static let processArguments = ProcessInfo.processInfo.arguments
+    private static let processEnvironment = ProcessInfo.processInfo.environment
+
     private static let uiTestingArgument = "-ui-testing"
     private static let skipOnboardingArgument = "-skip-onboarding"
     private static let forceHealthKitSyncOffArgument = "-force-healthkit-sync-off"
@@ -15,8 +28,8 @@ enum LaunchConfiguration {
     private static let premiumEnabledEnvironmentKey = "PREMIUM_ENABLED"
 
     static func isUITesting(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         guard allowsOverrides else { return false }
@@ -31,7 +44,7 @@ enum LaunchConfiguration {
     }
 
     static func isRunningXCTest(
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         guard allowsOverrides else { return false }
@@ -43,8 +56,8 @@ enum LaunchConfiguration {
     }
 
     static func isTesting(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         isUITesting(
@@ -58,21 +71,21 @@ enum LaunchConfiguration {
     }
 
     static func shouldResetState(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
+        arguments: [String] = processArguments,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         allowsOverrides && arguments.contains("-reset-state")
     }
 
     static func shouldSkipOnboarding(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
+        arguments: [String] = processArguments,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         allowsOverrides && arguments.contains(skipOnboardingArgument)
     }
 
     static func forcedHealthKitSyncEnabled(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
+        arguments: [String] = processArguments,
         allowsOverrides: Bool = isOverridable
     ) -> Bool? {
         guard allowsOverrides else { return nil }
@@ -82,8 +95,8 @@ enum LaunchConfiguration {
     }
 
     static func forcedPremiumEnabled(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool? {
         guard allowsOverrides else { return nil }
@@ -101,8 +114,8 @@ enum LaunchConfiguration {
     }
 
     static func isAIUnavailableForced(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         guard isUITesting(
@@ -114,8 +127,8 @@ enum LaunchConfiguration {
     }
 
     static func shouldSeedUnfinishedWorkout(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         guard isUITesting(
@@ -151,8 +164,8 @@ enum LaunchConfiguration {
     }
 
     static func isDeterministicDemoDataEnabled(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
         allowsOverrides: Bool = isOverridable
     ) -> Bool {
         guard allowsOverrides else { return false }

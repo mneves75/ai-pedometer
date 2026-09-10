@@ -14,7 +14,7 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig
 ### Prerequisites
 
 - macOS 15+
-- Xcode 26.x (the 27 toolchain does not compile the pinned RevenueCat revision)
+- Xcode 26.x or 27.x. Run `bash Scripts/preflight.sh` to confirm the host is usable before building.
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 - Local gate tools: `brew install ast-grep ripgrep shellcheck`
 

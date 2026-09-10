@@ -145,7 +145,7 @@ fi
 
 require_cmd xcodebuild
 require_cmd xcrun
-aipedometer_select_xcode_26
+aipedometer_select_xcode
 
 destination="platform=iOS,name=${DEVICE_NAME}"
 ACTIVE_DEVELOPER_DIR="${DEVELOPER_DIR}"

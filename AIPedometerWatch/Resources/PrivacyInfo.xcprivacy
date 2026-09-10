@@ -7,6 +7,20 @@
     <key>NSPrivacyCollectedDataTypes</key>
     <array/>
     <key>NSPrivacyAccessedAPITypes</key>
-    <array/>
+    <array>
+        <!-- project.yml compiles all of Shared/ into this target, and Shared/ reads UserDefaults
+             (HealthKitSyncSettings, ActivitySettings, SharedStepDataPersistence, LaunchConfiguration).
+             Whether those symbols survive dead-code stripping in the watch binary is not something
+             the repository verifies, so declare 1C8F.1 (the reason the widget manifest uses for the same access)
+             rather than risk an ITMS-91053 rejection on upload. -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>1C8F.1</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

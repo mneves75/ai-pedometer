@@ -23,16 +23,8 @@ public final class HapticService: Sendable {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
-    public func warning() {
-        UINotificationFeedbackGenerator().notificationOccurred(.warning)
-    }
-
     public func error() {
         UINotificationFeedbackGenerator().notificationOccurred(.error)
-    }
-
-    public func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }
 
@@ -61,28 +53,8 @@ public final class HapticService: Sendable {
         WKInterfaceDevice.current().play(.success)
     }
 
-    public func warning() {
-        WKInterfaceDevice.current().play(.retry)
-    }
-
     public func error() {
         WKInterfaceDevice.current().play(.failure)
     }
-}
-
-#else
-// Stub for platforms without haptics (macOS, tvOS, visionOS)
-@MainActor
-public final class HapticService: Sendable {
-    public static let shared = HapticService()
-
-    private init() {}
-
-    public func tap() {}
-    public func selection() {}
-    public func confirm() {}
-    public func success() {}
-    public func warning() {}
-    public func error() {}
 }
 #endif

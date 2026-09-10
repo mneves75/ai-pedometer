@@ -5,7 +5,10 @@
 - Entitlements are rewritten by the postGen hook `Scripts/restore-entitlements.sh`; edit that script, never the `.entitlements` files. The iOS app's Enhanced Security hardened-process keys are staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1` (they need the team profile regenerated with the capability — one-time interactive Xcode sign-in). Security build-setting decisions: `xcode-security-settings.md`.
 
 ## Xcode
-- Toolchain pin: when `xcode-select` points at an Xcode beta, prefix direct `xcodebuild` commands and build/install scripts with `DEVELOPER_DIR=/Applications/Xcode.app` (project contract is Xcode 26.x; the pinned RevenueCat revision fails test builds under the 27-beta toolchain).
+- Run `bash Scripts/preflight.sh` first. It resolves the toolchain, prints the exact version and build, and checks free disk, required tools, `core.hooksPath`, `Config/Local.xcconfig` and the generated project before you spend minutes on a build that cannot succeed.
+- Supported toolchains are Xcode 26.x and 27.x, selected by `Scripts/lib/xcode-toolchain.sh` (`aipedometer_select_xcode`). It prefers `DEVELOPER_DIR`, then `xcode-select -p`, then `/Applications/Xcode.app`, and exports `AIPEDOMETER_RESOLVED_XCODE_VERSION` / `AIPEDOMETER_RESOLVED_XCODE_BUILD`. Record both in release evidence: a range is weaker than a pin, so evidence must name the toolchain that actually produced the artifact.
+- To force one toolchain, set `AIPEDOMETER_XCODE_DEVELOPER_DIR`; an unusable explicit pin fails instead of silently drifting. `AIPEDOMETER_SUPPORTED_XCODE_MAJORS` widens or narrows the accepted range.
+- Verified 2026-09-10 on Xcode 27.0 (27A266a): the app, widgets, watch app and both test targets build clean and the unit suite passes. The earlier claim that the pinned RevenueCat revision fails test builds on the 27 toolchain is **false**. What does fail is a *generic* simulator destination (`generic/platform=iOS Simulator`), which compiles arm64 and x86_64 and reports `RevenueCat.swiftmodule ... built for incompatible target`. Always use a concrete destination for `build-for-testing` and `test`.
 - Simulator runtime drift ("iOS X.Y is not installed" with the runtime present in `simctl`): `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
 ## CLI Build and Test
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' build`
@@ -21,8 +24,8 @@
   Local IDs are required; `CI=true` alone does not enable auto-selection. Only
   GitHub-hosted Actions runners auto-select. The script rejects obsolete
   `E2E_IOS_DEST`/`E2E_WATCH_DEST` overrides so test and recovery targets cannot diverge.
-- Build/install on physical device by name (no hardcoded UDID): `DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh --device-name <DeviceName>`
-- Build/install on iPhone + explicit install/verify on paired Watch: `DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh --device-name <DeviceName> --watch-name "<Apple Watch Name>" --launch`
+- Build/install on physical device by name (no hardcoded UDID): `bash Scripts/install-on-device.sh --device-name <DeviceName>`
+- Build/install on iPhone + explicit install/verify on paired Watch: `bash Scripts/install-on-device.sh --device-name <DeviceName> --watch-name "<Apple Watch Name>" --launch`
 - Retry/timeout knobs for flaky device/watch connectivity:
   - `--build-retries <n>`
   - `--install-retries <n>`
@@ -36,6 +39,7 @@
   Pass the UDID from that listing; never hardcode it in a tracked file.
 
 ## Utilities
+- `bash Scripts/preflight.sh [--with-tests] [--quiet]`: verify this host can build and test at all — resolved Xcode version/build, free disk, required tools, `core.hooksPath`, `Config/Local.xcconfig`, generated project, booted simulators — then run the fast gate tier. Run it before any long build. Exit 1 means a required check failed.
 - `swift Scripts/generate-app-icon.swift`: regenerate app icons (writes into each target's `AppIcon.appiconset`).
 - `bash Scripts/check-agents-sync.sh`: validate the canonical AGENTS.md contract, CLAUDE.md import, instruction-size budget and local reference targets. Works without an external guidelines checkout. Edit AGENTS.md directly; generic guidance and installed skill catalogs are referenced only when needed.
 - `bash Scripts/verify-device-identifiers.sh`: fail if device IDs/UDIDs/ECIDs are hardcoded in tracked files.

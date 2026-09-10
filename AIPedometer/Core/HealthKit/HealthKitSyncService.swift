@@ -16,8 +16,7 @@ enum SyncPolicy {
     
     /// Window for pull-to-refresh operations
     static let pullToRefreshDayCount = 7
-    static let pullToRefreshWindow: TimeInterval = TimeInterval(pullToRefreshDayCount * 24 * 60 * 60)
-    
+
 }
 
 // MARK: - Sync State

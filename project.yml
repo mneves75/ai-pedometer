@@ -14,38 +14,27 @@ settings:
   base:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: 6.2
-    ENABLE_STRICT_CONCURRENCY: complete
     CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SUPPORTS_MACCATALYST: NO
     SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     ENABLE_SWIFT_TESTING: YES
-    MARKETING_VERSION: "0.98"
-    CURRENT_PROJECT_VERSION: 54
+    MARKETING_VERSION: "0.99"
+    CURRENT_PROJECT_VERSION: 55
     ENABLE_PREVIEWS: YES
     SWIFT_EMIT_LOC_STRINGS: YES
     SWIFT_STRICT_CONCURRENCY: complete
-    SWIFT_UPCOMING_FEATURE_CONCURRENCY: complete
+    # Only `SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY` survives here, and it is the only one that ever
+    # did anything. Xcode 27 recognizes exactly 19 `SWIFT_UPCOMING_FEATURE_*` settings (see
+    # SWBUniversalPlatform.framework/Resources/Swift.xcspec); this list previously declared 20, of
+    # which 16 were names Xcode does not define at all — `..._SWIFT_6` (the real one is `..._6_0`),
+    # `..._ISOLATED_DEFAULT_ARGUMENTS` (`..._ISOLATED_DEFAULT_VALUES`), `..._STRICT_CONCURRENCY`,
+    # `..._STRICT_DOUBLE`, `..._PACK_ITERATION` and the rest — so Xcode silently ignored them.
+    # The other three were real but are already implied by `SWIFT_VERSION: 6.2`. Verified against a
+    # build log: the compiler received exactly one `-enable-upcoming-feature ExistentialAny`.
+    # Do not re-add a flag without checking Swift.xcspec and confirming it reaches swiftc.
     SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
-    SWIFT_UPCOMING_FEATURE_IMPLICIT_OPEN_EXISTENTIALS: YES
-    SWIFT_UPCOMING_FEATURE_BARE_SLASH_REGEX_LITERAL: YES
-    SWIFT_UPCOMING_FEATURE_GLOBAL_CONCURRENCY: YES
-    SWIFT_UPCOMING_FEATURE_ISOLATED_DEFAULT_ARGUMENTS: YES
-    SWIFT_UPCOMING_FEATURE_STRICT_CONCURRENCY: YES
-    SWIFT_UPCOMING_FEATURE_FORWARD_TRAILING_CLOSURES: YES
-    SWIFT_UPCOMING_FEATURE_WARN_CONCURRENCY: YES
-    SWIFT_UPCOMING_FEATURE_DISABLE_OUT_OF_PROCESS_SWIFT: YES
-    SWIFT_UPCOMING_FEATURE_STRICT_DOUBLE: YES
-    SWIFT_UPCOMING_FEATURE_SWIFTUI_OBSERVATION: YES
-    SWIFT_UPCOMING_FEATURE_ANNOTATED_CODE_COMPLETION: YES
-    SWIFT_UPCOMING_FEATURE_TYPE_INFERENCE_FROM_DEFAULTS: YES
-    SWIFT_UPCOMING_FEATURE_CONSUMING_SELF: YES
-    SWIFT_UPCOMING_FEATURE_NON_ESCAPABLE_TYPES: YES
-    SWIFT_UPCOMING_FEATURE_PACK_ITERATION: YES
-    SWIFT_UPCOMING_FEATURE_WARN_IMPLICIT_OVERRIDES: YES
-    SWIFT_UPCOMING_FEATURE_CONFORMER_METATYPES: YES
-    SWIFT_UPCOMING_FEATURE_SWIFT_6: YES
     GCC_TREAT_WARNINGS_AS_ERRORS: YES
     CLANG_TREAT_WARNINGS_AS_ERRORS: YES
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
@@ -105,7 +94,10 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright 2026 MNeves"
         ENABLE_BACKGROUND_MODES: YES
-        INFOPLIST_KEY_UIBackgroundModes: fetch health-updates
+        # `health-updates` was declared but never exercised: no HKObserverQuery,
+        # HKAnchoredObjectQuery or enableBackgroundDelivery call exists anywhere in the app.
+        # The only background work is BGAppRefreshTask, which `fetch` alone covers.
+        INFOPLIST_KEY_UIBackgroundModes: fetch
     dependencies:
       - target: AIPedometerWatch
       - target: AIPedometerWidgets

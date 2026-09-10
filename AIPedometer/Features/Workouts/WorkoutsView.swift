@@ -30,7 +30,14 @@ struct WorkoutsView: View {
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
     @State private var hasLoadedRecommendation = false
-    @State private var importedRoute: ImportedRoute? = GPXRouteImporter.loadImportedRoute()
+    // Loaded in `.task` rather than as a `@State` default. A `@State` default expression runs on
+    // every `View` initialization — SwiftUI discards the value after the first, but the expression
+    // still executes — and `MainTabView.iPhoneLayout` rebuilds all five `Tab` values on every
+    // `MainTabView.body` pass, including when the Workouts tab is off screen. So every tab switch
+    // paid a `UserDefaults` read plus a JSON decode. The read is still synchronous and still on the
+    // MainActor; what changed is that it happens when this view actually appears, not on every
+    // rebuild of the tab container.
+    @State private var importedRoute: ImportedRoute?
     @State private var isImportingRoute = false
     @State private var routeImportError: RouteImportError?
     @State private var isHandlingRecovery = false
@@ -159,6 +166,12 @@ struct WorkoutsView: View {
                 "This will remove the workout and discard progress.",
                 comment: "Message explaining that discarding removes progress"
             ))
+        }
+        .task {
+            // Runs once when the view appears, instead of on every `WorkoutsView` initialization.
+            if importedRoute == nil {
+                importedRoute = GPXRouteImporter.loadImportedRoute()
+            }
         }
         .task(id: RecommendationTrigger(
             aiAvailable: aiService.availability.isAvailable,

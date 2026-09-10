@@ -178,6 +178,26 @@ or battery usage.
   localization assertions written that way cannot fail. Two suites had encoded the
   missing translations as expected behavior and only failed once the strings were
   actually translated. Assert the resolved value, not mere non-emptiness.
+  Still open (2026-09-10): 14 such assertions remain in `LocalizationTests` and
+  `PluralTests` for English-source keys, where `localized != key` is *not* a valid fix
+  because the catalog key legitimately is the English string. The real fix is one test
+  asserting each key exists in `Localizable.xcstrings`; the pt-BR suites already assert
+  `localized != key` and are fine.
+- A test must not assert a result against the same constant that produced it. While adding
+  the GPX route-name bound, the first version of the regression asserted
+  `route.name.count <= GPXRouteParser.maxRouteNameCharacters` — which passes for *any* value
+  of that constant, including the 1,000,000 it was meant to prevent. Neutralising the bound
+  to see red caught it; the assertion now uses a literal. Run the red half of every negative
+  test, especially in a change whose purpose is deleting tests that cannot fail.
+- Swift evaluates default-argument expressions at the *call site*, before the callee body, so
+  an early `guard` in the callee does not prevent them from running. `LaunchConfiguration`
+  read `ProcessInfo.processInfo.environment` — which rebuilds a dictionary on each access,
+  measured 23.7 µs for 87 variables — on every call from SwiftUI modifier bodies, despite a
+  `guard allowsOverrides else { return false }` that is a compile-time `false` in Release.
+  Snapshot expensive defaults in a `static let`.
+- A gate that tests fixtures cannot detect that the host is broken. `Scripts/tests/xcode-toolchain.sh`
+  passed while the selector it tests failed on every real invocation, because no Xcode 26 was
+  installed. Fixture tests pin logic; `Scripts/preflight.sh` pins the host. Keep both.
 - When a structural argument and an experiment disagree, the experiment wins. Bisect
   before defending a hypothesis, and scope any find/replace to the specific call.
 

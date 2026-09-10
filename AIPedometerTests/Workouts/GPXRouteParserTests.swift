@@ -267,6 +267,39 @@ struct GPXRouteParserTests {
         }
     }
 
+    @Test
+    func boundsHostileRouteNameLength() throws {
+        // A GPX file is an exchange format: the `<name>` element is fully attacker-controlled.
+        // Without a bound it is limited only by `maxElementTextCharacters` (1,000,000), and the
+        // whole string is persisted to UserDefaults and laid out by Core Text on every visit to
+        // the Workouts tab, on every launch, until the route is removed.
+        let hostileName = String(repeating: "A", count: 500_000)
+        let data = Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="AIPedometerTests">
+          <metadata><name>\(hostileName)</name></metadata>
+          <trk><trkseg>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>25</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        let route = try GPXRouteParser.parse(
+            data: data,
+            sourceFilename: "hostile.gpx",
+            now: Date(timeIntervalSince1970: 1_000),
+            id: UUID(uuidString: "00000000-0000-0000-0000-0000000000FF")!
+        )
+
+        // Assert a LITERAL bound, never `maxRouteNameCharacters`. Comparing the result against the
+        // same constant that produced it is satisfied by any value of that constant, so raising the
+        // cap back to 1,000,000 would still pass — the test would prove nothing.
+        #expect(route.name.count <= 1_000, "A hostile <name> must not reach storage at full length")
+        #expect(route.name.count < hostileName.count)
+        #expect(route.name.allSatisfy { $0 == "A" })
+    }
+
     private func writeTemporaryGPX(filename: String, contents: String) throws -> URL {
         try writeTemporaryGPX(filename: filename, data: Data(contents.utf8))
     }

@@ -5,17 +5,40 @@ The product is a native SwiftUI iOS/watchOS app with widgets, Live Activities,
 HealthKit/CoreMotion and on-device Foundation Models. Start from the actual
 `project.yml` and source; historical notes are evidence to recheck.
 
-## Startup
+## Orientation
 
-Run `pwd`, `git rev-parse --show-toplevel` and `git status -sb`. Read
-[MEMORY.md](MEMORY.md), today's `memory/YYYY-MM-DD.md` if present,
-[FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), [PRAGMATIC-RULES.md](PRAGMATIC-RULES.md)
-and [SECURITY-GUIDELINES.md](SECURITY-GUIDELINES.md). Create missing memory
-files before proceeding. Preserve pre-existing changes and use the current branch.
+Work on the current branch and preserve changes you did not make; other agents and
+the user write to this tree concurrently. [MEMORY.md](MEMORY.md) holds current state
+and durable decisions, [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md) the failure modes that are
+easy to miss from reading one file, and `memory/YYYY-MM-DD.md` the day's working
+journal that "Delivery and memory" below asks you to add to. Read them when the task
+touches what they cover, and treat all three as evidence to recheck against source,
+not as fact — they have been wrong, including about which Xcode is installed.
+Use `ast-grep --lang swift` for structure and `rg` for exact text.
 
-Before editing, read the applicable instructions down to the target directory.
-Use the knowledge graph when available, `ast-grep --lang swift` for structure,
-and `rg` for exact text, file lists, configuration and documentation.
+Run `bash Scripts/preflight.sh` before any build. It is the only check that proves
+this host can build and test at all; the shell suites run against fixtures and stay
+green while the toolchain is unusable.
+
+## Working agreement
+
+These are the behaviors this repository has actually been burned by. They constrain
+outcomes, not the steps you take to reach them.
+
+- When you have enough information to act, act. Make the reasonable assumption and
+  state it. Ask only when the answer changes what you would build, when an action is
+  destructive or irreversible, or when it is authorization only the user can give.
+- Before reporting progress, audit each claim against a tool result from this session.
+  Report what ran and what did not. `** TEST SUCCEEDED **` with `Executed 0 tests` is
+  not evidence, and neither is a reviewer's verdict.
+- When the user is asking a question, reviewing, or diagnosing, the deliverable is the
+  assessment. Report it and stop; do not apply a fix until asked.
+- Do not add features, abstractions, error handling for cases that cannot happen, or
+  cleanup the task did not ask for. A bug fix does not need surrounding tidying.
+  Validate at trust boundaries — user input, imported files, watch payloads, model
+  output — and trust internal code and framework guarantees everywhere else.
+- Delegate independent work with disjoint file ownership and keep working while it
+  runs. Inspect the returned diff yourself; do not accept a summary as proof.
 
 ## Task routing
 

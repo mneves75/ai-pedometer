@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.99] - 2026-09-10
+
+### Security
+
+- Imported GPX route names are bounded at 200 characters. A `.gpx` file is an exchange format and its `<name>` is attacker-controlled; it was previously limited only by the 1,000,000-character element cap, and the whole string was persisted to `UserDefaults` and laid out by Core Text on every visit to the Workouts tab, including the view holding the button that removes it.
+- The watch privacy manifest now declares its `UserDefaults` access. `Shared/` compiles into the watch target and reads `UserDefaults`, while the manifest declared no accessed API types — a plausible `ITMS-91053` rejection on upload.
+- Dropped the `health-updates` background mode. Nothing in the app registers an `HKObserverQuery`, an `HKAnchoredObjectQuery` or background delivery; the only background work is `BGAppRefreshTask`, which `fetch` alone covers.
+
+### Fixed
+
+- The toolchain selector accepts any supported Xcode (26.x or 27.x) instead of hard-pinning 26. The hard pin failed closed once the host moved to 27, which silently bricked `e2e-simulator.sh`, `install-on-device.sh` and `test-payments-device.sh` while every fast gate stayed green. It now reports each rejected candidate and the version actually found, and exports the resolved version and build so release evidence names the toolchain that produced the artifact.
+- CI and CodeQL select a supported Xcode from the same range rather than requiring `Xcode_26*`, so local and hosted runs cannot silently diverge on a major version.
+- The RevenueCat staleness workflow no longer fails on exit 10. A known-stale pin is a human retention decision, and failing on it kept the job permanently red, making a real network or provenance error indistinguishable from the routine signal.
+
+### Performance
+
+- `LaunchConfiguration` snapshots the process arguments and environment once. Swift evaluates default arguments at the call site, so the `allowsOverrides` guard never prevented `ProcessInfo.processInfo.environment` from rebuilding a dictionary — measured at 23.7 µs for 87 variables — on every call, and these readers run inside SwiftUI modifier bodies that re-evaluate at live-pedometer cadence.
+- `L10n.localized` resolves the app language once per process instead of three times per localized string, across 612 call sites. Callers passing an explicit locale are unaffected.
+- `WorkoutsView` loads an imported GPX route in `.task` rather than in a `@State` default. The default expression ran on every view initialization, and `MainTabView` rebuilds all five tabs on each body pass, so every tab switch paid a `UserDefaults` read and a JSON decode on the main thread.
+
+### Changed
+
+- Added `Scripts/preflight.sh`: one command that verifies this host can build and test at all — resolved Xcode version and build, free disk, required tools, `core.hooksPath`, `Config/Local.xcconfig`, generated project — then runs the fast gate tier. The existing script suites run against fixtures and stayed green while the toolchain was unusable.
+- Removed 16 invented `SWIFT_UPCOMING_FEATURE_*` build settings. Xcode 27 defines 19 such settings in total and only four of the declared names existed; a build log confirms the compiler received exactly one, `ExistentialAny`. The three real but redundant entries are already implied by `SWIFT_VERSION: 6.2`, and the unrecognized `ENABLE_STRICT_CONCURRENCY` is dropped in favour of `SWIFT_STRICT_CONCURRENCY`.
+- Documented the runtime observability that already existed but was unwritten: launch flags usable outside XCUITest, the `log stream` predicate and its `[private]` metadata ceiling, `simctl io screenshot`, and the Debug settings section.
+- Rewrote the AGENTS.md startup ritual as an outcome-framed working agreement, per current Fable 5 and GPT-6 Astra guidance that prescriptive step-by-step scaffolding degrades output while contradictory instructions become more harmful.
+- Removed `PRAGMATIC-RULES.md`, whose content was already stated in AGENTS.md and which existed to satisfy a reference check.
+
+### Removed
+
+- Deleted dead code with no call sites: `Date+Extensions.swift`, three unused signpost loggers and the `measure`/`measureSync` helpers, `HapticService.warning`/`impact` and its unreachable non-iOS branch, `LiveActivityManager.endActivity(id:state:)`, `WeeklyTarget.targetDescription`, `WorkoutError.notAuthorized`, `SyncPolicy.pullToRefreshWindow`, and the `BadgeType.displayName`/`badgeDescription` aliases.
+- Deleted 22 tests that could not fail: assertions with no expectations, a check that a `static let` is identical to itself, tests restating a constant's own arithmetic, round-trips of compiler-synthesized `Codable` conformances, duplicate-raw-value checks the compiler already rejects, and two byte-identical duplicates. The suite is 607 tests in 83 suites, down from 628 in 86, with the arithmetic reconciled test by test.
+
 ## [0.98] - 2026-09-08
 
 ### Fixed

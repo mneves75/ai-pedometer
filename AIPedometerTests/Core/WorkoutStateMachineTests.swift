@@ -117,10 +117,10 @@ struct WorkoutStateMachineTests {
     func errorFromPreparingTransitionsToFailed() {
         let machine = WorkoutStateMachine()
         machine.send(.start)
-        machine.send(.error(.notAuthorized))
+        machine.send(.error(.unableToStart))
 
         if case .failed(let error) = machine.state {
-            #expect(error == .notAuthorized)
+            #expect(error == .unableToStart)
         } else {
             Issue.record("Expected failed state")
         }
