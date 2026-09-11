@@ -198,6 +198,20 @@ or battery usage.
 - A gate that tests fixtures cannot detect that the host is broken. `Scripts/tests/xcode-toolchain.sh`
   passed while the selector it tests failed on every real invocation, because no Xcode 26 was
   installed. Fixture tests pin logic; `Scripts/preflight.sh` pins the host. Keep both.
+- Shell scripts must run under `/bin/bash`, which is **bash 3.2** on macOS and on GitHub's macOS
+  runners. A dev machine with a homebrew bash 5 will happily run `mapfile`, `readarray`,
+  `declare -A` or `${x^^}` and then fail in CI with `command not found`. This shipped once:
+  `Scripts/verify-swift-build-settings.sh` used `mapfile` and turned CI red on its first run.
+  New script tests should invoke the script under `/bin/bash` explicitly, for both the passing
+  and the violating case, rather than trusting the ambient shell.
+- Configuration that no gate executes drifts to fiction, and reviewing it by eye does not help.
+  Sixteen fabricated `SWIFT_UPCOMING_FEATURE_*` names and a `DEVELOPER_DIR` pin to an Xcode that
+  was not installed both survived months of audits, because reading them proves nothing — Xcode
+  ignores an unknown build setting silently, and the pin resolved to whatever was there. The
+  durable fix is an executable check (`Scripts/verify-swift-build-settings.sh`,
+  `Scripts/preflight.sh`), not a better-worded instruction. Published analysis of agent
+  instruction files puts prose compliance around 25–40% against roughly 95% for an enforced gate;
+  prefer converting a lesson here into a gate whenever the lesson is mechanically checkable.
 - When a structural argument and an experiment disagree, the experiment wins. Bisect
   before defending a hypothesis, and scope any find/replace to the specific call.
 

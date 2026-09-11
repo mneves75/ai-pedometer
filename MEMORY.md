@@ -15,6 +15,15 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   ship to TestFlight or the App Store until that is done.
 - Full simulator E2E green on Xcode 27.0 (27A266a): unit 607/607, UI 20/20, zero skips. This was
   the first successful `Scripts/e2e-simulator.sh` run after the toolchain selector was repaired.
+- Installed and running on the physical iPhone `iMarcus` (17 Pro Max): AI Pedometer 1.0 (56),
+  Debug, built from a clean tree at `08914ab`, confirmed through `devicectl` with both the app and
+  the widget extension live. Debug is the only configuration where premium works end to end right
+  now, because the Test Store key is honored under DEBUG and nil'd everywhere else.
+- ASC authentication is healthy (`asc auth doctor`: seven checks OK, `AIPedometer` profile complete
+  in the keychain and default). That proves the key loads and parses — not that it carries a
+  publishing role, which only surfaces on a real upload attempt.
+- CI and CodeQL are green on `08914ab`. The hosted runner uses Xcode 26.3 while this host uses
+  27.0, so the supported-range selector is load-bearing, not a convenience.
 - Open before any beta or production delivery: approved App Store Connect credentials,
   Apple (non-Test-Store) RevenueCat configuration, a signed artifact, and physical-device
   acceptance for HealthKit, motion, notifications, paired watch and purchases.
