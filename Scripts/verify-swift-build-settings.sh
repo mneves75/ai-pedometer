@@ -32,14 +32,19 @@ if [[ -z "${developer_dir}" || ! -d "${developer_dir}" ]]; then
 fi
 
 # Swift.xcspec moved between Xcode versions; accept any copy under the selected Developer dir.
-mapfile -t spec_files < <(find "${developer_dir}/.." -name 'Swift.xcspec' -type f 2>/dev/null)
+# Built with a read loop, not `mapfile`: macOS ships bash 3.2 as /bin/bash and GitHub's macOS
+# runners use it, so a bash 4 builtin passes locally and dies in CI.
+spec_files=()
+while IFS= read -r spec_path; do
+  [[ -n "${spec_path}" ]] && spec_files+=("${spec_path}")
+done < <(find "${developer_dir}/.." -name 'Swift.xcspec' -type f 2>/dev/null)
 if [[ "${#spec_files[@]}" -eq 0 ]]; then
   echo "ERRO: Swift.xcspec nao encontrado sob ${developer_dir}; nao da para validar." >&2
   echo "      Uma verificacao que nao encontra sua fonte deve falhar, nunca passar vazia." >&2
   exit 1
 fi
 
-known="$(rg -o --no-filename 'SWIFT_[A-Z0-9_]+' "${spec_files[@]}" 2>/dev/null | sort -u)"
+known="$(rg -o --no-filename 'SWIFT_[A-Z0-9_]+' "${spec_files[@]:-}" 2>/dev/null | sort -u)"
 if [[ -z "${known}" ]]; then
   echo "ERRO: nenhum nome SWIFT_* extraido de Swift.xcspec; extracao quebrada." >&2
   exit 1

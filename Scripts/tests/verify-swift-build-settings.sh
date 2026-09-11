@@ -67,4 +67,18 @@ if bash "${SCRIPT}" "${TMP_DIR}/does-not-exist.yml" >/dev/null 2>&1; then
   fail "Expected a missing project file to fail, not pass empty."
 fi
 
+# The gate must run under /bin/bash. macOS ships bash 3.2 there and GitHub's macOS runners use it,
+# so a bash 4 builtin (mapfile, readarray, declare -A, ${x^^}) passes on a dev machine with a
+# homebrew bash and dies in CI — which is exactly how this script first shipped broken.
+if [[ -x /bin/bash ]]; then
+  /bin/bash "${SCRIPT}" "${ROOT_DIR}/project.yml" >/dev/null 2>&1 \
+    || fail "Expected the gate to run under /bin/bash ($(/bin/bash --version | head -1)); avoid bash 4+ builtins."
+  BAD_LOG="${TMP_DIR}/bash32.log"
+  if /bin/bash "${SCRIPT}" "${PLANTED}" >"${BAD_LOG}" 2>&1; then
+    fail "Expected the planted setting to fail under /bin/bash too."
+  fi
+  grep -q 'SWIFT_UPCOMING_FEATURE_SWIFT_6' "${BAD_LOG}" \
+    || { cat "${BAD_LOG}" >&2; fail "Expected the same diagnosis under /bin/bash."; }
+fi
+
 echo "verify-swift-build-settings.sh tests passed."
