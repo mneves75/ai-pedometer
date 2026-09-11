@@ -124,7 +124,7 @@ DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "0.98" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "1.0" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 0.98 (54). Source version does not indicate TestFlight or App Store availability.
+**Current source**: 1.0 (56). Source version does not indicate TestFlight or App Store availability. Production delivery is currently blocked on an Apple (`appl_`) RevenueCat key — see CHANGELOG 1.0.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

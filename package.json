@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "check": "bash Scripts/preflight.sh",
+    "check:full": "bash Scripts/preflight.sh --with-tests",
+    "audit:deps": "pnpm audit --audit-level moderate"
+  },
   "devDependencies": {
     "wrangler": "4.127.1"
   },

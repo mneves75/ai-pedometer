@@ -20,6 +20,24 @@ Run `bash Scripts/preflight.sh` before any build. It is the only check that prov
 this host can build and test at all; the shell suites run against fixtures and stay
 green while the toolchain is unusable.
 
+## Apple platform references
+
+The workspace contract at `/Users/mneves/dev/AGENTS.md` owns the general Apple-platform
+rule and is deliberately not repeated here. What is specific to this repository:
+
+- Check API behavior against the docs bundled with the Xcode `preflight.sh` actually
+  resolved, never an assumed one:
+  `"$(xcode-select -p)/../PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation"`.
+  Deriving the path survives a toolchain change; a hardcoded `/Applications/Xcode.app` or
+  `/Applications/Xcode-beta.app` does not. A stale hardcoded pin is exactly what sent
+  agents at a toolchain that was not installed, and `Xcode-beta.app` does not exist here.
+- Skills live in `~/dev/Skills/XCODE_AGENT_SKILLS`: `swiftui-specialist`,
+  `swiftui-whats-new-27`, `audit-xcode-security-settings`, `modernize-tests`,
+  `device-interaction`. Load one when its subject matches the change; do not preload them.
+- Deployment target is iOS/watchOS 26 while the build toolchain may be 26.x or 27.x, so an
+  API introduced in 27 needs an availability guard even though it compiles. Confirm the
+  target in `project.yml` before adopting anything new.
+
 ## Working agreement
 
 These are the behaviors this repository has actually been burned by. They constrain

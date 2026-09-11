@@ -46,6 +46,7 @@ say "== Ambiente =="
 
 # --- Toolchain ---------------------------------------------------------------------------------
 # shellcheck source=Scripts/lib/xcode-toolchain.sh
+# shellcheck disable=SC1091
 if source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh" 2>/dev/null; then
   if toolchain_line="$(aipedometer_select_xcode 2>&1)"; then
     pass "${toolchain_line#==> }"
@@ -89,8 +90,11 @@ done
 hooks_path="$(git config --get core.hooksPath 2>/dev/null || true)"
 if [[ "${hooks_path}" == ".githooks" ]]; then
   pass "core.hooksPath=.githooks"
+elif [[ -n "${CI:-}" ]]; then
+  # CI invokes .githooks/pre-commit by path and never commits, so the config is irrelevant there.
+  pass "core.hooksPath nao configurado (CI invoca o hook por caminho)"
 else
-  fail "core.hooksPath='${hooks_path:-<unset>}'. Rode: git config core.hooksPath .githooks"
+  fail "core.hooksPath='${hooks_path:-<unset>}'. Sem isso os commits ignoram o guard. Rode: git config core.hooksPath .githooks"
 fi
 
 if [[ -f Config/Local.xcconfig ]]; then
@@ -99,10 +103,14 @@ else
   warn "Config/Local.xcconfig ausente (nao versionado). Builds assinados e RevenueCat vao falhar; copie de Config/Local.xcconfig.example."
 fi
 
+# The project is generated, not tracked. A fresh clone (or CI before its generate step) has no
+# pbxproj yet; that is an expected state, not a broken host. Gates that read it are skipped.
+PROJECT_GENERATED=1
 if [[ -f AIPedometer.xcodeproj/project.pbxproj ]]; then
   pass "AIPedometer.xcodeproj gerado"
 else
-  fail "AIPedometer.xcodeproj ausente. Rode: xcodegen generate"
+  PROJECT_GENERATED=0
+  warn "AIPedometer.xcodeproj ausente (gerado, nao versionado). Rode: xcodegen generate"
 fi
 
 say "  ----  commit: $(git rev-parse --short HEAD 2>/dev/null || echo '?')  branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
@@ -132,7 +140,13 @@ command -v actionlint >/dev/null 2>&1 && gate "actionlint" actionlint
 gate "check-agents-sync.sh" bash Scripts/check-agents-sync.sh
 gate "verify-device-identifiers.sh" bash Scripts/verify-device-identifiers.sh
 gate "verify-entitlements.sh" bash Scripts/verify-entitlements.sh
-gate "verify-revenuecat-lock.sh" bash Scripts/verify-revenuecat-lock.sh
+gate "verify-swift-build-settings.sh" bash Scripts/verify-swift-build-settings.sh
+# Needs the generated pbxproj to cross-check the package reference.
+if [[ "${PROJECT_GENERATED}" -eq 1 ]]; then
+  gate "verify-revenuecat-lock.sh" bash Scripts/verify-revenuecat-lock.sh
+else
+  say "  ----  verify-revenuecat-lock.sh pulado (projeto nao gerado)"
+fi
 
 if [[ "${WITH_TESTS}" -eq 1 ]]; then
   say ""

@@ -47,6 +47,12 @@ jobs:
       - name: Install build tools
         run: bash Scripts/install-ci-tools.sh ast-grep xcodegen ripgrep actionlint shellcheck
 
+      - name: Preflight (host can actually build)
+        # Enforced, not documented. Guidance-as-prose is followed inconsistently; a gate is not.
+        # This also catches runner drift — if the image stops shipping a supported Xcode, this
+        # fails in seconds with a named reason instead of minutes into a build.
+        run: bash Scripts/preflight.sh
+
       - name: Lint workflows and shell scripts
         run: |
           actionlint
@@ -66,6 +72,7 @@ jobs:
         run: |
           xcodegen generate
           bash Scripts/verify-entitlements.sh
+          bash Scripts/verify-swift-build-settings.sh
           bash Scripts/verify-revenuecat-lock.sh
 
       - name: Compile watchOS arm64_32

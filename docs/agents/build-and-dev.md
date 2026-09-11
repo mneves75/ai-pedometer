@@ -44,6 +44,7 @@
 - `bash Scripts/check-agents-sync.sh`: validate the canonical AGENTS.md contract, CLAUDE.md import, instruction-size budget and local reference targets. Works without an external guidelines checkout. Edit AGENTS.md directly; generic guidance and installed skill catalogs are referenced only when needed.
 - `bash Scripts/verify-device-identifiers.sh`: fail if device IDs/UDIDs/ECIDs are hardcoded in tracked files.
 - `bash Scripts/verify-entitlements.sh`: validate entitlement plist syntax and required/forbidden capabilities.
+- `bash Scripts/verify-swift-build-settings.sh`: fail if `project.yml` declares a `SWIFT_*` build setting the selected Xcode does not define. Xcode ignores unknown settings silently, so a fabricated name reads as an enabled feature forever.
 - `bash Scripts/verify-revenuecat-lock.sh`: verify that `project.yml`, the generated Xcode package reference, and `Package.resolved` agree on the immutable RevenueCat tag object and its resolved commit.
 - `bash Scripts/appstore-materials-prepare.sh`: assemble ordered App Store screenshots from captured UI-test artifacts.
 - `bash Scripts/appstore-screenshots-validate.sh`: validate screenshot dimensions for ASC upload sets.

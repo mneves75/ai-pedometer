@@ -22,7 +22,7 @@ List devices with Argent and select an available simulator whose runtime the pro
 - Script regressions: `bash -c 'set -euo pipefail; for test_script in Scripts/tests/*.sh; do bash "$test_script"; done'`.
 - Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh Scripts/lib/*.sh .githooks/pre-commit` and `actionlint`.
 - Development dependency audit: `pnpm audit --audit-level moderate`. Include dev dependencies; `--prod` omits the Wrangler toolchain and cannot verify it.
-- Project invariants: `bash Scripts/verify-entitlements.sh`, `bash Scripts/verify-revenuecat-lock.sh`, `bash Scripts/check-agents-sync.sh` and `bash Scripts/verify-device-identifiers.sh`.
+- Project invariants: `bash Scripts/verify-entitlements.sh`, `bash Scripts/verify-swift-build-settings.sh`, `bash Scripts/verify-revenuecat-lock.sh`, `bash Scripts/check-agents-sync.sh` and `bash Scripts/verify-device-identifiers.sh`. All of these run together via `bash Scripts/preflight.sh`.
 - Staged candidate: `bash .githooks/pre-commit` after explicit staging.
 - Shared 32-bit code: use CI's direct `-project AIPedometer.xcodeproj -target AIPedometerWatch -configuration Debug -sdk watchos` build with `ARCHS=arm64_32`, `ONLY_ACTIVE_ARCH=YES`, `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO` and task-specific `SYMROOT`, `OBJROOT`, `SHARED_PRECOMPS_DIR`. The watch scheme can also pull in iPhone dependencies that cannot build for this architecture. An iOS or watch simulator build is insufficient.
 - Release archive: use the [build guide](build-and-dev.md), preserving the embedded watch app. Inspect actual bundle versions and archive `ApplicationProperties`; there must be exactly one primary app under `Products/Applications`.

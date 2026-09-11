@@ -5,9 +5,16 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-10)
+## Current state (2026-09-11)
 
-- Source is 0.99 (55) in `project.yml`, not a deployed release.
+- Source is 1.0 (56) in `project.yml`, not a deployed release.
+- **Hard production blocker:** `Config/Local.xcconfig` carries a Test Store (`test_`) RevenueCat
+  key. `AppConstants.RevenueCat.resolveConfiguration` nils it outside DEBUG, so a Release archive
+  resolves *no* key and premium/purchase/restore are dead. The key is baked into `Info.plist` at
+  archive time, so configuring an Apple (`appl_`) key later requires a new archive. Nothing can
+  ship to TestFlight or the App Store until that is done.
+- Full simulator E2E green on Xcode 27.0 (27A266a): unit 607/607, UI 20/20, zero skips. This was
+  the first successful `Scripts/e2e-simulator.sh` run after the toolchain selector was repaired.
 - Open before any beta or production delivery: approved App Store Connect credentials,
   Apple (non-Test-Store) RevenueCat configuration, a signed artifact, and physical-device
   acceptance for HealthKit, motion, notifications, paired watch and purchases.

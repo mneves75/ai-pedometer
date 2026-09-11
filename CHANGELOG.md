@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0] - 2026-09-11
+
+First version numbered for App Store delivery. **It is not shippable yet**: a Release build
+resolves no RevenueCat key, because `Config/Local.xcconfig` carries a Test Store (`test_`) key and
+`AppConstants.RevenueCat.resolveConfiguration` correctly nils it outside DEBUG. Premium, purchase
+and restore are dead in Release until an Apple (`appl_`) key is configured and a new archive is
+built — the key is baked into `Info.plist` at archive time, so a later config change is not enough.
+
+### Added
+
+- `Scripts/verify-swift-build-settings.sh` fails when `project.yml` declares a `SWIFT_*` setting the
+  selected Xcode does not define, checked against `Swift.xcspec`. The 16 invented
+  `SWIFT_UPCOMING_FEATURE_*` names removed in 0.99 survived months of review because nothing
+  executed that file; Xcode ignores an unknown setting silently. Scoped deliberately to the `SWIFT_*`
+  family, which has a single authoritative source. Its test plants a fabricated name to prove the
+  gate fires, and a real-but-unused setting to prove it does not false-positive.
+- `Scripts/preflight.sh` now runs as an early CI step, and `package.json` exposes `pnpm check` and
+  `pnpm check:full`. Published research on agent instruction files reports roughly 25–40% compliance
+  for guidance written as prose against about 95% for the same rule enforced as a gate, so the
+  constraints that matter are being moved out of documentation and into checks.
+- An "Apple platform references" section in AGENTS.md that derives the bundled-documentation path
+  from `xcode-select -p` instead of hardcoding an Xcode location. `/Applications/Xcode-beta.app`
+  does not exist on the development host, and a hardcoded pin is precisely what previously pointed
+  agents at a toolchain that was not installed.
+
+### Fixed
+
+- `preflight.sh` no longer hard-fails on a fresh clone or a CI runner. A missing generated
+  `project.pbxproj` is an expected state rather than a broken host, and the gates that read it are
+  skipped with a notice; `core.hooksPath` stays a hard failure locally, where commits would
+  otherwise bypass the guard, but is satisfied under CI, which invokes the hook by path.
+
+### Verified
+
+- Full simulator E2E on Xcode 27.0 (27A266a): unit 607/607, UI 20/20, zero failures, zero skips,
+  both result bundles validated. This is the first successful run of `Scripts/e2e-simulator.sh`
+  since the toolchain selector was repaired; it previously exited at its first line.
+- The `LaunchConfiguration`, `AppLanguage` and `WorkoutsView` changes from 0.99 were re-reviewed
+  against Apple's bundled Swift 6.2 concurrency documentation and the iOS 27 SDK headers. `Bundle`
+  carries `NS_SWIFT_SENDABLE`, so caching it in a `static let` is legal rather than an unchecked
+  escape; `.task` for a one-time load matches current SwiftUI guidance; and no removed build setting
+  was security-relevant.
+
+### Known gaps
+
+- `ENABLE_ENHANCED_SECURITY: YES` is set while the matching hardened-process entitlements remain
+  staged behind `ENHANCED_SECURITY_ENTITLEMENTS=1`, so the compile-time cascade is active but the
+  runtime protection is not. Pre-existing and deliberate; revisit when provisioning supports it.
+- `SWIFT_APPROACHABLE_CONCURRENCY` and `SWIFT_DEFAULT_ACTOR_ISOLATION` are the Swift 6.2 opt-ins
+  Apple recommends for app targets and are not set. Enabling them flips `NonisolatedNonsendingByDefault`
+  and `InferIsolatedConformances`, which under warnings-as-errors is a scoped migration, not a
+  release-commit edit.
+- 14 `#expect(!x.isEmpty)` assertions in `LocalizationTests`/`PluralTests` still cannot fail for
+  English-source keys, where `localized != key` is not a valid fix because the catalog key is the
+  English string. Needs a design decision about what "localized" means for the source language.
+
 ## [0.99] - 2026-09-10
 
 ### Security
