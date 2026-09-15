@@ -15,12 +15,13 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   so an Apple (`appl_`) key requires a new archive. No beta tag is created until a build actually ships.
 - 2026-09-15 full review pass, two review rounds (finding ledger in `memory/2026-09-15.md`): unit 654/654 and
   UI 20/20 (iPhone 17 Pro, iOS 27.0) on the final 1.0.1 (57) tree, zero skips, validated result bundles.
-  `testTrainingPlansOpensFromWorkouts` fails on the **iPhone 17 Pro Max** iOS 27.0 simulator identically at
-  `08c0b72` and at 1.0.1 (tap on `training_plans_card` never lands) and passes on iPhone 17 Pro — a
-  device-specific pre-existing UI-test issue, not a product regression; unresolved.
+  `testTrainingPlansOpensFromWorkouts` used to fail on the iPhone 17 Pro Max simulator (also at `08c0b72`):
+  the card's center was below the app frame and `AppDriver.tap(id:)` retried without scrolling. The driver now
+  scrolls an offscreen element into view; UI 20/20 on Pro Max as well.
 - Live Activities work for the first time in 1.0.1 (`NSSupportsLiveActivities` was missing). Physical-device
   verification of the Lock Screen / Dynamic Island activity is still an explicit gap.
-- Installed on iMarcus: last verified install is 1.0 (56) Debug from 2026-09-11.
+- Installed on iMarcus: 1.0.1 (57) Debug, confirmed by `devicectl` on 2026-09-15; the launch was refused because
+  the phone was locked.
 - ASC authentication is healthy (`asc auth doctor`: seven checks OK, `AIPedometer` profile complete
   in the keychain and default). That proves the key loads and parses — not that it carries a
   publishing role, which only surfaces on a real upload attempt.

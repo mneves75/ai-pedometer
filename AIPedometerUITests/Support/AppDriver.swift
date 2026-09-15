@@ -172,6 +172,13 @@ final class AppDriver {
                 return
             }
 
+            // The element exists but its center lies outside the app frame, so neither tap path can reach it. On the
+            // iPhone 17 Pro Max simulator (iOS 27.0) the Workouts training plans card sat below the visible area
+            // after `assertWorkoutsLoaded`; retrying without scrolling failed identically three times.
+            if scrollIntoView(element: el) {
+                continue
+            }
+
             if attempt < 2 {
                 app.activate()
             }
@@ -431,6 +438,27 @@ final class AppDriver {
                 app.otherElements[A11yID.More.settingsRowLabel],
             ]
         }
+    }
+
+    /// Swipes the nearest scroll container toward an element whose center is above or below the app frame.
+    /// Returns false when the element is already vertically on screen, so callers fall back to their retry.
+    private func scrollIntoView(element: XCUIElement) -> Bool {
+        let appFrame = app.frame
+        let midY = element.frame.midY
+        guard appFrame.height > 0, midY.isFinite else { return false }
+
+        let container: XCUIElement = app.scrollViews.firstMatch.exists ? app.scrollViews.firstMatch : app
+        for _ in 0..<4 {
+            let currentMidY = element.frame.midY
+            if currentMidY < appFrame.minY {
+                container.swipeDown()
+            } else if currentMidY > appFrame.maxY {
+                container.swipeUp()
+            } else {
+                return true
+            }
+        }
+        return element.frame.midY >= appFrame.minY && element.frame.midY <= appFrame.maxY
     }
 
     private func tapUsingAppCoordinatesIfPossible(element: XCUIElement) -> Bool {
