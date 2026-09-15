@@ -66,7 +66,9 @@ nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
                 }
             }
         } onCancel: {
-            stop()
+            // Record cancellation before stopping. If `stop()` ran first, the operation could start the query in
+            // between, see `.waiting` in its post-execute check and skip its stop, leaving the query running.
+            // In this order, whichever side runs second stops a query that has started.
             let pending: CheckedContinuation<Value, any Error>? = state.withLock { state in
                 switch state {
                 case .idle:
@@ -80,6 +82,7 @@ nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
                     return nil
                 }
             }
+            stop()
             pending?.resume(throwing: CancellationError())
         }
     }
