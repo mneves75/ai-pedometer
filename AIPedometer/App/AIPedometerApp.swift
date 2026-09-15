@@ -28,7 +28,6 @@ struct AIPedometerApp: App {
     private let persistence: PersistenceController
     private let backgroundService: BackgroundTaskService
     private let metricKitService = MetricKitService.shared
-    private let appLocale: Locale
     @Environment(\.scenePhase) private var scenePhase
     @State private var lifecycleTask: Task<Void, Never>?
     @State private var isEnforcingSmartReminderAccess = false
@@ -56,7 +55,6 @@ struct AIPedometerApp: App {
             UIView.setAnimationsEnabled(false)
         }
 
-        appLocale = AppLanguage.defaultLocale
         let persistence = PersistenceController.shared
         self.persistence = persistence
 
@@ -317,7 +315,6 @@ struct AIPedometerApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(\.locale, appLocale)
                 .environment(healthAuthorization)
                 .environment(motionAuthorization)
                 .environment(stepTrackingService)

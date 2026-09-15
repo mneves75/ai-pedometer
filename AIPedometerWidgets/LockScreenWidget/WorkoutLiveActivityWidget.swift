@@ -112,6 +112,7 @@ private enum LiveActivityDistanceFormatter {
         let formatter = MeasurementFormatter()
         formatter.unitStyle = .short
         formatter.unitOptions = .naturalScale
+        formatter.locale = .autoupdatingCurrent
         return formatter
     }()
 

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-15
+
+### Fixed
+
+- **Distances follow the device's regional settings.** Number, distance and duration
+  formatters now use `Locale.autoupdatingCurrent`, and the app no longer overrides the
+  SwiftUI `.locale` environment with a fixed `en-US`/`pt-BR` value. On metric-region
+  devices distances render in m/km instead of yards/miles; language selection (English,
+  pt-BR only) is unchanged and still resolved through `L10n`/`AppLanguage`.
+
 ## [1.0.1] - 2026-09-15
 
 Full review pass: Standards and Spec code review of everything since `v0.96-beta1`, a source-only

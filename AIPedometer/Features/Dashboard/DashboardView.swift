@@ -9,6 +9,7 @@ enum HeartRateDisplayFormatter {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         formatter.dateTimeStyle = .numeric
+        formatter.locale = .autoupdatingCurrent
         return formatter
     }()
 

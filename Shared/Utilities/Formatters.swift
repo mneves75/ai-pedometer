@@ -5,6 +5,7 @@ enum Formatters {
     private static let stepCountFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
+        formatter.locale = .autoupdatingCurrent
         return formatter
     }()
 
@@ -12,6 +13,7 @@ enum Formatters {
         let formatter = MeasurementFormatter()
         formatter.unitStyle = .short
         formatter.unitOptions = .naturalScale
+        formatter.locale = .autoupdatingCurrent
         return formatter
     }()
 
@@ -19,7 +21,9 @@ enum Formatters {
         let formatter = MeasurementFormatter()
         formatter.unitStyle = .short
         formatter.unitOptions = .providedUnit
+        formatter.locale = .autoupdatingCurrent
         formatter.numberFormatter.maximumFractionDigits = 2
+        formatter.numberFormatter.locale = .autoupdatingCurrent
         return formatter
     }()
 
@@ -27,6 +31,7 @@ enum Formatters {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
+        formatter.locale = .autoupdatingCurrent
         return formatter
     }()
 
@@ -36,6 +41,7 @@ enum Formatters {
         formatter.unitsStyle = .abbreviated
         formatter.zeroFormattingBehavior = [.dropAll]
         formatter.maximumUnitCount = 2
+        formatter.calendar = .autoupdatingCurrent
         return formatter
     }()
 
@@ -73,6 +79,6 @@ enum Localization {
 
     static func format(_ key: String.LocalizationValue, comment: StaticString, _ arguments: any CVarArg...) -> String {
         let format = L10n.localized(key, comment: comment)
-        return String(format: format, locale: AppLanguage.defaultLocale, arguments: arguments)
+        return String(format: format, locale: Locale.autoupdatingCurrent, arguments: arguments)
     }
 }
