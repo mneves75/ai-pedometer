@@ -5,10 +5,33 @@ struct StepSummaryWatchView: View {
     let steps: Int
     let goal: Int
     let streak: Int
-    let distanceText: String
+    let activityMode: ActivityTrackingMode
+    /// Nil hides the distance, which is only estimated in steps mode.
+    let distanceText: String?
 
     private var progress: Double {
         goal > 0 ? min(Double(steps) / Double(goal), 1.0) : 0
+    }
+
+    private var progressAccessibilityValue: String {
+        switch activityMode {
+        case .steps:
+            Localization.format(
+                "%@ steps of %@ goal, %lld percent",
+                comment: "Accessibility value for watch daily progress ring",
+                steps.formatted(),
+                goal.formatted(),
+                Int64((progress * 100).rounded())
+            )
+        case .wheelchairPushes:
+            Localization.format(
+                "%@ of %@ %@",
+                comment: "Accessibility value for daily progress with current and goal counts",
+                steps.formatted(),
+                goal.formatted(),
+                activityMode.unitName
+            )
+        }
     }
 
     var body: some View {
@@ -33,7 +56,7 @@ struct StepSummaryWatchView: View {
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
-                        Text(L10n.localized("steps", comment: "Watch steps unit"))
+                        Text(activityMode.unitName)
                             .font(DesignTokens.Typography.caption2)
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                             .lineLimit(1)
@@ -43,29 +66,23 @@ struct StepSummaryWatchView: View {
                 .frame(height: 110)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(L10n.localized("Daily goal progress", comment: "Accessibility label for watch daily progress ring"))
-                .accessibilityValue(
-                    Localization.format(
-                        "%@ steps of %@ goal, %lld percent",
-                        comment: "Accessibility value for watch daily progress ring",
-                        steps.formatted(),
-                        goal.formatted(),
-                        Int64((progress * 100).rounded())
-                    )
-                )
+                .accessibilityValue(progressAccessibilityValue)
 
                 HStack {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Label(L10n.localized("Distance", comment: "Watch distance label"), systemImage: "figure.walk")
-                            .font(DesignTokens.Typography.caption2)
-                            .foregroundStyle(DesignTokens.Colors.textSecondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                        Text(distanceText)
-                            .font(DesignTokens.Typography.caption.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                    if let distanceText {
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                            Label(L10n.localized("Distance", comment: "Watch distance label"), systemImage: activityMode.iconName)
+                                .font(DesignTokens.Typography.caption2)
+                                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                            Text(distanceText)
+                                .font(DesignTokens.Typography.caption.weight(.semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                        .accessibilityElement(children: .combine)
                     }
-                    .accessibilityElement(children: .combine)
 
                     Spacer(minLength: DesignTokens.Spacing.sm)
 
@@ -95,6 +112,10 @@ struct StepSummaryWatchView: View {
 }
 
 #Preview {
-    StepSummaryWatchView(steps: 6540, goal: 10_000, streak: 12, distanceText: "4.2 km")
+    StepSummaryWatchView(steps: 6540, goal: 10_000, streak: 12, activityMode: .steps, distanceText: "4.2 km")
+}
+
+#Preview("Wheelchair pushes") {
+    StepSummaryWatchView(steps: 1_240, goal: 2_000, streak: 4, activityMode: .wheelchairPushes, distanceText: nil)
 }
 #endif

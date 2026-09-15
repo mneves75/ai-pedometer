@@ -22,8 +22,10 @@ green while the toolchain is unusable.
 
 ## Apple platform references
 
-The workspace contract at `/Users/mneves/dev/AGENTS.md` owns the general Apple-platform
-rule and is deliberately not repeated here. What is specific to this repository:
+The maintainer's global contract owns the general Apple documentation rule (bundled Xcode docs,
+developer.apple.com pages fetched as Markdown) and `/Users/mneves/dev/AGENTS.md` adds workspace
+procedure; neither is repeated here, and neither loads in CI or a fresh clone. What is specific to
+this repository, and holds without them:
 
 - Check API behavior against the docs bundled with the Xcode `preflight.sh` actually
   resolved, never an assumed one:
@@ -34,9 +36,10 @@ rule and is deliberately not repeated here. What is specific to this repository:
 - Skills live in `~/dev/Skills/XCODE_AGENT_SKILLS`: `swiftui-specialist`,
   `swiftui-whats-new-27`, `audit-xcode-security-settings`, `modernize-tests`,
   `device-interaction`. Load one when its subject matches the change; do not preload them.
-- Deployment target is iOS/watchOS 26 while the build toolchain may be 26.x or 27.x, so an
-  API introduced in 27 needs an availability guard even though it compiles. Confirm the
-  target in `project.yml` before adopting anything new.
+- Deployment target is iOS/watchOS 26 while the build toolchain may be 26.x or 27.x (CI runs
+  26.3), so an API introduced in 27 needs `#available` for the runtime and `#if compiler(>=6.3)`
+  for the 26 SDK, where the symbol does not exist. Confirm the target in `project.yml` before
+  adopting anything new.
 
 ## Working agreement
 

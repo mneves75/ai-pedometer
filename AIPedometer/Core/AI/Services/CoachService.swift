@@ -359,20 +359,37 @@ final class CoachService {
     }
     
     func clearConversation() {
+        resetConversationState()
+        configureSession()
+        Loggers.ai.info("ai.coach_conversation_cleared")
+    }
+
+    /// Called on every app activation. A `LanguageModelSession` holds the conversation transcript, so
+    /// rebuilding it here made a follow-up after backgrounding reach a model that had never seen the visible
+    /// exchange. Keep a live session; build one only when there is none (the model just became available),
+    /// and then clear the visible conversation, because the new session cannot see it.
+    func refreshSession() {
+        guard foundationModelsService.availability.isAvailable else {
+            session = nil
+            return
+        }
+        guard session == nil else { return }
+        if !messages.isEmpty {
+            resetConversationState()
+            Loggers.ai.info("ai.coach_conversation_cleared", metadata: ["reason": "session_replaced"])
+        }
+        configureSession()
+    }
+
+    private func resetConversationState() {
         responseGeneration &+= 1
         cancelActiveResponseTask()
         messages.removeAll()
-        configureSession()
         streamAccumulator.reset()
         lastError = nil
         isGenerating = false
         currentStreamedContent = ""
         currentStreamedRenderedContent = AttributedString()
-        Loggers.ai.info("ai.coach_conversation_cleared")
-    }
-
-    func refreshSession() {
-        configureSession()
     }
     
     func retryLastMessage() async {
@@ -584,11 +601,7 @@ final class CoachService {
             return aiError
         }
         
-        if let sessionError = error as? LanguageModelSession.GenerationError {
-            return AIServiceError(generationError: sessionError)
-        }
-        
-        return .generationFailed(underlying: error.localizedDescription)
+        return AIServiceError.fromFoundationModels(error) ?? .generationFailed(underlying: error.localizedDescription)
     }
     
     private func errorMessage(for error: AIServiceError) -> String {

@@ -10,6 +10,8 @@ struct SharedStepData: Codable, Sendable {
     let currentStreak: Int
     let lastUpdated: Date
     let weeklySteps: [Int]
+    /// What `todaySteps` counts. Payloads written before this field existed decode as `.steps`.
+    let activityMode: ActivityTrackingMode
 
     init(
         todaySteps: Int,
@@ -18,6 +20,7 @@ struct SharedStepData: Codable, Sendable {
         currentStreak: Int,
         lastUpdated: Date,
         weeklySteps: [Int],
+        activityMode: ActivityTrackingMode = .steps,
         schemaVersion: Int = SharedStepData.currentSchemaVersion
     ) {
         self.schemaVersion = schemaVersion
@@ -27,6 +30,7 @@ struct SharedStepData: Codable, Sendable {
         self.currentStreak = currentStreak
         self.lastUpdated = lastUpdated
         self.weeklySteps = weeklySteps
+        self.activityMode = activityMode
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -37,6 +41,7 @@ struct SharedStepData: Codable, Sendable {
         case currentStreak
         case lastUpdated
         case weeklySteps
+        case activityMode
     }
 
     init(from decoder: any Decoder) throws {
@@ -48,6 +53,8 @@ struct SharedStepData: Codable, Sendable {
         currentStreak = try container.decode(Int.self, forKey: .currentStreak)
         lastUpdated = try container.decode(Date.self, forKey: .lastUpdated)
         weeklySteps = try container.decode([Int].self, forKey: .weeklySteps)
+        // `try?`: a mode this build does not know (written by a newer phone) must not discard the whole snapshot.
+        activityMode = (try? container.decodeIfPresent(ActivityTrackingMode.self, forKey: .activityMode)) ?? .steps
     }
 
     var isStale: Bool {
@@ -79,7 +86,38 @@ struct SharedStepData: Codable, Sendable {
             currentStreak: currentStreak,
             lastUpdated: lastUpdated,
             weeklySteps: weeklySteps,
+            activityMode: activityMode,
             schemaVersion: schemaVersion
+        )
+    }
+
+    /// The data a widget snapshot should present.
+    ///
+    /// Stored data is normalized to `renderDate` like every timeline entry, so a snapshot cannot show
+    /// yesterday's total as today's. Sample data is only for the widget gallery (`isPreview`) when nothing has
+    /// been stored yet; anywhere else it would present fabricated steps and a streak as the user's own, so
+    /// the caller gets nil and renders its redacted placeholder.
+    static func widgetSnapshotData(
+        stored: SharedStepData?,
+        isPreview: Bool,
+        at renderDate: Date,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> SharedStepData? {
+        if let stored {
+            return stored.normalizedForRendering(at: renderDate, calendar: calendar)
+        }
+        return isPreview ? widgetGallerySample(lastUpdated: renderDate) : nil
+    }
+
+    /// Illustrative values for the widget gallery and WidgetKit's placeholder. Never the user's data.
+    static func widgetGallerySample(lastUpdated: Date = .now) -> SharedStepData {
+        SharedStepData(
+            todaySteps: 6420,
+            goalSteps: AppConstants.defaultDailyGoal,
+            goalProgress: 0.642,
+            currentStreak: 12,
+            lastUpdated: lastUpdated,
+            weeklySteps: [5400, 6100, 7200, 8300, 9100, 10200, 6420]
         )
     }
 }

@@ -24,7 +24,7 @@ EOF
 chmod +x "${MOCK_BIN}/sips"
 
 if MOCK_INVALID_SCREENSHOT=1 PATH="${MOCK_BIN}:${PATH}" \
-  bash "${ROOT_DIR}/Scripts/appstore-screenshots-upload.sh" \
+  /bin/bash "${ROOT_DIR}/Scripts/appstore-screenshots-upload.sh" \
   --screenshots-root "${SCREENSHOTS_ROOT}" \
   --version-localization-id synthetic-localization \
   --dry-run > "${TMP_DIR}/invalid.log" 2>&1; then
@@ -37,7 +37,7 @@ if ! grep -Fq 'dimensão inválida' "${TMP_DIR}/invalid.log"; then
   exit 1
 fi
 
-PATH="${MOCK_BIN}:${PATH}" bash "${ROOT_DIR}/Scripts/appstore-screenshots-upload.sh" \
+PATH="${MOCK_BIN}:${PATH}" /bin/bash "${ROOT_DIR}/Scripts/appstore-screenshots-upload.sh" \
   --screenshots-root "${SCREENSHOTS_ROOT}" \
   --version-localization-id synthetic-localization \
   --dry-run > "${TMP_DIR}/valid.log"

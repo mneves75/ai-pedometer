@@ -9,7 +9,8 @@ if ! git -C "${ROOT_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-scan_options=(-n -I -E)
+# -i: devicectl, Xcode and Console print the same identifiers in lower or upper case.
+scan_options=(-n -I -E -i)
 case "${1:-}" in
   '') ;;
   --staged) scan_options+=(--cached) ;;

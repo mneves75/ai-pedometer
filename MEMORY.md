@@ -5,20 +5,22 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-11)
+## Current state (2026-09-15)
 
-- Source is 1.0 (56) in `project.yml`, not a deployed release.
-- **Hard production blocker:** `Config/Local.xcconfig` carries a Test Store (`test_`) RevenueCat
-  key. `AppConstants.RevenueCat.resolveConfiguration` nils it outside DEBUG, so a Release archive
-  resolves *no* key and premium/purchase/restore are dead. The key is baked into `Info.plist` at
-  archive time, so configuring an Apple (`appl_`) key later requires a new archive. Nothing can
-  ship to TestFlight or the App Store until that is done.
-- Full simulator E2E green on Xcode 27.0 (27A266a): unit 607/607, UI 20/20, zero skips. This was
-  the first successful `Scripts/e2e-simulator.sh` run after the toolchain selector was repaired.
-- Installed and running on the physical iPhone `iMarcus` (17 Pro Max): AI Pedometer 1.0 (56),
-  Debug, built from a clean tree at `08914ab`, confirmed through `devicectl` with both the app and
-  the widget extension live. Debug is the only configuration where premium works end to end right
-  now, because the Test Store key is honored under DEBUG and nil'd everywhere else.
+- Source is 1.0.1 (57) in `project.yml`, not a deployed release. Versions use three components from now on.
+- **Hard production and TestFlight blocker, unchanged:** `Config/Local.xcconfig` carries a Test Store (`test_`)
+  RevenueCat key (rechecked 2026-09-15 by prefix only). `AppConstants.RevenueCat.resolveConfiguration` nils
+  it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;
+  `validate-release-artifact.py` rejects it before export. The key is baked into `Info.plist` at archive time,
+  so an Apple (`appl_`) key requires a new archive. No beta tag is created until a build actually ships.
+- 2026-09-15 full review pass (finding ledger in `memory/2026-09-15.md`): unit 648/648 on
+  the 1.0.1 (57) build; UI suite on iPhone 17 Pro (see journal for the final count).
+  `testTrainingPlansOpensFromWorkouts` fails on the **iPhone 17 Pro Max** iOS 27.0 simulator identically at
+  `08c0b72` and at 1.0.1 (tap on `training_plans_card` never lands) and passes on iPhone 17 Pro — a
+  device-specific pre-existing UI-test issue, not a product regression; unresolved.
+- Live Activities work for the first time in 1.0.1 (`NSSupportsLiveActivities` was missing). Physical-device
+  verification of the Lock Screen / Dynamic Island activity is still an explicit gap.
+- Installed on iMarcus: last verified install is 1.0 (56) Debug from 2026-09-11.
 - ASC authentication is healthy (`asc auth doctor`: seven checks OK, `AIPedometer` profile complete
   in the keychain and default). That proves the key loads and parses — not that it carries a
   publishing role, which only surfaces on a real upload attempt.

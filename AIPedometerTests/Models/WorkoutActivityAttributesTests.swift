@@ -30,4 +30,39 @@ struct WorkoutActivityAttributesTests {
         let attributes = WorkoutActivityAttributes(workoutType: "running")
         #expect(attributes.workoutType == "running")
     }
+
+    @Test("The tracked workout ends on its latest metrics, not a zeroed state")
+    func currentActivityEndsWithLatestState() {
+        let latest = WorkoutActivityAttributes.ContentState(steps: 4_210, distance: 3.1, calories: 168)
+        let activities = [LiveActivitySnapshot(id: "current", isEnded: false)]
+
+        let finished = LiveActivityManager.endRequests(
+            for: activities, currentActivityID: "current", latestState: latest, discarded: false
+        )
+        let discarded = LiveActivityManager.endRequests(
+            for: activities, currentActivityID: "current", latestState: latest, discarded: true
+        )
+
+        #expect(finished == [LiveActivityEndRequest(activityID: "current", finalState: latest, dismissImmediately: false)])
+        #expect(discarded == [LiveActivityEndRequest(activityID: "current", finalState: latest, dismissImmediately: true)])
+    }
+
+    @Test("Activities from a previous process are dismissed at once and ended ones are left alone")
+    func orphansAreDismissedImmediately() {
+        let latest = WorkoutActivityAttributes.ContentState(steps: 10, distance: 0.01, calories: 0.4)
+        let activities = [
+            LiveActivitySnapshot(id: "orphan", isEnded: false),
+            LiveActivitySnapshot(id: "earlier-final-card", isEnded: true),
+            LiveActivitySnapshot(id: "current", isEnded: false)
+        ]
+
+        let requests = LiveActivityManager.endRequests(
+            for: activities, currentActivityID: "current", latestState: latest, discarded: false
+        )
+
+        #expect(requests == [
+            LiveActivityEndRequest(activityID: "orphan", finalState: nil, dismissImmediately: true),
+            LiveActivityEndRequest(activityID: "current", finalState: latest, dismissImmediately: false)
+        ])
+    }
 }

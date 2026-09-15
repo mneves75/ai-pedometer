@@ -115,6 +115,22 @@ final class FakePurchasesClient: PurchasesClientProtocol {
 
 @MainActor
 struct PremiumAccessStoreTests {
+    @Test(
+        "management URL fallback opens only https links",
+        arguments: [
+            ("https://apps.apple.com/account/subscriptions", true),
+            ("HTTPS://apps.apple.com/account/subscriptions", true),
+            ("http://apps.apple.com/account/subscriptions", false),
+            ("itms-apps://apps.apple.com/account/subscriptions", false),
+            ("otherapp://steal?token=1", false),
+            ("https:///no-host", false)
+        ]
+    )
+    func managementURLFallbackOpensOnlyHTTPS(rawURL: String, expected: Bool) throws {
+        let url = try #require(URL(string: rawURL))
+        #expect(PremiumAccessStore.isOpenableManagementURL(url) == expected)
+    }
+
     @Test("prepare sets notConfigured when RevenueCat values are missing")
     func prepareSetsNotConfiguredWhenConfigurationMissing() async {
         let client = FakePurchasesClient()

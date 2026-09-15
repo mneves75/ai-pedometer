@@ -25,6 +25,16 @@ struct StringCatalogCompletenessTests {
             let localizations = entry?["localizations"] as? [String: Any]
             for locale in ["en", "pt-BR"] {
                 let localeEntry = localizations?[locale] as? [String: Any]
+                if let plural = (localeEntry?["variations"] as? [String: Any])?["plural"] as? [String: Any] {
+                    // A plural entry has no top-level value; both languages need at least `one` and `other`.
+                    for category in ["one", "other"] {
+                        let unit = (plural[category] as? [String: Any])?["stringUnit"] as? [String: Any]
+                        if (unit?["value"] as? String)?.isEmpty != false {
+                            missing.append("\(key) [\(locale).\(category)]")
+                        }
+                    }
+                    continue
+                }
                 let stringUnit = localeEntry?["stringUnit"] as? [String: Any]
                 let value = stringUnit?["value"] as? String
                 if value?.isEmpty != false {
@@ -78,6 +88,10 @@ struct StringCatalogCompletenessTests {
                         .compactMap { Range(match.range(at: $0), in: source) }
                         .first
                     guard let captured else { continue }
+                    // An interpolated literal ("\(count) days") compiles to a key whose format specifiers depend
+                    // on the argument types, which a text scan cannot infer. Those keys are pluralized and
+                    // asserted with literal expected values in `PluralTests`.
+                    guard !source[captured].contains("\\(") else { continue }
                     // Escaped sequences in source (\" and \n) are literal characters in the catalog key.
                     let key = String(source[captured])
                         .replacingOccurrences(of: "\\\"", with: "\"")

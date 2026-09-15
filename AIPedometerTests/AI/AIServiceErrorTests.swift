@@ -33,6 +33,44 @@ struct AIServiceErrorTests {
         }
     }
 
+    #if compiler(>=6.3)
+    @Test("iOS 27 language model errors map like the GenerationError cases they replace")
+    @MainActor
+    func languageModelErrorsMapOnIOS27() {
+        guard #available(iOS 27.0, *) else { return }
+        let cases: [(any Error, ExpectedAIError)] = [
+            (
+                LanguageModelError.contextSizeExceeded(
+                    .init(contextSize: 4_096, tokenCount: 5_000, debugDescription: "test")
+                ),
+                .tokenLimitExceeded
+            ),
+            (LanguageModelError.guardrailViolation(.init(debugDescription: "test")), .guardrailViolation),
+            (LanguageModelError.refusal(.init(explanation: "test", debugDescription: "test")), .guardrailViolation),
+            (
+                LanguageModelError.unsupportedLanguageOrLocale(
+                    .init(languageCode: .portuguese, debugDescription: "test")
+                ),
+                .invalidResponse
+            ),
+            (LanguageModelError.rateLimited(.init(resetDate: nil, debugDescription: "test")), .retryableGenerationFailure),
+            (LanguageModelError.timeout(.init(debugDescription: "test")), .retryableGenerationFailure),
+            (SystemLanguageModel.Error.assetsUnavailable(.init(debugDescription: "test")), .modelNotReady),
+            (LanguageModelSession.Error.concurrentRequests, .retryableGenerationFailure),
+            (GeneratedContent.ParsingError(rawContent: "{", debugDescription: "test"), .invalidResponse)
+        ]
+
+        for (error, expected) in cases {
+            let foundationError = FoundationModelsService.mapError(error)
+            let coachError = CoachService.mapError(error)
+
+            #expect(expected.matches(foundationError), "\(error)")
+            #expect(expected.matches(coachError), "\(error)")
+        }
+    }
+
+    #endif
+
     @Test("Non-generation errors retain the generic fallback")
     @MainActor
     func nonGenerationErrorUsesGenericFallback() {

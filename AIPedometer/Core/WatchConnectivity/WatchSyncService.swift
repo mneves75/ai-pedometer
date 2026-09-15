@@ -18,6 +18,9 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private var lastReachableSentSteps: Int?
     private var lastContextUpdateAt: Date?
     private var lastContextSentSteps: Int?
+    /// The latest snapshot offered before `WCSession` finished activating. `isPaired` and
+    /// `isWatchAppInstalled` are undefined until then, so it is held and sent on `.activated`.
+    private var pendingStepData: SharedStepData?
 
     private override init() {
         let userDefaults = UserDefaults.standard
@@ -44,6 +47,11 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     func send(stepData: SharedStepData) {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
+        guard session.activationState == .activated else {
+            pendingStepData = stepData
+            return
+        }
+        pendingStepData = nil
         guard session.isPaired, session.isWatchAppInstalled else { return }
         let now = Date.now
         do {
@@ -85,7 +93,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 currentStreak: stepData.currentStreak,
                 lastUpdated: stepData.lastUpdated,
                 weeklySteps: stepData.weeklySteps,
-                sentAt: now
+                sentAt: now,
+                activityMode: stepData.activityMode
             )
             let encoded = try JSONEncoder().encode(payload)
             Signposts.sync.event("WatchPayloadEncoded")
@@ -174,7 +183,22 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         lastContextSentSteps = nil
     }
 
-    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {}
+    private func flushPendingStepData() {
+        guard let pendingStepData else { return }
+        send(stepData: pendingStepData)
+    }
+
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
+        if let error {
+            Loggers.sync.warning("watch.session_activation_failed", metadata: [
+                "error": error.localizedDescription
+            ])
+        }
+        guard activationState == .activated else { return }
+        Task { @MainActor in
+            self.flushPendingStepData()
+        }
+    }
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
         Task { @MainActor in
             self.resetReachableThrottle()

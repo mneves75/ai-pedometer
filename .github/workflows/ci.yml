@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs may be cancelled; a pushed commit on the default branch must finish,
+  # because delivery requires a completed CI run for that exact SHA.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -24,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Select a supported Xcode (26.x or 27.x)
         run: |
@@ -33,6 +37,9 @@ jobs:
           XCODE_PATH=""
           for candidate in $(printf '%s\n' /Applications/Xcode_27*.app /Applications/Xcode_26*.app | sort -rV); do
             [[ -d "${candidate}" ]] || continue
+            # A runner image can ship a beta or release candidate beside the stable build, and
+            # `sort -rV` ranks it first. Release evidence must come from a released toolchain.
+            case "${candidate}" in *[Bb]eta*|*_RC*|*Release_Candidate*) continue ;; esac
             XCODE_PATH="${candidate}"
             break
           done
@@ -56,6 +63,7 @@ jobs:
       - name: Lint workflows and shell scripts
         run: |
           actionlint
+          ast-grep test --config sgconfig.yml --skip-snapshot-tests
           shellcheck Scripts/*.sh Scripts/lib/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh .githooks/pre-commit
 
       - name: Run exact staged-source guardrail
@@ -116,6 +124,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: e2e-artifacts
+          retention-days: 14
           path: |
             output/e2e-ci
             !output/e2e-ci/**/DerivedData*

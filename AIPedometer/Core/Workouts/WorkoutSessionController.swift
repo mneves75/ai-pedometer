@@ -65,6 +65,7 @@ final class WorkoutSessionController {
     private var lastLiveActivityUpdateAt: Date?
     private var lastLiveActivityUpdateSteps: Int?
     private var isTerminatingSession = false
+    @ObservationIgnored private var orphanedActivityCleanup: Task<Void, Never>?
     private var recoveryLookupSucceeded = false
 
     private(set) var state: WorkoutState = .idle
@@ -103,8 +104,9 @@ final class WorkoutSessionController {
         loadRecoverableSession()
         // Nothing can be live in-process at init, so any activity still running belongs to a previous
         // launch and is showing frozen metrics. Clear it here rather than waiting for the user to act on
-        // the recovered session, which they may never do.
-        Task { [liveActivityManager] in
+        // the recovered session, which they may never do. `startWorkout` awaits this task before requesting
+        // a new activity, so a late-running cleanup can never end the activity this process just started.
+        orphanedActivityCleanup = Task { [liveActivityManager] in
             await liveActivityManager.endOrphanedActivities()
         }
     }
@@ -134,6 +136,10 @@ final class WorkoutSessionController {
     }
 
     func startWorkout(type: WorkoutType, targetSteps: Int?) async {
+        if let orphanedActivityCleanup {
+            await orphanedActivityCleanup.value
+            self.orphanedActivityCleanup = nil
+        }
         guard recoveryLookupSucceeded, recoverableSession == nil else { return }
         guard activeSession == nil else {
             isPresenting = true
@@ -272,7 +278,7 @@ final class WorkoutSessionController {
             return
         }
 
-        await endLiveMetrics()
+        await endLiveMetrics(discarded: false)
         pauseStartedAt = nil
         lastError = nil
 
@@ -329,7 +335,7 @@ final class WorkoutSessionController {
             return
         }
 
-        await liveActivityManager.end()
+        await liveActivityManager.end(discarded: false)
         lastError = nil
         await reconcileHealthKitExport(for: session)
         loadRecoverableSession()
@@ -359,7 +365,7 @@ final class WorkoutSessionController {
             return
         }
 
-        await liveActivityManager.end()
+        await liveActivityManager.end(discarded: true)
         lastError = nil
         loadRecoverableSession()
     }
@@ -394,7 +400,7 @@ final class WorkoutSessionController {
             return
         }
 
-        await endLiveMetrics()
+        await endLiveMetrics(discarded: true)
         lastError = nil
         transition(.discard)
         resetSession()
@@ -558,10 +564,10 @@ private extension WorkoutSessionController {
         lastLiveActivityUpdateSteps = nil
     }
 
-    func endLiveMetrics() async {
+    func endLiveMetrics(discarded: Bool) async {
         updateTask?.cancel()
         metricsSource.stop()
-        await liveActivityManager.end()
+        await liveActivityManager.end(discarded: discarded)
     }
 
     func resetState() {

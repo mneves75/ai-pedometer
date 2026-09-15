@@ -223,6 +223,35 @@ struct BadgeServiceTests {
         #expect(earned.first?.earnedAt == newer.earnedAt)
     }
 
+    @Test("A failed badge read neither inserts a duplicate nor sticks as an empty cache")
+    func fetchFailureFailsClosedAndRetries() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        context.insert(EarnedBadge(badgeType: .steps5K))
+        try context.save()
+
+        let store = BadgeFetchSwitch()
+        store.shouldFail = true
+        let service = BadgeService(
+            persistence: persistence,
+            fetchEarnedBadges: { context in
+                if store.shouldFail { throw CocoaError(.fileReadUnknown) }
+                return try BadgeService.fetchNonDeletedBadges(in: context)
+            }
+        )
+
+        // StepTrackingService passes the (empty) types it read in the same failed state.
+        let earnedWhileFailing = service.earnedBadgeTypes()
+        #expect(service.unlock(.steps5K, existingBadgeTypes: earnedWhileFailing) == false)
+        #expect(service.unlock(.steps5K) == false)
+        try context.save()
+        #expect(try context.fetch(FetchDescriptor<EarnedBadge>()).count == 1)
+        #expect(service.pendingCelebrationTask == nil)
+
+        store.shouldFail = false
+        #expect(service.earnedBadgeTypes() == [.steps5K])
+    }
+
     private static func celebration(message: String) -> AchievementCelebration {
         AchievementCelebration(
             congratulation: message,
@@ -230,6 +259,11 @@ struct BadgeServiceTests {
             nextChallenge: "Keep going"
         )
     }
+}
+
+@MainActor
+private final class BadgeFetchSwitch {
+    var shouldFail = false
 }
 
 @MainActor

@@ -11,13 +11,27 @@ final class InsightService {
     private let userDefaults: UserDefaults
     private let now: @MainActor () -> Date
     
-    private var cachedDailyInsight: (date: Date, steps: Int, goal: Int, insight: DailyInsight)?
+    private var cachedDailyInsight: (
+        date: Date,
+        steps: Int,
+        goal: Int,
+        activityMode: ActivityTrackingMode,
+        insight: DailyInsight
+    )?
     private var cachedWeeklyAnalysis: (
         weekStart: Date,
         activityMode: ActivityTrackingMode,
         analysis: WeeklyTrendAnalysis
     )?
-    private var cachedWorkoutRecommendation: (date: Date, steps: Int, goal: Int, recommendation: AIWorkoutRecommendation)?
+    /// Keyed by activity mode as well: the same count means different things for steps and wheelchair pushes,
+    /// and the text names the unit, so a cached steps recommendation is wrong after a mode switch.
+    private var cachedWorkoutRecommendation: (
+        date: Date,
+        steps: Int,
+        goal: Int,
+        activityMode: ActivityTrackingMode,
+        recommendation: AIWorkoutRecommendation
+    )?
     private var weeklyAnalysisFlight: (
         id: UUID,
         weekStart: Date,
@@ -52,19 +66,22 @@ final class InsightService {
     func generateDailyInsight(forceRefresh: Bool = false) async throws(AIServiceError) -> DailyInsight {
         checkDayRolloverAndClearCache()
         let today = Calendar.current.startOfDay(for: now())
+        let activityMode = ActivitySettings.current(userDefaults: userDefaults).activityMode
         let todayData = await fetchTodayActivityData()
         
         if !forceRefresh, let cached = cachedDailyInsight {
             if Calendar.current.isDate(cached.date, inSameDayAs: today),
                cached.steps == todayData.steps,
-               cached.goal == todayData.goal {
+               cached.goal == todayData.goal,
+               cached.activityMode == activityMode {
                 return cached.insight
             }
         }
 
         if isGeneratingDailyInsight {
             if let cached = cachedDailyInsight,
-               Calendar.current.isDate(cached.date, inSameDayAs: today) {
+               Calendar.current.isDate(cached.date, inSameDayAs: today),
+               cached.activityMode == activityMode {
                 return cached.insight
             }
             throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
@@ -85,11 +102,14 @@ final class InsightService {
                 as: DailyInsight.self
             )
 
-            cachedDailyInsight = (today, todayData.steps, todayData.goal, insight)
+            cachedDailyInsight = (today, todayData.steps, todayData.goal, activityMode, insight)
             Loggers.ai.info("ai.daily_insight_generated")
             return insight
         } catch {
-            lastError = error
+            // A caller that went away (a view's `.task` on disappear) is not a failure to show on return.
+            if !Task.isCancelled {
+                lastError = error
+            }
             Loggers.ai.error("ai.daily_insight_failed", metadata: ["error": error.logDescription])
             throw error
         }
@@ -245,20 +265,23 @@ final class InsightService {
         checkDayRolloverAndClearCache()
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())
+        let activityMode = ActivitySettings.current(userDefaults: userDefaults).activityMode
         let todayData = await fetchTodayActivityData()
         let currentGoal = goalService.currentGoal
 
         if !forceRefresh, let cached = cachedWorkoutRecommendation {
             if calendar.isDate(cached.date, inSameDayAs: today),
                cached.steps == todayData.steps,
-               cached.goal == currentGoal {
+               cached.goal == currentGoal,
+               cached.activityMode == activityMode {
                 return cached.recommendation
             }
         }
 
         if isGeneratingWorkoutRecommendation {
             if let cached = cachedWorkoutRecommendation,
-               calendar.isDate(cached.date, inSameDayAs: today) {
+               calendar.isDate(cached.date, inSameDayAs: today),
+               cached.activityMode == activityMode {
                 return cached.recommendation
             }
             throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
@@ -274,13 +297,14 @@ final class InsightService {
         do {
             weekData = try await fetchWeekActivityData()
         } catch let error as AIServiceError {
+            try throwIfCancelled(error)
             lastError = error
             let fallback = fallbackWorkoutRecommendation(
                 weekData: nil,
                 todayData: todayData,
                 currentGoal: currentGoal
             )
-            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, fallback)
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, activityMode, fallback)
             Loggers.ai.warning("ai.workout_recommendation_fallback", metadata: [
                 "reason": "fetch_failed",
                 "error": error.logDescription
@@ -288,13 +312,14 @@ final class InsightService {
             return fallback
         } catch {
             let mappedError = AIServiceError.generationFailed(underlying: error.localizedDescription)
+            try throwIfCancelled(mappedError)
             lastError = mappedError
             let fallback = fallbackWorkoutRecommendation(
                 weekData: nil,
                 todayData: todayData,
                 currentGoal: currentGoal
             )
-            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, fallback)
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, activityMode, fallback)
             Loggers.ai.warning("ai.workout_recommendation_fallback", metadata: [
                 "reason": "fetch_failed",
                 "error": mappedError.logDescription
@@ -314,20 +339,21 @@ final class InsightService {
                 as: AIWorkoutRecommendation.self
             )
 
-            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, recommendation)
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, activityMode, recommendation)
             Loggers.ai.info("ai.workout_recommendation_generated", metadata: [
                 "intent": recommendation.intent.rawValue,
                 "targetSteps": "\(recommendation.targetSteps)"
             ])
             return recommendation
         } catch let error {
+            try throwIfCancelled(error)
             lastError = error
             let fallback = fallbackWorkoutRecommendation(
                 weekData: weekData,
                 todayData: todayData,
                 currentGoal: currentGoal
             )
-            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, fallback)
+            cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, activityMode, fallback)
             Loggers.ai.warning("ai.workout_recommendation_fallback", metadata: [
                 "reason": error.logDescription
             ])
@@ -335,6 +361,14 @@ final class InsightService {
         }
     }
     
+    /// A cancelled caller gets its error back instead of a fallback. The fallback would otherwise be cached
+    /// for the rest of the day, so returning to the screen showed generic advice instead of generating.
+    private func throwIfCancelled(_ error: AIServiceError) throws(AIServiceError) {
+        guard Task.isCancelled else { return }
+        Loggers.ai.info("ai.generation_cancelled")
+        throw error
+    }
+
     func clearCache() {
         weeklyAnalysisCacheGeneration &+= 1
         cachedDailyInsight = nil
@@ -439,7 +473,7 @@ private extension InsightService {
 
     func resolveSummaryGoals(_ summaries: [DailyStepSummary], fallbackGoal: Int) -> [DailyStepSummary] {
         summaries.map { summary in
-            let resolvedGoal = goalService.goal(for: summary.date) ?? fallbackGoal
+            let resolvedGoal = goalService.goal(forDayContaining: summary.date) ?? fallbackGoal
             guard resolvedGoal != summary.goal else {
                 return summary
             }

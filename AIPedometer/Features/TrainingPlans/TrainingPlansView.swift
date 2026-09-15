@@ -196,7 +196,7 @@ struct PlanRowView: View {
         case .active: DesignTokens.Colors.success
         case .completed: DesignTokens.Colors.accent
         case .paused: DesignTokens.Colors.warning
-        case .abandoned: .gray
+        case .abandoned: DesignTokens.Colors.neutral
         }
     }
 }
@@ -475,8 +475,21 @@ struct CreatePlanSheet: View {
 #Preview {
     @MainActor in
     let demoModeStore = DemoModeStore()
-    TrainingPlansView()
-        .environment(demoModeStore)
-        .environment(FoundationModelsService())
-        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
+    let persistence = PersistenceController(inMemory: true)
+    let fmService = FoundationModelsService()
+    // TrainingPlansView reads `TrainingPlanService` and runs a SwiftData `@Query`; without the service and
+    // a model container the preview crashes at runtime.
+    NavigationStack {
+        TrainingPlansView()
+    }
+    .environment(TrainingPlanService(
+        foundationModelsService: fmService,
+        healthKitService: HealthKitServiceFallback(demoModeStore: demoModeStore),
+        goalService: GoalService(persistence: persistence),
+        modelContext: persistence.container.mainContext
+    ))
+    .environment(demoModeStore)
+    .environment(fmService)
+    .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
+    .modelContainer(persistence.container)
 }

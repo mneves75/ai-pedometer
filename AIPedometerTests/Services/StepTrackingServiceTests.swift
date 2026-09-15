@@ -1134,6 +1134,48 @@ struct StepTrackingServiceTests {
         #expect(goalsByDate[dayMinus1] == 12000)
     }
 
+    @Test("Weekly summaries judge a day with a mid-day goal change by the new goal")
+    @MainActor
+    func weeklySummariesUseGoalInEffectAtEndOfDay() async throws {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let calendar = Calendar.autoupdatingCurrent
+        let today = calendar.startOfDay(for: .now)
+        let dayMinus2 = try #require(calendar.date(byAdding: .day, value: -2, to: today))
+        let dayMinus1 = try #require(calendar.date(byAdding: .day, value: -1, to: today))
+        let goal1Start = try #require(calendar.date(byAdding: .day, value: -10, to: today))
+        let changedAt = try #require(calendar.date(byAdding: .hour, value: 14, to: dayMinus1))
+
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        context.insert(StepGoal(dailySteps: 8_000, startDate: goal1Start, endDate: changedAt))
+        context.insert(StepGoal(dailySteps: 10_000, startDate: changedAt))
+        try context.save()
+
+        mockHealthKit.dailySummariesToReturn = [
+            DailyStepSummary(date: dayMinus2, steps: 9_000, distance: 0, floors: 0, calories: 0, goal: 10_000),
+            DailyStepSummary(date: dayMinus1, steps: 9_000, distance: 0, floors: 0, calories: 0, goal: 10_000)
+        ]
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults,
+            persistence: persistence
+        )
+
+        _ = await service.refreshWeeklySummaries()
+
+        let goalsByDate = Dictionary(
+            uniqueKeysWithValues: service.weeklySummaries.map { (calendar.startOfDay(for: $0.date), $0.goal) }
+        )
+        #expect(goalsByDate[dayMinus2] == 8_000)
+        #expect(goalsByDate[dayMinus1] == 10_000)
+    }
+
     @Test("Goal update clamps to positive value")
     @MainActor
     func goalUpdateClampsToPositiveValue() async {

@@ -349,7 +349,7 @@ final class HealthKitSyncService {
         let recordsByDay = Dictionary(grouping: existingRecords) { calendar.startOfDay(for: $0.date) }
 
         for summary in summaries {
-            let goalForDay = goalService.goal(for: summary.date) ?? currentGoal
+            let goalForDay = goalService.goal(forDayContaining: summary.date) ?? currentGoal
             let calories = Double(summary.steps) * AppConstants.Metrics.caloriesPerStep
 
             upsertDailyRecord(
@@ -508,7 +508,7 @@ final class HealthKitSyncService {
             let normalizedDate = calendar.startOfDay(for: date)
             let record = recordsByDate[normalizedDate]
             let daySteps = record?.steps ?? 0
-            let dayGoal = record?.goalSteps ?? goalService.goal(for: normalizedDate) ?? fallbackGoal
+            let dayGoal = record?.goalSteps ?? goalService.goal(forDayContaining: normalizedDate) ?? fallbackGoal
 
             steps.append(daySteps)
             if daySteps >= dayGoal {

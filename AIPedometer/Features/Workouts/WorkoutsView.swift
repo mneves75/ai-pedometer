@@ -52,6 +52,9 @@ struct WorkoutsView: View {
         let premiumEnabled: Bool
         let premiumResolving: Bool
         let activePlanID: UUID?
+        // Recommendations are generated for the current activity mode, so switching steps and wheelchair
+        // pushes must reload rather than keep showing the other mode's recommendation.
+        let activityMode: ActivityTrackingMode
     }
 
     private struct PresentedError {
@@ -124,7 +127,7 @@ struct WorkoutsView: View {
             A11yID.Workouts.recentWorkoutsCarousel,
             when: !recentWorkouts.isEmpty
         )
-        .toolbar(.hidden, for: .navigationBar)
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .background(DesignTokens.Colors.surfaceGrouped)
         .sheet(isPresented: $workoutController.isPresenting) {
             ActiveWorkoutView()
@@ -168,7 +171,8 @@ struct WorkoutsView: View {
             ))
         }
         .task {
-            // Runs once when the view appears, instead of on every `WorkoutsView` initialization.
+            // `.task` runs on every appearance, not on every `WorkoutsView` initialization; once a route is
+            // loaded the nil guard makes later appearances a no-op.
             if importedRoute == nil {
                 importedRoute = GPXRouteImporter.loadImportedRoute()
             }
@@ -177,7 +181,8 @@ struct WorkoutsView: View {
             aiAvailable: aiService.availability.isAvailable,
             premiumEnabled: premiumAccessStore.canAccessAIFeatures,
             premiumResolving: premiumAccessStore.isResolvingAccess,
-            activePlanID: activePlan?.id
+            activePlanID: activePlan?.id,
+            activityMode: activityMode
         )) {
             guard !LaunchConfiguration.isUITesting() else { return }
 
@@ -207,6 +212,11 @@ struct WorkoutsView: View {
     }
 
     private static let gpxContentType = UTType(filenameExtension: "gpx") ?? .xml
+
+    /// Imported-route waypoint count. Interpolated so the catalog's plural variations apply.
+    static func waypointCountText(_ count: Int, locale: Locale? = nil) -> String {
+        L10n.localized("\(Int64(count)) waypoints", locale: locale, comment: "Route waypoint count")
+    }
 
     @ViewBuilder
     private var aiWorkoutSection: some View {
@@ -799,7 +809,7 @@ private struct ImportedRouteSummary: View {
                 routeStat(icon: "point.topleft.down.curvedto.point.bottomright.up", value: route.distanceMeters.formattedDistance(), label: L10n.localized("Distance", comment: "Workout metric title"))
                 routeStat(icon: "clock", value: Formatters.durationString(seconds: route.estimatedDuration), label: L10n.localized("Estimated", comment: "Route estimate label"))
                 routeStat(icon: "mountain.2.fill", value: Formatters.distanceString(meters: route.elevationGainMeters), label: L10n.localized("Elevation Gain", comment: "Route elevation gain label"))
-                routeStat(icon: "mappin.and.ellipse", value: Localization.format("%d waypoints", comment: "Route waypoint count", route.waypointCount), label: L10n.localized("Waypoints", comment: "Route waypoint label"))
+                routeStat(icon: "mappin.and.ellipse", value: WorkoutsView.waypointCountText(route.waypointCount), label: L10n.localized("Waypoints", comment: "Route waypoint label"))
             }
         }
         .accessibilityElement(children: .contain)

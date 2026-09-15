@@ -15,8 +15,8 @@ trap 'rm -rf "${TMP_DIR}"' EXIT
 fail() { echo "$1" >&2; exit 1; }
 
 # The real project.yml must pass. If this breaks, either a bad setting landed or the gate rotted.
-if ! bash "${SCRIPT}" "${ROOT_DIR}/project.yml" >/dev/null 2>&1; then
-  bash "${SCRIPT}" "${ROOT_DIR}/project.yml" >&2 || true
+if ! /bin/bash "${SCRIPT}" "${ROOT_DIR}/project.yml" >/dev/null 2>&1; then
+  /bin/bash "${SCRIPT}" "${ROOT_DIR}/project.yml" >&2 || true
   fail "Expected the repository's own project.yml to pass."
 fi
 
@@ -31,11 +31,27 @@ settings:
     SWIFT_UPCOMING_FEATURE_SWIFT_6: YES
 EOF
 LOG="${TMP_DIR}/planted.log"
-if bash "${SCRIPT}" "${PLANTED}" >"${LOG}" 2>&1; then
+if /bin/bash "${SCRIPT}" "${PLANTED}" >"${LOG}" 2>&1; then
   fail "Expected a fabricated SWIFT_* setting to fail the gate."
 fi
 grep -q 'SWIFT_UPCOMING_FEATURE_SWIFT_6' "${LOG}" \
   || { cat "${LOG}" >&2; fail "Expected the offending setting to be named in the failure."; }
+
+# NEGATIVE CONTROL: a name that merely APPEARS inside a spec (SWIFT_FLAGS is a substring of the
+# defined OTHER_SWIFT_FLAGS) is not a definition. Accepting any matching word would let a
+# fabricated-but-plausible name through, which is the exact class this gate exists to catch.
+SUBSTRING="${TMP_DIR}/substring.yml"
+cat >"${SUBSTRING}" <<'EOF'
+name: Fixture
+settings:
+  base:
+    SWIFT_VERSION: 6.2
+    SWIFT_FLAGS: -warn-concurrency
+EOF
+if /bin/bash "${SCRIPT}" "${SUBSTRING}" >"${LOG}" 2>&1; then
+  fail "Expected a SWIFT_* name that is only a substring of a defined setting to fail the gate."
+fi
+grep -q 'SWIFT_FLAGS' "${LOG}" || { cat "${LOG}" >&2; fail "Expected SWIFT_FLAGS to be named."; }
 
 # CLEAN CONTROL: a real setting this project does not use must NOT be reported.
 CLEAN="${TMP_DIR}/clean.yml"
@@ -47,7 +63,7 @@ settings:
     SWIFT_UPCOMING_FEATURE_INFER_SENDABLE_FROM_CAPTURES: YES
     SWIFT_UPCOMING_FEATURE_REGION_BASED_ISOLATION: YES
 EOF
-bash "${SCRIPT}" "${CLEAN}" >/dev/null 2>&1 \
+/bin/bash "${SCRIPT}" "${CLEAN}" >/dev/null 2>&1 \
   || fail "Expected real Xcode-defined settings to pass even when unused by this project."
 
 # A setting named only inside a comment must not be treated as declared.
@@ -59,11 +75,11 @@ settings:
     # Do not re-add SWIFT_UPCOMING_FEATURE_STRICT_DOUBLE: it does not exist.
     SWIFT_VERSION: 6.2
 EOF
-bash "${SCRIPT}" "${COMMENTED}" >/dev/null 2>&1 \
+/bin/bash "${SCRIPT}" "${COMMENTED}" >/dev/null 2>&1 \
   || fail "Expected a setting mentioned only in a comment to be ignored."
 
 # A missing project file must fail rather than pass vacuously.
-if bash "${SCRIPT}" "${TMP_DIR}/does-not-exist.yml" >/dev/null 2>&1; then
+if /bin/bash "${SCRIPT}" "${TMP_DIR}/does-not-exist.yml" >/dev/null 2>&1; then
   fail "Expected a missing project file to fail, not pass empty."
 fi
 

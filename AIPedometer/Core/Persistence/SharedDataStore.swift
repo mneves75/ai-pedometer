@@ -124,7 +124,8 @@ enum SharedStepDataWritePolicy {
         if !calendar.isDate(previous.lastUpdated, inSameDayAs: next.lastUpdated) { return true }
         if previous.goalSteps != next.goalSteps ||
             previous.currentStreak != next.currentStreak ||
-            previous.weeklySteps != next.weeklySteps {
+            previous.weeklySteps != next.weeklySteps ||
+            previous.activityMode != next.activityMode {
             return true
         }
         return abs(next.todaySteps - previous.todaySteps) >= milestoneDelta

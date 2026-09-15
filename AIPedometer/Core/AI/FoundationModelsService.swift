@@ -170,10 +170,7 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
     
     static func mapError(_ error: any Error) -> AIServiceError {
-        if let sessionError = error as? LanguageModelSession.GenerationError {
-            return AIServiceError(generationError: sessionError)
-        }
-        return .generationFailed(underlying: error.localizedDescription)
+        AIServiceError.fromFoundationModels(error) ?? .generationFailed(underlying: error.localizedDescription)
     }
 
     private func unavailableError() -> AIServiceError {

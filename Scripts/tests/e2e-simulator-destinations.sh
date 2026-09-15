@@ -100,7 +100,7 @@ run_e2e() {
     E2E_ENABLE_SCREENSHOTS=0 \
     E2E_UNIT_RESTART_MAX=1 \
     E2E_UI_RESTART_MAX=1 \
-    "$@" bash "${ROOT_DIR}/Scripts/e2e-simulator.sh"
+    "$@" /bin/bash "${ROOT_DIR}/Scripts/e2e-simulator.sh"
 }
 
 assert_preflight_failure() {

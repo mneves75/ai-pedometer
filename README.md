@@ -4,7 +4,7 @@
 
 [![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B%20%7C%20watchOS%2026%2B-blue.svg)](https://developer.apple.com/ios/)
-[![Xcode](https://img.shields.io/badge/Xcode-26-blue.svg)](https://developer.apple.com/xcode/)
+[![Xcode](https://img.shields.io/badge/Xcode-26%20%7C%2027-blue.svg)](https://developer.apple.com/xcode/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ## Overview
@@ -30,7 +30,7 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 |------------|---------|
 | iOS | 26.0+ |
 | watchOS | 26.0+ |
-| Xcode | 26.0+ |
+| Xcode | 26.x or 27.x |
 | Swift | 6.2 |
 
 ## Quick Start
@@ -124,7 +124,7 @@ DEVELOPER_DIR=/Applications/Xcode.app bash Scripts/install-on-device.sh \
 App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
-asc validate --app "<APP_ID_ASC>" --version "1.0" --platform IOS --output table
+asc validate --app "<APP_ID_ASC>" --version "1.0.1" --platform IOS --output table
 asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0 (56). Source version does not indicate TestFlight or App Store availability. Production delivery is currently blocked on an Apple (`appl_`) RevenueCat key — see CHANGELOG 1.0.
+**Current source**: 1.0.1 (57). Source version does not indicate TestFlight or App Store availability. Production delivery is currently blocked on an Apple (`appl_`) RevenueCat key — see CHANGELOG 1.0.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

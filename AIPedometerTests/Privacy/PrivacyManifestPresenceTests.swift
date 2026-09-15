@@ -65,6 +65,25 @@ struct PrivacyManifestPresenceTests {
         #expect(padOrientations == expectedOrientations)
     }
 
+    @Test("Info.plist enables Live Activities so the workout activity can be requested")
+    func infoPlistSupportsLiveActivities() throws {
+        // Without this key `ActivityAuthorizationInfo().areActivitiesEnabled` is false and
+        // `LiveActivityManager.start` returns before requesting anything, so no workout ever shows one.
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let repoRoot = testFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+
+        let infoURL = repoRoot.appendingPathComponent("AIPedometer/Resources/Info.plist")
+        let data = try Data(contentsOf: infoURL)
+        let plist = try #require(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
+
+        #expect(plist["NSSupportsLiveActivities"] as? Bool == true)
+    }
+
     @Test("Privacy manifest does not claim location collection without location APIs")
     func privacyManifestDoesNotClaimLocation() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)

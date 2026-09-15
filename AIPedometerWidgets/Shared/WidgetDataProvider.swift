@@ -20,14 +20,7 @@ enum WidgetDataLoader {
     }
 
     static func placeholderData() -> SharedStepData {
-        SharedStepData(
-            todaySteps: 6420,
-            goalSteps: AppConstants.defaultDailyGoal,
-            goalProgress: 0.642,
-            currentStreak: 12,
-            lastUpdated: .now,
-            weeklySteps: [5400, 6100, 7200, 8300, 9100, 10200, 6420]
-        )
+        SharedStepData.widgetGallerySample()
     }
 }
 
@@ -37,8 +30,13 @@ struct StepTimelineProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WidgetStepEntry) -> Void) {
-        let data = WidgetDataLoader.loadSharedData() ?? WidgetDataLoader.placeholderData()
-        completion(WidgetStepEntry(date: .now, data: data))
+        let now = Date.now
+        let data = SharedStepData.widgetSnapshotData(
+            stored: WidgetDataLoader.loadSharedData(),
+            isPreview: context.isPreview,
+            at: now
+        )
+        completion(WidgetStepEntry(date: now, data: data))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetStepEntry>) -> Void) {

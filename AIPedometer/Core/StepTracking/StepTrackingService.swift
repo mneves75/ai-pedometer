@@ -340,7 +340,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             )
             guard generation == weeklyRefreshGeneration else { return .success(()) }
             weeklySummaries = summaries.map { summary in
-                let resolvedGoal = goalService.goal(for: summary.date) ?? effectiveGoal
+                let resolvedGoal = goalService.goal(forDayContaining: summary.date) ?? effectiveGoal
                 let mergedSummary = mergeCurrentDaySummaryIfNeeded(summary, activityMode: settings.activityMode)
                 guard resolvedGoal != summary.goal else {
                     return mergedSummary
@@ -709,7 +709,8 @@ final class StepTrackingService: StepTrackingServiceProtocol {
             goalProgress: Double(todaySteps) / Double(max(currentGoal, 1)),
             currentStreak: currentStreak,
             lastUpdated: lastUpdated,
-            weeklySteps: weeklySummaries.map(\.steps)
+            weeklySteps: weeklySummaries.map(\.steps),
+            activityMode: activitySettings.activityMode
         )
         dataStore.update(shared)
         sendToWatch(shared)

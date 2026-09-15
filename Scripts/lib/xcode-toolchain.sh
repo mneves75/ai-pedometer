@@ -47,6 +47,8 @@ aipedometer_supported_xcode() {
   # Explicit split: this file is sourced, and not every shell word-splits an unquoted parameter.
   local -a majors=()
   read -r -a majors <<<"${supported_majors}"
+  # bash 3.2 treats "${majors[@]}" of an empty array as unbound under `set -u`.
+  [[ "${#majors[@]}" -gt 0 ]] || return 1
   local candidate
   for candidate in "${majors[@]}"; do
     if [[ "${major}" == "${candidate}" ]]; then
@@ -95,8 +97,10 @@ aipedometer_select_xcode() {
         break
       fi
 
-      local seen_version
-      seen_version="$(aipedometer_xcode_version_line "${candidate_dir}" 2>/dev/null | head -n 1)"
+      # Diagnostic only. Consumers run under `set -euo pipefail`, so an unusable candidate must not
+      # turn this assignment into an errexit that kills the caller before the fallback is tried.
+      local seen_version=""
+      seen_version="$(aipedometer_xcode_version_line "${candidate_dir}" 2>/dev/null | head -n 1)" || seen_version=""
       rejected+=("${candidate_label}=${candidate_dir} (${seen_version:-nao e um Developer dir valido})")
     done
   fi

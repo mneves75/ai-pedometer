@@ -74,6 +74,38 @@ struct HealthKitServiceFallbackTests {
         }
     }
 
+    @Test("Cancellation propagates instead of becoming a query failure")
+    func cancellationPropagatesDistinctly() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
+        defer { cleanup() }
+
+        let failing = FailingHealthKitService(
+            authorizationError: nil,
+            queryError: CancellationError()
+        )
+        let service = HealthKitServiceFallback(
+            primary: failing,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+        try await service.requestAuthorization()
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await service.fetchTodaySteps()
+        }
+        await #expect(throws: CancellationError.self) {
+            _ = try await service.fetchDailySummaries(
+                days: 7,
+                activityMode: .steps,
+                distanceMode: .automatic,
+                manualStepLength: AppConstants.Defaults.manualStepLengthMeters,
+                dailyGoal: 10_000
+            )
+        }
+    }
+
     @Test("No data still returns empty summaries")
     func noDataStillReturnsEmptySummaries() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)

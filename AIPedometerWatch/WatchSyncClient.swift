@@ -21,7 +21,14 @@ final class WatchSyncClient: NSObject, WCSessionDelegate {
         }
     }
 
-    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {}
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
+        guard activationState == .activated else { return }
+        // `didReceiveApplicationContext` only fires for contexts that arrive while the app runs. The last one
+        // the phone sent is kept in `receivedApplicationContext`, so a relaunched watch app shows it instead
+        // of the placeholder until the phone happens to send again. The acceptance state still rejects it if
+        // a newer payload has already landed.
+        handlePayload(from: session.receivedApplicationContext)
+    }
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         handlePayload(from: userInfo)

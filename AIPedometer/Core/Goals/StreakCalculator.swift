@@ -43,7 +43,7 @@ final class StreakCalculator {
         for _ in 0..<Self.maxLookbackDays {
             let dayStart = calendar.startOfDay(for: currentDate)
             let steps = dailySteps[dayStart] ?? 0
-            let historicalGoal = goalService.goal(for: currentDate) ?? goal
+            let historicalGoal = goalService.goal(forDayContaining: currentDate, calendar: calendar) ?? goal
             if steps >= historicalGoal {
                 streakCount += 1
                 currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate

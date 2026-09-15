@@ -27,6 +27,13 @@ enum SmartReminderSchedulingResult: Equatable {
     case scheduleFailed
 }
 
+enum SmartReminderResumeResult: Equatable {
+    case resumed
+    case scheduleFailed
+    case cancelled
+    case deferredToNewerOwner
+}
+
 enum SettingsSideEffects {
     @MainActor
     static func persistGoalAndScheduleRefresh(
@@ -124,6 +131,43 @@ enum SettingsSideEffects {
             return .stale
         }
         return didSchedule ? .scheduled : .scheduleFailed
+    }
+
+    /// Reschedules a suspended smart reminder and decides what the finished attempt does with its request.
+    ///
+    /// Settings starts recovery from several `.task(id:)` modifiers, so attempts overlap, and every
+    /// scheduling path adds the same request identifier. A completion that is no longer current therefore
+    /// must not cancel blindly: when the newest owner also schedules, that owner's request is the one that
+    /// would be removed. It defers instead, and the current owner clears the request if its own attempt fails.
+    /// When the newest owner cancels (suspension, disable), the stale add is removed as before.
+    @MainActor
+    static func resumeSuspendedSmartReminder(
+        isCurrent: @escaping @MainActor () -> Bool,
+        newestOwnerSchedules: @escaping @MainActor () -> Bool,
+        isStillWanted: @escaping @MainActor () -> Bool,
+        scheduleReminder: @escaping @MainActor () async -> Bool,
+        cancelReminders: @escaping @MainActor () -> Void
+    ) async -> SmartReminderResumeResult {
+        let didSchedule = await scheduleReminder()
+        guard isCurrent() else {
+            guard didSchedule else { return .scheduleFailed }
+            if newestOwnerSchedules() {
+                return .deferredToNewerOwner
+            }
+            cancelReminders()
+            return .cancelled
+        }
+        guard didSchedule else {
+            // A stale sibling may have deferred to this attempt and left its request pending, while the
+            // toggle keeps reading "suspended"; nothing may stay scheduled behind it.
+            cancelReminders()
+            return .scheduleFailed
+        }
+        guard isStillWanted() else {
+            cancelReminders()
+            return .cancelled
+        }
+        return .resumed
     }
 
     @MainActor

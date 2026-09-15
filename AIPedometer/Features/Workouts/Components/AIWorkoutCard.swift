@@ -209,7 +209,7 @@ struct AIWorkoutCard: View {
         case .maintain: return DesignTokens.Colors.accent
         case .build: return DesignTokens.Colors.orange
         case .explore: return DesignTokens.Colors.green
-        case .recover: return .pink
+        case .recover: return DesignTokens.Colors.pink
         }
     }
     

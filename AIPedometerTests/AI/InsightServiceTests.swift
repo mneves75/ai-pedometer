@@ -452,6 +452,136 @@ struct InsightServiceTests {
         #expect(foundationModels.respondCallCount == 1)
     }
 
+    @Test("Workout recommendation cached for steps is not served for wheelchair pushes")
+    func workoutRecommendationCacheIsKeyedByActivityMode() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(
+            AIWorkoutRecommendation(
+                intent: .maintain,
+                difficulty: 2,
+                rationale: "Maintain routine",
+                targetSteps: 6000,
+                estimatedMinutes: 30,
+                suggestedTimeOfDay: .anytime
+            )
+        )
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(date: .now, steps: 4000, distance: 0, floors: 0, calories: 0, goal: 10_000)
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        testDefaults.defaults.set(
+            ActivityTrackingMode.steps.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+        _ = try await service.generateWorkoutRecommendation()
+
+        testDefaults.defaults.set(
+            ActivityTrackingMode.wheelchairPushes.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+        _ = try await service.generateWorkoutRecommendation()
+
+        #expect(foundationModels.respondCallCount == 2)
+        #expect(foundationModels.lastPrompt?.contains(ActivityTrackingMode.wheelchairPushes.unitName) == true)
+    }
+
+    @Test("Daily insight cached for steps is not served for wheelchair pushes")
+    func dailyInsightCacheIsKeyedByActivityMode() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(DailyInsight(
+            greeting: "Hello",
+            highlight: "Highlight",
+            suggestion: "Suggestion",
+            encouragement: "Encourage"
+        ))
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(date: .now, steps: 4000, distance: 0, floors: 0, calories: 0, goal: 10_000)
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        testDefaults.defaults.set(
+            ActivityTrackingMode.steps.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+        _ = try await service.generateDailyInsight()
+
+        testDefaults.defaults.set(
+            ActivityTrackingMode.wheelchairPushes.rawValue,
+            forKey: AppConstants.UserDefaultsKeys.activityTrackingMode
+        )
+        _ = try await service.generateDailyInsight()
+
+        #expect(foundationModels.respondCallCount == 2)
+    }
+
+    @Test("Leaving a screen mid-generation does not cache a fallback recommendation")
+    func cancelledWorkoutRecommendationIsNotCached() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let modelStarted = AsyncTestLatch()
+        let neverReleased = AsyncTestLatch()
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.beforeRespond = {
+            modelStarted.signal()
+            // Returns as soon as the calling task is cancelled.
+            await neverReleased.wait(timeout: .seconds(30))
+        }
+        // FoundationModelsService maps the framework's CancellationError to generationFailed.
+        foundationModels.respondResult = .failure(.generationFailed(underlying: "CancellationError"))
+        let healthKit = StubHealthKitService(dailySummaries: [
+            DailyStepSummary(date: .now, steps: 4000, distance: 0, floors: 0, calories: 0, goal: 10_000)
+        ])
+        let service = InsightService(
+            foundationModelsService: foundationModels,
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: testDefaults.defaults),
+            userDefaults: testDefaults.defaults
+        )
+
+        let leavingScreen = Task {
+            try await service.generateWorkoutRecommendation()
+        }
+        await modelStarted.wait()
+        leavingScreen.cancel()
+        _ = try? await leavingScreen.value
+
+        #expect(service.lastError == nil)
+
+        foundationModels.beforeRespond = nil
+        foundationModels.respondResult = .success(
+            AIWorkoutRecommendation(
+                intent: .maintain,
+                difficulty: 2,
+                rationale: "Fresh rationale",
+                targetSteps: 6000,
+                estimatedMinutes: 30,
+                suggestedTimeOfDay: .anytime
+            )
+        )
+        let next = try await service.generateWorkoutRecommendation()
+
+        #expect(foundationModels.respondCallCount == 2)
+        #expect(next.rationale == "Fresh rationale")
+    }
+
     @Test("Weekly analysis uses fallback when no data is available")
     func weeklyAnalysisFallsBackWhenNoData() async throws {
         let testDefaults = TestUserDefaults()

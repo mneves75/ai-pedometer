@@ -99,6 +99,24 @@ struct HealthKitToolTests {
         #expect(line(after: statusPrefix, in: response)?.contains(goalMet) ?? false)
     }
 
+    @Test("HealthKit data tool clamps model-supplied days to 1...90", arguments: zip([0, 90, 10_000], [1, 90, 90]))
+    func healthKitDataToolClampsDays(requested: Int, fetched: Int) async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        let goalService = GoalService(persistence: PersistenceController(inMemory: true))
+        let healthKit = MockHealthKitService()
+        let tool = HealthKitDataTool(
+            healthKitService: healthKit,
+            goalService: goalService,
+            userDefaultsSuiteName: testDefaults.suiteName
+        )
+
+        _ = try await tool.call(arguments: .init(days: requested))
+
+        #expect(healthKit.lastFetchDailySummariesArgs?.days == fetched)
+    }
+
     @Test("HealthKit data tool skips when sync disabled")
     func healthKitDataToolSkipsWhenSyncDisabled() async throws {
         let testDefaults = TestUserDefaults()

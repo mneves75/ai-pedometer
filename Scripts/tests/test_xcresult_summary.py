@@ -65,7 +65,12 @@ class ValidationErrorsTests(unittest.TestCase):
     def test_rejects_negative_counts(self) -> None:
         from dataclasses import replace
 
-        self.assertTrue(xcresult_summary.validation_errors(replace(make_summary(), skipped=-1)))
+        # Consistent total (1 = 2 + 0 + -1) so ONLY the negative-count clause can reject it; a
+        # skipped=-1 on its own also trips the skipped and sum checks and cannot fail for this reason.
+        errors = xcresult_summary.validation_errors(
+            replace(make_summary(total=1), passed=2, failed=0, skipped=-1)
+        )
+        self.assertIn("contagens de testes inconsistentes", errors)
 
 
 class CountParsingTests(unittest.TestCase):

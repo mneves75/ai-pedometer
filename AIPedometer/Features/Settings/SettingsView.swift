@@ -32,6 +32,10 @@ struct SettingsView: View {
     @State private var isUpdatingNotifications = false
     @State private var isUpdatingSmartReminders = false
     @State private var smartReminderUpdateGeneration = 0
+    // Whether the operation that owns the newest generation schedules a reminder (resume or enable) rather
+    // than cancelling one. Every scheduling path shares one request identifier, so a stale completion defers
+    // to a newer scheduler instead of cancelling the reminder that scheduler owns.
+    @State private var smartReminderNewestOwnerSchedules = false
     @State private var showHealthHelp = false
 
     private var activityMode: ActivityTrackingMode {
@@ -325,7 +329,7 @@ struct SettingsView: View {
 
             Toggle(isOn: $healthKitEnabled) {
                 Label(L10n.localized("HealthKit Sync", comment: "Settings toggle for HealthKit synchronization"), systemImage: "heart.fill")
-                    .foregroundStyle(.pink)
+                    .foregroundStyle(DesignTokens.Colors.pink)
             }
             .onChange(of: healthKitEnabled) {
                 HapticService.shared.selection()
@@ -565,6 +569,7 @@ struct SettingsView: View {
 
     private func updateSmartReminders(enabled: Bool) async {
         smartReminderUpdateGeneration &+= 1
+        smartReminderNewestOwnerSchedules = false
         let updateGeneration = smartReminderUpdateGeneration
         isUpdatingSmartReminders = true
         defer {
@@ -594,6 +599,7 @@ struct SettingsView: View {
         }
 
         if enabled {
+            smartReminderNewestOwnerSchedules = true
             let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
                 isCurrent: { smartReminderUpdateGeneration == updateGeneration },
                 isEnabled: { smartRemindersEnabled },
@@ -616,9 +622,12 @@ struct SettingsView: View {
             case .stale:
                 break
             case .authorizationDenied:
+                // A stale resume that deferred to this owner may have left a request pending.
+                smartNotificationService.cancelAllSmartNotifications()
                 smartRemindersEnabled = false
                 smartRemindersSuspendedByAccess = false
             case .scheduleFailed:
+                smartNotificationService.cancelAllSmartNotifications()
                 smartRemindersEnabled = false
                 smartRemindersSuspendedByAccess = false
                 showNotificationAlert(
@@ -654,6 +663,7 @@ struct SettingsView: View {
             // required…", so the state stays legible, and the user's preference survives so reminders
             // resume automatically if they resubscribe. Only explicit user action clears it.
             smartReminderUpdateGeneration &+= 1
+            smartReminderNewestOwnerSchedules = false
             smartNotificationService.cancelAllSmartNotifications()
             smartRemindersSuspendedByAccess = true
             isUpdatingSmartReminders = false
@@ -663,6 +673,7 @@ struct SettingsView: View {
             // still be downloading), so destroying the preference would punish the user for a temporary
             // device state. Automatic enforcement never clears the preference; only the user does.
             smartReminderUpdateGeneration &+= 1
+            smartReminderNewestOwnerSchedules = false
             smartNotificationService.cancelAllSmartNotifications()
             smartRemindersSuspendedByAccess = true
             isUpdatingSmartReminders = false
@@ -682,26 +693,31 @@ struct SettingsView: View {
         ) == .resume else { return false }
 
         smartReminderUpdateGeneration &+= 1
+        smartReminderNewestOwnerSchedules = true
         let generation = smartReminderUpdateGeneration
-        let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
-            at: AppConstants.Notifications.defaultSmartReminderHour,
-            minute: AppConstants.Notifications.defaultSmartReminderMinute
+        let result = await SettingsSideEffects.resumeSuspendedSmartReminder(
+            isCurrent: { smartReminderUpdateGeneration == generation },
+            newestOwnerSchedules: { smartReminderNewestOwnerSchedules },
+            // Same post-await eligibility re-check the scheduling path uses: generating content takes
+            // seconds, during which the user can toggle off or entitlement can lapse again.
+            isStillWanted: {
+                let lostEntitlement = premiumAccessStore.hasAuthoritativeAccessState
+                    && !premiumAccessStore.canAccessAIFeatures
+                return smartRemindersEnabled && !lostEntitlement
+            },
+            scheduleReminder: {
+                await smartNotificationService.scheduleMotivationalReminder(
+                    at: AppConstants.Notifications.defaultSmartReminderHour,
+                    minute: AppConstants.Notifications.defaultSmartReminderMinute
+                )
+            },
+            cancelReminders: { smartNotificationService.cancelAllSmartNotifications() }
         )
-        guard didSchedule else { return true }
 
-        // Same post-await eligibility re-check the scheduling path uses: generating content takes seconds,
-        // during which the user can toggle off or entitlement can lapse again.
-        let lostEntitlement = premiumAccessStore.hasAuthoritativeAccessState
-            && !premiumAccessStore.canAccessAIFeatures
-        guard smartReminderUpdateGeneration == generation,
-              smartRemindersEnabled,
-              !lostEntitlement else {
-            smartNotificationService.cancelAllSmartNotifications()
-            return true
+        if result == .resumed {
+            smartRemindersSuspendedByAccess = false
+            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "access_restored"])
         }
-
-        smartRemindersSuspendedByAccess = false
-        Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "access_restored"])
         return true
     }
 

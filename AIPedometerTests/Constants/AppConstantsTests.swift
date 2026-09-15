@@ -71,9 +71,31 @@ struct AppConstantsTests {
     func resolveAppStoreIDPrefersEnvironmentValue() {
         let value = AppConstants.resolveAppStoreID(
             bundle: .main,
-            environment: ["APP_STORE_ID": "1122334455"]
+            environment: ["APP_STORE_ID": "1122334455"],
+            allowsEnvironmentOverrides: true
         )
         #expect(value == "1122334455")
+    }
+
+    @Test("Release ignores APP_STORE_ID from the launch environment")
+    func resolveAppStoreIDIgnoresEnvironmentWhenOverridesAreDisallowed() throws {
+        let fileManager = FileManager.default
+        let tempRoot = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bundleURL = tempRoot.appendingPathComponent("TestApp.bundle", isDirectory: true)
+        try fileManager.createDirectory(at: bundleURL, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: tempRoot) }
+
+        let plist: [String: Any] = ["CFBundleIdentifier": "com.example.test", "AppStoreID": "987654321"]
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        try data.write(to: bundleURL.appendingPathComponent("Info.plist"), options: .atomic)
+        let bundle = try #require(Bundle(url: bundleURL))
+
+        let value = AppConstants.resolveAppStoreID(
+            bundle: bundle,
+            environment: ["APP_STORE_ID": "1122334455"],
+            allowsEnvironmentOverrides: false
+        )
+        #expect(value == "987654321")
     }
 
     @Test

@@ -79,6 +79,25 @@ out="$(run_selector "${XCODE_25}" "${XCODE_25}" "${XCODE_27}")"
 out="$(run_selector "${XCODE_25}" "${XCODE_26}" "${XCODE_25}")"
 [[ "${out}" == *"SELECTED=${XCODE_26}"* ]] || fail "Expected fallthrough to AIPEDOMETER_XCODE_FALLBACK."
 
+# The consumers (e2e-simulator.sh, install-on-device.sh, test-payments-device.sh) call the selector
+# bare under `set -euo pipefail`. A candidate that cannot run `xcodebuild -version` — a missing
+# directory, or xcode-select pointing at Command Line Tools — must fall through to the fallback
+# instead of tripping errexit and killing the caller silently.
+out="$(PATH="${FAKE_BIN}:${PATH}" \
+  DEVELOPER_DIR="${TMP_DIR}/missing/Contents/Developer" \
+  AIPEDOMETER_XCODE_FALLBACK="${XCODE_27}" \
+  FAKE_XCODE_SELECT_PATH="${TMP_DIR}/CommandLineTools" \
+  AIPEDOMETER_SUPPORTED_XCODE_MAJORS="26 27" \
+  AIPEDOMETER_XCODE_DEVELOPER_DIR="" \
+  /bin/bash -c '
+    set -euo pipefail
+    source "$1"
+    aipedometer_select_xcode
+    printf "SELECTED=%s\n" "${DEVELOPER_DIR}"
+  ' _ "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh" 2>&1)" \
+  || fail "Selector aborted under set -e on an unusable candidate: ${out}"
+[[ "${out}" == *"SELECTED=${XCODE_27}"* ]] || fail "Expected errexit-safe fallthrough to the fallback, got: ${out}"
+
 # An explicit pin wins over every other candidate.
 out="$(run_selector "${XCODE_27}" "${XCODE_27}" "${XCODE_27}" "26 27" "${XCODE_26}")"
 [[ "${out}" == *"SELECTED=${XCODE_26}"* ]] || fail "Expected AIPEDOMETER_XCODE_DEVELOPER_DIR to win."

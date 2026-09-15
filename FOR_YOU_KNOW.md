@@ -72,8 +72,16 @@ HealthKit authorization. The adapter resolves `HKMetadataKeyExternalUUID` before
 export so a crash after HealthKit commits cannot create a duplicate. Preserve the
 V1→V2 migration and idempotency tests when changing this path.
 
-Historical activity uses `GoalService.goal(for:)` for each summary date. The
-current goal is only a fallback when no historical goal exists.
+Historical activity uses `GoalService.goal(forDayContaining:)` for each summary date: the
+latest-starting goal active at any moment of that day, so a goal changed at 14:00 judges the whole day,
+matching the dashboard. It is overlap-based, not an end-of-day instant, because stores written before
+`setGoal` shared one `now` can hold a gap at the boundary. `goal(for:)` keeps exact-instant semantics.
+The current goal is only a fallback when no historical goal exists.
+
+Settings runs smart-reminder recovery from three `.task(id:)` modifiers, and every scheduling path uses
+one request identifier. `SettingsSideEffects.resumeSuspendedSmartReminder` therefore lets a stale
+completion defer to a newer owner that also schedules, instead of cancelling that owner's request; the
+current owner cancels if its own attempt fails.
 
 ## Health, AI and premium boundaries
 
@@ -178,11 +186,11 @@ or battery usage.
   localization assertions written that way cannot fail. Two suites had encoded the
   missing translations as expected behavior and only failed once the strings were
   actually translated. Assert the resolved value, not mere non-emptiness.
-  Still open (2026-09-10): 14 such assertions remain in `LocalizationTests` and
-  `PluralTests` for English-source keys, where `localized != key` is *not* a valid fix
-  because the catalog key legitimately is the English string. The real fix is one test
-  asserting each key exists in `Localizable.xcstrings`; the pt-BR suites already assert
-  `localized != key` and are fine.
+  For English-source keys `localized != key` is *not* a valid fix, because the catalog key
+  legitimately is the English string; assert catalog membership instead (1.0.1 did this for
+  the key lists in `LocalizationTests`, with a negative control). The literal-scan test in
+  `StringCatalogCompletenessTests` skips interpolated literals (`"\(count) days"`), whose
+  keys depend on argument types; pluralized keys are asserted with literal values in `PluralTests`.
 - A test must not assert a result against the same constant that produced it. While adding
   the GPX route-name bound, the first version of the regression asserted
   `route.name.count <= GPXRouteParser.maxRouteNameCharacters` — which passes for *any* value
@@ -212,11 +220,27 @@ or battery usage.
   `Scripts/preflight.sh`), not a better-worded instruction. Published analysis of agent
   instruction files puts prose compliance around 25–40% against roughly 95% for an enforced gate;
   prefer converting a lesson here into a gate whenever the lesson is mechanically checkable.
+- A capability that fails closed without a log looks like a user setting. `NSSupportsLiveActivities`
+  was missing from `Info.plist` for the app's whole life, so `areActivitiesEnabled` was false and no
+  workout ever showed a Live Activity; nine audits read `LiveActivityManager` and none noticed. Keys that
+  gate a whole feature get a source-plist test (`PrivacyManifestPresenceTests`).
+- Foundation Models error types depend on the SDK: 26 throws `LanguageModelSession.GenerationError`,
+  27 adds `LanguageModelError`, `SystemLanguageModel.Error`, `LanguageModelSession.Error` and
+  `GeneratedContent.ParsingError`. Map both in `AIServiceError.fromFoundationModels`, and wrap 27-only
+  types in `#if compiler(>=6.3)` as well as `#available`: CI builds with Xcode 26.3, where the types do
+  not exist and `#available` alone does not compile.
+- When the lead delegates to parallel subagents, a shared account session limit can stop all of them at
+  once mid-change. Workers that write the failing test first leave a tree that still builds and whose red
+  tests describe the unfinished work; that is what made the 1.0.1 pass recoverable.
 - When a structural argument and an experiment disagree, the experiment wins. Bisect
   before defending a hypothesis, and scope any find/replace to the specific call.
 
 ## Settled non-findings (do not re-audit)
 
+- `ActiveWorkoutView` labels its count "Steps" in every activity mode on purpose: workout metrics come
+  from `CMPedometer` via `WorkoutLiveMetricsSource`, which counts steps even for wheelchair users.
+- Sibling `.glassCard()` surfaces are not wrapped in `GlassEffectContainer`: shapes inside the container's
+  spacing blend into one, which would merge separate cards, and no measured rendering cost justifies it.
 - `ProgressClamp.percent` intentionally has no high-side clamp. It guards `isFinite`
   and clamps low to zero; the watch's 32-bit `Int` would only trap above roughly
   21 million times the goal, which real step data cannot reach.

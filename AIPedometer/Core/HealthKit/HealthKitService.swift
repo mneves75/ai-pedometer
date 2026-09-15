@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import os
 
 /// A single heart-rate sample plus the timestamp it was recorded at. Exposing the timestamp
 /// lets the UI display a freshness label ("12m ago") so a stale sample no longer reads as
@@ -14,6 +15,68 @@ struct HealthKitQuantityQuerySpec: @unchecked Sendable {
     let unit: HKUnit
     let options: HKStatisticsOptions
     let predicateOptions: HKQueryOptions
+}
+
+/// Bridges one callback-based `HKQuery` to async/await with cancellation.
+///
+/// A plain checked continuation ignores task cancellation: when a background refresh expires, its task is
+/// cancelled but the query keeps running and the task stays suspended until HealthKit calls back. Cancelling
+/// here stops the query and resumes at once with `CancellationError`; the query's own late callback is then a
+/// no-op, so the continuation resumes exactly once. Single use: one bridge per query.
+nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
+    private enum State: Sendable {
+        case idle
+        case waiting(CheckedContinuation<Value, any Error>)
+        case finished
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(initialState: .idle)
+
+    /// Delivers the query's result. Ignored once the bridge has already resumed or was cancelled.
+    func resume(with result: Result<Value, any Error>) {
+        let pending: CheckedContinuation<Value, any Error>? = state.withLock { state in
+            guard case .waiting(let continuation) = state else { return nil }
+            state = .finished
+            return continuation
+        }
+        pending?.resume(with: result)
+    }
+
+    func run(
+        execute: @Sendable () -> Void,
+        stop: @escaping @Sendable () -> Void
+    ) async throws -> Value {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let cancelledBeforeStart = state.withLock { state -> Bool in
+                    guard case .idle = state else { return true }
+                    state = .waiting(continuation)
+                    return false
+                }
+                if cancelledBeforeStart {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                execute()
+            }
+        } onCancel: {
+            stop()
+            let pending: CheckedContinuation<Value, any Error>? = state.withLock { state in
+                switch state {
+                case .idle:
+                    // The operation has not stored its continuation yet; it will see this and not start.
+                    state = .finished
+                    return nil
+                case .waiting(let continuation):
+                    state = .finished
+                    return continuation
+                case .finished:
+                    return nil
+                }
+            }
+            pending?.resume(throwing: CancellationError())
+        }
+    }
 }
 
 @MainActor
@@ -115,29 +178,32 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
 
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictEndDate)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: heartRateType,
-                predicate: predicate,
-                limit: 1,
-                sortDescriptors: [sort]
-            ) { _, samples, error in
-                if let error {
-                    continuation.resume(throwing: Self.mapQueryError(error))
-                    return
-                }
-
-                guard let sample = samples?.first as? HKQuantitySample else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-
-                let unit = HKUnit.count().unitDivided(by: .minute())
-                let bpm = sample.quantity.doubleValue(for: unit)
-                continuation.resume(returning: HeartRateSample(bpm: bpm, endDate: sample.endDate))
+        let bridge = HealthKitQueryBridge<HeartRateSample?>()
+        let query = HKSampleQuery(
+            sampleType: heartRateType,
+            predicate: predicate,
+            limit: 1,
+            sortDescriptors: [sort]
+        ) { _, samples, error in
+            if let error {
+                bridge.resume(with: .failure(Self.mapQueryError(error)))
+                return
             }
-            healthStore.execute(query)
+
+            guard let sample = samples?.first as? HKQuantitySample else {
+                bridge.resume(with: .success(nil))
+                return
+            }
+
+            let unit = HKUnit.count().unitDivided(by: .minute())
+            let bpm = sample.quantity.doubleValue(for: unit)
+            bridge.resume(with: .success(HeartRateSample(bpm: bpm, endDate: sample.endDate)))
         }
+        let healthStore = self.healthStore
+        return try await bridge.run(
+            execute: { healthStore.execute(query) },
+            stop: { healthStore.stop(query) }
+        )
     }
 
     nonisolated static func isNoDataError(_ error: any Error) -> Bool {
@@ -506,27 +572,29 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             options: spec.predicateOptions
         )
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double, any Error>) in
-            let query = HKStatisticsQuery(
-                quantityType: quantityType,
-                quantitySamplePredicate: predicate,
-                options: spec.options
-            ) { _, statistics, error in
-                if let error {
-                    Loggers.health.error("healthkit.sum_failed", metadata: [
-                        "type": type.rawValue,
-                        "error": String(describing: error),
-                    ])
-                    continuation.resume(throwing: Self.mapQueryError(error))
-                    return
-                }
-
-                let value = statistics?.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
-                continuation.resume(returning: value)
+        let bridge = HealthKitQueryBridge<Double>()
+        let query = HKStatisticsQuery(
+            quantityType: quantityType,
+            quantitySamplePredicate: predicate,
+            options: spec.options
+        ) { _, statistics, error in
+            if let error {
+                Loggers.health.error("healthkit.sum_failed", metadata: [
+                    "type": type.rawValue,
+                    "error": String(describing: error),
+                ])
+                bridge.resume(with: .failure(Self.mapQueryError(error)))
+                return
             }
 
-            self.healthStore.execute(query)
+            let value = statistics?.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
+            bridge.resume(with: .success(value))
         }
+        let healthStore = self.healthStore
+        return try await bridge.run(
+            execute: { healthStore.execute(query) },
+            stop: { healthStore.stop(query) }
+        )
     }
 
     private func fetchDailyTotalsCollection(

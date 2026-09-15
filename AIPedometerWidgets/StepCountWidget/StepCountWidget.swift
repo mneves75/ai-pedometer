@@ -38,11 +38,21 @@ struct StepCountContentView: View {
         ProgressClamp.unitInterval(data.goalProgress)
     }
 
+    private var countLabel: String {
+        switch data.activityMode {
+        case .steps:
+            L10n.localized("Steps", comment: "Widget label for steps")
+        case .wheelchairPushes:
+            // No capitalized catalog entry exists for pushes; the localized unit name is capitalized instead.
+            data.activityMode.unitName.localizedCapitalized
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
                 HStack {
-                    Label(L10n.localized("Steps", comment: "Widget label for steps"), systemImage: "figure.walk")
+                    Label(countLabel, systemImage: data.activityMode.iconName)
                         .font(DesignTokens.Typography.caption.weight(.semibold))
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                         .lineLimit(1)

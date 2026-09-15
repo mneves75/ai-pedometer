@@ -96,6 +96,53 @@ struct GoalServiceTests {
         #expect(goals.first?.updatedAt == originalUpdatedAt)
     }
 
+    @Test("setGoal does not open a second goal when existing goals cannot be read")
+    func setGoalFailsClosedWhenActiveGoalFetchFails() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        context.insert(StepGoal(dailySteps: 9_000, startDate: Date(timeIntervalSince1970: 1_600_000_000)))
+        try context.save()
+
+        let service = GoalService(
+            persistence: persistence,
+            fetchGoals: { _, _ in throw CocoaError(.fileReadUnknown) }
+        )
+
+        #expect(service.setGoal(11_000) == false)
+        try context.save()
+
+        let goals = try context.fetch(FetchDescriptor<StepGoal>())
+        #expect(goals.count == 1)
+        #expect(goals.first?.dailySteps == 9_000)
+        #expect(goals.first?.endDate == nil)
+    }
+
+    @Test("Day-level goal lookup judges a day by the goal in effect at its end")
+    func dayGoalLookupUsesGoalInEffectAtEndOfDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "America/Sao_Paulo"))
+        let todayStart = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 15)))
+        let yesterdayStart = try #require(calendar.date(byAdding: .day, value: -1, to: todayStart))
+        let twoDaysAgo = try #require(calendar.date(byAdding: .day, value: -2, to: todayStart))
+        let changedAt = try #require(calendar.date(byAdding: .hour, value: 14, to: todayStart))
+
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        context.insert(StepGoal(dailySteps: 8_000, startDate: twoDaysAgo, endDate: changedAt))
+        context.insert(StepGoal(dailySteps: 10_000, startDate: changedAt))
+        try context.save()
+
+        let service = GoalService(persistence: persistence)
+
+        #expect(service.goal(forDayContaining: todayStart, calendar: calendar) == 10_000)
+        #expect(service.goal(forDayContaining: yesterdayStart, calendar: calendar) == 8_000)
+        #expect(service.goal(forDayContaining: twoDaysAgo, calendar: calendar) == 8_000)
+        let beforeFirstGoal = try #require(calendar.date(byAdding: .day, value: -3, to: todayStart))
+        #expect(service.goal(forDayContaining: beforeFirstGoal, calendar: calendar) == nil)
+        // The exact-instant lookup keeps its semantics for other callers.
+        #expect(service.goal(for: todayStart) == 8_000)
+    }
+
     @Test("goal(for:) returns goal that matches date range")
     func goalForDateReturnsMatchingGoal() throws {
         let persistence = PersistenceController(inMemory: true)

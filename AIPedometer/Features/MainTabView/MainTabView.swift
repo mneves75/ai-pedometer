@@ -124,7 +124,7 @@ struct MainTabView: View {
         .tint(DesignTokens.Colors.accent)
         #if os(iOS)
         .toolbarBackground(.ultraThickMaterial, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
         #endif
         .accessibilityIdentifier(A11yID.mainTabBar)
     }
@@ -156,6 +156,10 @@ struct MainTabView: View {
             NavigationStack {
                 tabContent(for: selectedTab)
             }
+            // One stack serves every sidebar item, and pushes use destination links that no path binding
+            // records. A new identity per selection resets the stack, so a detail pushed under one item
+            // (Workouts → Training Plan) cannot stay above the next item's root.
+            .id(selectedTab)
         }
         .accessibilityIdentifier(A11yID.mainSplitView)
     }
@@ -188,11 +192,82 @@ struct MainTabView: View {
 }
 
 #Preview("iPhone") {
-    MainTabView()
-        .environment(\.horizontalSizeClass, .compact)
+    MainTabView.previewWithServices(.compact)
 }
 
 #Preview("iPad") {
-    MainTabView()
-        .environment(\.horizontalSizeClass, .regular)
+    MainTabView.previewWithServices(.regular)
 }
+
+#if DEBUG
+extension MainTabView {
+    /// Every tab root reads services from the environment; without them the preview crashes at runtime
+    /// even though it builds. Mirrors the injection in `AIPedometerApp` with demo and in-memory backends.
+    @MainActor
+    static func previewWithServices(_ sizeClass: UserInterfaceSizeClass) -> some View {
+        let persistence = PersistenceController(inMemory: true)
+        let modelContext = persistence.container.mainContext
+        let demoModeStore = DemoModeStore()
+        let healthKitService = HealthKitServiceFallback(demoModeStore: demoModeStore)
+        let healthAuthorization = HealthKitAuthorization()
+        let fmService = FoundationModelsService()
+        let goalService = GoalService(persistence: persistence)
+        let badgeService = BadgeService(persistence: persistence)
+        let dataStore = SharedDataStore()
+        let trackingService = StepTrackingService(
+            healthKitService: healthKitService,
+            motionService: MotionService(),
+            healthAuthorization: healthAuthorization,
+            goalService: goalService,
+            badgeService: badgeService,
+            dataStore: dataStore,
+            streakCalculator: StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
+        )
+
+        return MainTabView()
+            .environment(\.horizontalSizeClass, sizeClass)
+            .environment(healthAuthorization)
+            .environment(trackingService)
+            .environment(fmService)
+            .environment(InsightService(
+                foundationModelsService: fmService,
+                healthKitService: healthKitService,
+                goalService: goalService,
+                dataStore: dataStore
+            ))
+            .environment(CoachService(
+                foundationModelsService: fmService,
+                healthKitService: healthKitService,
+                goalService: goalService
+            ))
+            .environment(TrainingPlanService(
+                foundationModelsService: fmService,
+                healthKitService: healthKitService,
+                goalService: goalService,
+                modelContext: modelContext
+            ))
+            .environment(WorkoutSessionController(
+                modelContext: modelContext,
+                healthKitService: healthKitService,
+                metricsSource: MotionLiveMetricsSource(motionService: MotionService()),
+                liveActivityManager: NoopLiveActivityManager()
+            ))
+            .environment(badgeService)
+            .environment(HealthKitSyncService(
+                healthKitService: healthKitService,
+                modelContext: modelContext,
+                goalService: goalService
+            ))
+            .environment(demoModeStore)
+            .environment(NotificationService())
+            .environment(SmartNotificationService(
+                foundationModelsService: fmService,
+                healthKitService: healthKitService,
+                goalService: goalService
+            ))
+            .environment(TipJarStore())
+            .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
+            .modelContainer(persistence.container)
+    }
+}
+#endif

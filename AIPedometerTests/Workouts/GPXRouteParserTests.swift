@@ -166,6 +166,68 @@ struct GPXRouteParserTests {
         }
     }
 
+    @Test("finite but physically impossible elevations cannot overflow route totals")
+    func ignoresPhysicallyImpossibleElevations() throws {
+        let data = Data("""
+        <?xml version="1.0"?>
+        <gpx version="1.1">
+          <trk><trkseg>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>-1e308</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>1e308</ele></trkpt>
+            <trkpt lat="37.33382" lon="-122.03318"><ele>100</ele></trkpt>
+            <trkpt lat="37.33482" lon="-122.03418"><ele>8848</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        let route = try GPXRouteParser.parse(data: data, sourceFilename: "extreme.gpx")
+        #expect(route.elevationGainMeters.isFinite)
+        #expect(route.estimatedDuration.isFinite)
+        // Real summit data stays usable: only the impossible samples are dropped.
+        #expect(route.elevationGainMeters == 8748)
+        #expect(route.elevationLossMeters == 0)
+        #expect(throws: Never.self) { try ImportedRouteStorage.save(route, defaults: TestUserDefaults().defaults) }
+    }
+
+    @Test("a route name taken from a long filename is bounded like a <name>")
+    func boundsFilenameFallbackRouteName() throws {
+        let data = Data("""
+        <?xml version="1.0"?>
+        <gpx version="1.1"><trk><trkseg>
+          <trkpt lat="37.33182" lon="-122.03118"/><trkpt lat="37.33282" lon="-122.03218"/>
+        </trkseg></trk></gpx>
+        """.utf8)
+        let filename = String(repeating: "B", count: 250) + ".gpx"
+
+        let route = try GPXRouteParser.parse(data: data, sourceFilename: filename)
+        #expect(route.name.count == 200)
+    }
+
+    @Test("routes saved by older builds load with the same name bound")
+    func loadBoundsLegacyStoredRouteName() throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let legacy = ImportedRoute(
+            id: UUID(),
+            name: String(repeating: "C", count: 5_000),
+            sourceFilename: "legacy.gpx",
+            importedAt: Date(timeIntervalSince1970: 2_000),
+            pointCount: 2,
+            waypointCount: 0,
+            distanceMeters: 500,
+            elevationGainMeters: 5,
+            elevationLossMeters: 2,
+            estimatedDuration: 360,
+            previewPoints: []
+        )
+        testDefaults.defaults.set(try JSONEncoder().encode(legacy), forKey: "importedRouteUnderTest")
+
+        let loaded = try #require(ImportedRouteStorage.load(defaults: testDefaults.defaults, key: "importedRouteUnderTest"))
+        #expect(loaded.name.count == 200)
+        #expect(loaded.id == legacy.id)
+        #expect(loaded.distanceMeters == legacy.distanceMeters)
+    }
+
     @Test
     func savesLoadsAndClearsImportedRoute() throws {
         let suiteName = "ImportedRouteStorageTests.\(UUID().uuidString)"
@@ -295,7 +357,7 @@ struct GPXRouteParserTests {
         // Assert a LITERAL bound, never `maxRouteNameCharacters`. Comparing the result against the
         // same constant that produced it is satisfied by any value of that constant, so raising the
         // cap back to 1,000,000 would still pass — the test would prove nothing.
-        #expect(route.name.count <= 1_000, "A hostile <name> must not reach storage at full length")
+        #expect(route.name.count == 200, "A hostile <name> must be cut to the documented 200 characters")
         #expect(route.name.count < hostileName.count)
         #expect(route.name.allSatisfy { $0 == "A" })
     }

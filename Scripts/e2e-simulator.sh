@@ -393,7 +393,7 @@ def safe_filename(name: str) -> str:
     name = name.strip()
     name = re.sub(r"[\r\n\t]", " ", name)
     name = name.replace("/", "_")
-    name = re.sub(r"\\s+", " ", name)
+    name = re.sub(r"\s+", " ", name)
     return name
 
 for entry in manifest:

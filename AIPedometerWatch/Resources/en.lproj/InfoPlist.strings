@@ -1,1 +1,1 @@
-"NSHealthShareUsageDescription" = "AI Pedometer needs access to your step count and activity data to show your progress.";
+/* The watch app requests no permissions: it has no HealthKit entitlement and receives snapshots from the iPhone. */

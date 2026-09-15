@@ -15,12 +15,11 @@ struct AIPedometerWatchApp: App {
 struct WatchRootView: View {
     let syncClient: WatchSyncClient
 
-    private var distanceMeters: Double {
-        Double(syncClient.payload.todaySteps) * AppConstants.Metrics.averageStepLengthMeters
-    }
-
-    private var distanceText: String {
-        distanceMeters.formattedDistance()
+    /// Estimated from an average step length, which means nothing for wheelchair pushes.
+    private var distanceText: String? {
+        guard syncClient.payload.activityMode == .steps else { return nil }
+        let meters = Double(syncClient.payload.todaySteps) * AppConstants.Metrics.averageStepLengthMeters
+        return meters.formattedDistance()
     }
 
     var body: some View {
@@ -28,6 +27,7 @@ struct WatchRootView: View {
             steps: syncClient.payload.todaySteps,
             goal: syncClient.payload.goalSteps,
             streak: syncClient.payload.currentStreak,
+            activityMode: syncClient.payload.activityMode,
             distanceText: distanceText
         )
     }

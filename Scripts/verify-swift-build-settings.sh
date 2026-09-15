@@ -25,26 +25,34 @@ if [[ ! -f "${PROJECT_FILE}" ]]; then
   exit 1
 fi
 
-developer_dir="${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"
-if [[ -z "${developer_dir}" || ! -d "${developer_dir}" ]]; then
-  echo "ERRO: nenhum Xcode selecionado; defina DEVELOPER_DIR ou rode xcode-select." >&2
+# Validate against the toolchain the build scripts would actually use, including an
+# AIPEDOMETER_XCODE_DEVELOPER_DIR pin, not whatever xcode-select happens to point at.
+# shellcheck source=Scripts/lib/xcode-toolchain.sh
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh"
+if ! aipedometer_select_xcode >/dev/null; then
+  echo "ERRO: nenhum Xcode suportado selecionado; nao da para validar." >&2
   exit 1
 fi
+developer_dir="${DEVELOPER_DIR:?}"
 
-# Swift.xcspec moved between Xcode versions; accept any copy under the selected Developer dir.
-# Built with a read loop, not `mapfile`: macOS ships bash 3.2 as /bin/bash and GitHub's macOS
-# runners use it, so a bash 4 builtin passes locally and dies in CI.
+# SWIFT_* settings are defined in Swift.xcspec, plus a few (SWIFT_EMIT_LOC_STRINGS) in
+# CoreBuildSystem.xcspec. Both files moved between Xcode versions; accept any copy under the
+# selected Developer dir. Built with a read loop, not `mapfile`: macOS ships bash 3.2 as /bin/bash
+# and GitHub's macOS runners use it, so a bash 4 builtin passes locally and dies in CI.
 spec_files=()
 while IFS= read -r spec_path; do
   [[ -n "${spec_path}" ]] && spec_files+=("${spec_path}")
-done < <(find "${developer_dir}/.." -name 'Swift.xcspec' -type f 2>/dev/null)
+done < <(find "${developer_dir}/.." \( -name 'Swift.xcspec' -o -name 'CoreBuildSystem.xcspec' \) -type f 2>/dev/null)
 if [[ "${#spec_files[@]}" -eq 0 ]]; then
   echo "ERRO: Swift.xcspec nao encontrado sob ${developer_dir}; nao da para validar." >&2
   echo "      Uma verificacao que nao encontra sua fonte deve falhar, nunca passar vazia." >&2
   exit 1
 fi
 
-known="$(rg -o --no-filename 'SWIFT_[A-Z0-9_]+' "${spec_files[@]:-}" 2>/dev/null | sort -u)"
+# Only DEFINITIONS count (`Name = "SWIFT_X";`). A name that merely appears in a spec — SWIFT_FLAGS
+# inside OTHER_SWIFT_FLAGS, or a setting referenced from a condition — is not something Xcode reads.
+known="$(rg -o --no-filename --replace '$1' '^\s*Name\s*=\s*"?(SWIFT_[A-Z0-9_]+)"?\s*;' "${spec_files[@]}" 2>/dev/null | sort -u)"
 if [[ -z "${known}" ]]; then
   echo "ERRO: nenhum nome SWIFT_* extraido de Swift.xcspec; extracao quebrada." >&2
   exit 1
@@ -56,10 +64,6 @@ declared="$(rg -o '^\s*(SWIFT_[A-Z0-9_]+)\s*:' --replace '$1' "${PROJECT_FILE}" 
 unknown=()
 while IFS= read -r setting; do
   [[ -n "${setting}" ]] || continue
-  # SWIFT_VERSION and a few well-known keys live outside Swift.xcspec in some Xcode layouts.
-  case "${setting}" in
-    SWIFT_VERSION|SWIFT_COMPILATION_MODE|SWIFT_EMIT_LOC_STRINGS|SWIFT_TREAT_WARNINGS_AS_ERRORS) continue ;;
-  esac
   if ! printf '%s\n' "${known}" | grep -qx "${setting}"; then
     unknown+=("${setting}")
   fi

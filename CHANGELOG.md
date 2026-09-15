@@ -5,6 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-15
+
+Full review pass: Standards and Spec code review of everything since `v0.96-beta1`, a source-only
+security review, module best-practice reviews against the Xcode-bundled Apple documentation, Codex
+autoreview, and web research on current expert practice. Every finding and its disposition (fixed,
+refuted, declined with reason, deferred with its external blocker) is recorded in
+`memory/2026-09-15.md`. Versioning moves to three components, the format
+`CFBundleShortVersionString` documents. **Still not shippable to the App Store**: the Release RevenueCat
+key blocker from 1.0 is unchanged.
+
+### Fixed
+
+- **Live Activities never appeared.** `Info.plist` lacked `NSSupportsLiveActivities`, so
+  `ActivityAuthorizationInfo().areActivitiesEnabled` was false and every workout silently skipped its
+  Lock Screen / Dynamic Island activity in every build ever shipped. With the key added, the activity
+  lifecycle was reviewed for the first time under real conditions: a finished workout now ends on its last
+  metrics instead of zeros, a discarded workout and any activity left by a previous process are dismissed
+  immediately, and the launch-time orphan sweep can no longer end the activity a new workout just started.
+- **The AI coach forgot the conversation after the app returned to the foreground.** Every activation
+  rebuilt the `LanguageModelSession`, which holds the transcript, while the chat still showed the earlier
+  exchange. The live session is now kept; when a new one is unavoidable (the model just became available
+  again) the visible conversation is cleared so it matches what the model can see.
+- **A goal changed during the day was judged by the old goal** in history, streaks, synced daily records,
+  AI prompts and training plans, while the dashboard used the new one. Daily consumers now use the goal in
+  effect at the end of each day (`goal(forDayContaining:)`).
+- **Wheelchair pushes were shown as steps on the Apple Watch and widgets**, with a walking distance
+  estimated from them. Snapshots now carry the activity mode (older payloads decode as steps), the watch and
+  widgets show the right unit and icon and hide the step-based distance, and a mode change reaches them
+  immediately. AI recommendations and insights are cached per activity mode.
+- The watch app shows the last snapshot the phone sent after a relaunch instead of a placeholder, and the
+  first snapshot after the phone app launches is no longer dropped while `WCSession` activates.
+- Widget snapshots (for example while adding a widget) no longer show yesterday's total as today's, or the
+  gallery's sample numbers as the user's own.
+- Settings could cancel a premium smart reminder that a concurrent, newer recovery had just scheduled; the
+  toggle stayed on with nothing pending. Premium suspension and preference rules are unchanged.
+- Leaving a screen while an AI recommendation was generating cached the generic fallback for the rest of the
+  day. Cancellation is now distinct from failure throughout HealthKit and AI paths, and HealthKit queries are
+  stopped when their task is cancelled (for example when a background refresh expires).
+- On iOS 27, Foundation Models reports failures through new error types (`LanguageModelError` and
+  siblings); a context overflow showed a generic error instead of the conversation-limit message. Both SDK
+  generations are mapped.
+- A failed database read no longer opens a second active goal or re-awards (and re-celebrates) a badge.
+- History could hide its loading state or start the weekly analysis while a newer reload was still running.
+- On iPad, choosing another sidebar item could leave a pushed detail screen from the previous item on top.
+- "1 days" / "1 waypoints": the streak and waypoint counts use plural forms in English and Portuguese.
+- GPX imports: finite but impossible elevations no longer overflow route totals (which made the import fail),
+  and the 200-character route-name bound now also covers names taken from the filename and routes saved by
+  older builds.
+
+### Security
+
+- Release builds no longer honor the `APP_STORE_ID` launch environment variable, which let anyone launching
+  the app through `devicectl` redirect the review link to another App Store listing. This was the only
+  confirmed finding of the security review (low severity); no medium, high or critical issue was found.
+- The subscription-management fallback opens only `https` links, and the AI health-data tool clamps the
+  model-supplied day range to 1...90 in code rather than relying on the generation guide.
+- CI: `persist-credentials: false` on every checkout, 14-day artifact retention, pushes to the default
+  branch are never cancelled mid-run, beta/RC Xcode images are skipped, and the ast-grep rule tests run.
+- The device-identifier scan is case-insensitive; the entitlements gate rejects HealthKit in the widget and
+  ungated hardened-process keys; the watch privacy manifest declares `CA92.1` (it has no App Group).
+
+### Changed (tooling)
+
+- Script tests and preflight gates run under `/bin/bash` (3.2), matching CI.
+- `verify-swift-build-settings.sh` accepts only settings Xcode actually defines (a name that merely appears
+  inside another, like `SWIFT_FLAGS` in `OTHER_SWIFT_FLAGS`, now fails) and validates against the project's
+  selected toolchain.
+- Fixed toolchain selection dying silently under `set -e` when `xcode-select` points at Command Line Tools,
+  preflight validating against a different Xcode than the one it reported, the RevenueCat staleness check
+  reporting "current" after a malformed upstream SHA, and the TestFlight script exiting silently when a tester
+  could not be added.
+- Seven localization assertions that could never fail now check catalog membership.
+
 ## [1.0] - 2026-09-11
 
 First version numbered for App Store delivery. **It is not shippable yet**: a Release build

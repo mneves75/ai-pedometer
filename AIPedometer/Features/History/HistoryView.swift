@@ -14,6 +14,8 @@ struct HistoryView: View {
     @State private var loadError: String?
     @State private var weeklyAnalysis: WeeklyTrendAnalysis?
     @State private var isLoadingAnalysis = false
+    // Latest-invocation-wins ownership of the load state; see `HistoryAnalysisGate.load`.
+    @State private var loadGeneration = 0
     @State private var showHealthHelp = false
 
     private struct LoadTrigger: Hashable {
@@ -40,7 +42,7 @@ struct HistoryView: View {
         .uiTestMarker(A11yID.History.todaySteps(trackingService.todaySteps))
         .uiTestMarker(A11yID.History.syncEnabled(healthKitSyncEnabled))
         .background(DesignTokens.Colors.surfaceGrouped)
-        .toolbar(.hidden, for: .navigationBar)
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.1)) {
                 animateChart = true
@@ -61,6 +63,9 @@ struct HistoryView: View {
     }
 
     private func loadData(forceRefreshAnalysis: Bool = false) async {
+        loadGeneration &+= 1
+        let generation = loadGeneration
+        let isCurrent: @MainActor () -> Bool = { loadGeneration == generation }
         isLoading = true
         loadError = nil
         resetWeeklyAnalysis()
@@ -68,36 +73,50 @@ struct HistoryView: View {
             isLoading = false
             return
         }
-        let result = await trackingService.refreshWeeklySummaries()
-        isLoading = false
-        if case .failure(let error) = result {
-            loadError = error.localizedDescription
-        }
-
-        if HistoryAnalysisGate.shouldLoadWeeklyAnalysis(
-            syncEnabled: healthKitSyncEnabled,
-            loadError: loadError,
-            summaries: trackingService.weeklySummaries
-        ) {
-            await loadWeeklyAnalysis(forceRefresh: forceRefreshAnalysis)
-        }
+        await HistoryAnalysisGate.load(
+            isCurrent: isCurrent,
+            refreshSummaries: {
+                let result = await trackingService.refreshWeeklySummaries()
+                if case .failure(let error) = result {
+                    return error.localizedDescription
+                }
+                return nil
+            },
+            finishLoading: { error in
+                isLoading = false
+                loadError = error
+            },
+            shouldLoadAnalysis: { error in
+                HistoryAnalysisGate.shouldLoadWeeklyAnalysis(
+                    syncEnabled: healthKitSyncEnabled,
+                    loadError: error,
+                    summaries: trackingService.weeklySummaries
+                )
+            },
+            loadAnalysis: {
+                await loadWeeklyAnalysis(forceRefresh: forceRefreshAnalysis, isCurrent: isCurrent)
+            }
+        )
     }
 
-    private func loadWeeklyAnalysis(forceRefresh: Bool = false) async {
+    private func loadWeeklyAnalysis(forceRefresh: Bool, isCurrent: @escaping @MainActor () -> Bool) async {
         guard premiumAccessStore.canAccessAIFeatures else { return }
         guard foundationModelsService.availability.isAvailable else { return }
 
         isLoadingAnalysis = true
 
+        let analysis: WeeklyTrendAnalysis
         do {
-            weeklyAnalysis = try await insightService.generateWeeklyAnalysis(forceRefresh: forceRefresh)
+            analysis = try await insightService.generateWeeklyAnalysis(forceRefresh: forceRefresh)
         } catch {
-            weeklyAnalysis = weeklyAnalysisEmergencyFallback
+            analysis = weeklyAnalysisEmergencyFallback
             Loggers.ai.warning("ai.weekly_analysis_history_emergency_fallback", metadata: [
                 "error": error.logDescription
             ])
         }
 
+        guard isCurrent() else { return }
+        weeklyAnalysis = analysis
         isLoadingAnalysis = false
     }
 
@@ -353,7 +372,11 @@ struct HistoryView: View {
                 isLoading: isLoadingAnalysis,
                 error: nil,
                 onRetry: {
-                    Task { await loadWeeklyAnalysis(forceRefresh: true) }
+                    // Owned by the current load: a newer load discards this retry's result.
+                    let generation = loadGeneration
+                    Task {
+                        await loadWeeklyAnalysis(forceRefresh: true, isCurrent: { loadGeneration == generation })
+                    }
                 }
             )
             .padding(.horizontal, DesignTokens.Spacing.md)

@@ -56,3 +56,78 @@ struct HistoryAnalysisGateTests {
         #expect(shouldLoad)
     }
 }
+
+@Suite("History load ownership")
+@MainActor
+struct HistoryLoadOwnershipTests {
+    @Test("An older load cannot hide loading or start analysis while a newer load runs")
+    func olderLoadDoesNotPublishOverNewerLoad() async {
+        var generation = 0
+        var isLoading = false
+        var analysisLoads = 0
+        let firstRefreshStarted = HistoryAsyncTestLatch()
+        let releaseFirstRefresh = HistoryAsyncTestLatch()
+        let secondRefreshStarted = HistoryAsyncTestLatch()
+        let releaseSecondRefresh = HistoryAsyncTestLatch()
+
+        // Mirrors `HistoryView.loadData`: bump the generation and show loading, then run the load.
+        func startLoad(started: HistoryAsyncTestLatch, release: HistoryAsyncTestLatch) -> Task<Void, Never> {
+            generation += 1
+            let ownGeneration = generation
+            isLoading = true
+            return Task {
+                await HistoryAnalysisGate.load(
+                    isCurrent: { generation == ownGeneration },
+                    refreshSummaries: {
+                        started.signal()
+                        await release.wait()
+                        return nil
+                    },
+                    finishLoading: { _ in isLoading = false },
+                    shouldLoadAnalysis: { _ in true },
+                    loadAnalysis: { analysisLoads += 1 }
+                )
+            }
+        }
+
+        let first = startLoad(started: firstRefreshStarted, release: releaseFirstRefresh)
+        await firstRefreshStarted.wait()
+        let second = startLoad(started: secondRefreshStarted, release: releaseSecondRefresh)
+        await secondRefreshStarted.wait()
+
+        releaseFirstRefresh.signal()
+        await first.value
+
+        #expect(isLoading)
+        #expect(analysisLoads == 0)
+
+        releaseSecondRefresh.signal()
+        await second.value
+
+        #expect(!isLoading)
+        #expect(analysisLoads == 1)
+    }
+}
+
+@MainActor
+private final class HistoryAsyncTestLatch {
+    private var isSignaled = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isSignaled else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func signal() {
+        guard !isSignaled else { return }
+        isSignaled = true
+        let pendingWaiters = waiters
+        waiters.removeAll()
+        for waiter in pendingWaiters {
+            waiter.resume()
+        }
+    }
+}

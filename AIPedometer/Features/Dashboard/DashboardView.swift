@@ -100,6 +100,15 @@ struct DashboardView: View {
 
     /// Quarter-goal bucket (0...4) used to fire a light haptic at 25/50/75%.
     /// Static and pure so the threshold behavior is unit-testable.
+    /// Streak stat value. Interpolated so the catalog's plural variations apply ("1 day", "2 days").
+    static func streakValueText(days: Int, locale: Locale? = nil) -> String {
+        L10n.localized(
+            "\(Int64(days)) days",
+            locale: locale,
+            comment: "The value of the stat card for the current streak."
+        )
+    }
+
     static func milestoneBucket(progress: Double) -> Int {
         guard progress > 0 else { return 0 }
         return min(Int(progress * 4), 4)
@@ -148,7 +157,7 @@ struct DashboardView: View {
         )
         .background(DesignTokens.Colors.surfaceGrouped)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.2)) {
                 animateProgress = true
@@ -468,14 +477,7 @@ struct DashboardView: View {
             StatItem(
                 icon: "flame.circle",
                 title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
-                value: .text(
-                    Localization.format(
-                        "%lld days",
-                        comment: "The value of the stat card for the current streak.",
-                        Int64(trackingService.currentStreak)
-                    ),
-                    accessibilityValue: nil
-                ),
+                value: .text(Self.streakValueText(days: trackingService.currentStreak), accessibilityValue: nil),
                 color: DesignTokens.Colors.accent,
             )
         ]

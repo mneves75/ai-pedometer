@@ -49,11 +49,11 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" add -- \
 
 AST_GREP_BIN="${PASS_AST_GREP}" \
 GIT_INDEX_FILE="${TEST_INDEX}" \
-bash "${ROOT_DIR}/.githooks/pre-commit"
+/bin/bash "${ROOT_DIR}/.githooks/pre-commit"
 
 if AST_GREP_BIN="${FAIL_AST_GREP}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
-  bash "${ROOT_DIR}/.githooks/pre-commit"; then
+  /bin/bash "${ROOT_DIR}/.githooks/pre-commit"; then
   echo "Expected pre-commit to fail when ast-grep reports a finding." >&2
   exit 1
 fi
@@ -67,7 +67,7 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
 if AST_GREP_BIN="${STAGED_SNAPSHOT_AST_GREP}" \
   STAGED_SNAPSHOT_MARKER="${STAGED_SNAPSHOT_MARKER}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
-  bash "${ROOT_DIR}/.githooks/pre-commit"; then
+  /bin/bash "${ROOT_DIR}/.githooks/pre-commit"; then
   echo "Expected pre-commit to fail for a violation present only in the staged snapshot." >&2
   exit 1
 fi
@@ -92,7 +92,7 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
 
 if AST_GREP_BIN="ast-grep" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
-  bash "${ROOT_DIR}/.githooks/pre-commit" > "${IGNORED_SCAN_OUTPUT}" 2>&1; then
+  /bin/bash "${ROOT_DIR}/.githooks/pre-commit" > "${IGNORED_SCAN_OUTPUT}" 2>&1; then
   echo "Expected pre-commit to reject an ignored path present in the staged snapshot." >&2
   exit 1
 fi
@@ -113,7 +113,7 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
   --add --cacheinfo "100644,${STAGED_DEVICE_BLOB},StagedDevice.txt"
 if AST_GREP_BIN="${PASS_AST_GREP}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
-  bash "${ROOT_DIR}/.githooks/pre-commit" > "${TMP_DIR}/device-scan.txt" 2>&1; then
+  /bin/bash "${ROOT_DIR}/.githooks/pre-commit" > "${TMP_DIR}/device-scan.txt" 2>&1; then
   echo "Expected pre-commit to reject a device identifier present only in the index." >&2
   exit 1
 fi
@@ -131,7 +131,7 @@ GIT_INDEX_FILE="${TEST_INDEX}" git -C "${ROOT_DIR}" update-index \
 
 if AST_GREP_BIN="${PASS_AST_GREP}" \
   GIT_INDEX_FILE="${TEST_INDEX}" \
-  bash "${ROOT_DIR}/.githooks/pre-commit"; then
+  /bin/bash "${ROOT_DIR}/.githooks/pre-commit"; then
   echo "Expected pre-commit to fail but it passed." >&2
   exit 1
 fi

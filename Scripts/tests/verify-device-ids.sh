@@ -38,7 +38,7 @@ EOF
 git -C "${TEST_REPO}" add commands.md
 git -C "${TEST_REPO}" commit -m "Add hardcoded command" >/dev/null
 
-if ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"; then
+if ROOT_DIR="${TEST_REPO}" /bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"; then
   echo "Expected verify-device-identifiers.sh to fail with hardcoded identifiers." >&2
   exit 1
 fi
@@ -51,7 +51,23 @@ EOF
 git -C "${TEST_REPO}" add commands.md
 git -C "${TEST_REPO}" commit -m "Remove hardcoded IDs" >/dev/null
 
-ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
+ROOT_DIR="${TEST_REPO}" /bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
+
+# Identifiers are hex, and devicectl/Xcode print them in either case. A lowercase copy must fail
+# exactly like the uppercase one, while an ordinary lowercase hash must not.
+lowercase_udid="$(printf '%s' "${physical_udid}" | tr 'A-F' 'a-f')"
+printf 'Paired phone: %s\n' "${lowercase_udid}" > "${TEST_REPO}/lowercase.md"
+git -C "${TEST_REPO}" add lowercase.md
+git -C "${TEST_REPO}" commit -m "Add lowercase identifier" >/dev/null
+if ROOT_DIR="${TEST_REPO}" /bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" >/dev/null 2>&1; then
+  echo "Expected a lowercase physical device identifier to fail the scan." >&2
+  exit 1
+fi
+printf 'commit %s\nintegrity sha512-%s\n' "0123456789abcdef0123456789abcdef01234567" "deadbeef" > "${TEST_REPO}/lowercase.md"
+git -C "${TEST_REPO}" add lowercase.md
+git -C "${TEST_REPO}" commit -m "Replace with ordinary hashes" >/dev/null
+ROOT_DIR="${TEST_REPO}" /bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" >/dev/null \
+  || { echo "Expected ordinary lowercase hashes to pass the scan." >&2; exit 1; }
 
 # Only files that actually contain the scanner's own patterns may be allowlisted.
 # A stale future path must not become a hiding place for a device identifier.
@@ -60,7 +76,7 @@ printf 'Device ID: %s\n' "${coredevice_uuid}" > "${TEST_REPO}/Scripts/verify-dev
 git -C "${TEST_REPO}" add Scripts/verify-device-ids.sh
 git -C "${TEST_REPO}" commit -m "Add identifier under stale allowlist path" >/dev/null
 
-if ROOT_DIR="${TEST_REPO}" bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" \
+if ROOT_DIR="${TEST_REPO}" /bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" \
   > "${TMP_DIR}/stale-allowlist.txt" 2>&1; then
   echo "Expected a stale allowlist path to be scanned." >&2
   exit 1
@@ -84,7 +100,7 @@ git -C "${TEST_REPO}" commit -m "Add large allowlisted fixture" >/dev/null
 
 ROOT_DIR="${TEST_REPO}" \
 ALLOWLIST_PATH_REGEX='^allowlisted\.txt$' \
-bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
+/bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh"
 
 MOCK_BIN="${TMP_DIR}/bin"
 mkdir -p "${MOCK_BIN}"
@@ -100,7 +116,7 @@ exec "${AIPEDOMETER_TEST_REAL_GIT}" "$@"
 EOF
 chmod +x "${MOCK_BIN}/git"
 if PATH="${MOCK_BIN}:${PATH}" ROOT_DIR="${TEST_REPO}" \
-  bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" > "${TMP_DIR}/scan-error.txt" 2>&1; then
+  /bin/bash "${PROJECT_ROOT}/Scripts/verify-device-identifiers.sh" > "${TMP_DIR}/scan-error.txt" 2>&1; then
   echo 'Expected Git scan errors to fail closed.' >&2
   exit 1
 fi

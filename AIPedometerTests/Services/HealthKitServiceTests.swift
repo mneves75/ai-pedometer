@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 
 @testable import AIPedometer
@@ -165,5 +166,54 @@ struct PedometerSnapshotTests {
         #expect(snapshot.steps == 9876)
         #expect(snapshot.distance == 7234.5)
         #expect(snapshot.floorsAscended == 12)
+    }
+}
+
+// MARK: - HealthKitQueryBridge Tests
+
+@Suite("HealthKitQueryBridge")
+struct HealthKitQueryBridgeTests {
+    @Test("A completed query returns its value without being stopped")
+    func completedQueryReturnsValue() async throws {
+        let bridge = HealthKitQueryBridge<Int>()
+        let stops = OSAllocatedUnfairLock(initialState: 0)
+
+        let value = try await bridge.run(
+            execute: { bridge.resume(with: .success(42)) },
+            stop: { stops.withLock { $0 += 1 } }
+        )
+
+        #expect(value == 42)
+        #expect(stops.withLock { $0 } == 0)
+    }
+
+    @Test("Cancelling the awaiting task stops the query and resumes exactly once")
+    func cancellationStopsQueryAndResumesOnce() async {
+        let bridge = HealthKitQueryBridge<Int>()
+        let stops = OSAllocatedUnfairLock(initialState: 0)
+        let (executed, executedContinuation) = AsyncStream<Void>.makeStream()
+
+        let task = Task {
+            try await bridge.run(
+                execute: {
+                    executedContinuation.yield()
+                    executedContinuation.finish()
+                },
+                stop: { stops.withLock { $0 += 1 } }
+            )
+        }
+        for await _ in executed {}
+
+        task.cancel()
+        // HealthKit can still deliver its results after `stop(_:)`; that late callback must be a no-op.
+        bridge.resume(with: .success(7))
+
+        switch await task.result {
+        case .success(let value):
+            Issue.record("Expected CancellationError, got value \(value)")
+        case .failure(let error):
+            #expect(error is CancellationError)
+        }
+        #expect(stops.withLock { $0 } >= 1)
     }
 }

@@ -4,6 +4,20 @@ import Testing
 
 @Suite("Localization Tests")
 struct LocalizationTests {
+    /// Catalog keys, read from the source catalog. `String(localized:)` returns the key itself when an
+    /// entry is missing, so `!localized.isEmpty` can never fail for these English-source keys; asserting
+    /// catalog membership is the check those tests meant to make.
+    private static let catalogKeys: Set<String> = {
+        let catalogURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Shared/Resources/Localizable.xcstrings")
+        guard let data = try? Data(contentsOf: catalogURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let strings = json["strings"] as? [String: Any] else { return [] }
+        return Set(strings.keys)
+    }()
 
     // MARK: - Tab Localization
 
@@ -181,8 +195,7 @@ struct LocalizationTests {
         ]
 
         for key in criticalKeys {
-            let localized = String(localized: String.LocalizationValue(key))
-            #expect(!localized.isEmpty, "Key '\(key)' should exist in string catalog")
+            #expect(Self.catalogKeys.contains(key), "Key '\(key)' should exist in string catalog")
         }
     }
 
@@ -196,8 +209,7 @@ struct LocalizationTests {
         ]
 
         for key in permissionKeys {
-            let localized = String(localized: String.LocalizationValue(key))
-            #expect(!localized.isEmpty, "Permission key '\(key)' should exist in string catalog")
+            #expect(Self.catalogKeys.contains(key), "Permission key '\(key)' should exist in string catalog")
         }
     }
 
@@ -213,8 +225,7 @@ struct LocalizationTests {
         ]
 
         for key in keys {
-            let localized = String(localized: String.LocalizationValue(key))
-            #expect(!localized.isEmpty, "Localization key '\(key)' should exist in string catalog")
+            #expect(Self.catalogKeys.contains(key), "Localization key '\(key)' should exist in string catalog")
         }
     }
 
@@ -248,8 +259,7 @@ struct LocalizationTests {
         ]
 
         for key in keys {
-            let localized = String(localized: String.LocalizationValue(key))
-            #expect(!localized.isEmpty, "AI Coach key '\(key)' should exist in string catalog")
+            #expect(Self.catalogKeys.contains(key), "AI Coach key '\(key)' should exist in string catalog")
         }
     }
 
@@ -266,15 +276,16 @@ struct LocalizationTests {
         ]
 
         for key in keys {
-            let localized = String(localized: String.LocalizationValue(key))
-            #expect(!localized.isEmpty, "Widget key '\(key)' should exist in string catalog")
+            #expect(Self.catalogKeys.contains(key), "Widget key '\(key)' should exist in string catalog")
         }
 
-        let goalLabel = String(localized: "Goal \(1)")
-        #expect(!goalLabel.isEmpty, "Widget goal label should resolve")
-
-        let streakLabel = String(localized: "Streak \(1) days")
-        #expect(!streakLabel.isEmpty, "Widget streak label should resolve")
+        #expect(Self.catalogKeys.contains("Goal %lld"), "Widget goal label should exist in string catalog")
+        #expect(Self.catalogKeys.contains("Streak %lld days"), "Widget streak label should exist in string catalog")
     }
 
+    @Test("Catalog membership check can fail")
+    func catalogMembershipCheckRejectsUnknownKey() {
+        #expect(Self.catalogKeys.count > 100, "The catalog must actually load, or every membership check is vacuous")
+        #expect(!Self.catalogKeys.contains("This key does not exist in the catalog 7f3a"))
+    }
 }

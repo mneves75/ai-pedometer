@@ -337,7 +337,11 @@ if [[ -n "${TESTFLIGHT_TESTER_EMAILS:-}" ]]; then
   for raw in "${emails[@]}"; do
     email="$(echo "$raw" | xargs)"
     [[ -z "${email}" ]] && continue
-    asc testflight testers add --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1
+    if ! asc testflight testers add --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1; then
+      # Explicit: under `set -e` a bare failure here ended the run silently after the IPA was built.
+      echo "ERRO: falha ao adicionar tester ao grupo do TestFlight; nada foi publicado."
+      exit 6
+    fi
     asc testflight testers invite --app "${APP_ID}" --email "${email}" --group "${GROUP_ID}" --output json >/dev/null 2>&1 || true
     echo "- tester processado."
   done

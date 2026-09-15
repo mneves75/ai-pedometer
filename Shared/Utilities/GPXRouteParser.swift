@@ -58,6 +58,16 @@ enum GPXRouteParser {
     /// launch — and laid out in full by Core Text on the Workouts tab (`lineLimit` truncates the
     /// display, not the layout), including the view holding the button that removes it.
     static let maxRouteNameCharacters = 200
+    /// Plausible elevation band in meters (deepest ocean trench to above Everest, with margin). A
+    /// finite but absurd `<ele>` such as -1e308 followed by 1e308 overflows the gain sum to infinity,
+    /// which `JSONEncoder` then refuses, so such samples are treated as missing instead.
+    static let plausibleElevationMeters: ClosedRange<Double> = -12_000...12_000
+
+    /// Bounds a route name wherever it comes from: a `<name>` element, the filename fallback, or a
+    /// route stored by a build that predates the bound.
+    static func boundedRouteName(_ name: String) -> String {
+        String(name.prefix(maxRouteNameCharacters))
+    }
 
     static func parse(
         data: Data,
@@ -100,7 +110,9 @@ enum GPXRouteParser {
 
         let distanceMeters = routeDistance(points)
         let elevation = elevationChange(points)
-        let fallbackName = sourceFilename.replacingOccurrences(of: ".gpx", with: "", options: .caseInsensitive)
+        let fallbackName = boundedRouteName(
+            sourceFilename.replacingOccurrences(of: ".gpx", with: "", options: .caseInsensitive)
+        )
         return ImportedRoute(
             id: id,
             name: delegate.routeName?.isEmpty == false ? delegate.routeName ?? fallbackName : fallbackName,
@@ -243,9 +255,9 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
 
         switch elementName {
         case "name" where routeName == nil && waypointDepth == 0:
-            routeName = String(value.prefix(GPXRouteParser.maxRouteNameCharacters))
+            routeName = GPXRouteParser.boundedRouteName(value)
         case "ele":
-            if let elevation = Double(value), elevation.isFinite {
+            if let elevation = Double(value), GPXRouteParser.plausibleElevationMeters.contains(elevation) {
                 currentPoint?.elevationMeters = elevation
             }
         case "trkpt", "rtept":

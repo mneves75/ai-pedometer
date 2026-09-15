@@ -145,6 +145,10 @@ enum DesignTokens {
         static let yellow = Color.yellow
         static let blue = Color.blue
         static let purple = Color.purple
+        static let pink = Color.pink
+        static let brown = Color.brown
+        /// Inactive or de-emphasized category tint (abandoned plans, secondary links).
+        static let neutral = Color.gray
         static let green = success
         static let orange = warning
         static let red = error

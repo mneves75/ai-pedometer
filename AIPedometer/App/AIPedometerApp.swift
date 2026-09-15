@@ -56,7 +56,7 @@ struct AIPedometerApp: App {
             UIView.setAnimationsEnabled(false)
         }
 
-        appLocale = AppLanguage.currentLocale
+        appLocale = AppLanguage.defaultLocale
         let persistence = PersistenceController.shared
         self.persistence = persistence
 

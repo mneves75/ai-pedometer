@@ -48,12 +48,17 @@ say "== Ambiente =="
 # shellcheck source=Scripts/lib/xcode-toolchain.sh
 # shellcheck disable=SC1091
 if source "${ROOT_DIR}/Scripts/lib/xcode-toolchain.sh" 2>/dev/null; then
-  if toolchain_line="$(aipedometer_select_xcode 2>&1)"; then
+  # Run the selector in THIS shell: inside `$(...)` its DEVELOPER_DIR export would vanish, and the
+  # gates below would silently use a different (possibly unsupported) toolchain than the one reported.
+  toolchain_log="$(mktemp)"
+  if aipedometer_select_xcode >"${toolchain_log}" 2>&1; then
+    toolchain_line="$(cat "${toolchain_log}")"
     pass "${toolchain_line#==> }"
   else
     fail "Nenhum Xcode suportado. Detalhe:"
-    printf '%s\n' "${toolchain_line}" | sed 's/^/          /'
+    sed 's/^/          /' "${toolchain_log}"
   fi
+  rm -f "${toolchain_log}"
 else
   fail "Scripts/lib/xcode-toolchain.sh nao pode ser carregado."
 fi
@@ -137,13 +142,13 @@ gate() {
 
 command -v ast-grep >/dev/null 2>&1 && gate "ast-grep scan" ast-grep scan --config sgconfig.yml
 command -v actionlint >/dev/null 2>&1 && gate "actionlint" actionlint
-gate "check-agents-sync.sh" bash Scripts/check-agents-sync.sh
-gate "verify-device-identifiers.sh" bash Scripts/verify-device-identifiers.sh
-gate "verify-entitlements.sh" bash Scripts/verify-entitlements.sh
-gate "verify-swift-build-settings.sh" bash Scripts/verify-swift-build-settings.sh
+gate "check-agents-sync.sh" /bin/bash Scripts/check-agents-sync.sh
+gate "verify-device-identifiers.sh" /bin/bash Scripts/verify-device-identifiers.sh
+gate "verify-entitlements.sh" /bin/bash Scripts/verify-entitlements.sh
+gate "verify-swift-build-settings.sh" /bin/bash Scripts/verify-swift-build-settings.sh
 # Needs the generated pbxproj to cross-check the package reference.
 if [[ "${PROJECT_GENERATED}" -eq 1 ]]; then
-  gate "verify-revenuecat-lock.sh" bash Scripts/verify-revenuecat-lock.sh
+  gate "verify-revenuecat-lock.sh" /bin/bash Scripts/verify-revenuecat-lock.sh
 else
   say "  ----  verify-revenuecat-lock.sh pulado (projeto nao gerado)"
 fi
@@ -152,7 +157,7 @@ if [[ "${WITH_TESTS}" -eq 1 ]]; then
   say ""
   say "== Suite de scripts =="
   for test_script in Scripts/tests/*.sh; do
-    gate "$(basename "${test_script}")" bash "${test_script}"
+    gate "$(basename "${test_script}")" /bin/bash "${test_script}"
   done
 fi
 

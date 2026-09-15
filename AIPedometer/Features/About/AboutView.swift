@@ -158,7 +158,7 @@ struct AboutView: View {
             
             LinkRow(
                 icon: "doc.text.fill",
-                color: .gray,
+                color: DesignTokens.Colors.neutral,
                 title: L10n.localized("Privacy Policy", comment: "Link title"),
                 action: openPrivacyPolicy
             )
@@ -178,9 +178,9 @@ struct AboutView: View {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(DesignTokens.Typography.title3)
-                    .foregroundStyle(.brown)
+                    .foregroundStyle(DesignTokens.Colors.brown)
                     .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
-                    .background(.brown.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                    .background(DesignTokens.Colors.brown.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
                 Text(L10n.localized("Support AI Pedometer", comment: "Support section title in About screen"))
                     .font(DesignTokens.Typography.headline)

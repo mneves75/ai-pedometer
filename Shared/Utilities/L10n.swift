@@ -11,8 +11,7 @@ enum L10n {
         let resolvedLocale: Locale
         let resolvedBundle: Bundle
         if locale == nil, bundle === Bundle.main {
-            // Default path — the overwhelming majority of the 600+ call sites. Language code,
-            // locale and localization bundle are all resolved once per process.
+            // Default path: language, locale and bundle are resolved once per process.
             // See `AppLanguage.defaultLanguageCode`.
             resolvedLocale = AppLanguage.defaultLocale
             resolvedBundle = AppLanguage.defaultLocalizationBundle

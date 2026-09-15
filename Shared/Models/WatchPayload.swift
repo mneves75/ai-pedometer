@@ -10,6 +10,8 @@ struct WatchPayload: Codable, Sendable {
     let lastUpdated: Date
     let weeklySteps: [Int]
     let sentAt: Date?
+    /// What `todaySteps` counts. Payloads from a phone that predates this field decode as `.steps`.
+    let activityMode: ActivityTrackingMode
 
     init(
         senderID: UUID? = nil,
@@ -20,7 +22,8 @@ struct WatchPayload: Codable, Sendable {
         currentStreak: Int,
         lastUpdated: Date,
         weeklySteps: [Int],
-        sentAt: Date? = nil
+        sentAt: Date? = nil,
+        activityMode: ActivityTrackingMode = .steps
     ) {
         self.senderID = senderID
         self.revision = revision
@@ -31,6 +34,35 @@ struct WatchPayload: Codable, Sendable {
         self.lastUpdated = lastUpdated
         self.weeklySteps = weeklySteps
         self.sentAt = sentAt
+        self.activityMode = activityMode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case senderID
+        case revision
+        case todaySteps
+        case goalSteps
+        case goalProgress
+        case currentStreak
+        case lastUpdated
+        case weeklySteps
+        case sentAt
+        case activityMode
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        senderID = try container.decodeIfPresent(UUID.self, forKey: .senderID)
+        revision = try container.decodeIfPresent(UInt64.self, forKey: .revision)
+        todaySteps = try container.decode(Int.self, forKey: .todaySteps)
+        goalSteps = try container.decode(Int.self, forKey: .goalSteps)
+        goalProgress = try container.decode(Double.self, forKey: .goalProgress)
+        currentStreak = try container.decode(Int.self, forKey: .currentStreak)
+        lastUpdated = try container.decode(Date.self, forKey: .lastUpdated)
+        weeklySteps = try container.decode([Int].self, forKey: .weeklySteps)
+        sentAt = try container.decodeIfPresent(Date.self, forKey: .sentAt)
+        // `try?`: a mode this build does not know (written by a newer phone) must not discard the whole snapshot.
+        activityMode = (try? container.decodeIfPresent(ActivityTrackingMode.self, forKey: .activityMode)) ?? .steps
     }
 
     var deliveryOrder: Date {

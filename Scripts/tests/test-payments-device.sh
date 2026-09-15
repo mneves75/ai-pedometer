@@ -20,7 +20,7 @@ if ! AIPEDOMETER_TEST_PAYMENTS_VALIDATE_PATHS_ONLY=1 \
   IPA_DIR="build/ipa" \
   ARCHIVE_PATH="build/ipa/AIPedometer.xcarchive" \
   IPA_PATH="build/ipa/AIPedometer.ipa" \
-  bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/valid.log"; then
+  /bin/bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/valid.log"; then
   echo "Expected default TestFlight output paths to validate." >&2
   exit 1
 fi
@@ -40,7 +40,7 @@ assert_invalid_paths() {
   if env AIPEDOMETER_TEST_PAYMENTS_VALIDATE_PATHS_ONLY=1 \
     IPA_DIR=build/ipa ARCHIVE_PATH=build/ipa/AIPedometer.xcarchive \
     IPA_PATH=build/ipa/AIPedometer.ipa "$@" \
-    bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/${label}.log" 2>&1; then
+    /bin/bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/${label}.log" 2>&1; then
     echo "Expected ${label} output paths to fail." >&2
     exit 1
   fi
@@ -78,7 +78,7 @@ rm "${ROOT_DIR}/build/ipa/xcodebuild-archive.log"
 
 if AIPEDOMETER_TEST_PAYMENTS_VALIDATE_PATHS_ONLY=1 \
   IPA_DIR="${TMP_DIR}/outside" \
-  bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/outside.log" 2>&1; then
+  /bin/bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/outside.log" 2>&1; then
   echo "Expected absolute output path outside build/ipa to fail." >&2
   exit 1
 fi
@@ -86,7 +86,7 @@ fi
 if AIPEDOMETER_TEST_PAYMENTS_VALIDATE_PATHS_ONLY=1 \
   IPA_DIR="build/ipa" \
   ARCHIVE_PATH="build/ipa/../AIPedometer.xcarchive" \
-  bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/traversal.log" 2>&1; then
+  /bin/bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/traversal.log" 2>&1; then
   echo "Expected traversal output path outside build/ipa to fail." >&2
   exit 1
 fi
@@ -129,6 +129,7 @@ case "$*" in
       "${TEST_SECRET_GROUP_ID}" "${TESTFLIGHT_GROUP_NAME}"
     ;;
   "testflight testers add"*|"testflight testers invite"*)
+    if [[ "$*" == "testflight testers add"* && "${MOCK_PAYMENT_FAILURE:-}" == testers ]]; then exit 34; fi
     printf '{"email":"%s"}\n' "${TESTFLIGHT_TESTER_EMAILS}"
     ;;
   "publish testflight"*)
@@ -305,7 +306,7 @@ env PATH="${MOCK_BIN}:${PATH}" \
   TEST_SECRET_SANDBOX_ID="${TEST_SECRET_SANDBOX_ID}" \
   TEST_SECRET_GROUP_ID="${TEST_SECRET_GROUP_ID}" \
   IPA_DIR="${TEST_OUTPUT_DIR}" \
-  "$@" bash "${ROOT_DIR}/Scripts/test-payments-device.sh"
+  "$@" /bin/bash "${ROOT_DIR}/Scripts/test-payments-device.sh"
 }
 
 if ! run_mock_payment >"${TMP_DIR}/redaction.log" 2>&1; then
@@ -446,7 +447,7 @@ PATH="${MOCK_BIN}:${PATH}" \
   ASC_KEY_ID="${TEST_SECRET_KEY_ID}" \
   ASC_ISSUER_ID="${TEST_SECRET_ISSUER_ID}" \
   ASC_PRIVATE_KEY_PATH="${TEST_SECRET_KEY_PATH}" \
-  bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/missing-credentials.log" 2>&1
+  /bin/bash "${ROOT_DIR}/Scripts/test-payments-device.sh" >"${TMP_DIR}/missing-credentials.log" 2>&1
 missing_credentials_status=$?
 set -e
 
@@ -463,5 +464,24 @@ for sensitive_value in \
     exit 1
   fi
 done
+
+# A tester that cannot be added must stop the run with a named reason, and before publishing.
+set +e
+run_mock_payment MOCK_PAYMENT_FAILURE=testers IPA_DIR="${TEST_OUTPUT_DIR}/testers-failure" \
+  >"${TMP_DIR}/testers-failure.log" 2>&1
+testers_status=$?
+set -e
+if [[ ${testers_status} -eq 0 ]]; then
+  echo "Expected a failed tester addition to fail the workflow." >&2
+  exit 1
+fi
+if ! grep -F 'ERRO: falha ao adicionar tester' "${TMP_DIR}/testers-failure.log" >/dev/null; then
+  echo "Expected a named error for a failed tester addition; got silent exit ${testers_status}." >&2
+  exit 1
+fi
+if grep -F 'publish-control' "${TMP_DIR}/testers-failure.log" >/dev/null; then
+  echo "Publishing must not run after a failed tester addition." >&2
+  exit 1
+fi
 
 echo "test-payments-device.sh path validation and redaction tests passed."

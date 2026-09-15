@@ -367,7 +367,7 @@ private extension TrainingPlanService {
             dailyGoal: fallbackGoal
         )
         return summaries.map { summary in
-            let resolvedGoal = goalService.goal(for: summary.date) ?? fallbackGoal
+            let resolvedGoal = goalService.goal(forDayContaining: summary.date) ?? fallbackGoal
             guard resolvedGoal != summary.goal else { return summary }
             return DailyStepSummary(
                 date: summary.date,

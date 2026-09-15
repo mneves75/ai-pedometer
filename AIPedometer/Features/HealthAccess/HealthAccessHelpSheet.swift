@@ -160,5 +160,7 @@ struct HealthAccessHelpSheet: View {
 }
 
 #Preview {
+    // The sheet reads `HealthKitAuthorization` to decide whether to offer "Grant Access".
     HealthAccessHelpSheet()
+        .environment(HealthKitAuthorization())
 }

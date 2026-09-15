@@ -405,7 +405,7 @@ final class PremiumAccessStore {
             lastError = nil
             return true
         } catch {
-            if let url = customerInfo?.managementURL {
+            if let url = customerInfo?.managementURL, Self.isOpenableManagementURL(url) {
                 await UIApplication.shared.open(url)
                 lastError = nil
                 return true
@@ -417,6 +417,12 @@ final class PremiumAccessStore {
             ])
             return false
         }
+    }
+
+    /// The management URL comes from a server response; only a web link may leave the app, never a
+    /// custom scheme that another installed app could claim.
+    nonisolated static func isOpenableManagementURL(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
     }
 
     private func configurePurchasesIfNeeded() {

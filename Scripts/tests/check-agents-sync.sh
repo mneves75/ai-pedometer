@@ -11,9 +11,7 @@ printf '%s\n' '# AGENTS.md' '' '## Verification' '' '[Tests](docs/testing.md)' >
 printf '%s\n' '@AGENTS.md' > "${TMP_DIR}/CLAUDE.md"
 
 check_contract() {
-  GUIDELINES_REF_ROOT="${TMP_DIR}/no-external-checkout" \
-    LOCAL_AGENTS="${TMP_DIR}/AGENTS.md" \
-    bash "${ROOT_DIR}/Scripts/check-agents-sync.sh" "${TMP_DIR}"
+  /bin/bash "${ROOT_DIR}/Scripts/check-agents-sync.sh" "${TMP_DIR}"
 }
 
 expect_failure() {

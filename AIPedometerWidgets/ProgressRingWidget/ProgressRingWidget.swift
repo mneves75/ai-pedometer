@@ -37,6 +37,27 @@ struct ProgressRingContent: View {
         ProgressClamp.unitInterval(data.goalProgress)
     }
 
+    private var progressAccessibilityValue: String {
+        switch data.activityMode {
+        case .steps:
+            Localization.format(
+                "%@ steps of %@ goal, %lld percent",
+                comment: "Accessibility value for the goal ring widget",
+                data.todaySteps.formatted(),
+                data.goalSteps.formatted(),
+                Int64((clampedProgress * 100).rounded())
+            )
+        case .wheelchairPushes:
+            Localization.format(
+                "%@ of %@ %@",
+                comment: "Accessibility value for daily progress with current and goal counts",
+                data.todaySteps.formatted(),
+                data.goalSteps.formatted(),
+                data.activityMode.unitName
+            )
+        }
+    }
+
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.smPlus) {
             ZStack {
@@ -58,7 +79,7 @@ struct ProgressRingContent: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .widgetAccentable()
-                    Text(L10n.localized("steps", comment: "Widget label for steps unit"))
+                    Text(data.activityMode.unitName)
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                         .lineLimit(1)
@@ -81,15 +102,7 @@ struct ProgressRingContent: View {
         .padding(DesignTokens.Spacing.md)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(L10n.localized("Daily goal progress", comment: "Accessibility label for the goal ring widget"))
-        .accessibilityValue(
-            Localization.format(
-                "%@ steps of %@ goal, %lld percent",
-                comment: "Accessibility value for the goal ring widget",
-                data.todaySteps.formatted(),
-                data.goalSteps.formatted(),
-                Int64((clampedProgress * 100).rounded())
-            )
-        )
+        .accessibilityValue(progressAccessibilityValue)
     }
 }
 

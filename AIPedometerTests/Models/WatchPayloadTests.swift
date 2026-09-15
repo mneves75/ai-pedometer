@@ -182,6 +182,61 @@ struct WatchPayloadTests {
         #expect(acceptedLegacy)
     }
 
+    @Test("Activity mode survives a payload round trip")
+    func activityModeSurvivesRoundTrip() throws {
+        // Wheelchair users saw "steps" on the watch because the payload had nowhere to carry the mode.
+        let base = WatchPayload(
+            todaySteps: 900,
+            goalSteps: 2_000,
+            goalProgress: 0.45,
+            currentStreak: 3,
+            lastUpdated: Date(timeIntervalSince1970: 400),
+            weeklySteps: [900]
+        )
+        var object = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(base)) as? [String: Any]
+        )
+        object["activityMode"] = "wheelchairPushes"
+        let decoded = try #require(WatchPayload.decode(from: JSONSerialization.data(withJSONObject: object)))
+
+        let reencoded = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded)) as? [String: Any]
+        )
+        #expect(reencoded["activityMode"] as? String == "wheelchairPushes")
+    }
+
+    @Test("A payload from a phone that predates activity mode decodes as steps")
+    func legacyPayloadDecodesAsSteps() throws {
+        let legacy = LegacyPayload(
+            todaySteps: 50,
+            goalSteps: 10_000,
+            goalProgress: 0.005,
+            currentStreak: 0,
+            lastUpdated: Date(timeIntervalSince1970: 500),
+            weeklySteps: []
+        )
+        let decoded = try #require(WatchPayload.decode(from: JSONEncoder().encode(legacy)))
+        #expect(decoded.activityMode == .steps)
+    }
+
+    @Test("Wheelchair pushes mode survives encoding")
+    func wheelchairModeRoundTrips() throws {
+        let payload = WatchPayload(
+            todaySteps: 1_200,
+            goalSteps: 2_000,
+            goalProgress: 0.6,
+            currentStreak: 5,
+            lastUpdated: Date(timeIntervalSince1970: 600),
+            weeklySteps: [1_200],
+            sentAt: Date(timeIntervalSince1970: 601),
+            activityMode: .wheelchairPushes
+        )
+        let decoded = try #require(WatchPayload.decode(from: JSONEncoder().encode(payload)))
+        #expect(decoded.activityMode == .wheelchairPushes)
+        #expect(decoded.sentAt == payload.sentAt)
+        #expect(decoded.todaySteps == 1_200)
+    }
+
     @Test("A retired phone installation cannot overwrite its replacement")
     func retiredSenderCannotReturn() {
         let oldSenderID = UUID()

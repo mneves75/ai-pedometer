@@ -512,6 +512,52 @@ struct HealthKitSyncServiceTests {
         #expect(goalsByDate[today] == 10000)
     }
 
+    @Test("Sync writes a day with a mid-day goal change using the new goal")
+    func syncUsesGoalInEffectAtEndOfDay() async throws {
+        let (service, mockHealthKit, userDefaults, modelContext) = makeTestEnvironment()
+        let calendar = Calendar.autoupdatingCurrent
+        let today = calendar.startOfDay(for: .now)
+        let dayMinus2 = try #require(calendar.date(byAdding: .day, value: -2, to: today))
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: today))
+        let changedAt = try #require(calendar.date(byAdding: .hour, value: 14, to: yesterday))
+
+        modelContext.insert(StepGoal(dailySteps: 8000, startDate: dayMinus2, endDate: changedAt))
+        modelContext.insert(StepGoal(dailySteps: 10000, startDate: changedAt))
+        try modelContext.save()
+
+        mockHealthKit.dailySummariesToReturn = [
+            DailyStepSummary(
+                date: dayMinus2,
+                steps: 9000,
+                distance: 1000,
+                floors: 0,
+                calories: Double(9000) * AppConstants.Metrics.caloriesPerStep,
+                goal: 10000
+            ),
+            DailyStepSummary(
+                date: yesterday,
+                steps: 9000,
+                distance: 1000,
+                floors: 0,
+                calories: Double(9000) * AppConstants.Metrics.caloriesPerStep,
+                goal: 10000
+            )
+        ]
+        userDefaults.set(Date.now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+
+        try await service.performIncrementalSync()
+
+        let records = try modelContext.fetch(FetchDescriptor<DailyStepRecord>(
+            predicate: #Predicate { $0.deletedAt == nil }
+        ))
+        let goalsByDate = Dictionary(
+            uniqueKeysWithValues: records.map { (calendar.startOfDay(for: $0.date), $0.goalSteps) }
+        )
+
+        #expect(goalsByDate[dayMinus2] == 8000)
+        #expect(goalsByDate[yesterday] == 10000)
+    }
+
     @Test("Sync requests daily summaries using current activity settings")
     func syncUsesActivitySettingsForDailySummaries() async throws {
         let (service, mockHealthKit, userDefaults, _) = makeTestEnvironment()

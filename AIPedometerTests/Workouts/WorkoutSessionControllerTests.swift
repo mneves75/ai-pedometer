@@ -51,6 +51,52 @@ struct WorkoutSessionControllerTests {
         #expect(workouts[0].healthKitWorkoutID == nil)
     }
 
+    @Test("Orphan cleanup finishes before a new workout requests its Live Activity")
+    func orphanCleanupCannotEndNewlyStartedActivity() async throws {
+        // Regression: init launched the cleanup as an unowned task. When it ran after `startWorkout`, the
+        // real manager enumerated and ended every activity — including the one this workout had just started.
+        let persistence = PersistenceController(inMemory: true)
+        let liveActivity = OrderedLiveActivityManager()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: MockMetricsSource(),
+            liveActivityManager: liveActivity
+        )
+
+        let start = Task { await controller.startWorkout(type: .outdoorWalk, targetSteps: nil) }
+        await liveActivity.waitUntilOrphanCleanupBegins()
+        for _ in 0..<50 { await Task.yield() }
+        #expect(liveActivity.events == [.orphanCleanupBegan])
+
+        liveActivity.finishOrphanCleanup()
+        await start.value
+
+        #expect(liveActivity.events == [.orphanCleanupBegan, .orphanCleanupFinished, .started])
+        await controller.discardWorkout()
+    }
+
+    @Test("A finished workout keeps its final Live Activity; a discarded one is dismissed")
+    func liveActivityDismissalFollowsHowTheWorkoutEnded() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        metricsSource.snapshotErrorToThrow = MotionError.noData
+        let liveActivity = MockLiveActivityManager()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        await controller.finishWorkout()
+        await controller.startWorkout(type: .hike, targetSteps: nil)
+        await controller.discardWorkout()
+
+        #expect(liveActivity.endDiscardedValues == [false, true])
+    }
+
     @Test
     func startWorkoutCreatesSessionAndStartsMetrics() async throws {
         let persistence = PersistenceController(inMemory: true)
@@ -792,6 +838,7 @@ final class MockLiveActivityManager: LiveActivityManaging {
     var lastType: WorkoutType?
     var lastUpdate: (steps: Int, distance: Double, calories: Double)?
     var endDelayNanoseconds: UInt64 = 0
+    private(set) var endDiscardedValues: [Bool] = []
 
     func start(type: WorkoutType) {
         startCount += 1
@@ -803,11 +850,55 @@ final class MockLiveActivityManager: LiveActivityManaging {
         lastUpdate = (steps, distance, calories)
     }
 
-    func end() async {
+    func end(discarded: Bool) async {
         if endDelayNanoseconds > 0 {
             try? await Task.sleep(nanoseconds: endDelayNanoseconds)
         }
         endCount += 1
+        endDiscardedValues.append(discarded)
+    }
+}
+
+@MainActor
+final class OrderedLiveActivityManager: LiveActivityManaging {
+    enum Event: Equatable {
+        case orphanCleanupBegan
+        case orphanCleanupFinished
+        case started
+    }
+
+    private(set) var events: [Event] = []
+    private var cleanupBeganWaiter: CheckedContinuation<Void, Never>?
+    private var cleanupGate: CheckedContinuation<Void, Never>?
+    private var isCleanupReleased = false
+
+    func start(type _: WorkoutType) {
+        events.append(.started)
+    }
+
+    func update(steps _: Int, distance _: Double, calories _: Double) async {}
+
+    func end(discarded _: Bool) async {}
+
+    func endOrphanedActivities() async {
+        events.append(.orphanCleanupBegan)
+        cleanupBeganWaiter?.resume()
+        cleanupBeganWaiter = nil
+        if !isCleanupReleased {
+            await withCheckedContinuation { cleanupGate = $0 }
+        }
+        events.append(.orphanCleanupFinished)
+    }
+
+    func waitUntilOrphanCleanupBegins() async {
+        if events.contains(.orphanCleanupBegan) { return }
+        await withCheckedContinuation { cleanupBeganWaiter = $0 }
+    }
+
+    func finishOrphanCleanup() {
+        isCleanupReleased = true
+        cleanupGate?.resume()
+        cleanupGate = nil
     }
 }
 
@@ -838,7 +929,7 @@ final class BlockingLiveActivityManager: LiveActivityManaging {
         }
     }
 
-    func end() async {
+    func end(discarded _: Bool) async {
         endCount += 1
         endRequestedContinuation?.resume()
         endRequestedContinuation = nil

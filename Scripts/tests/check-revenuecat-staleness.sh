@@ -75,6 +75,32 @@ aipedometer_evaluate_revenuecat_staleness \
 grep -Fqx "status=current" "${TMP_DIR}/current.log"
 grep -Fqx "mutation=none" "${TMP_DIR}/current.log"
 
+# The production caller runs the evaluator under `set +e` to capture exit 10, which disables
+# errexit inside it. A malformed upstream SHA must still fail, not fall through to status=current.
+BAD_TAG="${TMP_DIR}/bad-tag.json"
+cat >"${BAD_TAG}" <<'EOF'
+{"tag":"5.81.0","object":{"sha":"NOT-A-SHA","type":"commit"}}
+EOF
+set +e
+aipedometer_evaluate_revenuecat_staleness \
+  "${PROJECT_FILE}" \
+  "${LATEST_TAG}" \
+  "${LATEST_RELEASE}" \
+  "${LATEST_REF}" \
+  "${BAD_TAG}" \
+  >"${TMP_DIR}/bad.log" 2>&1
+bad_status=$?
+set -e
+if [[ ${bad_status} -eq 0 || ${bad_status} -eq 10 ]]; then
+  cat "${TMP_DIR}/bad.log" >&2
+  echo "Expected a malformed latest commit SHA to fail validation; got ${bad_status}." >&2
+  exit 1
+fi
+if grep -Fq "status=" "${TMP_DIR}/bad.log"; then
+  echo "Expected no staleness verdict after a failed validation." >&2
+  exit 1
+fi
+
 LOCK_FILE="${TMP_DIR}/Package.resolved"
 cat >"${LOCK_FILE}" <<'EOF'
 {

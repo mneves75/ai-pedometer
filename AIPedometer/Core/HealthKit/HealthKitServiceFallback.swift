@@ -203,6 +203,10 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             return try await primary()
         } catch let error as HealthKitError {
             return try handleHealthKitError(error, emptyValue: emptyValue)
+        } catch is CancellationError {
+            // The caller went away (a view's `.task`, an expiring background task). That is neither a
+            // failed query nor a reason to switch to demo data, and callers must not cache a fallback for it.
+            throw CancellationError()
         } catch {
             if enableFakeDataFallback(reason: "query_failed", error: error) {
                 return try await fakeData()

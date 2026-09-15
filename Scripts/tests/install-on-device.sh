@@ -43,7 +43,7 @@ XCODEBUILD_LOG="${XCODEBUILD_LOG}" \
 XCRUN_LOG="${XCRUN_LOG}" \
 APP_PRODUCTS_DIR="$(dirname "${APP_DIR}")" \
 WATCH_PRODUCTS_DIR="$(dirname "${WATCH_APP_DIR}")" \
-bash "${ROOT_DIR}/Scripts/install-on-device.sh" \
+/bin/bash "${ROOT_DIR}/Scripts/install-on-device.sh" \
   --project Fake.xcodeproj \
   --scheme FakeScheme \
   --device-name MyDevice \

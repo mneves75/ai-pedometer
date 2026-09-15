@@ -7,6 +7,7 @@ import FoundationModels
 final class BadgeService {
     private let persistence: PersistenceController
     private let saveModelContext: @MainActor (ModelContext) throws -> Void
+    private let fetchEarnedBadges: @MainActor (ModelContext) throws -> [EarnedBadge]
     private var foundationModelsService: (any FoundationModelsServiceProtocol)?
     @ObservationIgnored private var didLoadEarnedBadges = false
     @ObservationIgnored private var canGenerateAICoaching: @MainActor @Sendable () -> Bool = { false }
@@ -19,10 +20,14 @@ final class BadgeService {
 
     init(
         persistence: PersistenceController,
-        saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() }
+        saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() },
+        fetchEarnedBadges: @escaping @MainActor (ModelContext) throws -> [EarnedBadge] = { context in
+            try BadgeService.fetchNonDeletedBadges(in: context)
+        }
     ) {
         self.persistence = persistence
         self.saveModelContext = saveModelContext
+        self.fetchEarnedBadges = fetchEarnedBadges
         refreshEarnedBadges()
     }
 
@@ -40,9 +45,8 @@ final class BadgeService {
     @discardableResult
     func refreshEarnedBadges() -> [EarnedBadge] {
         let context = persistence.container.mainContext
-        let descriptor = FetchDescriptor<EarnedBadge>(predicate: #Predicate { $0.deletedAt == nil })
         do {
-            let badges = try context.fetch(descriptor)
+            let badges = try fetchEarnedBadges(context)
             let dedupedBadges = deduplicateBadges(badges)
             if dedupedBadges.count != badges.count {
                 Loggers.badges.warning("badges.duplicate_entries_detected", metadata: [
@@ -54,11 +58,17 @@ final class BadgeService {
             didLoadEarnedBadges = true
             return earnedBadgesCache
         } catch {
+            // Not "no badges": leave the cache unloaded so the next read retries, and so `unlock` cannot
+            // insert a duplicate of a badge it merely failed to see.
             Loggers.badges.error("badges.fetch_failed", metadata: ["error": error.localizedDescription])
             earnedBadgesCache = []
-            didLoadEarnedBadges = true
+            didLoadEarnedBadges = false
             return earnedBadgesCache
         }
+    }
+
+    static func fetchNonDeletedBadges(in context: ModelContext) throws -> [EarnedBadge] {
+        try context.fetch(FetchDescriptor<EarnedBadge>(predicate: #Predicate { $0.deletedAt == nil }))
     }
 
     func earnedBadges() -> [EarnedBadge] {
@@ -79,7 +89,14 @@ final class BadgeService {
         existingBadgeTypes: Set<BadgeType>? = nil
     ) -> Bool {
         let context = persistence.container.mainContext
-        let earnedTypes = existingBadgeTypes ?? earnedBadgeTypes()
+        let knownTypes = earnedBadgeTypes()
+        // A caller's `existingBadgeTypes` may itself come from a failed read, so existence must be
+        // established here before inserting.
+        guard didLoadEarnedBadges else {
+            Loggers.badges.warning("badges.unlock_skipped_unknown_state", metadata: ["badge": badgeType.rawValue])
+            return false
+        }
+        let earnedTypes = existingBadgeTypes ?? knownTypes
         guard !earnedTypes.contains(badgeType) else {
             return false
         }

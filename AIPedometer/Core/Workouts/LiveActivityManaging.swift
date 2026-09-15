@@ -4,7 +4,10 @@ import Foundation
 protocol LiveActivityManaging: Sendable {
     func start(type: WorkoutType)
     func update(steps: Int, distance: Double, calories: Double) async
-    func end() async
+
+    /// Ends the workout's activity. A finished workout (`discarded == false`) leaves its final metrics on the
+    /// Lock Screen for the system's default window; a discarded one is dismissed immediately.
+    func end(discarded: Bool) async
 
     /// Ends any activity left running by a previous process.
     ///
@@ -21,5 +24,5 @@ extension LiveActivityManaging {
 struct NoopLiveActivityManager: LiveActivityManaging {
     func start(type: WorkoutType) {}
     func update(steps: Int, distance: Double, calories: Double) async {}
-    func end() async {}
+    func end(discarded: Bool) async {}
 }

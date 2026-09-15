@@ -9,9 +9,12 @@ enum AppConstants {
 
     static func resolveAppStoreID(
         bundle: Bundle = .main,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsEnvironmentOverrides: Bool = RevenueCat.environmentOverridesEnabled
     ) -> String {
-        if let envValue = environment["APP_STORE_ID"], !envValue.isEmpty {
+        // Launch environment is attacker input in Release (anyone with devicectl access sets it), so
+        // it may only redirect the review link in Debug, like every other launch override.
+        if allowsEnvironmentOverrides, let envValue = environment["APP_STORE_ID"], !envValue.isEmpty {
             return envValue
         }
         if let value = bundle.object(forInfoDictionaryKey: "AppStoreID") as? String,

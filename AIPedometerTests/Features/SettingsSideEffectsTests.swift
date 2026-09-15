@@ -301,6 +301,140 @@ struct SettingsSideEffectsTests {
         #expect(result == .stale)
         #expect(scheduleCallCount == 0)
     }
+
+    // Settings runs recovery from three independent `.task(id:)` modifiers, so several resumes can be in
+    // flight at once, and all of them add the same request identifier. These tests drive the completions
+    // out of order with explicit latches.
+
+    @Test("A stale resume completion never cancels the reminder a newer resume scheduled")
+    func staleResumeDefersToNewerSchedulingOwner() async {
+        var generation = 1
+        var pendingRequests: Set<String> = []
+        let firstScheduleStarted = SettingsAsyncTestLatch()
+        let releaseFirstSchedule = SettingsAsyncTestLatch()
+
+        let first = Task {
+            await SettingsSideEffects.resumeSuspendedSmartReminder(
+                isCurrent: { generation == 1 },
+                newestOwnerSchedules: { true },
+                isStillWanted: { true },
+                scheduleReminder: {
+                    firstScheduleStarted.signal()
+                    await releaseFirstSchedule.wait()
+                    pendingRequests.insert("reminder")
+                    return true
+                },
+                cancelReminders: { pendingRequests.removeAll() }
+            )
+        }
+        await firstScheduleStarted.wait()
+
+        generation = 2
+        let second = await SettingsSideEffects.resumeSuspendedSmartReminder(
+            isCurrent: { generation == 2 },
+            newestOwnerSchedules: { true },
+            isStillWanted: { true },
+            scheduleReminder: {
+                pendingRequests.insert("reminder")
+                return true
+            },
+            cancelReminders: { pendingRequests.removeAll() }
+        )
+        #expect(second == .resumed)
+
+        releaseFirstSchedule.signal()
+        let firstResult = await first.value
+
+        #expect(firstResult == .deferredToNewerOwner)
+        #expect(pendingRequests == ["reminder"])
+    }
+
+    @Test("A stale resume completion still cancels after a newer owner suspended delivery")
+    func staleResumeCancelsAfterNewerCancellingOwner() async {
+        var generation = 1
+        var newestOwnerSchedules = true
+        var pendingRequests: Set<String> = []
+        let scheduleStarted = SettingsAsyncTestLatch()
+        let releaseSchedule = SettingsAsyncTestLatch()
+
+        let resume = Task {
+            await SettingsSideEffects.resumeSuspendedSmartReminder(
+                isCurrent: { generation == 1 },
+                newestOwnerSchedules: { newestOwnerSchedules },
+                isStillWanted: { true },
+                scheduleReminder: {
+                    scheduleStarted.signal()
+                    await releaseSchedule.wait()
+                    pendingRequests.insert("reminder")
+                    return true
+                },
+                cancelReminders: { pendingRequests.removeAll() }
+            )
+        }
+        await scheduleStarted.wait()
+
+        // A newer suspension cancels synchronously, before the in-flight add lands.
+        generation = 2
+        newestOwnerSchedules = false
+        pendingRequests.removeAll()
+
+        releaseSchedule.signal()
+        let result = await resume.value
+
+        #expect(result == .cancelled)
+        #expect(pendingRequests.isEmpty)
+    }
+
+    @Test("A failed current resume clears a request a stale sibling deferred to it")
+    func failedCurrentResumeClearsDeferredRequest() async {
+        var generation = 1
+        var pendingRequests: Set<String> = []
+        let firstStarted = SettingsAsyncTestLatch()
+        let releaseFirst = SettingsAsyncTestLatch()
+        let secondStarted = SettingsAsyncTestLatch()
+        let releaseSecond = SettingsAsyncTestLatch()
+
+        let first = Task {
+            await SettingsSideEffects.resumeSuspendedSmartReminder(
+                isCurrent: { generation == 1 },
+                newestOwnerSchedules: { true },
+                isStillWanted: { true },
+                scheduleReminder: {
+                    firstStarted.signal()
+                    await releaseFirst.wait()
+                    pendingRequests.insert("reminder")
+                    return true
+                },
+                cancelReminders: { pendingRequests.removeAll() }
+            )
+        }
+        await firstStarted.wait()
+
+        generation = 2
+        let second = Task {
+            await SettingsSideEffects.resumeSuspendedSmartReminder(
+                isCurrent: { generation == 2 },
+                newestOwnerSchedules: { true },
+                isStillWanted: { true },
+                scheduleReminder: {
+                    secondStarted.signal()
+                    await releaseSecond.wait()
+                    return false
+                },
+                cancelReminders: { pendingRequests.removeAll() }
+            )
+        }
+        await secondStarted.wait()
+
+        releaseFirst.signal()
+        #expect(await first.value == .deferredToNewerOwner)
+        #expect(pendingRequests == ["reminder"])
+
+        releaseSecond.signal()
+        #expect(await second.value == .scheduleFailed)
+        // The toggle still reads suspended, so no reminder may be left pending behind it.
+        #expect(pendingRequests.isEmpty)
+    }
 }
 
 enum SmartReminderRevocation: CaseIterable, Sendable {

@@ -120,12 +120,14 @@ aipedometer_evaluate_revenuecat_staleness() {
   latest_commit="$(aipedometer_json_value "${latest_tag_json}" object.sha)"
   latest_object_type="$(aipedometer_json_value "${latest_tag_json}" object.type)"
 
-  aipedometer_validate_sha "project_revision" "${project_revision}"
-  aipedometer_validate_sha "current_commit" "${current_commit}"
-  aipedometer_validate_sha "latest_tag_object" "${latest_tag_object}"
-  aipedometer_validate_sha "latest_commit" "${latest_commit}"
-  aipedometer_validate_version "current_version" "${current_version}"
-  aipedometer_validate_version "latest_version" "${latest_version}"
+  # Explicit `|| return 1`: the caller runs this under `set +e` to capture exit 10, which also
+  # disables errexit here, so a bare failing validator would fall through to a verdict.
+  aipedometer_validate_sha "project_revision" "${project_revision}" || return 1
+  aipedometer_validate_sha "current_commit" "${current_commit}" || return 1
+  aipedometer_validate_sha "latest_tag_object" "${latest_tag_object}" || return 1
+  aipedometer_validate_sha "latest_commit" "${latest_commit}" || return 1
+  aipedometer_validate_version "current_version" "${current_version}" || return 1
+  aipedometer_validate_version "latest_version" "${latest_version}" || return 1
 
   if [[ "${current_object_type}" != "commit" ]]; then
     echo "ERRO: o pin atual nao aponta para um tag anotado que resolve em commit" >&2

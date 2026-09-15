@@ -243,6 +243,76 @@ struct SharedStepDataRenderNormalizationTests {
         #expect(normalized.currentStreak == 7)
     }
 
+    @Test("Activity mode survives a shared data round trip")
+    func activityModeSurvivesRoundTrip() throws {
+        // Widgets labelled wheelchair pushes as steps because the app-group payload dropped the mode.
+        var object = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(makeData(lastUpdated: Self.dayStart))) as? [String: Any]
+        )
+        object["activityMode"] = "wheelchairPushes"
+        let decoded = try JSONDecoder().decode(SharedStepData.self, from: JSONSerialization.data(withJSONObject: object))
+
+        let reencoded = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded)) as? [String: Any]
+        )
+        #expect(reencoded["activityMode"] as? String == "wheelchairPushes")
+    }
+
+    @Test("Legacy shared data without activity mode decodes as steps; pushes mode round trips")
+    func activityModeDecoding() throws {
+        var legacy = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(makeData(lastUpdated: Self.dayStart))) as? [String: Any]
+        )
+        legacy.removeValue(forKey: "activityMode")
+        let decodedLegacy = try JSONDecoder().decode(SharedStepData.self, from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(decodedLegacy.activityMode == .steps)
+
+        let pushes = SharedStepData(
+            todaySteps: 800,
+            goalSteps: 1_500,
+            goalProgress: 0.53,
+            currentStreak: 2,
+            lastUpdated: Self.dayStart,
+            weeklySteps: [800],
+            activityMode: .wheelchairPushes
+        )
+        let decoded = try JSONDecoder().decode(SharedStepData.self, from: JSONEncoder().encode(pushes))
+        #expect(decoded.activityMode == .wheelchairPushes)
+        // Day normalization must not silently fall back to steps.
+        let nextDay = Self.dayStart.addingTimeInterval(30 * 3600)
+        #expect(decoded.normalizedForRendering(at: nextDay, calendar: utcCalendar).activityMode == .wheelchairPushes)
+    }
+
+    @Test("Widget snapshot shows sample data only in the gallery when nothing is stored")
+    func widgetSnapshotUsesSampleOnlyForPreview() {
+        let now = Self.dayStart.addingTimeInterval(9 * 3600)
+
+        let preview = SharedStepData.widgetSnapshotData(stored: nil, isPreview: true, at: now, calendar: utcCalendar)
+        let live = SharedStepData.widgetSnapshotData(stored: nil, isPreview: false, at: now, calendar: utcCalendar)
+
+        #expect(preview?.todaySteps == SharedStepData.widgetGallerySample().todaySteps)
+        #expect(live == nil)
+    }
+
+    @Test("Widget snapshot normalizes stored data from a previous day")
+    func widgetSnapshotNormalizesStoredData() {
+        // Regression: `getSnapshot` returned the stored payload as-is, presenting yesterday's total as today's.
+        let lastNight = Self.dayStart.addingTimeInterval(22 * 3600)
+        let nextMorning = Self.dayStart.addingTimeInterval(32 * 3600)
+
+        for isPreview in [false, true] {
+            let snapshot = SharedStepData.widgetSnapshotData(
+                stored: makeData(lastUpdated: lastNight),
+                isPreview: isPreview,
+                at: nextMorning,
+                calendar: utcCalendar
+            )
+            #expect(snapshot?.todaySteps == 0)
+            #expect(snapshot?.goalProgress == 0)
+            #expect(snapshot?.currentStreak == 7)
+        }
+    }
+
     @Test("Same-day data is left untouched even when it is over an hour old")
     func sameDayPayloadSurvivesEvenWhenOld() {
         // Narrower than `isStale` on purpose: an hour-old payload is still today's best-known progress,
@@ -258,5 +328,25 @@ struct SharedStepDataRenderNormalizationTests {
 
         #expect(normalized.todaySteps == 12_340)
         #expect(normalized.goalProgress == 1.234)
+    }
+
+    @Test("Switching activity mode reaches widgets and the watch without the coalescing delay")
+    func activityModeChangePersistsImmediately() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let previous = SharedStepData(
+            todaySteps: 1_000, goalSteps: 5_000, goalProgress: 0.2, currentStreak: 3,
+            lastUpdated: now, weeklySteps: [1_000], activityMode: .steps
+        )
+        let next = SharedStepData(
+            todaySteps: 1_000, goalSteps: 5_000, goalProgress: 0.2, currentStreak: 3,
+            lastUpdated: now, weeklySteps: [1_000], activityMode: .wheelchairPushes
+        )
+
+        #expect(SharedStepDataWritePolicy.shouldPersistImmediately(
+            previous: previous, next: next, lastPersistedAt: now, now: now, maximumStaleness: 5
+        ))
+        #expect(!SharedStepDataWritePolicy.shouldPersistImmediately(
+            previous: previous, next: previous, lastPersistedAt: now, now: now, maximumStaleness: 5
+        ))
     }
 }

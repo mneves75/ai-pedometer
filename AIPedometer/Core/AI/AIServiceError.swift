@@ -24,10 +24,66 @@ extension AIServiceError {
         case .unsupportedGuide, .unsupportedLanguageOrLocale, .decodingFailure:
             self = .invalidResponse
         case .rateLimited, .concurrentRequests:
-            self = .generationFailed(underlying: "Please try again in a moment")
+            self = .generationFailed(underlying: Self.retryLaterMessage)
         @unknown default:
             self = .generationFailed(underlying: generationError.localizedDescription)
         }
+    }
+}
+
+extension AIServiceError {
+    private static let retryLaterMessage = "Please try again in a moment"
+
+    /// Maps any Foundation Models failure, or nil when the error did not come from the framework.
+    ///
+    /// The iOS 27 SDK reports failures through `LanguageModelError`, `SystemLanguageModel.Error`,
+    /// `LanguageModelSession.Error` and `GeneratedContent.ParsingError` instead of
+    /// `LanguageModelSession.GenerationError`. Without these branches a context overflow on iOS 27 became a
+    /// generic failure: no "conversation limit" message and no preserved partial response. The compiler guard
+    /// keeps the 26 SDK (CI's Xcode 26.3, Swift 6.2) building, where those types do not exist.
+    static func fromFoundationModels(_ error: any Error) -> AIServiceError? {
+        if let generationError = error as? LanguageModelSession.GenerationError {
+            return AIServiceError(generationError: generationError)
+        }
+        #if compiler(>=6.3)
+        if #available(iOS 27.0, *) {
+            if let modelError = error as? LanguageModelError {
+                switch modelError {
+                case .contextSizeExceeded:
+                    return .tokenLimitExceeded
+                case .guardrailViolation, .refusal:
+                    return .guardrailViolation
+                case .rateLimited, .timeout:
+                    return .generationFailed(underlying: retryLaterMessage)
+                case .unsupportedCapability, .unsupportedTranscriptContent, .unsupportedGenerationGuide,
+                     .unsupportedLanguageOrLocale:
+                    return .invalidResponse
+                @unknown default:
+                    return nil
+                }
+            }
+            if let modelError = error as? SystemLanguageModel.Error {
+                switch modelError {
+                case .assetsUnavailable:
+                    return .modelUnavailable(.modelNotReady)
+                @unknown default:
+                    return nil
+                }
+            }
+            if let sessionError = error as? LanguageModelSession.Error {
+                switch sessionError {
+                case .concurrentRequests, .transcriptMutationWhileResponding:
+                    return .generationFailed(underlying: retryLaterMessage)
+                @unknown default:
+                    return nil
+                }
+            }
+            if error is GeneratedContent.ParsingError {
+                return .invalidResponse
+            }
+        }
+        #endif
+        return nil
     }
 }
 

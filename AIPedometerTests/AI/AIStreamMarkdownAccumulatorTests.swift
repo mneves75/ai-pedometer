@@ -28,7 +28,12 @@ struct AIStreamMarkdownAccumulatorTests {
         let expectedDocument = try AIChatMarkdown.parseDocument(from: "Completely _different_ content")
         let expectedRendered = AIChatMarkdown.renderAttributedString(from: expectedDocument)
 
-        #expect(String(incrementalRendered.characters) == String(expectedRendered.characters))
+        // Scalars, not `String ==`: Swift string equality is canonical equivalence, so a rendering
+        // that swapped one Unicode representation for the other would still compare equal.
+        #expect(
+            Array(String(incrementalRendered.characters).unicodeScalars)
+                == Array(String(expectedRendered.characters).unicodeScalars)
+        )
     }
 
     @Test("Preserves Unicode sequences whose grapheme boundary changes while streaming")
@@ -50,7 +55,12 @@ struct AIStreamMarkdownAccumulatorTests {
             let expectedDocument = try AIChatMarkdown.parseDocument(from: #require(stream.last))
             let expectedRendered = AIChatMarkdown.renderAttributedString(from: expectedDocument)
 
-            #expect(String(incrementalRendered.characters) == String(expectedRendered.characters))
+            // Scalars, not `String ==`: Swift string equality is canonical equivalence, so a rendering
+            // that swapped one Unicode representation for the other would still compare equal.
+            #expect(
+                Array(String(incrementalRendered.characters).unicodeScalars)
+                    == Array(String(expectedRendered.characters).unicodeScalars)
+            )
         }
     }
 
@@ -65,7 +75,12 @@ struct AIStreamMarkdownAccumulatorTests {
         let expectedDocument = try AIChatMarkdown.parseDocument(from: "e\u{301}x")
         let expectedRendered = AIChatMarkdown.renderAttributedString(from: expectedDocument)
 
-        #expect(String(incrementalRendered.characters) == String(expectedRendered.characters))
+        // Scalars, not `String ==`: Swift string equality is canonical equivalence, so a rendering
+        // that swapped one Unicode representation for the other would still compare equal.
+        #expect(
+            Array(String(incrementalRendered.characters).unicodeScalars)
+                == Array(String(expectedRendered.characters).unicodeScalars)
+        )
     }
 
     @Test("Resets safely when an ASCII prefix is canonically equivalent to a multibyte scalar")
@@ -79,6 +94,11 @@ struct AIStreamMarkdownAccumulatorTests {
         let expectedDocument = try AIChatMarkdown.parseDocument(from: "Kx")
         let expectedRendered = AIChatMarkdown.renderAttributedString(from: expectedDocument)
 
-        #expect(String(incrementalRendered.characters) == String(expectedRendered.characters))
+        // Scalars, not `String ==`: Swift string equality is canonical equivalence, so a rendering
+        // that swapped one Unicode representation for the other would still compare equal.
+        #expect(
+            Array(String(incrementalRendered.characters).unicodeScalars)
+                == Array(String(expectedRendered.characters).unicodeScalars)
+        )
     }
 }

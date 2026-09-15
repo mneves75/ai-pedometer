@@ -82,5 +82,15 @@ require_plist_key_absent "$WATCH_ENTITLEMENTS" "com.apple.developer.healthkit"
 require_plist_key_absent "$WATCH_ENTITLEMENTS" "com.apple.security.application-groups"
 
 require_array_contains "$WIDGETS_ENTITLEMENTS" "com.apple.security.application-groups" "$APP_GROUP"
+# Only the iOS app owns HealthKit; widgets read app-group snapshots.
+require_plist_key_absent "$WIDGETS_ENTITLEMENTS" "com.apple.developer.healthkit"
+
+# Hardened-process keys stay staged behind the explicit opt-in until the team provisioning profile
+# carries the Enhanced Security capability; signing with them otherwise fails.
+if [[ "${ENHANCED_SECURITY_ENTITLEMENTS:-0}" != "1" ]]; then
+  require_plist_key_absent "$IOS_ENTITLEMENTS" "com.apple.security.hardened-process"
+fi
+require_plist_key_absent "$WIDGETS_ENTITLEMENTS" "com.apple.security.hardened-process"
+require_plist_key_absent "$WATCH_ENTITLEMENTS" "com.apple.security.hardened-process"
 
 echo "OK: entitlements are valid"

@@ -45,8 +45,9 @@ struct HealthKitDataTool: Tool, Sendable {
         }
         let settings = ActivitySettings.current(userDefaults: defaults)
         let dailyGoal = await MainActor.run { goalService.currentGoal }
+        // `@Guide(.range(1...90))` steers generation; it does not bind the value the model returns.
         let summaries = try await healthKitService.fetchDailySummaries(
-            days: arguments.days,
+            days: min(max(arguments.days, 1), 90),
             activityMode: settings.activityMode,
             distanceMode: settings.distanceMode,
             manualStepLength: settings.manualStepLength,
@@ -54,7 +55,7 @@ struct HealthKitDataTool: Tool, Sendable {
         )
         let summariesWithHistoricalGoals = await MainActor.run {
             summaries.map { summary in
-                let resolvedGoal = goalService.goal(for: summary.date) ?? dailyGoal
+                let resolvedGoal = goalService.goal(forDayContaining: summary.date) ?? dailyGoal
                 guard resolvedGoal != summary.goal else { return summary }
                 return DailyStepSummary(
                     date: summary.date,
