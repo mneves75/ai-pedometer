@@ -119,6 +119,9 @@ independent work before requesting missing input.
   HealthKit exports across failures. Log no health data, secrets or private IDs.
 - Only pt-BR uses Portuguese; other locales use English. Put product strings in
   `Shared/Resources/Localizable.xcstrings` via the existing localization helpers.
+  Format user-visible distances and step, push or goal counts through `Formatters`, not
+  `.formatted()`, `%lld` or natural-scale `MeasurementFormatter`: those drop the device's
+  Measurement System or Number Format preference ([FOR_YOU_KNOW.md](FOR_YOU_KNOW.md)).
   Preserve accessibility, focus and design tokens; verify affected form factors.
 - Use pnpm for JavaScript tooling, with the version in `package.json` and
   `pnpm install --frozen-lockfile`. Swift packages remain managed by Xcode/SPM.

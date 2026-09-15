@@ -148,7 +148,7 @@ struct AIWorkoutCard: View {
         HStack(spacing: DesignTokens.Spacing.lg) {
             statItem(
                 icon: "figure.walk",
-                value: recommendation.targetSteps.formatted(),
+                value: recommendation.targetSteps.formattedSteps,
                 label: unitName
             )
             

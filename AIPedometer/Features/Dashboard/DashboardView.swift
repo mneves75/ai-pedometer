@@ -332,6 +332,9 @@ struct DashboardView: View {
         .frame(width: progressRingSize, height: progressRingSize)
         .goalCelebration(trigger: goalReached)
         .padding(.vertical, DesignTokens.Spacing.md)
+        // The ring is shapes plus hidden text, so without its own element the label and value below
+        // reached no accessibility element and VoiceOver skipped the day's progress.
+        .accessibilityElement(children: .ignore)
         .accessibleProgress(
             label: Localization.format(
                 "Daily %@ progress",
@@ -342,8 +345,8 @@ struct DashboardView: View {
             valueDescription: Localization.format(
                 "%@ of %@ %@",
                 comment: "Accessibility value for daily progress with current and goal counts",
-                trackingService.todaySteps.formatted(),
-                trackingService.currentGoal.formatted(),
+                trackingService.todaySteps.formattedSteps,
+                trackingService.currentGoal.formattedSteps,
                 activityMode.unitName
             )
         )
@@ -409,7 +412,7 @@ struct DashboardView: View {
                 Localization.format(
                     "of %@ %@",
                     comment: "Label for progress ring showing goal and unit",
-                    trackingService.currentGoal.formatted(),
+                    trackingService.currentGoal.formattedSteps,
                     activityMode.unitName
                 )
             )

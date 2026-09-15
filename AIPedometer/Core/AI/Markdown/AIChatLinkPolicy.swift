@@ -3,11 +3,12 @@ import Darwin
 
 /// Link safety policy for AI-rendered Markdown.
 ///
-/// We intentionally restrict URL schemes to reduce the blast radius of model-generated links.
+/// We intentionally restrict URL schemes to reduce the blast radius of model-generated links. Plain HTTP is
+/// rejected too: model output is untrusted, and an unencrypted link can be downgraded or rewritten in transit.
 enum AIChatLinkPolicy {
     static func isAllowed(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
-        guard scheme == "http" || scheme == "https" else { return false }
+        guard scheme == "https" else { return false }
 
         // Reject malformed "http:foo" shapes and credentialed URLs from model output.
         guard let host = url.host, !host.isEmpty else { return false }

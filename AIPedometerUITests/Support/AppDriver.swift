@@ -34,7 +34,8 @@ final class AppDriver {
         forcedHealthKitSyncEnabled: Bool? = nil,
         forcedPremiumEnabled: Bool? = nil,
         forceAIUnavailable: Bool = false,
-        seedUnfinishedWorkout: Bool = false
+        seedUnfinishedWorkout: Bool = false,
+        extraLaunchArguments: [String] = []
     ) {
         app.launchArguments.append(contentsOf: [
             "-ui-testing",
@@ -55,6 +56,7 @@ final class AppDriver {
         if seedUnfinishedWorkout {
             app.launchArguments.append("-seed-unfinished-workout")
         }
+        app.launchArguments.append(contentsOf: extraLaunchArguments)
 
         app.launchEnvironment["UI_TESTING"] = "1"
         // Mantem o demo deterministico estavel (CI/simulador).

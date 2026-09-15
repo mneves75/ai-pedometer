@@ -215,7 +215,7 @@ struct BadgeDisplayItem: Identifiable {
     }
     
     var name: String { type.localizedTitle }
-    var description: String { type.localizedDescription }
+    @MainActor var description: String { type.localizedDescription }
     var icon: String { type.iconName }
 }
 

@@ -62,16 +62,16 @@ struct WeeklyChartContent: View {
             Localization.format(
                 "%@ steps today, %@ steps this week, %lld day streak",
                 comment: "Accessibility value for weekly steps widget",
-                data.todaySteps.formatted(),
-                weeklyTotal.formatted(),
+                data.todaySteps.formattedSteps,
+                weeklyTotal.formattedSteps,
                 Int64(data.currentStreak)
             )
         case .wheelchairPushes:
             Localization.format(
                 "%@ pushes today, %@ pushes this week, %lld day streak",
                 comment: "Accessibility value for weekly wheelchair pushes widget",
-                data.todaySteps.formatted(),
-                weeklyTotal.formatted(),
+                data.todaySteps.formattedSteps,
+                weeklyTotal.formattedSteps,
                 Int64(data.currentStreak)
             )
         }

@@ -37,24 +37,37 @@ enum BadgeType: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Step and distance thresholds are formatted for the device, so a US-region phone reads miles. They repeat
+    /// the thresholds in `BadgeDefinitions` (app target only); `BadgeDefinitionsTests` keeps the two in step.
+    @MainActor
     var localizedDescription: String {
         switch self {
-        case .steps5K: L10n.localized("Walk 5,000 steps in a day", comment: "Badge description for 5K steps")
-        case .steps10K: L10n.localized("Walk 10,000 steps in a day", comment: "Badge description for 10K steps")
-        case .steps15K: L10n.localized("Walk 15,000 steps in a day", comment: "Badge description for 15K steps")
-        case .steps20K: L10n.localized("Walk 20,000 steps in a day", comment: "Badge description for 20K steps")
-        case .steps25K: L10n.localized("Walk 25,000 steps in a day", comment: "Badge description for 25K steps")
+        case .steps5K: Self.dailyStepsDescription(5_000)
+        case .steps10K: Self.dailyStepsDescription(10_000)
+        case .steps15K: Self.dailyStepsDescription(15_000)
+        case .steps20K: Self.dailyStepsDescription(20_000)
+        case .steps25K: Self.dailyStepsDescription(25_000)
         case .streak3: L10n.localized("Reach your goal 3 days in a row", comment: "Badge description for 3-day streak")
         case .streak7: L10n.localized("Reach your goal 7 days in a row", comment: "Badge description for 7-day streak")
         case .streak14: L10n.localized("Reach your goal 14 days in a row", comment: "Badge description for 14-day streak")
         case .streak30: L10n.localized("Reach your goal 30 days in a row", comment: "Badge description for 30-day streak")
         case .streak100: L10n.localized("Reach your goal 100 days in a row", comment: "Badge description for 100-day streak")
         case .streak365: L10n.localized("Reach your goal every day for a year", comment: "Badge description for 365-day streak")
-        case .distance5km: L10n.localized("Walk a total of 5 kilometers", comment: "Badge description for 5km distance")
-        case .distance10km: L10n.localized("Walk a total of 10 kilometers", comment: "Badge description for 10km distance")
-        case .distanceMarathon: L10n.localized("Walk a total of 42.195 kilometers", comment: "Badge description for marathon distance")
+        case .distance5km: Self.totalDistanceDescription(meters: 5_000)
+        case .distance10km: Self.totalDistanceDescription(meters: 10_000)
+        case .distanceMarathon: Self.totalDistanceDescription(meters: 42_195)
         case .monthlyChallenge: L10n.localized("Complete a monthly challenge", comment: "Badge description for monthly challenge")
         }
+    }
+
+    @MainActor
+    private static func dailyStepsDescription(_ steps: Int) -> String {
+        Localization.format("Walk %@ steps in a day", comment: "Badge description for a daily step threshold", Formatters.stepCountString(steps))
+    }
+
+    @MainActor
+    private static func totalDistanceDescription(meters: Double) -> String {
+        Localization.format("Walk a total of %@", comment: "Badge description for a total distance threshold", Formatters.distanceString(meters: meters))
     }
 }
 

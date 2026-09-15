@@ -145,7 +145,7 @@ struct SettingsView: View {
                     Label(L10n.localized("Daily Goal"), systemImage: activityMode.iconName)
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
                     Spacer()
-                    Text("\(trackingService.currentGoal.formatted()) \(activityMode.unitName)")
+                    Text("\(trackingService.currentGoal.formattedSteps) \(activityMode.unitName)")
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                     Image(systemName: "chevron.right")
                         .font(DesignTokens.Typography.caption)
@@ -154,9 +154,9 @@ struct SettingsView: View {
             }
             .accessibleButton(
                 label: Localization.format(
-                    "Daily Goal: %lld %@",
+                    "Daily Goal: %@ %@",
                     comment: "Accessibility label showing daily goal and unit",
-                    Int64(trackingService.currentGoal),
+                    trackingService.currentGoal.formattedSteps,
                     activityMode.unitName
                 ),
                 hint: L10n.localized("Tap to change your daily goal")
@@ -800,7 +800,7 @@ struct GoalEditorSheet: View {
             VStack(spacing: DesignTokens.Spacing.xl) {
                 Spacer()
 
-                Text("\(Int(tempGoal).formatted())")
+                Text(Int(tempGoal).formattedSteps)
                     .font(.system(size: boundedGoalValueFontSize, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)

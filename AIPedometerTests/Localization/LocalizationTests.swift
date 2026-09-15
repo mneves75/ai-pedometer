@@ -123,6 +123,7 @@ struct LocalizationTests {
     }
 
     @Test("BadgeType localizedDescription returns non-empty strings")
+    @MainActor
     func badgeDescriptionsAreLocalized() {
         for badge in BadgeType.allCases {
             #expect(!badge.localizedDescription.isEmpty, "Badge \(badge.rawValue) should have a description")
@@ -130,6 +131,7 @@ struct LocalizationTests {
     }
 
     @Test("Badge titles and descriptions are distinct")
+    @MainActor
     func badgeTitlesAndDescriptionsAreDifferent() {
         for badge in BadgeType.allCases {
             #expect(
@@ -279,7 +281,7 @@ struct LocalizationTests {
             #expect(Self.catalogKeys.contains(key), "Widget key '\(key)' should exist in string catalog")
         }
 
-        #expect(Self.catalogKeys.contains("Goal %lld"), "Widget goal label should exist in string catalog")
+        #expect(Self.catalogKeys.contains("Goal %@"), "Widget goal label should exist in string catalog")
         #expect(Self.catalogKeys.contains("Streak %lld days"), "Widget streak label should exist in string catalog")
     }
 

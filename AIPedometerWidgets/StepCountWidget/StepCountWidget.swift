@@ -96,9 +96,9 @@ struct StepCountContentView: View {
 
                     Text(
                         Localization.format(
-                            "Goal %lld",
+                            "Goal %@",
                             comment: "Widget label for daily goal",
-                            Int64(data.goalSteps)
+                            data.goalSteps.formattedSteps
                         )
                     )
                         .font(DesignTokens.Typography.caption2)
@@ -132,9 +132,9 @@ struct StepCountPlaceholderView: View {
 
             Text(
                 Localization.format(
-                    "Goal %lld",
+                    "Goal %@",
                     comment: "Widget placeholder label for daily goal",
-                    Int64(10_000)
+                    10_000.formattedSteps
                 )
             )
                 .font(DesignTokens.Typography.caption2)

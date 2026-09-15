@@ -76,9 +76,9 @@ struct OnboardingView: View {
             VStack(spacing: DesignTokens.Spacing.sm) {
                 Text(
                     Localization.format(
-                        "%lld steps",
+                        "%@ steps",
                         comment: "Step count with unit",
-                        Int64(dailyGoal)
+                        Int(dailyGoal).formattedSteps
                     )
                 )
                     .font(.system(size: boundedGoalValueFontSize, weight: .bold))
@@ -94,9 +94,9 @@ struct OnboardingView: View {
                     .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for daily step goal slider"))
                     .accessibilityValue(
                         Localization.format(
-                            "%lld steps",
+                            "%@ steps",
                             comment: "Step count with unit",
-                            Int64(dailyGoal)
+                            Int(dailyGoal).formattedSteps
                         )
                     )
                     .accessibilityHint(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))

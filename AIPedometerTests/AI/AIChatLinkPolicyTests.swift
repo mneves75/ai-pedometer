@@ -5,11 +5,12 @@ import Testing
 
 @Suite("AIChatLinkPolicy Tests")
 struct AIChatLinkPolicyTests {
-    @Test("Allows only http/https URL schemes")
-    func allowsOnlyHttpSchemes() {
+    @Test("Allows only https URLs")
+    func allowsOnlyHttpsScheme() {
         #expect(AIChatLinkPolicy.isAllowed(URL(string: "https://example.com")!))
-        #expect(AIChatLinkPolicy.isAllowed(URL(string: "http://example.com")!))
         #expect(AIChatLinkPolicy.isAllowed(URL(string: "HTTPS://example.com")!))
+        // Model output is untrusted: a plain-HTTP link can be downgraded or rewritten on the network.
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "http://example.com")!))
 
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "file:///etc/hosts")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "tel:123")!))

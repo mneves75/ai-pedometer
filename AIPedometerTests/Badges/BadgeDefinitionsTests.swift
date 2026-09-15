@@ -4,7 +4,7 @@ import Testing
 @testable import AIPedometer
 
 /// Guards the badge award-path invariant: any badge type presented to the user as earnable must
-/// have a matching `BadgeDefinition` (title/description/threshold) so the evaluation code can
+/// have a matching `BadgeDefinition` (its threshold) so the evaluation code can
 /// actually unlock it. The original defect was that `distance5km`/`distance10km`/`distanceMarathon`
 /// were rendered in the grid but absent from `BadgeDefinitions.all`, so they could never be earned.
 @Suite("BadgeDefinitions")
@@ -47,6 +47,22 @@ struct BadgeDefinitionsTests {
         // threshold must fit in Int32 to avoid an overflow that only surfaces on the watch build.
         for definition in BadgeDefinitions.all where definition.type.category == .distance {
             #expect(definition.requiredValue <= Int(Int32.max))
+        }
+    }
+
+    @Test("Badge descriptions state the threshold the award path checks, in device formatting")
+    @MainActor
+    func descriptionsMatchAwardThresholds() {
+        for definition in BadgeDefinitions.all {
+            let description = definition.type.localizedDescription
+            switch definition.type.category {
+            case .steps:
+                #expect(description.contains(Formatters.stepCountString(definition.requiredValue)), "\(description)")
+            case .distance:
+                #expect(description.contains(Formatters.distanceString(meters: Double(definition.requiredValue))), "\(description)")
+            case .streak, .challenge:
+                continue
+            }
         }
     }
 }

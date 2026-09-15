@@ -368,6 +368,47 @@ final class AIPedometerUITests: XCTestCase {
         )
     }
 
+    func testDashboardDistanceFollowsMeasurementSystemPreference() throws {
+        let d = launchWithUSRegionMetricAndCommaDecimals()
+
+        let distance = d.app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Distance:"))
+            .firstMatch
+        XCTAssertTrue(distance.waitForExistence(timeout: navigationTimeout))
+        XCTAssertTrue(distance.label.hasSuffix("km") || distance.label.hasSuffix("m"), distance.label)
+        XCTAssertFalse(distance.label.contains("mi"), distance.label)
+    }
+
+    func testDashboardCountsFollowNumberFormatPreference() throws {
+        let d = launchWithUSRegionMetricAndCommaDecimals()
+
+        let ring = d.app.descendants(matching: .any)["Daily steps progress"]
+        XCTAssertTrue(ring.waitForExistence(timeout: navigationTimeout))
+        let ringValue = ring.value as? String ?? ""
+        XCTAssertTrue(ringValue.contains("10.000"), ringValue)
+        XCTAssertFalse(ringValue.contains("10,000"), ringValue)
+    }
+
+    /// A US-region phone set to Metric with a "1.234,56" Number Format: iOS keeps both as preferences outside
+    /// the locale identifier. These argument-domain keys are Apple's documented way to pin that state in tests
+    /// (not API for shipping code). 1.0.2 rendered "3,788mi" and "8.000 of 10,000 steps" here.
+    private func launchWithUSRegionMetricAndCommaDecimals() -> AppDriver {
+        let d = AppDriver(test: self)
+        d.launch(
+            skipOnboarding: true,
+            forcedHealthKitSyncEnabled: true,
+            extraLaunchArguments: [
+                "-AppleLanguages", "(en)",
+                "-AppleLocale", "en_US",
+                "-AppleMetricUnits", "<true/>",
+                "-AppleMeasurementUnits", "Centimeters",
+                "-AppleICUNumberSymbols", "{ 0 = \",\"; 1 = \".\"; 10 = \",\"; 17 = \".\"; }",
+            ]
+        )
+        d.assertDashboardLoaded()
+        return d
+    }
+
     func testWorkoutsShowPremiumGatesWhenPremiumIsForcedOff() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true, forcedPremiumEnabled: false)

@@ -5,7 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-09-15
+
+Corrects 1.0.2, whose fix did not reach the setup it was meant for. Reproduced on an iOS 27
+simulator configured through the Settings app as Region United States, Measurement System Metric
+and Number Format `1.234.567,89`: 1.0.2 (58) showed **3,788mi** and **8.000 of 10,000 steps**.
+Also includes the findings of a pre-release security review and a Standards/Spec code review.
+
+### Fixed
+
+- **Distances follow Settings > Measurement System, not just the region.** iOS keeps that choice as
+  a preference outside the locale identifier, so a US-region iPhone set to Metric still reports
+  `en_US`, and `MeasurementFormatter`'s natural scale picked yards and miles from the identifier.
+  Units now come from `UnitLength(forLocale:usage:)`, which reads the preference: meters, then
+  kilometers once the value rounds to 1 km, or miles for distance; meters or feet for elevation gain;
+  centimeters or inches for step length. Imperial distances no longer print as `546.807yd`. Applies to
+  the dashboard, workouts, routes, the watch, the Live Activity, badge descriptions and the distance
+  given to the on-device AI, whose prompts previously hardcoded kilometers.
+- **Counts use one number format.** Settings > Number Format is honored by `NumberFormatter` but
+  ignored by `.formatted()`, and `%lld` never groups digits, so screens mixed "8.000", "10,000" and
+  "10000". Goals (dashboard, onboarding, Settings, widgets), training-plan targets, the AI workout
+  card, badge descriptions, the weekly fallback insight and progress accessibility values now share
+  the step-count formatter. Three catalog keys moved from `%lld` to `%@` with their translations.
+- **VoiceOver skipped the dashboard progress ring.** Its label and value were attached to a stack of
+  shapes and hidden text that exposed no accessibility element; the ring is now one element.
+- The distance formatter test accepted any string containing "m", which "mi" satisfies. It is
+  replaced by exact-locale unit tests, a test that fails when the distance unit disagrees with the
+  device's preference, and two UI tests that pin the US-region, Metric, comma-decimal state with
+  Apple's test-only preference launch arguments (both observed failing against the 1.0.2 formatting).
+
+### Security
+
+- Pre-release review of GPX import, watch and App Group payloads, URL handling, the on-device AI and
+  its tools, premium and tip-jar verification, logging, entitlements and workflows: no confirmed
+  vulnerabilities; the 1.0.1 fixes (management-URL allowlist, Release launch overrides, Test Store key
+  rejection) still hold.
+- Links in AI responses must use HTTPS; plain-HTTP links are no longer tappable.
+- A GPX test now feeds a real nested-entity ("billion laughs") document in element text and in an
+  attribute. The platform XML parser rejects it; the old test built one large literal and would not
+  have noticed a change in that behavior.
+
 ## [1.0.2] - 2026-09-15
+
+Superseded by 1.0.3: the fix below did not cover a US region with a metric Measurement System.
+Build 58 was installed on a device but never uploaded to TestFlight.
 
 ### Fixed
 

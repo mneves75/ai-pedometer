@@ -23,22 +23,23 @@ enum ActivityTrackingMode: String, Codable, CaseIterable, Sendable {
     }
 
     /// Accessibility value for a daily progress ring, shared by the watch and the goal-ring widget.
+    @MainActor
     func progressAccessibilityValue(count: Int, goal: Int, percent: Int) -> String {
         switch self {
         case .steps:
             Localization.format(
                 "%@ steps of %@ goal, %lld percent",
                 comment: "Accessibility value for daily progress ring",
-                count.formatted(),
-                goal.formatted(),
+                count.formattedSteps,
+                goal.formattedSteps,
                 Int64(percent)
             )
         case .wheelchairPushes:
             Localization.format(
                 "%@ of %@ %@",
                 comment: "Accessibility value for daily progress with current and goal counts",
-                count.formatted(),
-                goal.formatted(),
+                count.formattedSteps,
+                goal.formattedSteps,
                 unitName
             )
         }

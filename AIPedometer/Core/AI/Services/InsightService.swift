@@ -682,14 +682,14 @@ private extension InsightService {
             trendSummary = Localization.format(
                 "Your activity dropped this week, but you still logged %@ %@.",
                 comment: "Weekly fallback summary for decreasing trend",
-                data.totalSteps.formatted(),
+                data.totalSteps.formattedSteps,
                 unitLabel
             )
         case .stable:
             trendSummary = Localization.format(
                 "Your routine stayed stable with an average of %@ %@ per day.",
                 comment: "Weekly fallback summary for stable trend",
-                data.averageSteps.formatted(),
+                data.averageSteps.formattedSteps,
                 unitLabel
             )
         }
@@ -819,7 +819,7 @@ private extension InsightService {
         - Progress: \(data.percentOfGoal)% of daily goal
         - Progress Tier: \(progressTier)
         - Goal Status: \(data.goalMet ? "ACHIEVED" : "NOT ACHIEVED")
-        - Distance: \((data.distance / 1000).formatted(.number.precision(.fractionLength(1)))) km
+        - Distance: \(Formatters.distanceString(meters: data.distance))
         - Floors climbed: \(data.floors)
         - Estimated calories: \(data.calories)\(dataReliabilityNote)
 
@@ -927,7 +927,7 @@ private extension InsightService {
         - \(unitLabel.capitalized) so far: \(todayData.steps.formatted())
         - Goal: \(currentGoal.formatted()) \(unitLabel)
         - Progress: \(todayData.percentOfGoal)% complete
-        - Distance: \((todayData.distance / 1000).formatted(.number.precision(.fractionLength(1)))) km
+        - Distance: \(Formatters.distanceString(meters: todayData.distance))
         
         This Week's Context:
         - Weekly average: \(weekData.averageSteps.formatted()) \(unitLabel)/day

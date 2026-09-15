@@ -9,24 +9,6 @@ enum Formatters {
         return formatter
     }()
 
-    private static let distanceFormatter: MeasurementFormatter = {
-        let formatter = MeasurementFormatter()
-        formatter.unitStyle = .short
-        formatter.unitOptions = .naturalScale
-        formatter.locale = .autoupdatingCurrent
-        return formatter
-    }()
-
-    private static let stepLengthFormatter: MeasurementFormatter = {
-        let formatter = MeasurementFormatter()
-        formatter.unitStyle = .short
-        formatter.unitOptions = .providedUnit
-        formatter.locale = .autoupdatingCurrent
-        formatter.numberFormatter.maximumFractionDigits = 2
-        formatter.numberFormatter.locale = .autoupdatingCurrent
-        return formatter
-    }()
-
     private static let caloriesFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -49,9 +31,29 @@ enum Formatters {
         stepCountFormatter.string(from: NSNumber(value: value)) ?? "0"
     }
 
-    static func distanceString(meters: Double) -> String {
+    /// Walking or route distance: meters until the value rounds to 1 km, then kilometers, or miles, as the
+    /// region and the Settings > Measurement System preference choose.
+    static func distanceString(meters: Double, locale: Locale = .autoupdatingCurrent) -> String {
         let measurement = Measurement(value: meters, unit: UnitLength.meters)
-        return distanceFormatter.string(from: measurement)
+        let unit = UnitLength(forLocale: locale, usage: .road)
+        // Compared after rounding, so 999.6 m reads "1 km" rather than "1,000 m".
+        if unit == .kilometers, meters < 999.5 {
+            return lengthString(measurement, maximumFractionDigits: 0, locale: locale)
+        }
+        return lengthString(measurement.converted(to: unit), maximumFractionDigits: 2, locale: locale)
+    }
+
+    /// Elevation gain: meters or feet.
+    static func elevationString(meters: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        let measurement = Measurement(value: meters, unit: UnitLength.meters)
+        return lengthString(measurement.converted(to: UnitLength(forLocale: locale, usage: .general)), maximumFractionDigits: 0, locale: locale)
+    }
+
+    /// Step length: centimeters or inches.
+    static func stepLengthString(meters: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        let unit = UnitLength(forLocale: locale, usage: .person)
+        let measurement = Measurement(value: meters, unit: UnitLength.meters).converted(to: unit)
+        return lengthString(measurement, maximumFractionDigits: unit == .centimeters ? 0 : 1, locale: locale)
     }
 
     static func caloriesString(_ value: Double) -> String {
@@ -62,9 +64,23 @@ enum Formatters {
         durationFormatter.string(from: max(seconds, 0)) ?? "0m"
     }
 
-    static func stepLengthString(meters: Double) -> String {
-        let measurement = Measurement(value: meters, unit: UnitLength.meters)
-        return stepLengthFormatter.string(from: measurement)
+    // The unit comes from `UnitLength(forLocale:usage:)`, not `MeasurementFormatter.naturalScale`: iOS keeps
+    // the Measurement System preference outside the locale identifier (a US-region phone set to Metric
+    // reports `en_US`), and natural scale picked yards and miles from the identifier. `FormatStyle` honors
+    // that preference but ignores Settings > Number Format, which `MeasurementFormatter` honors, so the
+    // number is formatted here in the provided unit. A formatter per call costs about 0.1 ms, most of it the
+    // unit lookup, and needs no invalidation when either setting changes.
+    private static func lengthString(
+        _ measurement: Measurement<UnitLength>,
+        maximumFractionDigits: Int,
+        locale: Locale
+    ) -> String {
+        let formatter = MeasurementFormatter()
+        formatter.locale = locale
+        formatter.unitStyle = .short
+        formatter.unitOptions = .providedUnit
+        formatter.numberFormatter.maximumFractionDigits = maximumFractionDigits
+        return formatter.string(from: measurement)
     }
 }
 

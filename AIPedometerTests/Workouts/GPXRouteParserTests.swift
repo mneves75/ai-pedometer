@@ -142,6 +142,36 @@ struct GPXRouteParserTests {
         }
     }
 
+    @Test("rejects nested internal-entity amplification in text and attributes", arguments: [
+        "<metadata><name>&lol9;</name></metadata>",
+        "<wpt lat=\"&lol9;\" lon=\"-122.03118\"/>",
+    ])
+    func rejectsBillionLaughs(body: String) {
+        // Ten levels of tenfold entities would expand to 3 GB. Darwin's XML parser stops entity
+        // amplification itself (measured: error 111 in about a millisecond); this pins that
+        // behavior, because the element-text cap below does not bound attribute values.
+        var entities = #"<!ENTITY lol0 "lollollollollollollollollollol">"# + "\n"
+        for level in 1...9 {
+            entities += "<!ENTITY lol\(level) \"" + String(repeating: "&lol\(level - 1);", count: 10) + "\">\n"
+        }
+        let data = Data("""
+        <?xml version="1.0"?>
+        <!DOCTYPE gpx [
+        \(entities)]>
+        <gpx version="1.1">
+          \(body)
+          <trk><trkseg>
+            <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+            <trkpt lat="37.33282" lon="-122.03218"><ele>15</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        #expect(throws: GPXRouteParserError.invalidDocument) {
+            _ = try GPXRouteParser.parse(data: data, sourceFilename: "billion-laughs.gpx")
+        }
+    }
+
     @Test("aborts when a single element's text exceeds the accumulation cap (internal-entity expansion guard)")
     func rejectsOversizedElementText() throws {
         // shouldResolveExternalEntities=false blocks XXE, but Foundation still expands internal

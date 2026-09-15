@@ -155,6 +155,23 @@ Use the production accumulator's exact byte-prefix invariant and Unicode regress
 The synthetic parser benchmark does not measure SwiftUI rendering, model inference
 or battery usage.
 
+## Regional formatting
+
+iOS keeps Settings > Measurement System and Number Format as preferences outside the locale
+identifier: a US-region phone set to Metric reports `en_US` with a metric `measurementSystem`.
+`MeasurementFormatter`'s natural scale ignores that preference (yards and miles), `FormatStyle`
+(`.formatted()`) honors it but ignores Number Format, and `%lld` in `Localization.format` never
+groups digits. Route user-visible distances through `Formatters.distanceString`/`elevationString`/
+`stepLengthString` (`UnitLength(forLocale:usage:)` picks the unit, `MeasurementFormatter` in the
+provided unit formats the number) and counts through `Formatters.stepCountString`/`formattedSteps`.
+
+A unit test with `Locale(identifier:)` cannot reproduce a preference-only state, and a legacy
+formatter applies the device's Number Format override to an injected locale whose identifier matches
+the current one. The device state is pinned in UI tests with Apple's test-only argument-domain keys
+(`-AppleLocale en_US -AppleMetricUnits <true/> -AppleMeasurementUnits Centimeters
+-AppleICUNumberSymbols {…}`); see `launchWithUSRegionMetricAndCommaDecimals`. 1.0.2 shipped a
+formatter "fix" proven only with explicit locales, and it changed nothing on the affected phone.
+
 ## Verification and release lessons
 
 - XcodeGen snapshots version/build fields. Change `project.yml` before generation,
@@ -239,6 +256,11 @@ or battery usage.
   Pluralized keys must be rendered through `L10n.localized("\(count) days")` (see `Localization.streakDays`).
 - When the value shown depends on a mode as well as a count (steps vs wheelchair pushes), every throttle keyed on
   count and time must also release on a mode change, or the relabel waits for the next step delta.
+- `.accessibilityLabel`/`.accessibilityValue` on a container of shapes and hidden text reach no element, so
+  VoiceOver skips them silently; give the container `.accessibilityElement(children: .ignore)`. The XCUITest
+  failure attachment "App UI hierarchy" shows what is really exposed when `describe` returns an empty tree.
+- A UI assertion that fails on `waitForExistence` with no message proves the query, not the behavior: read
+  which line failed before counting a run as the red half of a reproducer.
 - When a structural argument and an experiment disagree, the experiment wins. Bisect
   before defending a hypothesis, and scope any find/replace to the specific call.
 
@@ -254,6 +276,13 @@ or battery usage.
 - `Shared/` and `AIPedometerWatch/` were swept for the 32-bit overflow class. The only
   large constant was the wrapping-`UInt32` hash already fixed in 0.90. Shared code still
   compiles for `arm64_32`, so new hashing there needs explicit wrapping arithmetic.
+- GPX internal-entity amplification ("billion laughs") is rejected by Darwin's XML parser itself
+  (error 111 within a millisecond, text and attributes); `rejectsBillionLaughs` pins it.
+- Watch and App Group payloads are written only by this app's own targets (companion pairing, App Group
+  entitlement), so post-decode size bounds were declined as validation without an attacker. The SwiftData
+  store keeps the default protection class because background step and HealthKit writes run while locked.
+- AI coach input and output need no extra length caps: the on-device model's context window bounds both,
+  and oversized input maps to `exceededContextWindowSize`.
 - Fresh SwiftData stores in private Application Support are the mitigation for the store
   boundary. Existing app-group stores stay in place to avoid upgrade data loss, and
   SwiftData has no public relocation API — do not implement a raw SQLite/WAL move.

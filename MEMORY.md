@@ -7,7 +7,13 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-15)
 
-- Source is 1.0.2 (58) in `project.yml`. Versions use three components from now on.
+- Source is 1.0.3 (59) in `project.yml`. Versions use three components from now on.
+- **1.0.2 (58) did not fix the reported distances.** iMarcus reports `en_US` (lockdown); a US region with
+  Measurement System = Metric keeps the identifier `en_US`, and `MeasurementFormatter` natural scale ignored
+  the preference, so 1.0.2 still rendered miles there (reproduced on an iOS 27 simulator set through
+  Settings). 1.0.3 fixes units via `UnitLength(forLocale:usage:)` and counts via `NumberFormatter`; see
+  FOR_YOU_KNOW "Regional formatting". `v1.0.2-beta1` was pushed for a build that never reached TestFlight,
+  contrary to the rule below; the tag is left in place (pushed tags are never moved).
 - **Hard production and TestFlight blocker, unchanged:** `Config/Local.xcconfig` carries a Test Store (`test_`)
   RevenueCat key (rechecked 2026-09-15 by prefix only). `AppConstants.RevenueCat.resolveConfiguration` nils
   it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;

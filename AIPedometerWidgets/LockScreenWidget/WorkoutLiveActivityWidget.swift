@@ -21,7 +21,7 @@ struct WorkoutLiveActivityWidget: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(distanceText(context.state.distance))
+                    Text(context.state.distanceText)
                         .font(DesignTokens.Typography.callout.monospacedDigit().weight(.bold))
                         .foregroundStyle(DesignTokens.Colors.cyan)
                         .lineLimit(1)
@@ -39,7 +39,7 @@ struct WorkoutLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: DesignTokens.Spacing.lg) {
                         LiveStatView(value: "\(Int(context.state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
-                        LiveStatView(value: distanceText(context.state.distance), label: LiveActivityUnits.distance, icon: "figure.walk", tint: DesignTokens.Colors.mint)
+                        LiveStatView(value: context.state.distanceText, label: LiveActivityUnits.distance, icon: "figure.walk", tint: DesignTokens.Colors.mint)
                     }
                     .padding(.top, DesignTokens.Spacing.sm)
                 }
@@ -56,10 +56,6 @@ struct WorkoutLiveActivityWidget: Widget {
             }
             .keylineTint(DesignTokens.Colors.cyan)
         }
-    }
-
-    private func distanceText(_ distance: Double) -> String {
-        LiveActivityDistanceFormatter.string(kilometers: distance)
     }
 }
 
@@ -93,32 +89,13 @@ struct LockScreenWorkoutView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: DesignTokens.Spacing.sm) {
-                LiveStatView(value: distanceText(state.distance), label: LiveActivityUnits.distance, icon: "map.fill", tint: DesignTokens.Colors.mint)
+                LiveStatView(value: state.distanceText, label: LiveActivityUnits.distance, icon: "map.fill", tint: DesignTokens.Colors.mint)
                 LiveStatView(value: "\(Int(state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
             }
         }
         .padding(DesignTokens.Spacing.lg)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xl, style: .continuous))
-    }
-
-    private func distanceText(_ distance: Double) -> String {
-        LiveActivityDistanceFormatter.string(kilometers: distance)
-    }
-}
-
-private enum LiveActivityDistanceFormatter {
-    @MainActor static let formatter: MeasurementFormatter = {
-        let formatter = MeasurementFormatter()
-        formatter.unitStyle = .short
-        formatter.unitOptions = .naturalScale
-        formatter.locale = .autoupdatingCurrent
-        return formatter
-    }()
-
-    @MainActor static func string(kilometers: Double) -> String {
-        let measurement = Measurement(value: kilometers * 1_000, unit: UnitLength.meters)
-        return formatter.string(from: measurement)
     }
 }
 
@@ -165,6 +142,13 @@ struct LiveStatView: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private extension WorkoutActivityAttributes.ContentState {
+    /// The activity state carries kilometers.
+    @MainActor var distanceText: String {
+        Formatters.distanceString(meters: distance * 1_000)
     }
 }
 #endif

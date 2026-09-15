@@ -169,7 +169,7 @@ struct PlanRowView: View {
                         Localization.format(
                             "%@ %@ per day",
                             comment: "Training plan daily target label with unit",
-                            target.dailyStepTarget.formatted(),
+                            target.dailyStepTarget.formattedSteps,
                             unitName
                         ),
                         systemImage: "figure.walk"
@@ -323,7 +323,7 @@ struct WeeklyTargetRow: View {
             Spacer()
 
             VStack(alignment: .trailing) {
-                Text("\(target.dailyStepTarget.formatted())")
+                Text(target.dailyStepTarget.formattedSteps)
                     .font(DesignTokens.Typography.headline.monospacedDigit())
                 Text(
                     Localization.format(

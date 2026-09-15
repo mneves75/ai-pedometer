@@ -808,7 +808,7 @@ private struct ImportedRouteSummary: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignTokens.Spacing.sm) {
                 routeStat(icon: "point.topleft.down.curvedto.point.bottomright.up", value: route.distanceMeters.formattedDistance(), label: L10n.localized("Distance", comment: "Workout metric title"))
                 routeStat(icon: "clock", value: Formatters.durationString(seconds: route.estimatedDuration), label: L10n.localized("Estimated", comment: "Route estimate label"))
-                routeStat(icon: "mountain.2.fill", value: Formatters.distanceString(meters: route.elevationGainMeters), label: L10n.localized("Elevation Gain", comment: "Route elevation gain label"))
+                routeStat(icon: "mountain.2.fill", value: Formatters.elevationString(meters: route.elevationGainMeters), label: L10n.localized("Elevation Gain", comment: "Route elevation gain label"))
                 routeStat(icon: "mappin.and.ellipse", value: WorkoutsView.waypointCountText(route.waypointCount), label: L10n.localized("Waypoints", comment: "Route waypoint label"))
             }
         }
