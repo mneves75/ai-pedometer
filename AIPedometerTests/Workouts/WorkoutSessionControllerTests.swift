@@ -76,6 +76,33 @@ struct WorkoutSessionControllerTests {
         await controller.discardWorkout()
     }
 
+    @Test("Finishing publishes the latest metrics even when the last Live Activity update was throttled")
+    func finishPublishesLatestMetricsBeforeEndingLiveActivity() async {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 100, distance: 80, floorsAscended: 0)
+        let liveActivity = MockLiveActivityManager()
+        let currentDate = Date(timeIntervalSince1970: 1_000)
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity,
+            now: { currentDate }
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 110, distance: 88, floorsAscended: 0)
+        await controller.refreshMetrics()
+        // Throttled: under the cadence and the step delta, so the card still shows 100.
+        #expect(liveActivity.lastUpdate?.steps == 100)
+
+        await controller.finishWorkout()
+
+        #expect(liveActivity.lastUpdate?.steps == 110)
+        #expect(liveActivity.endDiscardedValues == [false])
+    }
+
     @Test("A finished workout keeps its final Live Activity; a discarded one is dismissed")
     func liveActivityDismissalFollowsHowTheWorkoutEnded() async {
         let persistence = PersistenceController(inMemory: true)

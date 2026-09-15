@@ -216,4 +216,34 @@ struct HealthKitQueryBridgeTests {
         }
         #expect(stops.withLock { $0 } >= 1)
     }
+
+    @Test("Cancellation that lands as the query starts still stops the started query")
+    func cancellationDuringStartStopsStartedQuery() async {
+        let bridge = HealthKitQueryBridge<Int>()
+        let started = OSAllocatedUnfairLock(initialState: false)
+        let stopsAfterStart = OSAllocatedUnfairLock(initialState: 0)
+
+        let task = Task {
+            try await bridge.run(
+                execute: {
+                    // The cancellation handler runs here, before the query below has started.
+                    withUnsafeCurrentTask { $0?.cancel() }
+                    started.withLock { $0 = true }
+                },
+                stop: {
+                    if started.withLock({ $0 }) {
+                        stopsAfterStart.withLock { $0 += 1 }
+                    }
+                }
+            )
+        }
+
+        switch await task.result {
+        case .success(let value):
+            Issue.record("Expected CancellationError, got value \(value)")
+        case .failure(let error):
+            #expect(error is CancellationError)
+        }
+        #expect(stopsAfterStart.withLock { $0 } >= 1)
+    }
 }

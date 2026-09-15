@@ -567,6 +567,15 @@ private extension WorkoutSessionController {
     func endLiveMetrics(discarded: Bool) async {
         updateTask?.cancel()
         metricsSource.stop()
+        // Updates are throttled, so the card can lag the session by up to the cadence. A finished workout's card
+        // stays on the Lock Screen, so publish the final numbers before ending it.
+        if !discarded, let metrics {
+            await liveActivityManager.update(
+                steps: metrics.steps,
+                distance: metrics.distance / 1000,
+                calories: metrics.calories
+            )
+        }
         await liveActivityManager.end(discarded: discarded)
     }
 

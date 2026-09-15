@@ -252,6 +252,34 @@ struct BadgeServiceTests {
         #expect(service.earnedBadgeTypes() == [.steps5K])
     }
 
+    @Test("A badge list read during a failure does not override a recovered read at unlock")
+    func unlockUsesRecoveredReadOverStaleEmptyTypes() throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        context.insert(EarnedBadge(badgeType: .steps5K))
+        try context.save()
+
+        let store = BadgeFetchSwitch()
+        store.shouldFail = true
+        let service = BadgeService(
+            persistence: persistence,
+            fetchEarnedBadges: { context in
+                if store.shouldFail { throw CocoaError(.fileReadUnknown) }
+                return try BadgeService.fetchNonDeletedBadges(in: context)
+            }
+        )
+
+        // The caller read while storage failed, then storage recovered before it unlocked.
+        let staleTypes = service.earnedBadgeTypes()
+        #expect(staleTypes.isEmpty)
+        store.shouldFail = false
+
+        #expect(service.unlock(.steps5K, existingBadgeTypes: staleTypes) == false)
+        try context.save()
+        #expect(try context.fetch(FetchDescriptor<EarnedBadge>()).count == 1)
+        #expect(service.pendingCelebrationTask == nil)
+    }
+
     private static func celebration(message: String) -> AchievementCelebration {
         AchievementCelebration(
             congratulation: message,

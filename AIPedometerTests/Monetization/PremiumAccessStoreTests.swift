@@ -116,14 +116,15 @@ final class FakePurchasesClient: PurchasesClientProtocol {
 @MainActor
 struct PremiumAccessStoreTests {
     @Test(
-        "management URL fallback opens only https links",
+        "management URL fallback opens only Apple's https subscription page",
         arguments: [
             ("https://apps.apple.com/account/subscriptions", true),
             ("HTTPS://apps.apple.com/account/subscriptions", true),
             ("http://apps.apple.com/account/subscriptions", false),
             ("itms-apps://apps.apple.com/account/subscriptions", false),
             ("otherapp://steal?token=1", false),
-            ("https:///no-host", false)
+            ("https:///no-host", false),
+            ("https://evil.example.com/account/subscriptions", false)
         ]
     )
     func managementURLFallbackOpensOnlyHTTPS(rawURL: String, expected: Bool) throws {

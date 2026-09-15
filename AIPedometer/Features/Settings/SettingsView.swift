@@ -623,10 +623,12 @@ struct SettingsView: View {
                 break
             case .authorizationDenied:
                 // A stale resume that deferred to this owner may have left a request pending.
+                smartReminderNewestOwnerSchedules = false
                 smartNotificationService.cancelAllSmartNotifications()
                 smartRemindersEnabled = false
                 smartRemindersSuspendedByAccess = false
             case .scheduleFailed:
+                smartReminderNewestOwnerSchedules = false
                 smartNotificationService.cancelAllSmartNotifications()
                 smartRemindersEnabled = false
                 smartRemindersSuspendedByAccess = false
@@ -711,7 +713,8 @@ struct SettingsView: View {
                     minute: AppConstants.Notifications.defaultSmartReminderMinute
                 )
             },
-            cancelReminders: { smartNotificationService.cancelAllSmartNotifications() }
+            cancelReminders: { smartNotificationService.cancelAllSmartNotifications() },
+            newestOwnerFinished: { smartReminderNewestOwnerSchedules = false }
         )
 
         if result == .resumed {

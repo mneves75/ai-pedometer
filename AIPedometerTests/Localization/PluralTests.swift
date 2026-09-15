@@ -60,20 +60,6 @@ struct PluralTests {
     // MARK: - Plural Variations
 
     @Test(
-        "Streak stat value uses plural variations",
-        arguments: [
-            (1, "en", "1 day"),
-            (2, "en", "2 days"),
-            (1, "pt-BR", "1 dia"),
-            (2, "pt-BR", "2 dias")
-        ]
-    )
-    func streakValuePluralizes(days: Int, language: String, expected: String) {
-        let text = DashboardView.streakValueText(days: days, locale: Locale(identifier: language))
-        #expect(text == expected)
-    }
-
-    @Test(
         "Imported route waypoint count uses plural variations",
         arguments: [
             (1, "en", "1 waypoint"),
@@ -87,13 +73,17 @@ struct PluralTests {
         #expect(text == expected)
     }
 
-    @Test("Format-string callers of a pluralized key still render the count")
-    func formatStringCallersOfPluralKeyRenderCount() {
-        // The watch and the step-count widget format "%lld days" with `Localization.format`; turning the key
-        // into plural variations must not leave them showing a raw specifier.
-        let text = Localization.format("%lld days", comment: "Streak days", Int64(3))
-        #expect(text.contains("3"))
-        #expect(!text.contains("%"))
+    @Test(
+        "Shared streak text used by the watch and widgets pluralizes",
+        arguments: [
+            (1, "en", "1 day"),
+            (2, "en", "2 days"),
+            (1, "pt-BR", "1 dia"),
+            (2, "pt-BR", "2 dias")
+        ]
+    )
+    func sharedStreakTextPluralizes(days: Int, language: String, expected: String) {
+        #expect(Localization.streakDays(days, locale: Locale(identifier: language)) == expected)
     }
 
     // MARK: - Date Formatting

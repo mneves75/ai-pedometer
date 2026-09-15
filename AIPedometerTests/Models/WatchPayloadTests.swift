@@ -314,6 +314,20 @@ struct WatchPayloadTests {
 @Suite("WatchSyncService throttle")
 @MainActor
 struct WatchSyncServiceThrottleTests {
+    @Test("Watch send throttle releases immediately when the activity mode changes")
+    func watchThrottleReleasesOnActivityModeChange() {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let shouldSend = WatchSyncService.shouldSendReachableMessage(
+            lastSentAt: now.addingTimeInterval(-1),
+            lastSentSteps: 500,
+            newSteps: 500,
+            lastSentMode: .steps,
+            newMode: .wheelchairPushes,
+            now: now
+        )
+        #expect(shouldSend)
+    }
+
     @Test("First reachable message is always sent")
     func firstReachableMessageIsAlwaysSent() {
         let shouldSend = WatchSyncService.shouldSendReachableMessage(

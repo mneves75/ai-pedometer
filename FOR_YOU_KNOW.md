@@ -232,6 +232,13 @@ or battery usage.
 - When the lead delegates to parallel subagents, a shared account session limit can stop all of them at
   once mid-change. Workers that write the failing test first leave a tree that still builds and whose red
   tests describe the unfinished work; that is what made the 1.0.1 pass recoverable.
+- A `#Preview` body is type-checked in Release. A preview that calls a `#if DEBUG` helper compiles in every
+  Debug gate (CI, tests, device installs) and breaks only the archive. Keep preview helpers and the
+  previews that call them under the same condition, and compile the Release configuration before a delivery.
+- `Localization.format("%lld days", …)` never pluralizes: `String(format:)` receives the key's `other` form.
+  Pluralized keys must be rendered through `L10n.localized("\(count) days")` (see `Localization.streakDays`).
+- When the value shown depends on a mode as well as a count (steps vs wheelchair pushes), every throttle keyed on
+  count and time must also release on a mode change, or the relabel waits for the next step delta.
 - When a structural argument and an experiment disagree, the experiment wins. Bisect
   before defending a hypothesis, and scope any find/replace to the specific call.
 

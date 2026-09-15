@@ -419,10 +419,14 @@ final class PremiumAccessStore {
         }
     }
 
-    /// The management URL comes from a server response; only a web link may leave the app, never a
-    /// custom scheme that another installed app could claim.
+    /// The management URL comes from a server response. Only Apple's subscription management page may leave
+    /// the app (explicit allowlist, SECURITY-GUIDELINES.md): no custom scheme another app could claim, and no
+    /// other web host.
+    nonisolated static let managementURLHosts: Set<String> = ["apps.apple.com"]
+
     nonisolated static func isOpenableManagementURL(_ url: URL) -> Bool {
-        url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
+        guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else { return false }
+        return managementURLHosts.contains(host)
     }
 
     private func configurePurchasesIfNeeded() {

@@ -139,14 +139,16 @@ enum SettingsSideEffects {
     /// scheduling path adds the same request identifier. A completion that is no longer current therefore
     /// must not cancel blindly: when the newest owner also schedules, that owner's request is the one that
     /// would be removed. It defers instead, and the current owner clears the request if its own attempt fails.
-    /// When the newest owner cancels (suspension, disable), the stale add is removed as before.
+    /// When the newest owner cancels (suspension, disable) or ends without a request (failure), the stale add
+    /// is removed: `newestOwnerFinished` tells the caller that deferring to this attempt is no longer valid.
     @MainActor
     static func resumeSuspendedSmartReminder(
         isCurrent: @escaping @MainActor () -> Bool,
         newestOwnerSchedules: @escaping @MainActor () -> Bool,
         isStillWanted: @escaping @MainActor () -> Bool,
         scheduleReminder: @escaping @MainActor () async -> Bool,
-        cancelReminders: @escaping @MainActor () -> Void
+        cancelReminders: @escaping @MainActor () -> Void,
+        newestOwnerFinished: @escaping @MainActor () -> Void
     ) async -> SmartReminderResumeResult {
         let didSchedule = await scheduleReminder()
         guard isCurrent() else {
@@ -161,10 +163,12 @@ enum SettingsSideEffects {
             // A stale sibling may have deferred to this attempt and left its request pending, while the
             // toggle keeps reading "suspended"; nothing may stay scheduled behind it.
             cancelReminders()
+            newestOwnerFinished()
             return .scheduleFailed
         }
         guard isStillWanted() else {
             cancelReminders()
+            newestOwnerFinished()
             return .cancelled
         }
         return .resumed

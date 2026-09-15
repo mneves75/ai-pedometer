@@ -13,8 +13,8 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;
   `validate-release-artifact.py` rejects it before export. The key is baked into `Info.plist` at archive time,
   so an Apple (`appl_`) key requires a new archive. No beta tag is created until a build actually ships.
-- 2026-09-15 full review pass (finding ledger in `memory/2026-09-15.md`): unit 648/648 on
-  the 1.0.1 (57) build; UI suite on iPhone 17 Pro (see journal for the final count).
+- 2026-09-15 full review pass, two review rounds (finding ledger in `memory/2026-09-15.md`): unit 654/654 and
+  UI 20/20 (iPhone 17 Pro, iOS 27.0) on the final 1.0.1 (57) tree, zero skips, validated result bundles.
   `testTrainingPlansOpensFromWorkouts` fails on the **iPhone 17 Pro Max** iOS 27.0 simulator identically at
   `08c0b72` and at 1.0.1 (tap on `training_plans_card` never lands) and passes on iPhone 17 Pro — a
   device-specific pre-existing UI-test issue, not a product regression; unresolved.

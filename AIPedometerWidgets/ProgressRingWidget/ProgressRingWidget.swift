@@ -38,24 +38,11 @@ struct ProgressRingContent: View {
     }
 
     private var progressAccessibilityValue: String {
-        switch data.activityMode {
-        case .steps:
-            Localization.format(
-                "%@ steps of %@ goal, %lld percent",
-                comment: "Accessibility value for the goal ring widget",
-                data.todaySteps.formatted(),
-                data.goalSteps.formatted(),
-                Int64((clampedProgress * 100).rounded())
-            )
-        case .wheelchairPushes:
-            Localization.format(
-                "%@ of %@ %@",
-                comment: "Accessibility value for daily progress with current and goal counts",
-                data.todaySteps.formatted(),
-                data.goalSteps.formatted(),
-                data.activityMode.unitName
-            )
-        }
+        data.activityMode.progressAccessibilityValue(
+            count: data.todaySteps,
+            goal: data.goalSteps,
+            percent: Int((clampedProgress * 100).rounded())
+        )
     }
 
     var body: some View {

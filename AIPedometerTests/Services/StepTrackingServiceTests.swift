@@ -1940,6 +1940,23 @@ struct ResultTypeTests {
         #expect(shouldReload == false)
     }
 
+    @Test("Widget throttle releases immediately when the activity mode changes")
+    @MainActor
+    func widgetThrottleReleasesOnActivityModeChange() {
+        let calendar = Calendar(identifier: .gregorian)
+        let last = Date(timeIntervalSince1970: 1_000)
+        let shouldReload = StepTrackingService.shouldReloadWidgets(
+            lastReloadAt: last,
+            lastReloadSteps: 1000,
+            newSteps: 1000,
+            lastReloadMode: .steps,
+            newMode: .wheelchairPushes,
+            now: last.addingTimeInterval(1),
+            calendar: calendar
+        )
+        #expect(shouldReload)
+    }
+
     @Test("Widget throttle releases once 5 minutes elapse even with no step delta")
     @MainActor
     func widgetThrottleReleasesAfterFiveMinutes() {

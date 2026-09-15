@@ -42,10 +42,45 @@ struct WeeklyChartContent: View {
         data.weeklySteps.reduce(0, +)
     }
 
+    private var headerTitle: String {
+        switch data.activityMode {
+        case .steps: L10n.localized("Weekly Steps", comment: "Widget header for weekly steps summary")
+        case .wheelchairPushes: L10n.localized("Weekly Pushes", comment: "Widget header for weekly wheelchair pushes summary")
+        }
+    }
+
+    private var accessibilityTitle: String {
+        switch data.activityMode {
+        case .steps: L10n.localized("Weekly steps", comment: "Accessibility label for weekly steps widget")
+        case .wheelchairPushes: L10n.localized("Weekly pushes", comment: "Accessibility label for weekly wheelchair pushes widget")
+        }
+    }
+
+    private var accessibilitySummary: String {
+        switch data.activityMode {
+        case .steps:
+            Localization.format(
+                "%@ steps today, %@ steps this week, %lld day streak",
+                comment: "Accessibility value for weekly steps widget",
+                data.todaySteps.formatted(),
+                weeklyTotal.formatted(),
+                Int64(data.currentStreak)
+            )
+        case .wheelchairPushes:
+            Localization.format(
+                "%@ pushes today, %@ pushes this week, %lld day streak",
+                comment: "Accessibility value for weekly wheelchair pushes widget",
+                data.todaySteps.formatted(),
+                weeklyTotal.formatted(),
+                Int64(data.currentStreak)
+            )
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             HStack {
-                Text(L10n.localized("Weekly Steps", comment: "Widget header for weekly steps summary"))
+                Text(headerTitle)
                     .font(DesignTokens.Typography.caption.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .lineLimit(1)
@@ -82,16 +117,8 @@ struct WeeklyChartContent: View {
         }
         .padding(DesignTokens.Spacing.md)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L10n.localized("Weekly steps", comment: "Accessibility label for weekly steps widget"))
-        .accessibilityValue(
-            Localization.format(
-                "%@ steps today, %@ steps this week, %lld day streak",
-                comment: "Accessibility value for weekly steps widget",
-                data.todaySteps.formatted(),
-                weeklyTotal.formatted(),
-                Int64(data.currentStreak)
-            )
-        )
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(accessibilitySummary)
     }
 }
 

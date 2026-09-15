@@ -63,6 +63,14 @@ enum Formatters {
 }
 
 enum Localization {
+    /// Streak length in days, pluralized ("1 day", "2 days"). Shared by the app, watch and widgets.
+    ///
+    /// Interpolated, not `format(_:)`: `String(format:)` receives the key's `other` form and never applies the
+    /// catalog's plural rule, so the watch and widgets rendered "1 days".
+    static func streakDays(_ days: Int, locale: Locale? = nil) -> String {
+        L10n.localized("\(Int64(days)) days", locale: locale, comment: "Streak length in days")
+    }
+
     static func format(_ key: String.LocalizationValue, comment: StaticString, _ arguments: any CVarArg...) -> String {
         let format = L10n.localized(key, comment: comment)
         return String(format: format, locale: AppLanguage.defaultLocale, arguments: arguments)

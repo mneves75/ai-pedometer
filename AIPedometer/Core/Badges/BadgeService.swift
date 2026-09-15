@@ -96,7 +96,8 @@ final class BadgeService {
             Loggers.badges.warning("badges.unlock_skipped_unknown_state", metadata: ["badge": badgeType.rawValue])
             return false
         }
-        let earnedTypes = existingBadgeTypes ?? knownTypes
+        // Union, not preference: the caller's set can be empty from a read that failed before storage recovered.
+        let earnedTypes = knownTypes.union(existingBadgeTypes ?? [])
         guard !earnedTypes.contains(badgeType) else {
             return false
         }

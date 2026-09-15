@@ -27,7 +27,8 @@ nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
     private enum State: Sendable {
         case idle
         case waiting(CheckedContinuation<Value, any Error>)
-        case finished
+        case completed
+        case cancelled
     }
 
     private let state = OSAllocatedUnfairLock<State>(initialState: .idle)
@@ -36,7 +37,7 @@ nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
     func resume(with result: Result<Value, any Error>) {
         let pending: CheckedContinuation<Value, any Error>? = state.withLock { state in
             guard case .waiting(let continuation) = state else { return nil }
-            state = .finished
+            state = .completed
             return continuation
         }
         pending?.resume(with: result)
@@ -58,6 +59,11 @@ nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
                     return
                 }
                 execute()
+                // Cancellation that lands between storing the continuation and `execute()` has already called
+                // `stop()` on a query that was not running yet; stop it again now that it is.
+                if state.withLock({ state in if case .cancelled = state { true } else { false } }) {
+                    stop()
+                }
             }
         } onCancel: {
             stop()
@@ -65,12 +71,12 @@ nonisolated final class HealthKitQueryBridge<Value: Sendable>: Sendable {
                 switch state {
                 case .idle:
                     // The operation has not stored its continuation yet; it will see this and not start.
-                    state = .finished
+                    state = .cancelled
                     return nil
                 case .waiting(let continuation):
-                    state = .finished
+                    state = .cancelled
                     return continuation
-                case .finished:
+                case .completed, .cancelled:
                     return nil
                 }
             }
@@ -272,8 +278,8 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         async let floorsTotals = fetchDailyTotalsOrNil(type: .flightsClimbed, unit: .count(), from: startDay, to: endDate)
 
         let activity = try await activityTotals
-        let distance = await distanceTotals
-        let floors = await floorsTotals
+        let distance = try await distanceTotals
+        let floors = try await floorsTotals
 
         var summaries: [DailyStepSummary] = []
         var current = startDay
@@ -541,9 +547,13 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         unit: HKUnit,
         from startDate: Date,
         to endDate: Date
-    ) async -> [Date: Double]? {
+    ) async throws -> [Date: Double]? {
         do {
             return try await fetchDailyTotals(type: type, unit: unit, from: startDate, to: endDate)
+        } catch is CancellationError {
+            // Optional means "may be unavailable", not "may be abandoned": a cancelled caller must not receive
+            // summaries with estimated distance or missing floors.
+            throw CancellationError()
         } catch {
             Loggers.health.warning("healthkit.daily_totals_unavailable", metadata: [
                 "type": type.rawValue, "error": error.localizedDescription

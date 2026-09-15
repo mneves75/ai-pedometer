@@ -157,6 +157,23 @@
         }
       }
     },
+    "%@ pushes today, %@ pushes this week, %lld day streak" : {
+      "comment" : "Accessibility value for weekly wheelchair pushes widget",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ pushes today, %2$@ pushes this week, %3$lld day streak"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ impulsos hoje, %2$@ impulsos nesta semana, sequência de %3$lld dias"
+          }
+        }
+      }
+    },
     "%@ steps/day" : {
       "comment" : "A label displaying the daily step target for a training plan.",
       "extractionState" : "stale",
@@ -7653,6 +7670,23 @@
         }
       }
     },
+    "Weekly Pushes" : {
+      "comment" : "Widget header for weekly wheelchair pushes summary",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly Pushes"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impulsos Semanais"
+          }
+        }
+      }
+    },
     "Weekly steps" : {
       "comment" : "Accessibility label for weekly steps widget",
       "localizations" : {
@@ -7666,6 +7700,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Passos semanais"
+          }
+        }
+      }
+    },
+    "Weekly pushes" : {
+      "comment" : "Accessibility label for weekly wheelchair pushes widget",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly pushes"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impulsos semanais"
           }
         }
       }

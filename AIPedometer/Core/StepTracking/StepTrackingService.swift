@@ -46,6 +46,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     @ObservationIgnored private var liveSnapshotDayStart: Date?
     @ObservationIgnored private var lastWidgetReloadAt: Date?
     @ObservationIgnored private var lastWidgetReloadSteps: Int?
+    @ObservationIgnored private var lastWidgetReloadMode: ActivityTrackingMode?
     @ObservationIgnored private var refreshChain: Task<Void, Never>?
     @ObservationIgnored private var liveStreamGeneration = 0
     @ObservationIgnored private var streakRefreshGeneration = 0
@@ -727,10 +728,13 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     private func reloadWidgetsIfNeeded(steps: Int) {
         #if canImport(WidgetKit)
         let now = now()
+        let mode = activitySettings.activityMode
         guard Self.shouldReloadWidgets(
             lastReloadAt: lastWidgetReloadAt,
             lastReloadSteps: lastWidgetReloadSteps,
             newSteps: steps,
+            lastReloadMode: lastWidgetReloadMode,
+            newMode: mode,
             now: now
         ) else {
             return
@@ -740,6 +744,7 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         dataStore.flush()
         lastWidgetReloadAt = now
         lastWidgetReloadSteps = steps
+        lastWidgetReloadMode = mode
 
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.stepCount)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetKinds.progressRing)
@@ -762,11 +767,15 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         lastReloadAt: Date?,
         lastReloadSteps: Int?,
         newSteps: Int,
+        lastReloadMode: ActivityTrackingMode? = nil,
+        newMode: ActivityTrackingMode? = nil,
         now: Date,
         calendar: Calendar = .autoupdatingCurrent,
         minInterval: TimeInterval = 5 * 60,
         minDeltaSteps: Int = 200
     ) -> Bool {
+        // Mode switches relabel every widget (steps vs pushes), so they bypass the throttle.
+        if let lastReloadMode, let newMode, lastReloadMode != newMode { return true }
         guard let last = lastReloadAt else { return true }
 
         if !calendar.isDate(last, inSameDayAs: now) {

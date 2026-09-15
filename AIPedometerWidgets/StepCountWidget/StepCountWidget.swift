@@ -86,13 +86,7 @@ struct StepCountContentView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
 
-                    Text(
-                        Localization.format(
-                            "%lld days",
-                            comment: "Widget value for streak in days",
-                            Int64(data.currentStreak)
-                        )
-                    )
+                    Text(Localization.streakDays(data.currentStreak))
                         .font(DesignTokens.Typography.caption2.weight(.semibold))
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
                         .lineLimit(1)

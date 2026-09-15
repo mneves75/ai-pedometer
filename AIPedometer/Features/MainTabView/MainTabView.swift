@@ -191,6 +191,9 @@ struct MainTabView: View {
     }
 }
 
+#if DEBUG
+// Both the previews and their helper are Debug-only: a `#Preview` body is still type-checked in Release,
+// so a preview calling a `#if DEBUG` member breaks the Release (archive) build.
 #Preview("iPhone") {
     MainTabView.previewWithServices(.compact)
 }
@@ -199,7 +202,6 @@ struct MainTabView: View {
     MainTabView.previewWithServices(.regular)
 }
 
-#if DEBUG
 extension MainTabView {
     /// Every tab root reads services from the environment; without them the preview crashes at runtime
     /// even though it builds. Mirrors the injection in `AIPedometerApp` with demo and in-memory backends.

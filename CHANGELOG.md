@@ -32,8 +32,8 @@ key blocker from 1.0 is unchanged.
   effect at the end of each day (`goal(forDayContaining:)`).
 - **Wheelchair pushes were shown as steps on the Apple Watch and widgets**, with a walking distance
   estimated from them. Snapshots now carry the activity mode (older payloads decode as steps), the watch and
-  widgets show the right unit and icon and hide the step-based distance, and a mode change reaches them
-  immediately. AI recommendations and insights are cached per activity mode.
+  every widget (including the weekly chart) show the right unit, icon and accessibility text and hide the
+  step-based distance, and a mode change bypasses the watch-send and widget-reload throttles. AI recommendations and insights are cached per activity mode.
 - The watch app shows the last snapshot the phone sent after a relaunch instead of a placeholder, and the
   first snapshot after the phone app launches is no longer dropped while `WCSession` activates.
 - Widget snapshots (for example while adding a widget) no longer show yesterday's total as today's, or the
@@ -41,15 +41,18 @@ key blocker from 1.0 is unchanged.
 - Settings could cancel a premium smart reminder that a concurrent, newer recovery had just scheduled; the
   toggle stayed on with nothing pending. Premium suspension and preference rules are unchanged.
 - Leaving a screen while an AI recommendation was generating cached the generic fallback for the rest of the
-  day. Cancellation is now distinct from failure throughout HealthKit and AI paths, and HealthKit queries are
-  stopped when their task is cancelled (for example when a background refresh expires).
+  day. AI generation abandoned by its caller is now neither cached nor reported as an error, HealthKit reads
+  propagate cancellation instead of reporting a failed query or returning partial daily summaries, and
+  HealthKit queries are stopped when their task is cancelled (for example when a background refresh expires).
 - On iOS 27, Foundation Models reports failures through new error types (`LanguageModelError` and
   siblings); a context overflow showed a generic error instead of the conversation-limit message. Both SDK
   generations are mapped.
-- A failed database read no longer opens a second active goal or re-awards (and re-celebrates) a badge.
+- A failed database read no longer opens a second active goal or re-awards (and re-celebrates) a badge,
+  including when storage recovers between the caller's read and the unlock.
 - History could hide its loading state or start the weekly analysis while a newer reload was still running.
 - On iPad, choosing another sidebar item could leave a pushed detail screen from the previous item on top.
-- "1 days" / "1 waypoints": the streak and waypoint counts use plural forms in English and Portuguese.
+- "1 days" / "1 waypoints": streak counts on the dashboard, watch and widgets and waypoint counts use plural
+  forms in English and Portuguese.
 - GPX imports: finite but impossible elevations no longer overflow route totals (which made the import fail),
   and the 200-character route-name bound now also covers names taken from the filename and routes saved by
   older builds.
@@ -59,7 +62,8 @@ key blocker from 1.0 is unchanged.
 - Release builds no longer honor the `APP_STORE_ID` launch environment variable, which let anyone launching
   the app through `devicectl` redirect the review link to another App Store listing. This was the only
   confirmed finding of the security review (low severity); no medium, high or critical issue was found.
-- The subscription-management fallback opens only `https` links, and the AI health-data tool clamps the
+- The subscription-management fallback opens only Apple's `https` subscription page (explicit host
+  allowlist), and the AI health-data tool clamps the
   model-supplied day range to 1...90 in code rather than relying on the generation guide.
 - CI: `persist-credentials: false` on every checkout, 14-day artifact retention, pushes to the default
   branch are never cancelled mid-run, beta/RC Xcode images are skipped, and the ast-grep rule tests run.

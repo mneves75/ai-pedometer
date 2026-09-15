@@ -18,6 +18,29 @@ struct HealthKitWorkoutSamplesTests {
         #expect(floors.unit == .count())
     }
 
+    @Test("Cancellation of an optional daily total propagates instead of producing partial summaries")
+    @MainActor
+    func optionalDailyTotalCancellationPropagates() async {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+        let service = HealthKitService(calendar: calendar, dailyTotalsExecutor: { spec, _, _ in
+            if spec.type == .distanceWalkingRunning { throw CancellationError() }
+            return [day: 4_000]
+        })
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await service.fetchDailySummaries(
+                from: day,
+                to: day.addingTimeInterval(60),
+                activityMode: .steps,
+                distanceMode: .automatic,
+                manualStepLength: 0.75,
+                dailyGoal: 8_000
+            )
+        }
+    }
+
     @Test("Injected statistics adapter converts nil to zero and executes once")
     @MainActor
     func injectedStatisticsAdapterHandlesNilExactlyOnce() async throws {

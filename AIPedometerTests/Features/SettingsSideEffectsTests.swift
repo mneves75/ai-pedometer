@@ -324,7 +324,8 @@ struct SettingsSideEffectsTests {
                     pendingRequests.insert("reminder")
                     return true
                 },
-                cancelReminders: { pendingRequests.removeAll() }
+                cancelReminders: { pendingRequests.removeAll() },
+                newestOwnerFinished: {}
             )
         }
         await firstScheduleStarted.wait()
@@ -338,7 +339,8 @@ struct SettingsSideEffectsTests {
                 pendingRequests.insert("reminder")
                 return true
             },
-            cancelReminders: { pendingRequests.removeAll() }
+            cancelReminders: { pendingRequests.removeAll() },
+            newestOwnerFinished: {}
         )
         #expect(second == .resumed)
 
@@ -368,7 +370,8 @@ struct SettingsSideEffectsTests {
                     pendingRequests.insert("reminder")
                     return true
                 },
-                cancelReminders: { pendingRequests.removeAll() }
+                cancelReminders: { pendingRequests.removeAll() },
+                newestOwnerFinished: {}
             )
         }
         await scheduleStarted.wait()
@@ -382,6 +385,49 @@ struct SettingsSideEffectsTests {
         let result = await resume.value
 
         #expect(result == .cancelled)
+        #expect(pendingRequests.isEmpty)
+    }
+
+    @Test("A stale resume finishing after the newest attempt failed cancels instead of deferring")
+    func staleResumeAfterNewestFailureCancels() async {
+        var generation = 1
+        var newestOwnerSchedules = true
+        var pendingRequests: Set<String> = []
+        let firstStarted = SettingsAsyncTestLatch()
+        let releaseFirst = SettingsAsyncTestLatch()
+
+        let first = Task {
+            await SettingsSideEffects.resumeSuspendedSmartReminder(
+                isCurrent: { generation == 1 },
+                newestOwnerSchedules: { newestOwnerSchedules },
+                isStillWanted: { true },
+                scheduleReminder: {
+                    firstStarted.signal()
+                    await releaseFirst.wait()
+                    pendingRequests.insert("reminder")
+                    return true
+                },
+                cancelReminders: { pendingRequests.removeAll() },
+                newestOwnerFinished: { newestOwnerSchedules = false }
+            )
+        }
+        await firstStarted.wait()
+
+        // The newer, current attempt fails before the stale one lands its add.
+        generation = 2
+        let second = await SettingsSideEffects.resumeSuspendedSmartReminder(
+            isCurrent: { generation == 2 },
+            newestOwnerSchedules: { newestOwnerSchedules },
+            isStillWanted: { true },
+            scheduleReminder: { false },
+            cancelReminders: { pendingRequests.removeAll() },
+            newestOwnerFinished: { newestOwnerSchedules = false }
+        )
+        #expect(second == .scheduleFailed)
+
+        releaseFirst.signal()
+        #expect(await first.value == .cancelled)
+        // The toggle still reads suspended; no reminder may be left pending behind it.
         #expect(pendingRequests.isEmpty)
     }
 
@@ -405,7 +451,8 @@ struct SettingsSideEffectsTests {
                     pendingRequests.insert("reminder")
                     return true
                 },
-                cancelReminders: { pendingRequests.removeAll() }
+                cancelReminders: { pendingRequests.removeAll() },
+                newestOwnerFinished: {}
             )
         }
         await firstStarted.wait()
@@ -421,7 +468,8 @@ struct SettingsSideEffectsTests {
                     await releaseSecond.wait()
                     return false
                 },
-                cancelReminders: { pendingRequests.removeAll() }
+                cancelReminders: { pendingRequests.removeAll() },
+                newestOwnerFinished: {}
             )
         }
         await secondStarted.wait()

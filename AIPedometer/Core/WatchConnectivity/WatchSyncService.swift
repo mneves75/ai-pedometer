@@ -18,6 +18,9 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private var lastReachableSentSteps: Int?
     private var lastContextUpdateAt: Date?
     private var lastContextSentSteps: Int?
+    private var lastContextSentMode: ActivityTrackingMode?
+    private var lastReachableSentMode: ActivityTrackingMode?
+    private var lastQueuedTransferMode: ActivityTrackingMode?
     /// The latest snapshot offered before `WCSession` finished activating. `isPaired` and
     /// `isWatchAppInstalled` are undefined until then, so it is held and sent on `.activated`.
     private var pendingStepData: SharedStepData?
@@ -63,6 +66,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 lastSentAt: lastContextUpdateAt,
                 lastSentSteps: lastContextSentSteps,
                 newSteps: stepData.todaySteps,
+                lastSentMode: lastContextSentMode,
+                newMode: stepData.activityMode,
                 now: now
             )
 
@@ -73,12 +78,15 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 lastSentAt: lastReachableSendAt,
                 lastSentSteps: lastReachableSentSteps,
                 newSteps: stepData.todaySteps,
+                lastSentMode: lastReachableSentMode,
+                newMode: stepData.activityMode,
                 now: now
             )
 
             // Queue userInfo as a durability mechanism, but throttle to avoid an unbounded queue.
             let queueMinInterval: TimeInterval = 10 * 60
             let shouldQueueTransfer = lastQueuedTransferAt == nil
+                || lastQueuedTransferMode != stepData.activityMode
                 || now.timeIntervalSince(lastQueuedTransferAt ?? .distantPast) >= queueMinInterval
 
             // Nothing due on any channel: skip the encode entirely (hot pedometer tick path).
@@ -103,6 +111,7 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                     try session.updateApplicationContext([WatchPayload.transferKey: encoded])
                     lastContextUpdateAt = now
                     lastContextSentSteps = stepData.todaySteps
+                    lastContextSentMode = stepData.activityMode
                     Signposts.sync.event("WatchContextUpdated")
                 } catch {
                     Loggers.sync.warning("watch.update_application_context_failed", metadata: [
@@ -125,12 +134,14 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 )
                 lastReachableSendAt = now
                 lastReachableSentSteps = stepData.todaySteps
+                lastReachableSentMode = stepData.activityMode
                 Signposts.sync.event("WatchMessageSent")
             }
 
             if shouldQueueTransfer {
                 session.transferUserInfo([WatchPayload.transferKey: encoded])
                 lastQueuedTransferAt = now
+                lastQueuedTransferMode = stepData.activityMode
                 Signposts.sync.event("WatchTransferQueued")
             }
         } catch {
@@ -154,10 +165,14 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         lastSentAt: Date?,
         lastSentSteps: Int?,
         newSteps: Int,
+        lastSentMode: ActivityTrackingMode? = nil,
+        newMode: ActivityTrackingMode? = nil,
         now: Date,
         minInterval: TimeInterval = 5,
         minDeltaSteps: Int = 10
     ) -> Bool {
+        // A mode switch changes what the watch shows (steps vs pushes), so it is always due.
+        if let lastSentMode, let newMode, lastSentMode != newMode { return true }
         guard let lastSentAt else { return true }
         if now.timeIntervalSince(lastSentAt) >= minInterval { return true }
         if let lastSentSteps, abs(newSteps - lastSentSteps) >= minDeltaSteps { return true }
@@ -179,8 +194,10 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private func resetReachableThrottle() {
         lastReachableSendAt = nil
         lastReachableSentSteps = nil
+        lastReachableSentMode = nil
         lastContextUpdateAt = nil
         lastContextSentSteps = nil
+        lastContextSentMode = nil
     }
 
     private func flushPendingStepData() {

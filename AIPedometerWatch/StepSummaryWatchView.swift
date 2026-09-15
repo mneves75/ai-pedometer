@@ -14,24 +14,7 @@ struct StepSummaryWatchView: View {
     }
 
     private var progressAccessibilityValue: String {
-        switch activityMode {
-        case .steps:
-            Localization.format(
-                "%@ steps of %@ goal, %lld percent",
-                comment: "Accessibility value for watch daily progress ring",
-                steps.formatted(),
-                goal.formatted(),
-                Int64((progress * 100).rounded())
-            )
-        case .wheelchairPushes:
-            Localization.format(
-                "%@ of %@ %@",
-                comment: "Accessibility value for daily progress with current and goal counts",
-                steps.formatted(),
-                goal.formatted(),
-                activityMode.unitName
-            )
-        }
+        activityMode.progressAccessibilityValue(count: steps, goal: goal, percent: Int((progress * 100).rounded()))
     }
 
     var body: some View {
@@ -92,13 +75,7 @@ struct StepSummaryWatchView: View {
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
-                        Text(
-                            Localization.format(
-                                "%lld days",
-                                comment: "Watch streak value in days",
-                                Int64(streak)
-                            )
-                        )
+                        Text(Localization.streakDays(streak))
                             .font(DesignTokens.Typography.caption.weight(.semibold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
