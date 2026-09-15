@@ -7,7 +7,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-15)
 
-- Source is 1.0.1 (57) in `project.yml`, not a deployed release. Versions use three components from now on.
+- Source is 1.0.2 (58) in `project.yml`. Versions use three components from now on.
 - **Hard production and TestFlight blocker, unchanged:** `Config/Local.xcconfig` carries a Test Store (`test_`)
   RevenueCat key (rechecked 2026-09-15 by prefix only). `AppConstants.RevenueCat.resolveConfiguration` nils
   it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;
