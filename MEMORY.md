@@ -30,7 +30,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 - ASC authentication is healthy (`asc auth doctor`: seven checks OK, `AIPedometer` profile complete
   in the keychain and default). That proves the key loads and parses — not that it carries a
   publishing role, which only surfaces on a real upload attempt.
-- CI and CodeQL are green on `08914ab`. The hosted runner uses Xcode 26.3 while this host uses
+- CI and CodeQL are green on `b86b102` (1.0.3; CodeQL 27 rules, 0 alerts). The hosted runner uses Xcode 26.3 while this host uses
   27.0, so the supported-range selector is load-bearing, not a convenience.
 - Open before any beta or production delivery: approved App Store Connect credentials,
   Apple (non-Test-Store) RevenueCat configuration, a signed artifact, and physical-device
