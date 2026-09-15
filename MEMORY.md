@@ -26,8 +26,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   scrolls an offscreen element into view; UI 20/20 on Pro Max as well.
 - Live Activities work for the first time in 1.0.1 (`NSSupportsLiveActivities` was missing). Physical-device
   verification of the Lock Screen / Dynamic Island activity is still an explicit gap.
-- Installed on iMarcus: 1.0.1 (57) Debug, confirmed by `devicectl` on 2026-09-15; the launch was refused because
-  the phone was locked.
+- Installed on iMarcus: 1.0.3 (59) Debug, confirmed by `devicectl` and launched on 2026-09-15.
 - ASC authentication is healthy (`asc auth doctor`: seven checks OK, `AIPedometer` profile complete
   in the keychain and default). That proves the key loads and parses — not that it carries a
   publishing role, which only surfaces on a real upload attempt.
