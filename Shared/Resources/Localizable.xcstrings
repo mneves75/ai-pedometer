@@ -7943,7 +7943,7 @@
       }
     },
     "Your strongest day was %@ with %@ %@." : {
-      "comment" : "Weekly fallback summary naming the best day. Placeholders in order: localized weekday, localized activity count, activity unit (steps or pushes).",
+      "comment" : "Weekly fallback summary naming the best day. Placeholders in order: localized abbreviated date, localized activity count, activity unit (steps or pushes).",
       "localizations" : {
         "en" : {
           "stringUnit" : {
