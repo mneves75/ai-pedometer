@@ -7892,6 +7892,7 @@
       }
     },
     "You are improving this week with %d%% goal consistency." : {
+      "comment" : "Weekly fallback summary for improving activity. %d is the integer percentage of days meeting the daily goal; %% displays a percent sign.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7908,6 +7909,7 @@
       }
     },
     "Your activity dropped this week, but you still logged %@ %@." : {
+      "comment" : "Weekly fallback summary for declining activity. First %@ is the localized total count; second %@ is the activity unit (steps or pushes).",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7924,6 +7926,7 @@
       }
     },
     "Your routine stayed stable with an average of %@ %@ per day." : {
+      "comment" : "Weekly fallback summary for stable activity. First %@ is the localized daily average count; second %@ is the activity unit (steps or pushes).",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7940,6 +7943,7 @@
       }
     },
     "Your strongest day was %@ with %@ %@." : {
+      "comment" : "Weekly fallback summary naming the best day. Placeholders in order: localized weekday, localized activity count, activity unit (steps or pushes).",
       "localizations" : {
         "en" : {
           "stringUnit" : {
