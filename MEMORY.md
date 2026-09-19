@@ -5,17 +5,29 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-15)
+## Current state (2026-09-19)
 
-- Source is 1.0.3 (59) in `project.yml`. Versions use three components from now on.
+- Source candidate is 1.0.4 (60) in `project.yml`; Debug and Release simulator bundle values were verified.
+  Source fixes are committed locally as `bc0542b`, with 682 unit tests passing on
+  both iOS 27 and 26.5, Release/static analysis passing and autoreview P3 clean
+  after one reproduced correction. Push/remote gates and the Argent QA limitation
+  remain open. See `memory/2026-09-19.md`; older results below are historical.
+- Stable Xcode 27.0 (27A266a) and beta 27.2 are both installed. The global selector
+  currently points to beta; use both command-scoped pins documented in
+  `docs/agents/build-and-dev.md` for reproducible stable builds. This supersedes
+  the historical claim below that selecting Xcode.app was a no-op.
+- RevenueCat remains pinned to 5.81.1 after review against 5.90.2. Freshness
+  reports a newer SDK; no applicable required fix was established. The app uses
+  its native package paywall and RevenueCatUI Customer Center, not PaywallView.
 - **1.0.2 (58) did not fix the reported distances.** iMarcus reports `en_US` (lockdown); a US region with
   Measurement System = Metric keeps the identifier `en_US`, and `MeasurementFormatter` natural scale ignored
   the preference, so 1.0.2 still rendered miles there (reproduced on an iOS 27 simulator set through
   Settings). 1.0.3 fixes units via `UnitLength(forLocale:usage:)` and counts via `NumberFormatter`; see
   FOR_YOU_KNOW "Regional formatting". `v1.0.2-beta1` was pushed for a build that never reached TestFlight,
   contrary to the rule below; the tag is left in place (pushed tags are never moved).
-- **Hard production and TestFlight blocker, unchanged:** `Config/Local.xcconfig` carries a Test Store (`test_`)
-  RevenueCat key (rechecked 2026-09-15 by prefix only). `AppConstants.RevenueCat.resolveConfiguration` nils
+- **Historical production/TestFlight blocker (not rechecked in this source-only delivery):**
+  `Config/Local.xcconfig` carried a Test Store (`test_`) RevenueCat key when checked
+  on 2026-09-15 by prefix only. `AppConstants.RevenueCat.resolveConfiguration` nils
   it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;
   `validate-release-artifact.py` rejects it before export. The key is baked into `Info.plist` at archive time,
   so an Apple (`appl_`) key requires a new archive. No beta tag is created until a build actually ships.

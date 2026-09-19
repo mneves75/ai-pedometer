@@ -28,11 +28,10 @@ procedure; neither is repeated here, and neither loads in CI or a fresh clone. W
 this repository, and holds without them:
 
 - Check API behavior against the docs bundled with the Xcode `preflight.sh` actually
-  resolved, never an assumed one:
-  `"$(xcode-select -p)/../PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation"`.
-  Deriving the path survives a toolchain change; a hardcoded `/Applications/Xcode.app` or
-  `/Applications/Xcode-beta.app` does not. A stale hardcoded pin is exactly what sent
-  agents at a toolchain that was not installed, and `Xcode-beta.app` does not exist here.
+  resolved, never an assumed one. Append
+  `../PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
+  to that resolved Developer directory. `xcode-select -p` can differ from an explicit
+  pin; see [toolchain selection](docs/agents/build-and-dev.md#xcode).
 - Skills live in `~/dev/Skills/XCODE_AGENT_SKILLS`: `swiftui-specialist`,
   `swiftui-whats-new-27`, `audit-xcode-security-settings`, `modernize-tests`,
   `device-interaction`. Load one when its subject matches the change; do not preload them.

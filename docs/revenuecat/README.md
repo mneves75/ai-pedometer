@@ -23,7 +23,7 @@ Hoje o projeto usa RevenueCat apenas para o produto premium recorrente. O fluxo 
 2. O `PremiumAccessStore` configura o SDK no bootstrap do app.
 3. O app busca `Offerings` e `CustomerInfo`.
 4. O entitlement configurado define se o usuário pode acessar recursos premium.
-5. A UI apresenta o paywall oficial da RevenueCat via `RevenueCatUI`, enquanto o app mantém um store próprio para `purchase`, `restorePurchases`, `syncPurchases`, estado de entitlement e gates premium.
+5. A UI apresenta uma lista própria de pacotes em SwiftUI; `PremiumAccessStore` controla `purchase`, `restorePurchases`, `syncPurchases`, estado de entitlement e gates premium. O código atual não instancia o `PaywallView` remoto da RevenueCat.
 6. A tela About também pode abrir o Customer Center oficial da RevenueCat quando faz sentido.
 
 Arquivos principais:
@@ -35,6 +35,29 @@ Arquivos principais:
 - [Shared/Utilities/LaunchConfiguration.swift](../../Shared/Utilities/LaunchConfiguration.swift)
 - [AIPedometer/Core/Monetization/PremiumAccessStore.swift](../../AIPedometer/Core/Monetization/PremiumAccessStore.swift)
 - [AIPedometer/Core/Monetization/PremiumAccessViews.swift](../../AIPedometer/Core/Monetization/PremiumAccessViews.swift)
+
+## Decisão de SDK para 1.0.4 (2026-09-19)
+
+Mantido **5.81.1**, com o pin imutável já declarado em `project.yml`. A comparação
+com o [changelog até 5.90.2](https://github.com/RevenueCat/purchases-ios/blob/5.90.2/CHANGELOG.md)
+não demonstrou uma vulnerabilidade aplicável, incompatibilidade ou correção necessária
+reproduzida que justificasse atualizar o SDK nesta entrega de código.
+
+As mudanças incluem ordenação de recibos, correções de identidade e configuração,
+Customer Center e paywalls. O app não troca identidades com `logIn`/`logOut` nem usa
+o paywall remoto; usa, porém, o Customer Center oficial. Portanto, as correções de UI
+não são todas irrelevantes: a matriz real de compras/restore e acessibilidade do
+Customer Center deve ser reavaliada antes da publicação, que está fora desta entrega.
+
+A integridade do pin passou. A verificação de freshness com metadados públicos atuais
+retornou **10 (desatualizado)**, não sucesso: 5.90.2 estava disponível. O transporte
+`curl` recebeu HTTP 403 neste host; os mesmos metadados foram obtidos pela API do GitHub
+via `gh` e submetidos às funções de validação do script, sem alterar a dependência.
+
+O modo informativo de [Trusted Entitlements](https://www.revenuecat.com/docs/customers/trusted-entitlements)
+não bloqueia acesso sozinho. A decisão é do aplicativo: `PremiumAccessStore` aceita
+somente `verification.isVerified`, preservando os estados autorizado, desconhecido
+e revogado. Esta retenção do SDK não certifica pagamentos ou configuração de produção.
 
 ## O que é premium neste app
 
@@ -287,8 +310,7 @@ Na implementação atual:
 
 - o app usa `PremiumAccessStore` como fonte única de verdade para `CustomerInfo`, `Offerings`, compra, restore, sync e gates premium
 - o About usa `CustomerCenter` oficial da RevenueCat
-- o paywall usa `PaywallView` oficial da RevenueCat somente quando o offering carregado tem Paywall v2 publicado (`Offering.hasPaywall == true`)
-- quando há packages mas não há Paywall v2 publicado, o app renderiza o fallback nativo próprio para evitar o paywall padrão/debug da RevenueCat
+- o paywall lista os packages do offering em cards nativos próprios, independentemente de Paywall v2 publicado
 
 Pontos importantes:
 
@@ -424,12 +446,12 @@ Fluxos implementados:
 - abrir gestão de assinatura
 - mostrar estado indisponível quando não há configuração válida
 
-O app usa `PaywallView` oficial da `RevenueCatUI` quando a configuração é válida e o offering carregado tem Paywall v2 publicado (`Offering.hasPaywall == true`). Se o offering existe e contém packages, mas não tem Paywall v2 publicado, o app mostra o fallback nativo próprio com compra/restore/manage subscription em vez de chamar o paywall padrão da RevenueCat.
+O app usa cards nativos próprios para os packages do offering, com compra, restore e gestão de assinatura. Publicar um Paywall v2 no dashboard da RevenueCat não substitui automaticamente essa interface.
 
 A lógica de acesso continua local e explícita:
 
 - `PremiumAccessStore` é a fonte única de verdade para entitlement, offerings e estado de compra
-- `PremiumAccessSheet` escolhe entre paywall oficial, fallback nativo com packages, ações de restore/manage e estado indisponível
+- `PremiumAccessSheet` apresenta packages, ações de restore/manage e estado indisponível
 - se RevenueCat não estiver configurado ou não retornar offerings válidos, a UI falha fechada
 
 ## Como os recursos premium são gated
@@ -518,9 +540,9 @@ Causas comuns:
 
 ### Aparece banner vermelho "Offering 'default' has no configured paywall"
 
-Esse banner é da `RevenueCatUI` quando o app pede o paywall oficial para um offering sem Paywall v2 publicado. O app não deve chamar esse caminho nesse estado: `PremiumAccessSheet` usa `RevenueCatPaywallPolicy` e só renderiza `PaywallView(offering:)` quando `Offering.hasPaywall == true`.
+Esse banner pertence ao paywall remoto da `RevenueCatUI`. A implementação atual de `PremiumAccessSheet` não usa esse componente; confirme a versão instalada se o banner aparecer.
 
-Se quiser usar o editor visual da RevenueCat, publique o Paywall v2 no dashboard para o offering configurado. Se quiser vender pelos cards nativos do app, mantenha os packages no offering; o fallback próprio continua comprando/restaurando pelo `PremiumAccessStore`.
+Mantenha os packages no offering para os cards nativos. Usar o editor visual da RevenueCat exigiria uma mudança de integração e novos testes, além de publicar o Paywall v2 no dashboard.
 
 Verifique:
 
@@ -596,7 +618,7 @@ Antes de publicar:
 
 Estas são decisões já tomadas no código:
 
-- o app usa `RevenueCatUI` para o paywall oficial quando há offering/config válidos
+- o app usa cards próprios para compra e `RevenueCatUI` para o Customer Center
 - o app usa entitlement único `premium`
 - o app usa usuário anônimo da RevenueCat, porque não há login
 - o app falha fechado quando não há configuração válida
