@@ -1,6 +1,15 @@
 import SwiftUI
 import UIKit
 
+enum OnboardingGoalPersistenceAction: Equatable {
+    case complete
+    case showSaveError
+
+    init(didPersistGoal: Bool) {
+        self = didPersistGoal ? .complete : .showSaveError
+    }
+}
+
 struct OnboardingView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.onboardingCompleted) private var onboardingCompleted = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,6 +19,7 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var dailyGoal: Double = Double(AppConstants.defaultDailyGoal)
     @State private var isRequestingPermissions = false
+    @State private var showGoalSaveError = false
     @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.md
 
     private var boundedGoalValueFontSize: CGFloat {
@@ -40,6 +50,15 @@ struct OnboardingView: View {
         }
         .safeAreaInset(edge: .bottom) {
             footer
+        }
+        .alert(
+            L10n.localized(
+                "Unable to save goal. Please try again.",
+                comment: "Goal editor save failure alert title"
+            ),
+            isPresented: $showGoalSaveError
+        ) {
+            Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) {}
         }
     }
     
@@ -236,9 +255,13 @@ struct OnboardingView: View {
     }
 
     private var skipButton: some View {
-        Button(L10n.localized("Skip", comment: "Onboarding skip button")) {
+        Button {
             HapticService.shared.tap()
             skipOnboarding()
+        } label: {
+            Text(L10n.localized("Skip", comment: "Onboarding skip button"))
+                .frame(minWidth: DesignTokens.TouchTarget.minimum, minHeight: DesignTokens.TouchTarget.minimum)
+                .contentShape(Rectangle())
         }
         .font(DesignTokens.Typography.footnote.weight(.semibold))
         .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -260,7 +283,8 @@ struct OnboardingView: View {
     }
 
     private func skipOnboarding() {
-        trackingService.updateGoal(Int(dailyGoal))
+        let didPersistGoal = trackingService.updateGoal(Int(dailyGoal))
+        guard handleGoalPersistence(didPersistGoal) else { return }
         withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
             onboardingCompleted = true
         }
@@ -270,17 +294,28 @@ struct OnboardingView: View {
 
     private func completeOnboarding() async {
         if LaunchConfiguration.isUITesting() {
-            trackingService.updateGoal(Int(dailyGoal))
+            let didPersistGoal = trackingService.updateGoal(Int(dailyGoal))
+            guard handleGoalPersistence(didPersistGoal) else { return }
             onboardingCompleted = true
             UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
             Loggers.app.info("onboarding.completed_set", metadata: ["value": "true"])
         } else {
             await requestPermissionsIfNeeded()
-            await trackingService.updateGoalAndRefresh(Int(dailyGoal))
+            let didPersistGoal = await trackingService.updateGoalAndRefresh(Int(dailyGoal))
+            guard handleGoalPersistence(didPersistGoal) else { return }
             withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
                 onboardingCompleted = true
             }
         }
+    }
+
+    private func handleGoalPersistence(_ didPersistGoal: Bool) -> Bool {
+        guard OnboardingGoalPersistenceAction(didPersistGoal: didPersistGoal) == .complete else {
+            HapticService.shared.error()
+            showGoalSaveError = true
+            return false
+        }
+        return true
     }
 
     private func requestPermissionsIfNeeded() async {

@@ -2,6 +2,11 @@ import SwiftUI
 
 @MainActor
 final class AppLifecycleCoordinator {
+    private struct ActiveRefresh {
+        let id: Int
+        let task: Task<Void, Never>
+    }
+
     private let isTesting: () -> Bool
     private let isOnboardingCompleted: () -> Bool
     private let isStartupComplete: () -> Bool
@@ -15,7 +20,11 @@ final class AppLifecycleCoordinator {
     private let performForegroundRefresh: () async -> Void
     private let flushSharedData: () -> Void
 
+    private var currentPhase: ScenePhase?
+    private var sceneGeneration = 0
     private var lastPhase: ScenePhase?
+    private var nextActiveRefreshID = 0
+    private var activeRefresh: ActiveRefresh?
 
     init(
         isTesting: @escaping () -> Bool,
@@ -46,6 +55,12 @@ final class AppLifecycleCoordinator {
     }
 
     func handle(scenePhase: ScenePhase) async {
+        if scenePhase != currentPhase {
+            currentPhase = scenePhase
+            sceneGeneration += 1
+        }
+        let generation = sceneGeneration
+
         guard scenePhase != lastPhase else { return }
 
         // Non-active transitions can be recorded immediately — they have no follow-up work
@@ -53,6 +68,10 @@ final class AppLifecycleCoordinator {
         guard scenePhase == .active else {
             flushSharedData()
             lastPhase = scenePhase
+            if let activeRefresh {
+                activeRefresh.task.cancel()
+                await waitForActiveRefresh(activeRefresh)
+            }
             return
         }
 
@@ -64,21 +83,62 @@ final class AppLifecycleCoordinator {
         guard !isTesting() else { return }
         guard isStartupComplete() else { return }
 
+        while let activeRefresh {
+            await waitForActiveRefresh(activeRefresh)
+            guard isCurrentActive(generation: generation) else { return }
+            guard lastPhase != .active else { return }
+        }
+
+        nextActiveRefreshID += 1
+        let refreshID = nextActiveRefreshID
+        let refreshTask = Task { @MainActor in
+            await performActiveRefresh(generation: generation)
+        }
+        let activeRefresh = ActiveRefresh(id: refreshID, task: refreshTask)
+        self.activeRefresh = activeRefresh
+        await withTaskCancellationHandler {
+            await waitForActiveRefresh(activeRefresh)
+        } onCancel: {
+            refreshTask.cancel()
+        }
+    }
+
+    /// Entry point for lifecycle work that was deferred while local startup was incomplete.
+    ///
+    /// The app calls this after startup finishes because SwiftUI does not emit another scene-phase
+    /// change when the scene remained active throughout launch.
+    func handleStartupCompletion(scenePhase: ScenePhase) async {
+        await handle(scenePhase: scenePhase)
+    }
+
+    private func performActiveRefresh(generation: Int) async {
         await refreshHealthAuthorization()
-        guard !Task.isCancelled else { return }
+        guard isCurrentActive(generation: generation) else { return }
         refreshMotionAuthorization()
         refreshAIAvailability()
         refreshCoachSession()
         clearInsightCacheIfNeeded()
-        guard !Task.isCancelled else { return }
+        guard isCurrentActive(generation: generation) else { return }
 
         await refreshTodayData()
-        guard !Task.isCancelled else { return }
+        guard isCurrentActive(generation: generation) else { return }
         await refreshStreak()
-        guard !Task.isCancelled else { return }
+        guard isCurrentActive(generation: generation) else { return }
         await performForegroundRefresh()
-        guard !Task.isCancelled else { return }
+        guard isCurrentActive(generation: generation) else { return }
 
-        lastPhase = scenePhase
+        lastPhase = .active
+    }
+
+    private func waitForActiveRefresh(_ refresh: ActiveRefresh) async {
+        await refresh.task.value
+
+        if activeRefresh?.id == refresh.id {
+            activeRefresh = nil
+        }
+    }
+
+    private func isCurrentActive(generation: Int) -> Bool {
+        !Task.isCancelled && currentPhase == .active && sceneGeneration == generation
     }
 }

@@ -79,11 +79,15 @@ struct SharedStepData: Codable, Sendable {
     func normalizedForRendering(at renderDate: Date, calendar: Calendar = .autoupdatingCurrent) -> SharedStepData {
         guard !calendar.isDate(lastUpdated, inSameDayAs: renderDate) else { return self }
 
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: renderDate)
+        let preservesStreak = yesterday.map { calendar.isDate(lastUpdated, inSameDayAs: $0) } == true
+            && goalSteps > 0 && todaySteps >= goalSteps
+
         return SharedStepData(
             todaySteps: 0,
             goalSteps: goalSteps,
             goalProgress: 0,
-            currentStreak: currentStreak,
+            currentStreak: preservesStreak ? currentStreak : 0,
             lastUpdated: lastUpdated,
             weeklySteps: weeklySteps,
             activityMode: activityMode,

@@ -167,10 +167,7 @@ final class SmartNotificationService {
             as: NotificationContent.self
         )
 
-        let content = UNMutableNotificationContent()
-        content.title = response.title
-        content.body = response.body
-        content.sound = .default
+        let content = try validatedContent(from: response)
         // Smart coaching reminders are not genuinely time-critical (medication, security, deliveries
         // are the supported `.timeSensitive` use cases). Use `.active` so the user's Focus modes
         // and notification scheduling remain authoritative.
@@ -194,9 +191,19 @@ final class SmartNotificationService {
             as: NotificationContent.self
         )
 
+        return try validatedContent(from: response)
+    }
+
+    private func validatedContent(from response: NotificationContent) throws -> UNMutableNotificationContent {
+        let title = response.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = response.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, title.count < 30, !body.isEmpty, body.count < 100 else {
+            throw AIServiceError.invalidResponse
+        }
+
         let content = UNMutableNotificationContent()
-        content.title = response.title
-        content.body = response.body
+        content.title = title
+        content.body = body
         content.sound = .default
 
         return content
@@ -224,7 +231,9 @@ final class SmartNotificationService {
                 throw AIServiceError.generationFailed(underlying: "No recent activity data available")
             }
             let sharedSteps = sharedData.todaySteps
-            let distanceKm = Double(sharedSteps) * settings.manualStepLength / 1000
+            let distanceKm = settings.activityMode == .steps
+                ? Double(sharedSteps) * settings.manualStepLength / 1000
+                : nil
             let progress = goal > 0 ? Double(sharedSteps) / Double(goal) : 0
             return TodayProgress(
                 steps: sharedSteps,
@@ -247,11 +256,13 @@ final class SmartNotificationService {
         let healthKitSteps = today?.steps ?? 0
         let steps = max(healthKitSteps, hasFreshSharedData ? sharedData?.todaySteps ?? 0 : 0)
         let progress = goal > 0 ? Double(steps) / Double(goal) : 0
-        let distanceKm: Double
+        let distanceKm: Double?
         if let today, today.distance > 0 {
             distanceKm = today.distance / 1000
-        } else {
+        } else if settings.activityMode == .steps {
             distanceKm = Double(steps) * settings.manualStepLength / 1000
+        } else {
+            distanceKm = nil
         }
 
         return TodayProgress(
@@ -281,6 +292,9 @@ final class SmartNotificationService {
     private func buildNotificationPrompt(progress: TodayProgress) -> String {
         let unitLabel = progress.unitName
         let unitLabelCapitalized = unitLabel.capitalized
+        let distanceLine = progress.distanceKm.map {
+            "- Distance: \(Formatters.distanceString(meters: $0 * 1_000))\n"
+        } ?? ""
         return """
         Generate a personalized notification for a fitness app user:
 
@@ -288,8 +302,7 @@ final class SmartNotificationService {
         - \(unitLabelCapitalized) today: \(progress.steps.formatted())
         - Daily goal: \(progress.goal.formatted()) \(unitLabel)
         - Progress: \(progress.progressPercentage)%
-        - Distance: \(Formatters.distanceString(meters: progress.distanceKm * 1_000))
-        - Time of day: \(progress.timeOfDay)
+        \(distanceLine)- Time of day: \(progress.timeOfDay)
 
         Requirements:
         - Title: Catchy, under 30 characters
@@ -306,7 +319,7 @@ private struct TodayProgress {
     let steps: Int
     let goal: Int
     let progressPercentage: Int
-    let distanceKm: Double
+    let distanceKm: Double?
     let timeOfDay: String
     let unitName: String
 }

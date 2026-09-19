@@ -288,17 +288,24 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         }
     }
 
-    func refreshStreak() async {
+    func invalidateStreakRefresh() {
         streakRefreshGeneration += 1
+    }
+
+    func refreshStreak() async {
+        invalidateStreakRefresh()
         let generation = streakRefreshGeneration
+        guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else { return }
         do {
             let result = try await streakCalculator.calculateCurrentStreak()
-            guard generation == streakRefreshGeneration else { return }
+            guard generation == streakRefreshGeneration,
+                  HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else { return }
             currentStreak = result.count
             updateSharedData()
             evaluateBadges(steps: nil, streak: result.count)
         } catch {
-            guard generation == streakRefreshGeneration else { return }
+            guard generation == streakRefreshGeneration,
+                  HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else { return }
             Loggers.tracking.error("streak.refresh_failed", metadata: ["error": String(describing: error)])
         }
     }

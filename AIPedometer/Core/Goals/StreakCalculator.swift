@@ -60,7 +60,7 @@ final class StreakCalculator {
         // `streakCount == 0` would resolve to *tomorrow*, an incoherent value for an
         // inactive streak.
         let startDate = streakCount > 0
-            ? calendar.date(byAdding: .day, value: -(streakCount - 1), to: today)
+            ? calendar.date(byAdding: .day, value: -streakCount + (todayGoalMet ? 1 : 0), to: today)
             : nil
         return StreakResult(count: streakCount, todayIncluded: todayGoalMet, streakStartDate: startDate)
     }

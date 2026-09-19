@@ -7,13 +7,13 @@ import WidgetKit
 struct WorkoutLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
-            LockScreenWorkoutView(state: context.state, workoutType: context.attributes.workoutType)
+            LockScreenWorkoutView(state: context.state, workoutType: context.attributes.workoutDisplayName)
                 .activityBackgroundTint(DesignTokens.Colors.overlayDark)
                 .activitySystemActionForegroundColor(DesignTokens.Colors.inverseText)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.workoutType, systemImage: "figure.run")
+                    Label(context.attributes.workoutDisplayName, systemImage: "figure.run")
                         .font(DesignTokens.Typography.caption2.weight(.semibold))
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                         .lineLimit(1)

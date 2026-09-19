@@ -486,7 +486,8 @@ struct CreatePlanSheet: View {
         foundationModelsService: fmService,
         healthKitService: HealthKitServiceFallback(demoModeStore: demoModeStore),
         goalService: GoalService(persistence: persistence),
-        modelContext: persistence.container.mainContext
+        modelContext: persistence.container.mainContext,
+        generationAuthorization: { .authorized }
     ))
     .environment(demoModeStore)
     .environment(fmService)

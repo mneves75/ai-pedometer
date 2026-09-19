@@ -4,6 +4,35 @@ import Testing
 @testable import AIPedometer
 
 struct WatchPayloadTests {
+    @Test("Watch presentation uses the current day without changing delivery identity", arguments: [
+        (0, 12_000, 12_000, 7), (0, 8_000, 8_000, 7),
+        (1, 12_000, 0, 7), (1, 8_000, 0, 0), (2, 12_000, 0, 0)
+    ])
+    func watchPresentationNormalizesDay(ageInDays: Int, steps: Int, expectedSteps: Int, expectedStreak: Int) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let renderDate = Date(timeIntervalSince1970: 1_700_006_400)
+        let lastUpdated = calendar.date(byAdding: .day, value: -ageInDays, to: renderDate) ?? renderDate
+        let payload = WatchPayload(
+            senderID: UUID(), revision: 42, todaySteps: steps, goalSteps: 10_000,
+            goalProgress: Double(steps) / 10_000, currentStreak: 7,
+            lastUpdated: lastUpdated, weeklySteps: [steps], sentAt: lastUpdated,
+            activityMode: .wheelchairPushes
+        )
+
+        let rendered = payload.normalizedForRendering(at: renderDate, calendar: calendar)
+
+        #expect(rendered.todaySteps == expectedSteps)
+        #expect(rendered.goalProgress == Double(expectedSteps) / 10_000)
+        #expect(rendered.currentStreak == expectedStreak)
+        #expect(rendered.goalSteps == payload.goalSteps)
+        #expect(rendered.activityMode == payload.activityMode)
+        #expect(rendered.senderID == payload.senderID)
+        #expect(rendered.revision == payload.revision)
+        #expect(rendered.deliveryOrder == payload.deliveryOrder)
+        #expect(rendered.weeklySteps == payload.weeklySteps)
+    }
+
     private struct LegacyPayload: Encodable {
         let todaySteps: Int
         let goalSteps: Int

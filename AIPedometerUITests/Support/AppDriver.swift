@@ -7,14 +7,17 @@ final class AppDriver {
         case dashboard
         case history
         case workouts
+        case badges
         case aiCoach
+        case settings
         case more
 
-        var index: Int {
+        var tabBarIndex: Int? {
             switch self {
             case .dashboard: 0
             case .history: 1
             case .workouts: 2
+            case .badges, .settings: nil
             case .aiCoach: 3
             case .more: 4
             }
@@ -27,6 +30,10 @@ final class AppDriver {
     init(test: XCTestCase, app: XCUIApplication = XCUIApplication()) {
         self.test = test
         self.app = app
+    }
+
+    var usesSidebarNavigation: Bool {
+        app.otherElements[A11yID.mainSplitView].exists
     }
 
     func launch(
@@ -131,7 +138,8 @@ final class AppDriver {
                 // resulting UITabBarButton. The tab order is part of the app's
                 // navigation contract, and the screen-specific marker below
                 // still proves that the intended destination was reached.
-                let tabButton = app.tabBars.buttons.element(boundBy: tab.index)
+                guard let tabBarIndex = tab.tabBarIndex else { continue }
+                let tabButton = app.tabBars.buttons.element(boundBy: tabBarIndex)
                 guard tabButton.waitForExistence(timeout: 2) else { continue }
                 if !tapUsingAppCoordinatesIfPossible(element: tabButton), tabButton.isHittable {
                     tabButton.tap()
@@ -142,6 +150,39 @@ final class AppDriver {
         }
 
         UITestWait.assertAnyExists(expected, timeout: 2)
+    }
+
+    func openSettings(timeout: TimeInterval) {
+        if usesSidebarNavigation {
+            openTab(.settings)
+        } else {
+            openTab(.more)
+            assertMoreLoaded()
+            tap(id: A11yID.More.settingsRowLabel, timeout: timeout)
+        }
+    }
+
+    func openBadges(timeout: TimeInterval) {
+        if usesSidebarNavigation {
+            openTab(.badges)
+        } else {
+            openTab(.more)
+            assertMoreLoaded()
+            tap(id: A11yID.More.badgesRowLabel, timeout: timeout)
+        }
+    }
+
+    func openSupportAbout(timeout: TimeInterval) {
+        if usesSidebarNavigation {
+            openSettings(timeout: timeout)
+            assertSettingsLoaded()
+            scrollTo(id: A11yID.Settings.aboutRow)
+            tap(id: A11yID.Settings.aboutRow, timeout: timeout)
+        } else {
+            openTab(.more)
+            assertMoreLoaded()
+            tap(id: A11yID.More.supportRowLabel, timeout: timeout)
+        }
     }
 
     func tap(id: String, timeout: TimeInterval) {
@@ -208,11 +249,7 @@ final class AppDriver {
 
         if elementExists() { return }
 
-        let scrollContainer: XCUIElement = {
-            if app.tables.firstMatch.exists { return app.tables.firstMatch }
-            if app.scrollViews.firstMatch.exists { return app.scrollViews.firstMatch }
-            return app
-        }()
+        let scrollContainer = activeScrollContainer()
 
         for _ in 0..<maxSwipes {
             scrollContainer.swipeUp()
@@ -426,11 +463,24 @@ final class AppDriver {
                 app.otherElements[A11yID.Workouts.scroll],
                 app.buttons[A11yID.Workouts.startWorkoutButton],
             ]
+        case .badges:
+            return [
+                app.otherElements[A11yID.Badges.marker],
+                app.staticTexts[A11yID.Badges.marker],
+                app.scrollViews[A11yID.Badges.marker],
+            ]
         case .aiCoach:
             return [
                 app.otherElements[A11yID.AICoach.view],
                 app.otherElements[A11yID.AICoach.marker],
                 app.staticTexts[A11yID.AICoach.marker],
+            ]
+        case .settings:
+            return [
+                app.otherElements[A11yID.Settings.marker],
+                app.staticTexts[A11yID.Settings.marker],
+                app.tables[A11yID.Settings.list],
+                app.otherElements[A11yID.Settings.list],
             ]
         case .more:
             return [
@@ -449,7 +499,7 @@ final class AppDriver {
         let midY = element.frame.midY
         guard appFrame.height > 0, midY.isFinite else { return false }
 
-        let container: XCUIElement = app.scrollViews.firstMatch.exists ? app.scrollViews.firstMatch : app
+        let container = activeScrollContainer()
         for _ in 0..<4 {
             let currentMidY = element.frame.midY
             if currentMidY < appFrame.minY {
@@ -461,6 +511,28 @@ final class AppDriver {
             }
         }
         return element.frame.midY >= appFrame.minY && element.frame.midY <= appFrame.maxY
+    }
+
+    private func activeScrollContainer() -> XCUIElement {
+        let identifiedCandidates: [XCUIElement] = [
+            app.tables[A11yID.Settings.list],
+            app.collectionViews[A11yID.Settings.list],
+            app.scrollViews[A11yID.Settings.list],
+            app.otherElements[A11yID.Settings.list],
+            app.tables[A11yID.More.list],
+            app.collectionViews[A11yID.More.list],
+            app.scrollViews[A11yID.More.list],
+            app.otherElements[A11yID.More.list],
+            app.scrollViews[A11yID.Workouts.scroll],
+            app.otherElements[A11yID.Workouts.scroll],
+        ]
+        if let identified = identifiedCandidates.first(where: { $0.exists }) {
+            return identified
+        }
+        if app.tables.firstMatch.exists { return app.tables.firstMatch }
+        if app.collectionViews.firstMatch.exists { return app.collectionViews.firstMatch }
+        if app.scrollViews.firstMatch.exists { return app.scrollViews.firstMatch }
+        return app
     }
 
     private func tapUsingAppCoordinatesIfPossible(element: XCUIElement) -> Bool {

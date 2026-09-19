@@ -68,8 +68,8 @@ struct StringCatalogCompletenessTests {
         let strings = try #require(json?["strings"] as? [String: Any])
         let catalogKeys = Set(strings.keys)
 
-        // Matches L10n.localized("…") and String(localized: "…") with a literal first argument.
-        let pattern = #"(?:L10n\.localized\(\s*"((?:[^"\\]|\\.)*)"|String\(\s*localized:\s*"((?:[^"\\]|\\.)*)")"#
+        // Includes the formatting helper: it also requires a catalog entry for its literal key.
+        let pattern = #"(?:L10n\.localized\(\s*"((?:[^"\\]|\\.)*)"|String\(\s*localized:\s*"((?:[^"\\]|\\.)*)"|Localization\.format\(\s*"((?:[^"\\]|\\.)*)")"#
         let regex = try NSRegularExpression(pattern: pattern)
 
         var missing: [String] = []
@@ -84,7 +84,7 @@ struct StringCatalogCompletenessTests {
                 let source = try String(contentsOf: fileURL, encoding: .utf8)
                 let range = NSRange(source.startIndex..., in: source)
                 for match in regex.matches(in: source, range: range) {
-                    let captured = (1...2).lazy
+                    let captured = (1...3).lazy
                         .compactMap { Range(match.range(at: $0), in: source) }
                         .first
                     guard let captured else { continue }

@@ -332,6 +332,7 @@ struct SettingsView: View {
                     .foregroundStyle(DesignTokens.Colors.pink)
             }
             .onChange(of: healthKitEnabled) {
+                trackingService.invalidateStreakRefresh()
                 HapticService.shared.selection()
                 Loggers.sync.info(
                     "sync.toggle_updated",

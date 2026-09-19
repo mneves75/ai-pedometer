@@ -291,6 +291,95 @@ struct CoachServiceStreamingTests {
         #expect(service.messages.last?.content == "resposta final")
     }
 
+    @Test("Stale final render completion does not cancel a newer stream pipeline")
+    func staleFinalRenderDoesNotCancelNewStreamPipeline() async {
+        let oldResponse = String(repeating: "x", count: CoachService.maxLiveMarkdownChars + 1)
+        let secondResponseGate = StreamStartGate(maximumBlocks: 1)
+        let session = SequencedCoachSession(
+            responses: [oldResponse, "**nova**"],
+            heldResponseIndex: 1,
+            responseFinishGate: secondResponseGate
+        )
+        let renderProbe = BlockingMarkdownRendererProbe(blockedInvocationCount: 2)
+        let service = makeService(
+            session: session,
+            liveRenderer: { document in
+                renderProbe.render(document)
+            }
+        )
+
+        let firstTask = Task {
+            await service.send(message: "primeira")
+        }
+        await renderProbe.waitUntilInvocationStarts(1)
+
+        service.clearConversation()
+        let secondTask = Task {
+            await service.send(message: "segunda")
+        }
+        await secondResponseGate.waitUntilBlocked(1)
+        await renderProbe.waitUntilInvocationStarts(2)
+
+        renderProbe.release(invocation: 1)
+        await firstTask.value
+        renderProbe.release(invocation: 2)
+        await renderProbe.waitUntilInvocationFinishes(2)
+
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        while String(service.currentStreamedRenderedContent.characters) != "nova",
+              service.debugStreamRenderStaleDiscardedAfterRender == 0,
+              clock.now < deadline {
+            await Task.yield()
+        }
+
+        let renderedBeforeStreamFinished = String(service.currentStreamedRenderedContent.characters)
+        let staleAfterRenderBeforeStreamFinished = service.debugStreamRenderStaleDiscardedAfterRender
+
+        await secondResponseGate.releaseNext()
+        await secondTask.value
+
+        #expect(renderedBeforeStreamFinished == "nova")
+        #expect(staleAfterRenderBeforeStreamFinished == 0)
+    }
+
+    @Test("Stale final render completion preserves the newer final render cancellation handle")
+    func staleFinalRenderPreservesNewFinalRenderCancellationHandle() async {
+        let oldResponse = String(repeating: "a", count: CoachService.maxLiveMarkdownChars + 1)
+        let newResponse = String(repeating: "b", count: CoachService.maxLiveMarkdownChars + 1)
+        let session = SequencedCoachSession(responses: [oldResponse, newResponse])
+        let renderProbe = BlockingMarkdownRendererProbe(blockedInvocationCount: 2)
+        let service = makeService(
+            session: session,
+            liveRenderer: { document in
+                renderProbe.render(document)
+            }
+        )
+
+        let firstTask = Task {
+            await service.send(message: "primeira")
+        }
+        await renderProbe.waitUntilInvocationStarts(1)
+
+        service.clearConversation()
+        let secondTask = Task {
+            await service.send(message: "segunda")
+        }
+        await renderProbe.waitUntilInvocationStarts(2)
+
+        renderProbe.release(invocation: 1)
+        await firstTask.value
+        #expect(renderProbe.didObserveCancellation(for: 1) == true)
+
+        service.clearConversation()
+        renderProbe.release(invocation: 2)
+        await secondTask.value
+
+        #expect(renderProbe.didObserveCancellation(for: 2) == true)
+        #expect(service.messages.isEmpty)
+        #expect(!service.isGenerating)
+    }
+
     @Test("Repeated clear and resend cycles stay deterministic and leak-free")
     func repeatedClearAndResendCyclesStayDeterministic() async {
         let startGate = StreamStartGate(maximumBlocks: 5)
@@ -468,6 +557,51 @@ struct CoachServiceStreamingTests {
     }
 }
 
+@MainActor
+private final class SequencedCoachSession: CoachSessionProtocol {
+    private let responses: [String]
+    private let heldResponseIndex: Int?
+    private let responseFinishGate: StreamStartGate?
+    private var responseIndex = 0
+
+    init(
+        responses: [String],
+        heldResponseIndex: Int? = nil,
+        responseFinishGate: StreamStartGate? = nil
+    ) {
+        self.responses = responses
+        self.heldResponseIndex = heldResponseIndex
+        self.responseFinishGate = responseFinishGate
+    }
+
+    func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
+        let index = responseIndex
+        responseIndex += 1
+        let response = responses[index]
+        let shouldHoldResponse = index == heldResponseIndex
+        let responseFinishGate = self.responseFinishGate
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                continuation.yield(response)
+                if shouldHoldResponse {
+                    await responseFinishGate?.blockIfNeeded()
+                }
+
+                if Task.isCancelled {
+                    continuation.finish(throwing: CancellationError())
+                } else {
+                    continuation.finish()
+                }
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+}
+
 private actor StreamStartGate {
     private var remainingBlocks: Int
     private var blockedCount = 0
@@ -518,6 +652,85 @@ private actor StreamStartGate {
     func releaseNext() {
         guard releasedCount < blockedCount else { return }
         releasedCount += 1
+    }
+}
+
+private final class BlockingMarkdownRendererProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let releaseSemaphores: [DispatchSemaphore]
+    private var invocationCount = 0
+    private var releasedInvocations: Set<Int> = []
+    private var cancellationByInvocation: [Int: Bool] = [:]
+
+    init(blockedInvocationCount: Int) {
+        releaseSemaphores = (0..<max(0, blockedInvocationCount)).map { _ in
+            DispatchSemaphore(value: 0)
+        }
+    }
+
+    func render(_ document: MarkdownDocument) -> AttributedString {
+        let invocation = lock.withLock {
+            invocationCount += 1
+            return invocationCount
+        }
+
+        if invocation <= releaseSemaphores.count,
+           releaseSemaphores[invocation - 1].wait(timeout: .now() + .seconds(5)) != .success {
+            Issue.record("Timed out waiting to release markdown render invocation \(invocation)")
+        }
+
+        let wasCancelled = Task.isCancelled
+        let rendered = AIChatMarkdown.renderAttributedString(from: document)
+        lock.withLock {
+            cancellationByInvocation[invocation] = wasCancelled
+        }
+        return rendered
+    }
+
+    func waitUntilInvocationStarts(_ target: Int, timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while lock.withLock({ invocationCount < target }) {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for markdown render invocation \(target)")
+                release(invocation: target)
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func waitUntilInvocationFinishes(_ target: Int, timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while lock.withLock({ cancellationByInvocation[target] == nil }) {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for markdown render invocation \(target) to finish")
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func release(invocation: Int) {
+        guard invocation > 0, invocation <= releaseSemaphores.count else { return }
+
+        let shouldSignal = lock.withLock {
+            releasedInvocations.insert(invocation).inserted
+        }
+        if shouldSignal {
+            releaseSemaphores[invocation - 1].signal()
+        }
+    }
+
+    func didObserveCancellation(for invocation: Int) -> Bool? {
+        lock.withLock {
+            cancellationByInvocation[invocation]
+        }
     }
 }
 

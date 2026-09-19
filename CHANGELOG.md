@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-09-19
+
+### Fixed
+
+- Smart reminders omit unavailable wheelchair distance instead of estimating it from a walking stride. Generated titles and bodies are trimmed and checked before scheduling; rejected output does not consume the daily allowance.
+- HealthKit workout exports distinguish indoor and outdoor locations.
+- Streak start dates remain correct when today's goal is not yet met. Widgets and the watch retain yesterday's completed streak, but clear it after a missed day; the watch also refreshes stale daily totals while visible.
+- Live Activities localize workout names without changing stored payloads. Weekly fallback summaries include their missing pt-BR translations.
+- Onboarding stays open and shows a save error if the goal cannot be persisted. Foreground refresh retries after startup, deduplicates overlapping requests and ignores stale background work.
+- The onboarding Skip button has a 44-point touch target, fixing taps intercepted by the iPad page view's scroll indicator.
+- Clearing and restarting a Coach conversation no longer lets an older response cancel the newer Markdown rendering or lose its cancellation handle.
+- Streak refresh respects the HealthKit Sync preference and discards pending results after the preference changes, without deleting saved history.
+- Training-plan generation checks premium access when requested and before saving. Revoked access cannot add a plan; temporarily unknown access does not cancel work already authorized or erase saved plans.
+
+Publication, real payments and production-device certification are separate from this source update.
+
 ## [1.0.3] - 2026-09-15
 
 Corrects 1.0.2, whose fix did not reach the setup it was meant for. Reproduced on an iOS 27

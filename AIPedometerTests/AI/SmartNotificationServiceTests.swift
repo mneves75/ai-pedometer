@@ -6,6 +6,116 @@ import UserNotifications
 
 @MainActor
 struct SmartNotificationServiceTests {
+    @Test("Notification distance respects activity mode and available measurement", arguments: [
+        (ActivityTrackingMode.wheelchairPushes, false, 0.0, nil as Double?),
+        (.wheelchairPushes, true, 0.0, nil),
+        (.wheelchairPushes, true, 1250.0, 1250.0),
+        (.steps, false, 0.0, 750.0),
+        (.steps, true, 0.0, 750.0),
+        (.steps, true, 1250.0, 1250.0)
+    ])
+    func notificationDistanceUsesAvailableEvidence(
+        mode: ActivityTrackingMode, syncEnabled: Bool, measuredMeters: Double, expectedMeters: Double?
+    ) async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(mode.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
+        testDefaults.defaults.set(syncEnabled, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        testDefaults.defaults.set(0.75, forKey: AppConstants.UserDefaultsKeys.manualStepLengthMeters)
+        testDefaults.defaults.sharedStepData = SharedStepData(
+            todaySteps: 1000, goalSteps: 8000, goalProgress: 0.125,
+            currentStreak: 0, lastUpdated: .now, weeklySteps: [], activityMode: mode
+        )
+        let healthKit = MockHealthKitService()
+        healthKit.dailySummariesToReturn = [DailyStepSummary(
+            date: .now, steps: 1000, distance: measuredMeters, floors: 0, calories: 0, goal: 8000
+        )]
+        let models = MockFoundationModelsService()
+        models.respondResult = .success(NotificationContent(title: "Keep going", body: "You are making progress!"))
+        let notifications = MockNotificationCenter()
+        let service = SmartNotificationService(
+            foundationModelsService: models, healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            notificationCenter: notifications, userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
+        )
+
+        await service.scheduleSmartNotification()
+
+        let prompt = try #require(models.lastPrompt)
+        #expect(notifications.addedRequests.count == 1)
+        if let expectedMeters {
+            #expect(prompt.contains("- Distance: \(Formatters.distanceString(meters: expectedMeters))"))
+        } else {
+            #expect(!prompt.contains("- Distance:"))
+        }
+        #expect(healthKit.fetchDailySummariesCallCount == (syncEnabled ? 1 : 0))
+    }
+
+    @Test("Invalid generated notifications neither schedule nor consume daily allowance", arguments: [
+        ("", "A short body"), (" \n\t", "A short body"), ("Title", ""), ("Title", " \n\t"),
+        (String(repeating: "a", count: 30), "A short body"),
+        ("Title", String(repeating: "b", count: 100)),
+        (String(repeating: "👩🏽‍🦽", count: 30), "A short body"),
+        ("Title", String(repeating: "e\u{301}", count: 100))
+    ])
+    func invalidNotificationContentIsRejected(title: String, body: String) async {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let models = MockFoundationModelsService()
+        models.respondResult = .success(NotificationContent(title: title, body: body))
+        let notifications = MockNotificationCenter()
+        let service = SmartNotificationService(
+            foundationModelsService: models, healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            notificationCenter: notifications, userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
+        )
+
+        await service.scheduleSmartNotification()
+        let didScheduleReminder = await service.scheduleMotivationalReminder(at: 9, minute: 0)
+
+        #expect(!didScheduleReminder)
+        #expect(notifications.addedRequests.isEmpty)
+        #expect(testDefaults.defaults.integer(forKey: AppConstants.UserDefaultsKeys.smartNotificationCount) == 0)
+        #expect(testDefaults.defaults.object(forKey: AppConstants.UserDefaultsKeys.smartNotificationLastDate) == nil)
+
+        models.respondResult = .success(NotificationContent(title: "Keep going", body: "You are making progress!"))
+        for _ in 0..<4 { await service.scheduleSmartNotification() }
+        #expect(notifications.addedRequests.count == 3)
+        #expect(testDefaults.defaults.integer(forKey: AppConstants.UserDefaultsKeys.smartNotificationCount) == 3)
+    }
+
+    @Test("Generated notifications trim whitespace and count Unicode characters", arguments: [
+        ("  Keep going\n", "\tYou are making progress!  "),
+        (" \(String(repeating: "👩🏽‍🦽", count: 29)) ", " \(String(repeating: "e\u{301}", count: 99)) ")
+    ])
+    func validNotificationContentIsTrimmed(title: String, body: String) async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let models = MockFoundationModelsService()
+        models.respondResult = .success(NotificationContent(title: title, body: body))
+        let notifications = MockNotificationCenter()
+        let service = SmartNotificationService(
+            foundationModelsService: models, healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            notificationCenter: notifications, userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
+        )
+
+        await service.scheduleSmartNotification()
+        let didScheduleReminder = await service.scheduleMotivationalReminder(at: 9, minute: 0)
+
+        #expect(didScheduleReminder)
+        #expect(notifications.addedRequests.count == 2)
+        for request in notifications.addedRequests {
+            #expect(request.content.title == title.trimmingCharacters(in: .whitespacesAndNewlines))
+            #expect(request.content.body == body.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        let smartRequest = try #require(notifications.addedRequests.first)
+        #expect(smartRequest.content.interruptionLevel == .active)
+    }
+
     @Test("Motivational reminders return false when AI is unavailable")
     func motivationalReminderReturnsFalseWhenAIUnavailable() async {
         let testDefaults = TestUserDefaults()

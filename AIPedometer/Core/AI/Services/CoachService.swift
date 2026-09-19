@@ -106,6 +106,7 @@ final class CoachService {
     @ObservationIgnored private var streamRenderInputContinuation: AsyncStream<StreamRenderRequest>.Continuation?
     @ObservationIgnored private var streamRenderWorkerTask: Task<Void, Never>?
     @ObservationIgnored private var finalRenderTask: Task<AttributedString, Never>?
+    @ObservationIgnored private var finalRenderGeneration: UInt64 = 0
     @ObservationIgnored private var activeResponseTask: Task<Void, Never>?
     @ObservationIgnored private var activeResponseTaskGeneration: UInt64 = 0
     @ObservationIgnored private var streamRenderGeneration: UInt64 = 0
@@ -216,8 +217,8 @@ final class CoachService {
         lastError = nil
         
         defer {
-            cancelPendingResponseWork()
             if generation == responseGeneration {
+                cancelPendingResponseWork()
                 let streamRenderTelemetry = makeStreamRenderTelemetry(responseLength: fullResponse.count)
                 debugLastStreamRenderTelemetry = streamRenderTelemetry
                 logStreamRenderTelemetry(streamRenderTelemetry)
@@ -479,6 +480,7 @@ final class CoachService {
 
     private func cancelPendingResponseWork() {
         cancelPendingStreamRendering()
+        finalRenderGeneration &+= 1
         finalRenderTask?.cancel()
         finalRenderTask = nil
     }
@@ -496,6 +498,7 @@ final class CoachService {
     ) async -> AttributedString {
         let incrementalFinalDocument: MarkdownDocument? = exceededLiveMarkdownLimit ? nil : streamAccumulator.finalize()
         let maxFinalMarkdownChars = Self.maxFinalMarkdownChars
+        let liveMarkdownRenderer = self.liveMarkdownRenderer
 
         let renderTask = Task.detached(priority: .userInitiated) {
             guard !Task.isCancelled else { return AttributedString() }
@@ -507,23 +510,27 @@ final class CoachService {
             if exceededLiveMarkdownLimit {
                 do {
                     let document = try AIChatMarkdown.parseDocument(from: fullResponse)
-                    return AIChatMarkdown.renderAttributedString(from: document)
+                    return liveMarkdownRenderer(document)
                 } catch {
                     return AttributedString(fullResponse)
                 }
             }
 
             if let incrementalFinalDocument {
-                return AIChatMarkdown.renderAttributedString(from: incrementalFinalDocument)
+                return liveMarkdownRenderer(incrementalFinalDocument)
             }
 
             return AttributedString(fullResponse)
         }
 
+        finalRenderGeneration &+= 1
+        let renderGeneration = finalRenderGeneration
         finalRenderTask?.cancel()
         finalRenderTask = renderTask
         let finalAttributed = await renderTask.value
-        finalRenderTask = nil
+        if renderGeneration == finalRenderGeneration {
+            finalRenderTask = nil
+        }
         return finalAttributed
     }
 

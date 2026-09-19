@@ -4,6 +4,19 @@ import Testing
 @testable import AIPedometer
 
 struct WorkoutActivityAttributesTests {
+    @Test("Live Activity resolves the stable workout identifier in the current app language", arguments: WorkoutType.allCases)
+    func workoutNameIsLocalized(type: WorkoutType) {
+        let attributes = WorkoutActivityAttributes(workoutType: type.rawValue)
+        #expect(attributes.workoutDisplayName == type.displayName)
+        #expect(attributes.workoutType == type.rawValue)
+    }
+
+    @Test("Unknown Live Activity workout identifiers retain their existing label")
+    func unknownWorkoutNameIsPreserved() {
+        let attributes = WorkoutActivityAttributes(workoutType: "Future workout")
+        #expect(attributes.workoutDisplayName == "Future workout")
+    }
+
     @Test
     func contentStateEncodesAndDecodes() throws {
         let state = WorkoutActivityAttributes.ContentState(steps: 5000, distance: 3.5, calories: 250)

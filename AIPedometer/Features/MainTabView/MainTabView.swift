@@ -246,7 +246,8 @@ extension MainTabView {
                 foundationModelsService: fmService,
                 healthKitService: healthKitService,
                 goalService: goalService,
-                modelContext: modelContext
+                modelContext: modelContext,
+                generationAuthorization: { .authorized }
             ))
             .environment(WorkoutSessionController(
                 modelContext: modelContext,

@@ -153,7 +153,13 @@ struct AIPedometerApp: App {
             foundationModelsService: fmService,
             healthKitService: healthKitService,
             goalService: goalService,
-            modelContext: modelContext
+            modelContext: modelContext,
+            generationAuthorization: {
+                if premiumAccessStore.canAccessAIFeatures {
+                    return .authorized
+                }
+                return premiumAccessStore.hasAuthoritativeAccessState ? .denied : .unknown
+            }
         ))
         _workoutSessionController = State(initialValue: WorkoutSessionController(
             modelContext: modelContext,
@@ -347,11 +353,13 @@ struct AIPedometerApp: App {
                             await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
                         }
                     )
+                    await lifecycleCoordinator.handleStartupCompletion(scenePhase: scenePhase)
                     await enforceSmartReminderAccess()
                 }
                 .onChange(of: onboardingCompleted) { _, _ in
                     Task { @MainActor in
                         await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
+                        await lifecycleCoordinator.handleStartupCompletion(scenePhase: scenePhase)
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in

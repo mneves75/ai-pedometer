@@ -7891,6 +7891,70 @@
         }
       }
     },
+    "You are improving this week with %d%% goal consistency." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are improving this week with %d%% goal consistency."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você está melhorando nesta semana, com %d%% de consistência no alcance da meta."
+          }
+        }
+      }
+    },
+    "Your activity dropped this week, but you still logged %@ %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your activity dropped this week, but you still logged %@ %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua atividade diminuiu nesta semana, mas você ainda registrou %@ %@."
+          }
+        }
+      }
+    },
+    "Your routine stayed stable with an average of %@ %@ per day." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your routine stayed stable with an average of %@ %@ per day."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua rotina permaneceu estável, com uma média de %@ %@ por dia."
+          }
+        }
+      }
+    },
+    "Your strongest day was %@ with %@ %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your strongest day was %@ with %@ %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu melhor dia foi %@, com %@ %@."
+          }
+        }
+      }
+    },
     "You can change this later in settings." : {
       "comment" : "Onboarding note about goal settings",
       "localizations" : {

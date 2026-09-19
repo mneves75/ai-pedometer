@@ -31,7 +31,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: healthKit,
             goalService: goalService,
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let record = try await service.generatePlan(
@@ -49,6 +50,106 @@ struct TrainingPlanServiceTests {
         #expect(record.primaryGoal == TrainingGoalType.reach10k.rawValue)
     }
 
+    @Test("generatePlan rejects new work unless access is authorized")
+    func generatePlanRejectsNewWorkWithoutAuthorizedAccess() async throws {
+        for authorization in [
+            TrainingPlanGenerationAuthorization.denied,
+            .unknown
+        ] {
+            let persistence = PersistenceController(inMemory: true)
+            let context = persistence.container.mainContext
+            let foundationModels = MockFoundationModelsService()
+            foundationModels.respondResult = .success(makeAITrainingPlan())
+            let healthKit = MockHealthKitService()
+            let service = TrainingPlanService(
+                foundationModelsService: foundationModels,
+                healthKitService: healthKit,
+                goalService: GoalService(persistence: persistence),
+                modelContext: context,
+                generationAuthorization: { authorization }
+            )
+
+            await #expect(throws: AIServiceError.self) {
+                _ = try await service.generatePlan(
+                    goal: .reach10k,
+                    level: .beginner,
+                    daysPerWeek: 5
+                )
+            }
+
+            #expect(foundationModels.respondCallCount == 0)
+            #expect(healthKit.lastFetchDailySummariesArgs == nil)
+            #expect(try context.fetch(FetchDescriptor<TrainingPlanRecord>()).isEmpty)
+        }
+    }
+
+    @Test("generatePlan lets authorized work finish when access becomes unknown")
+    func generatePlanAllowsAuthorizedWorkToFinishWhenAccessBecomesUnknown() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+        var authorization = TrainingPlanGenerationAuthorization.authorized
+        foundationModels.beforeRespond = {
+            authorization = .unknown
+        }
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context,
+            generationAuthorization: { authorization }
+        )
+
+        let record = try await service.generatePlan(
+            goal: .reach10k,
+            level: .beginner,
+            daysPerWeek: 5
+        )
+
+        let plans = try context.fetch(FetchDescriptor<TrainingPlanRecord>())
+        #expect(foundationModels.respondCallCount == 1)
+        #expect(plans.map(\.id) == [record.id])
+    }
+
+    @Test("generatePlan preserves saved plans and adds none after authoritative revocation")
+    func generatePlanDoesNotPersistNewRecordAfterAuthoritativeRevocation() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let savedPlan = TrainingPlanRecord()
+        savedPlan.name = "Saved plan"
+        context.insert(savedPlan)
+        try context.save()
+
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+        var authorization = TrainingPlanGenerationAuthorization.authorized
+        foundationModels.beforeRespond = {
+            authorization = .denied
+        }
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context,
+            generationAuthorization: { authorization }
+        )
+
+        await #expect(throws: AIServiceError.self) {
+            _ = try await service.generatePlan(
+                goal: .reach10k,
+                level: .beginner,
+                daysPerWeek: 5
+            )
+        }
+
+        let plans = try context.fetch(FetchDescriptor<TrainingPlanRecord>())
+        #expect(foundationModels.respondCallCount == 1)
+        #expect(plans.count == 1)
+        #expect(plans.first?.id == savedPlan.id)
+        #expect(plans.first?.name == "Saved plan")
+    }
+
     @Test("fetchAllPlans sorts by createdAt descending")
     func fetchAllPlansSortsByCreatedAtDescending() throws {
         let persistence = PersistenceController(inMemory: true)
@@ -57,7 +158,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: MockFoundationModelsService(),
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let older = TrainingPlanRecord()
@@ -89,7 +191,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         do {
@@ -120,7 +223,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         do {
@@ -168,6 +272,7 @@ struct TrainingPlanServiceTests {
             healthKitService: healthKit,
             goalService: goalService,
             modelContext: context,
+            generationAuthorization: { .authorized },
             userDefaults: testDefaults.defaults
         )
 
@@ -221,7 +326,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: healthKit,
             goalService: goalService,
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         _ = try await service.generatePlan(
@@ -263,6 +369,7 @@ struct TrainingPlanServiceTests {
             healthKitService: healthKit,
             goalService: goalService,
             modelContext: context,
+            generationAuthorization: { .authorized },
             userDefaults: testDefaults.defaults
         )
 
@@ -298,7 +405,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: goalService,
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 4)
@@ -326,7 +434,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
@@ -351,7 +460,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
@@ -373,7 +483,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: goalService,
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         _ = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
@@ -395,7 +506,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: goalService,
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let first = Task {
@@ -425,6 +537,7 @@ struct TrainingPlanServiceTests {
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
             modelContext: context,
+            generationAuthorization: { .authorized },
             saveModelContext: { _ in throw CocoaError(.fileWriteUnknown) }
         )
 
@@ -451,6 +564,7 @@ struct TrainingPlanServiceTests {
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
             modelContext: context,
+            generationAuthorization: { .authorized },
             saveModelContext: { _ in throw CocoaError(.fileWriteUnknown) }
         )
 
@@ -476,7 +590,8 @@ struct TrainingPlanServiceTests {
             foundationModelsService: foundationModels,
             healthKitService: MockHealthKitService(),
             goalService: GoalService(persistence: persistence),
-            modelContext: context
+            modelContext: context,
+            generationAuthorization: { .authorized }
         )
 
         let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)

@@ -980,6 +980,7 @@ struct InsightServiceTests {
 
         #expect(foundationModels.respondCallCount == 1)
         #expect(!analysis.summary.isEmpty)
+        #expect(analysis.observation.contains(8_400.formattedSteps))
         #expect(analysis.summary != String(localized: "No Activity Data", comment: "Weekly trend summary when no data is available"))
         // Assert through the same localization lookup production uses. These previously matched raw
         // English fragments, which only worked because the strings had no catalog entry and fell back to

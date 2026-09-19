@@ -1295,18 +1295,54 @@ struct StepTrackingServiceTests {
         let mockMotion = MockMotionService()
         let testDefaults = TestUserDefaults()
         defer { testDefaults.reset() }
+        testDefaults.defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
 
         let streakResult = StreakResult(count: 5, todayIncluded: true, streakStartDate: .now)
-        let (service, _) = makeService(
+        let streakCalculator = MockStreakCalculator(result: streakResult)
+        let (service, _, streakMock) = makeServiceWithStreakCalculator(
             healthKit: mockHealthKit,
             motion: mockMotion,
-            streakResult: streakResult,
+            streakCalculator: streakCalculator,
             userDefaults: testDefaults.defaults
         )
 
         await service.refreshStreak()
 
+        #expect(streakMock.callCount == 1)
+        #expect(service.currentStreak == 5)
         #expect(testDefaults.defaults.sharedStepData?.currentStreak == 5)
+    }
+
+    @Test("Streak refresh skips calculation while HealthKit sync is disabled")
+    @MainActor
+    func streakRefreshSkipsCalculationWhileHealthKitSyncIsDisabled() async {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        testDefaults.defaults.sharedStepData = SharedStepData(
+            todaySteps: 4_000,
+            goalSteps: 10_000,
+            goalProgress: 0.4,
+            currentStreak: 9,
+            lastUpdated: Date(timeIntervalSince1970: 1_700_000_000),
+            weeklySteps: [1_000, 2_000, 3_000]
+        )
+        let streakCalculator = MockStreakCalculator(
+            result: StreakResult(count: 30, todayIncluded: true, streakStartDate: nil)
+        )
+        let (service, _, streakMock) = makeServiceWithStreakCalculator(
+            healthKit: MockHealthKitService(),
+            motion: MockMotionService(),
+            streakCalculator: streakCalculator,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.refreshStreak()
+
+        #expect(streakMock.callCount == 0)
+        #expect(service.currentStreak == 0)
+        #expect(testDefaults.defaults.sharedStepData?.currentStreak == 9)
+        #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [1_000, 2_000, 3_000])
     }
 
     @Test("Service refreshes weekly summaries from HealthKit")
@@ -1726,6 +1762,51 @@ struct RefreshOrderingTests {
         #expect(testDefaults.defaults.sharedStepData?.currentStreak == 3)
         #expect(badgeService.earnedBadgeTypes().contains(.streak3))
         #expect(!badgeService.earnedBadgeTypes().contains(.streak30))
+    }
+
+    @Test("Streak calculation does not commit after HealthKit sync becomes disabled", arguments: [false, true])
+    @MainActor
+    func streakCalculationDoesNotCommitAfterHealthKitSyncBecomesDisabled(reenableBeforeCompletion: Bool) async {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        testDefaults.defaults.sharedStepData = SharedStepData(
+            todaySteps: 4_000,
+            goalSteps: 10_000,
+            goalProgress: 0.4,
+            currentStreak: 9,
+            lastUpdated: Date(timeIntervalSince1970: 1_700_000_000),
+            weeklySteps: [1_000, 2_000, 3_000]
+        )
+        let streakCalculator = MockStreakCalculator()
+        let results = ControlledAsyncResults<StreakResult>()
+        streakCalculator.handler = { call in
+            try await results.value(for: call)
+        }
+        let (service, _, streakMock) = makeServiceWithStreakCalculator(
+            healthKit: MockHealthKitService(),
+            motion: MockMotionService(),
+            streakCalculator: streakCalculator,
+            userDefaults: testDefaults.defaults
+        )
+
+        let refreshTask = Task { await service.refreshStreak() }
+        await results.waitUntilEntered(1)
+        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        if reenableBeforeCompletion {
+            service.invalidateStreakRefresh()
+            testDefaults.defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        }
+        await results.succeed(
+            1,
+            with: StreakResult(count: 30, todayIncluded: true, streakStartDate: nil)
+        )
+        await refreshTask.value
+
+        #expect(streakMock.callCount == 1)
+        #expect(service.currentStreak == 0)
+        #expect(testDefaults.defaults.sharedStepData?.currentStreak == 9)
+        #expect(testDefaults.defaults.sharedStepData?.weeklySteps == [1_000, 2_000, 3_000])
     }
 }
 

@@ -61,6 +61,8 @@ struct StreakCalculatorTests {
 
         #expect(result.count == 2) // day-1 + day-2; today not counted
         #expect(result.todayIncluded == false)
+        let expectedStart = calendar.startOfDay(for: day(-2))
+        #expect(result.streakStartDate.map { calendar.startOfDay(for: $0) } == expectedStart)
     }
 
     @Test("A gap immediately before today breaks the historical streak")

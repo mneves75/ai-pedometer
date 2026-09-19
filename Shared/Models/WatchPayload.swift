@@ -69,6 +69,21 @@ struct WatchPayload: Codable, Sendable {
         sentAt ?? lastUpdated
     }
 
+    func normalizedForRendering(at renderDate: Date, calendar: Calendar = .autoupdatingCurrent) -> WatchPayload {
+        let rendered = SharedStepData(
+            todaySteps: todaySteps, goalSteps: goalSteps, goalProgress: goalProgress,
+            currentStreak: currentStreak, lastUpdated: lastUpdated,
+            weeklySteps: weeklySteps, activityMode: activityMode
+        ).normalizedForRendering(at: renderDate, calendar: calendar)
+        return WatchPayload(
+            senderID: senderID, revision: revision,
+            todaySteps: rendered.todaySteps, goalSteps: rendered.goalSteps,
+            goalProgress: rendered.goalProgress, currentStreak: rendered.currentStreak,
+            lastUpdated: lastUpdated, weeklySteps: weeklySteps, sentAt: sentAt,
+            activityMode: activityMode
+        )
+    }
+
     static func shouldAccept(_ candidate: WatchPayload, after latestAcceptedOrder: Date?) -> Bool {
         guard let latestAcceptedOrder else { return true }
         return candidate.deliveryOrder > latestAcceptedOrder

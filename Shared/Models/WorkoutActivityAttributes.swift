@@ -10,5 +10,9 @@ struct WorkoutActivityAttributes: ActivityAttributes {
     }
 
     var workoutType: String
+
+    var workoutDisplayName: String {
+        WorkoutType(rawValue: workoutType)?.displayName ?? workoutType
+    }
 }
 #endif

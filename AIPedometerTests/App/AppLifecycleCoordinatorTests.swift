@@ -134,11 +134,10 @@ struct AppLifecycleCoordinatorTests {
         #expect(calls == 0)
     }
 
-    @Test("Cold-launch .active recovers once startup completes (2026-05-19 regression)")
+    @Test("Cold-launch .active is retried explicitly when startup completes")
     func coldLaunchActiveRecoversOnceStartupCompletes() async {
-        // Repro for finding-lifecycle-startup-race: SwiftUI fires `.active` immediately on
-        // cold launch. Previously the coordinator stamped `lastPhase = .active` before the
-        // `isStartupComplete()` guard, swallowing the only `.active` event of the session.
+        // SwiftUI fires `.active` immediately on cold launch but does not emit it again merely
+        // because startup completed. The post-startup entry point must own that retry.
         var calls = 0
         var startupComplete = false
 
@@ -159,11 +158,156 @@ struct AppLifecycleCoordinatorTests {
         await coordinator.handle(scenePhase: .active)
         #expect(calls == 0)
 
-        // Startup catches up — the very next .active call must now perform the work,
-        // proving we didn't commit `lastPhase` while the guards were still failing.
         startupComplete = true
-        await coordinator.handle(scenePhase: .active)
+        await coordinator.handleStartupCompletion(scenePhase: .active)
         #expect(calls == 8)
+    }
+
+    @Test("Post-startup retry does not duplicate active work already in flight")
+    func postStartupRetryDoesNotDuplicateActiveWork() async {
+        let activeRefreshStarted = AppLifecycleTestLatch()
+        let releaseActiveRefresh = AppLifecycleTestLatch()
+        let startupRetryStarted = AppLifecycleTestLatch()
+        var healthAuthRefreshes = 0
+        var foregroundRefreshes = 0
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { true },
+            refreshHealthAuthorization: {
+                healthAuthRefreshes += 1
+                activeRefreshStarted.signal()
+                await releaseActiveRefresh.wait()
+            },
+            refreshMotionAuthorization: {},
+            refreshAIAvailability: {},
+            refreshCoachSession: {},
+            clearInsightCacheIfNeeded: {},
+            refreshTodayData: {},
+            refreshStreak: {},
+            performForegroundRefresh: { foregroundRefreshes += 1 }
+        )
+
+        let sceneTransition = Task { @MainActor in
+            await coordinator.handle(scenePhase: .active)
+        }
+        await activeRefreshStarted.wait()
+
+        let startupCompletion = Task { @MainActor in
+            startupRetryStarted.signal()
+            await coordinator.handleStartupCompletion(scenePhase: .active)
+        }
+        await startupRetryStarted.wait()
+
+        #expect(healthAuthRefreshes == 1)
+        releaseActiveRefresh.signal()
+
+        await sceneTransition.value
+        await startupCompletion.value
+
+        #expect(healthAuthRefreshes == 1)
+        #expect(foregroundRefreshes == 1)
+    }
+
+    @Test("Cancelling a duplicate waiter preserves the owning active refresh")
+    func cancellingDuplicateWaiterPreservesActiveRefresh() async {
+        let activeRefreshStarted = AppLifecycleTestLatch()
+        let releaseActiveRefresh = AppLifecycleTestLatch()
+        let duplicateStarted = AppLifecycleTestLatch()
+        var foregroundRefreshes = 0
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { true },
+            refreshHealthAuthorization: {
+                activeRefreshStarted.signal()
+                await releaseActiveRefresh.wait()
+            },
+            refreshMotionAuthorization: {},
+            refreshAIAvailability: {},
+            refreshCoachSession: {},
+            clearInsightCacheIfNeeded: {},
+            refreshTodayData: {},
+            refreshStreak: {},
+            performForegroundRefresh: { foregroundRefreshes += 1 }
+        )
+
+        let owner = Task { await coordinator.handle(scenePhase: .active) }
+        await activeRefreshStarted.wait()
+        let duplicate = Task {
+            duplicateStarted.signal()
+            await coordinator.handleStartupCompletion(scenePhase: .active)
+        }
+        await duplicateStarted.wait()
+        duplicate.cancel()
+        releaseActiveRefresh.signal()
+        await owner.value
+        await duplicate.value
+
+        #expect(foregroundRefreshes == 1)
+    }
+
+    @Test("Background and reactivation invalidate stale active refresh without losing the latest")
+    func backgroundTransitionInvalidatesInFlightActiveRefresh() async {
+        let activeRefreshStarted = AppLifecycleTestLatch()
+        let releaseActiveRefresh = AppLifecycleTestLatch()
+        let backgroundTransitionStarted = AppLifecycleTestLatch()
+        let latestActiveTransitionStarted = AppLifecycleTestLatch()
+        var healthAuthRefreshes = 0
+        var todayRefreshes = 0
+        var foregroundRefreshes = 0
+        var sharedDataFlushes = 0
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { true },
+            refreshHealthAuthorization: {
+                healthAuthRefreshes += 1
+                activeRefreshStarted.signal()
+                await releaseActiveRefresh.waitIgnoringCancellation()
+            },
+            refreshMotionAuthorization: {},
+            refreshAIAvailability: {},
+            refreshCoachSession: {},
+            clearInsightCacheIfNeeded: {},
+            refreshTodayData: { todayRefreshes += 1 },
+            refreshStreak: {},
+            performForegroundRefresh: { foregroundRefreshes += 1 },
+            flushSharedData: { sharedDataFlushes += 1 }
+        )
+
+        let staleActiveRefresh = Task { @MainActor in
+            await coordinator.handle(scenePhase: .active)
+        }
+        await activeRefreshStarted.wait()
+
+        let backgroundTransition = Task { @MainActor in
+            backgroundTransitionStarted.signal()
+            await coordinator.handle(scenePhase: .background)
+        }
+        await backgroundTransitionStarted.wait()
+
+        let latestActiveTransition = Task { @MainActor in
+            latestActiveTransitionStarted.signal()
+            await coordinator.handle(scenePhase: .active)
+        }
+        await latestActiveTransitionStarted.wait()
+
+        #expect(sharedDataFlushes == 1)
+        #expect(todayRefreshes == 0)
+        #expect(foregroundRefreshes == 0)
+
+        releaseActiveRefresh.signal()
+        await staleActiveRefresh.value
+        await backgroundTransition.value
+        await latestActiveTransition.value
+
+        #expect(healthAuthRefreshes == 2)
+        #expect(todayRefreshes == 1)
+        #expect(foregroundRefreshes == 1)
     }
 
     @Test("Cancelled active refresh is retried on the next active call")
@@ -206,5 +350,44 @@ struct AppLifecycleCoordinatorTests {
         #expect(healthAuthRefreshes == 2)
         #expect(todayRefreshes == 2)
         #expect(foregroundRefreshes == 1)
+    }
+}
+
+@MainActor
+private final class AppLifecycleTestLatch {
+    private var isSignaled = false
+
+    func wait(timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !isSignaled {
+            if Task.isCancelled { return }
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for an app-lifecycle test rendezvous")
+                signal()
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func waitIgnoringCancellation(timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !isSignaled {
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for an app-lifecycle test rendezvous")
+                signal()
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    func signal() {
+        guard !isSignaled else { return }
+        isSignaled = true
     }
 }

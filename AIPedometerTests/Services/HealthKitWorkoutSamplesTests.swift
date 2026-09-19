@@ -5,6 +5,17 @@ import Testing
 @testable import AIPedometer
 
 struct HealthKitWorkoutSamplesTests {
+    @Test("Export configuration preserves the selected workout environment", arguments: WorkoutType.allCases)
+    func exportConfigurationPreservesEnvironment(type: WorkoutType) {
+        let config = HealthKitService.makeWorkoutConfiguration(for: type)
+        #expect(config.activityType == type.healthKitType)
+        let expected: HKWorkoutSessionLocationType = switch type {
+        case .indoorWalk, .indoorRun: .indoor
+        case .outdoorWalk, .outdoorRun, .hike: .outdoor
+        }
+        #expect(config.locationType == expected)
+    }
+
     @Test("Quantity query specifications keep cumulative sums and strict start boundaries")
     func quantityQuerySpecificationsAreStable() {
         let steps = HealthKitService.statisticsQuerySpec(for: .stepCount)

@@ -41,12 +41,21 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: false)
 
+        XCTAssertTrue(d.app.buttons[A11yID.Onboarding.skipButton].isHittable)
         UITestWait.tapFirstExisting(
             [d.app.buttons[A11yID.Onboarding.skipButton]],
             timeout: navigationTimeout
         )
 
-        XCTAssertTrue(d.waitForMainShell(timeout: navigationTimeout))
+        let reachedMainShell = d.waitForMainShell(timeout: navigationTimeout)
+        if !reachedMainShell {
+            d.captureScreen(named: "Onboarding - Skip failure")
+            let hierarchy = XCTAttachment(string: d.app.debugDescription)
+            hierarchy.name = "Onboarding skip accessibility hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertTrue(reachedMainShell)
         d.assertDashboardLoaded()
     }
 
@@ -138,19 +147,27 @@ final class AIPedometerUITests: XCTestCase {
         )
         d.captureScreen(named: "AI Coach")
 
-        // More
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.captureScreen(named: "More")
+        if d.usesSidebarNavigation {
+            // Regular-width navigation exposes these as first-class sidebar destinations.
+            d.openBadges(timeout: navigationTimeout)
+            d.assertBadgesLoaded()
+            d.captureScreen(named: "Badges")
+
+            d.openSettings(timeout: navigationTimeout)
+            d.assertSettingsLoaded()
+            d.captureScreen(named: "Settings")
+        } else {
+            d.openTab(.more)
+            d.assertMoreLoaded()
+            d.captureScreen(named: "More")
+        }
     }
 
     func testMoreSupportOpensAboutAndShowsTipJar() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.tap(id: A11yID.More.supportRowLabel, timeout: navigationTimeout)
+        d.openSupportAbout(timeout: navigationTimeout)
         d.assertAboutLoaded()
         UITestWait.assertAnyExists(
             [d.app.buttons[A11yID.About.tipJarCoffeeButton]],
@@ -163,9 +180,7 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.tap(id: A11yID.More.badgesRowLabel, timeout: navigationTimeout)
+        d.openBadges(timeout: navigationTimeout)
         d.assertBadgesLoaded()
         d.captureScreen(named: "Badges")
     }
@@ -174,9 +189,7 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.tap(id: A11yID.More.settingsRowLabel, timeout: navigationTimeout)
+        d.openSettings(timeout: navigationTimeout)
         d.assertSettingsLoaded()
 
         UITestWait.assertAnyExists(
@@ -203,9 +216,7 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.tap(id: A11yID.More.settingsRowLabel, timeout: navigationTimeout)
+        d.openSettings(timeout: navigationTimeout)
         d.assertSettingsLoaded()
 
         d.scrollTo(id: A11yID.Settings.healthAccessRow)
@@ -229,9 +240,7 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.tap(id: A11yID.More.settingsRowLabel, timeout: navigationTimeout)
+        d.openSettings(timeout: navigationTimeout)
         d.assertSettingsLoaded()
 
         d.tap(id: A11yID.Settings.dailyGoalRow, timeout: navigationTimeout)
@@ -248,6 +257,19 @@ final class AIPedometerUITests: XCTestCase {
         d.assertDashboardLoaded()
 
         _ = d.waitForMarker(prefix: "dashboard_goal_", timeout: navigationTimeout)
+    }
+
+    func testGoalEditorAccessibilityFollowsNumberFormatPreference() throws {
+        let d = launchWithUSRegionMetricAndCommaDecimals()
+        d.openSettings(timeout: navigationTimeout)
+        d.assertSettingsLoaded()
+        d.tap(id: A11yID.Settings.dailyGoalRow, timeout: navigationTimeout)
+
+        let slider = d.app.sliders[A11yID.GoalEditor.slider]
+        XCTAssertTrue(slider.waitForExistence(timeout: navigationTimeout))
+        let value = slider.value as? String ?? ""
+        XCTAssertTrue(value.contains("10.000"), value)
+        XCTAssertFalse(value.contains("10000"), value)
     }
 
     func testTrainingPlansOpensFromWorkouts() throws {
@@ -480,9 +502,7 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
 
-        d.openTab(.more)
-        d.assertMoreLoaded()
-        d.tap(id: A11yID.More.settingsRowLabel, timeout: navigationTimeout)
+        d.openSettings(timeout: navigationTimeout)
         d.assertSettingsLoaded()
 
         d.scrollTo(id: A11yID.Settings.aboutRow)

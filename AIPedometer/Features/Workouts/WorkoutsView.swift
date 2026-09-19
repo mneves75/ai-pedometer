@@ -1001,7 +1001,8 @@ extension WorkoutType {
         foundationModelsService: foundationModelsService,
         healthKitService: healthKitService,
         goalService: goalService,
-        modelContext: persistence.container.mainContext
+        modelContext: persistence.container.mainContext,
+        generationAuthorization: { .authorized }
     )
     let workoutController = WorkoutSessionController(
         modelContext: persistence.container.mainContext,

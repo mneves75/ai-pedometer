@@ -439,9 +439,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     }
 
     private func createWorkout(_ session: WorkoutSession, externalIdentifier: String) async throws -> UUID {
-        let config = HKWorkoutConfiguration()
-        config.activityType = session.type.healthKitType
-        config.locationType = .unknown
+        let config = Self.makeWorkoutConfiguration(for: session.type)
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
         let start = session.startTime
         let end = session.endTime ?? .now
@@ -480,6 +478,16 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             }
         }
         return workoutID
+    }
+
+    nonisolated static func makeWorkoutConfiguration(for type: WorkoutType) -> HKWorkoutConfiguration {
+        let config = HKWorkoutConfiguration()
+        config.activityType = type.healthKitType
+        config.locationType = switch type {
+        case .indoorWalk, .indoorRun: .indoor
+        case .outdoorWalk, .outdoorRun, .hike: .outdoor
+        }
+        return config
     }
 
     nonisolated static func makeWorkoutSamples(

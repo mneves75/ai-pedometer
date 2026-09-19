@@ -202,12 +202,17 @@ struct UserDefaultsSharedStepDataTests {
 
 @Suite("SharedStepData render normalization")
 struct SharedStepDataRenderNormalizationTests {
-    private func makeData(lastUpdated: Date) -> SharedStepData {
+    private func makeData(
+        lastUpdated: Date,
+        todaySteps: Int = 12_340,
+        goalSteps: Int = 10_000,
+        currentStreak: Int = 7
+    ) -> SharedStepData {
         SharedStepData(
-            todaySteps: 12_340,
-            goalSteps: 10_000,
-            goalProgress: 1.234,
-            currentStreak: 7,
+            todaySteps: todaySteps,
+            goalSteps: goalSteps,
+            goalProgress: goalSteps > 0 ? Double(todaySteps) / Double(goalSteps) : 0,
+            currentStreak: currentStreak,
             lastUpdated: lastUpdated,
             weeklySteps: [5400, 6100, 7200, 8300, 9100, 10_200, 12_340]
         )
@@ -223,7 +228,7 @@ struct SharedStepDataRenderNormalizationTests {
         return calendar
     }
 
-    @Test("A payload from an earlier day is not presented as today's progress")
+    @Test("A previous-day payload that met its goal retains the streak while resetting progress")
     func previousDayPayloadIsResetForToday() {
         // Regression: widgets re-read the app-group payload on their own 30-minute timeline. With no
         // overnight write — background refresh is not guaranteed — yesterday's 12,340 steps and completed
@@ -238,9 +243,34 @@ struct SharedStepDataRenderNormalizationTests {
 
         #expect(normalized.todaySteps == 0)
         #expect(normalized.goalProgress == 0)
-        // The goal and streak are not day-scoped, so they survive and the ring keeps a target.
         #expect(normalized.goalSteps == 10_000)
         #expect(normalized.currentStreak == 7)
+    }
+
+    @Test("A previous-day payload that missed its goal resets the streak")
+    func previousDayMissedGoalResetsStreak() {
+        let lastNight = Self.dayStart.addingTimeInterval(22 * 3600)
+        let nextMorning = Self.dayStart.addingTimeInterval(32 * 3600)
+
+        let normalized = makeData(lastUpdated: lastNight, todaySteps: 8_000)
+            .normalizedForRendering(at: nextMorning, calendar: utcCalendar)
+
+        #expect(normalized.todaySteps == 0)
+        #expect(normalized.goalProgress == 0)
+        #expect(normalized.currentStreak == 0)
+    }
+
+    @Test("A payload older than yesterday cannot preserve a streak")
+    func payloadOlderThanYesterdayResetsStreak() {
+        let twoDaysAgo = Self.dayStart.addingTimeInterval(-2 * 3600)
+        let renderDate = Self.dayStart.addingTimeInterval(32 * 3600)
+
+        let normalized = makeData(lastUpdated: twoDaysAgo)
+            .normalizedForRendering(at: renderDate, calendar: utcCalendar)
+
+        #expect(normalized.todaySteps == 0)
+        #expect(normalized.goalProgress == 0)
+        #expect(normalized.currentStreak == 0)
     }
 
     @Test("Activity mode survives a shared data round trip")
@@ -328,6 +358,7 @@ struct SharedStepDataRenderNormalizationTests {
 
         #expect(normalized.todaySteps == 12_340)
         #expect(normalized.goalProgress == 1.234)
+        #expect(normalized.currentStreak == 7)
     }
 
     @Test("Switching activity mode reaches widgets and the watch without the coalescing delay")
