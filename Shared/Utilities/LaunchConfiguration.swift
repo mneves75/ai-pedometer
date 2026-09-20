@@ -23,6 +23,8 @@ enum LaunchConfiguration {
     private static let forcePremiumOnArgument = "-force-premium-on"
     private static let forceAIUnavailableArgument = "-force-ai-unavailable"
     private static let seedUnfinishedWorkoutArgument = "-seed-unfinished-workout"
+    private static let forceGoalSaveFailureArgument = "-force-goal-save-failure"
+    private static let useProductionGlassArgument = "-use-production-glass"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
     private static let demoDeterministicEnvironmentKey = "DEMO_DETERMINISTIC"
     private static let premiumEnabledEnvironmentKey = "PREMIUM_ENABLED"
@@ -137,6 +139,32 @@ enum LaunchConfiguration {
             allowsOverrides: allowsOverrides
         ) else { return false }
         return arguments.contains(seedUnfinishedWorkoutArgument)
+    }
+
+    static func shouldForceGoalSaveFailure(
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(forceGoalSaveFailureArgument)
+    }
+
+    static func shouldUseProductionGlass(
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(useProductionGlassArgument)
     }
 
     /// Whether forced test-only launch overrides should be honored in this binary.

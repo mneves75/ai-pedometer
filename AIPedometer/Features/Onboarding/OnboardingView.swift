@@ -22,10 +22,6 @@ struct OnboardingView: View {
     @State private var showGoalSaveError = false
     @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.md
 
-    private var boundedGoalValueFontSize: CGFloat {
-        min(max(goalValueFontSize, DesignTokens.FontSize.md), DesignTokens.FontSize.xl)
-    }
-
     var body: some View {
         ZStack {
             DesignTokens.Colors.surfaceGrouped.ignoresSafeArea()
@@ -100,8 +96,8 @@ struct OnboardingView: View {
                         Int(dailyGoal).formattedSteps
                     )
                 )
-                    .font(.system(size: boundedGoalValueFontSize, weight: .bold))
-                    .foregroundStyle(DesignTokens.Colors.accent)
+                    .font(.system(size: goalValueFontSize, weight: .bold))
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .contentTransition(.numericText(value: dailyGoal))
@@ -125,7 +121,8 @@ struct OnboardingView: View {
 
             Text(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
                 .font(DesignTokens.Typography.subheadline)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
+                .accessibilityIdentifier(A11yID.Onboarding.goalNote)
         }
     }
 
@@ -143,6 +140,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .padding(DesignTokens.Spacing.md)
                 .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
+                .accessibilityIdentifier(A11yID.Onboarding.permissionsExplanation)
 
             VStack(spacing: DesignTokens.Spacing.sm) {
                 permissionStatusRow(
@@ -170,6 +168,7 @@ struct OnboardingView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .glassButton()
+                .accessibilityIdentifier(A11yID.Onboarding.grantAccessButton)
                 .disabled(isRequestingPermissions)
 
                 if healthAuthorization.status == .requested || motionAuthorization.status == .denied {
@@ -177,6 +176,7 @@ struct OnboardingView: View {
                         openSystemSettings()
                     }
                     .buttonStyle(.bordered)
+                    .tint(DesignTokens.Colors.textPrimary)
                 }
             }
         }
@@ -194,6 +194,7 @@ struct OnboardingView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(pageIndicatorAccessibilityLabel)
+            .accessibilityAddTraits(.isStaticText)
 
             Button(action: handleNext) {
                 Text(primaryButtonTitle)
@@ -293,16 +294,21 @@ struct OnboardingView: View {
     }
 
     private func completeOnboarding() async {
-        if LaunchConfiguration.isUITesting() {
-            let didPersistGoal = trackingService.updateGoal(Int(dailyGoal))
-            guard handleGoalPersistence(didPersistGoal) else { return }
+        let isUITesting = LaunchConfiguration.isUITesting()
+        let didPersistGoal: Bool
+        if isUITesting {
+            didPersistGoal = trackingService.updateGoal(Int(dailyGoal))
+        } else {
+            await requestPermissionsIfNeeded()
+            didPersistGoal = await trackingService.updateGoalAndRefresh(Int(dailyGoal))
+        }
+
+        guard handleGoalPersistence(didPersistGoal) else { return }
+        if isUITesting {
             onboardingCompleted = true
             UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
             Loggers.app.info("onboarding.completed_set", metadata: ["value": "true"])
         } else {
-            await requestPermissionsIfNeeded()
-            let didPersistGoal = await trackingService.updateGoalAndRefresh(Int(dailyGoal))
-            guard handleGoalPersistence(didPersistGoal) else { return }
             withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth) {
                 onboardingCompleted = true
             }
@@ -347,33 +353,70 @@ struct OnboardingView: View {
     }
 
     private func permissionStatusRow(title: String, status: HealthKitAccessStatus) -> some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            Image(systemName: statusSymbol(for: status))
-                .foregroundStyle(statusColor(for: status))
-            Text(title)
-                .font(DesignTokens.Typography.subheadline.weight(.semibold))
-            Spacer()
-            Text(statusLabel(for: status))
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(statusLabel(for: status))")
+        permissionStatusRow(
+            title: title,
+            status: statusLabel(for: status),
+            symbol: statusSymbol(for: status),
+            color: statusColor(for: status),
+            titleIdentifier: A11yID.Onboarding.healthPermissionTitle,
+            statusIdentifier: A11yID.Onboarding.healthPermissionStatus
+        )
     }
 
     private func permissionStatusRow(title: String, status: MotionAuthStatus) -> some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            Image(systemName: statusSymbol(for: status))
-                .foregroundStyle(statusColor(for: status))
-            Text(title)
-                .font(DesignTokens.Typography.subheadline.weight(.semibold))
-            Spacer()
-            Text(statusLabel(for: status))
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
+        permissionStatusRow(
+            title: title,
+            status: statusLabel(for: status),
+            symbol: statusSymbol(for: status),
+            color: statusColor(for: status),
+            titleIdentifier: A11yID.Onboarding.motionPermissionTitle,
+            statusIdentifier: A11yID.Onboarding.motionPermissionStatus
+        )
+    }
+
+    private func permissionStatusRow(
+        title: String,
+        status: String,
+        symbol: String,
+        color: Color,
+        titleIdentifier: String,
+        statusIdentifier: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+            permissionStatusTitle(
+                title: title,
+                symbol: symbol,
+                color: color,
+                identifier: titleIdentifier
+            )
+            permissionStatusText(status, identifier: statusIdentifier)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(statusLabel(for: status))")
+        .accessibilityLabel("\(title): \(status)")
+    }
+
+    private func permissionStatusTitle(
+        title: String,
+        symbol: String,
+        color: Color,
+        identifier: String
+    ) -> some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            Image(systemName: symbol)
+                .foregroundStyle(color)
+            Text(title)
+                .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(identifier)
+        }
+    }
+
+    private func permissionStatusText(_ status: String, identifier: String) -> some View {
+        Text(status)
+            .font(DesignTokens.Typography.caption)
+            .foregroundStyle(DesignTokens.Colors.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier(identifier)
     }
 
     private func statusSymbol(for status: HealthKitAccessStatus) -> String {

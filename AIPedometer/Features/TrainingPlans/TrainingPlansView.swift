@@ -85,6 +85,7 @@ struct TrainingPlansView: View {
                         Text(L10n.localized("Create Plan", comment: "Empty state button to create plan"))
                     }
                     .buttonStyle(.borderedProminent)
+                    .foregroundStyle(.black)
                     .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
                 }
             }

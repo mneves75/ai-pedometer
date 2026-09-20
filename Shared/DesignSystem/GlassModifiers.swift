@@ -11,7 +11,7 @@ struct GlassCardModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if LaunchConfiguration.isUITesting() {
+        if LaunchConfiguration.isUITesting() && !LaunchConfiguration.shouldUseProductionGlass() {
             content
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         } else if #available(iOS 26, *) {
@@ -32,12 +32,18 @@ struct GlassCardModifier: ViewModifier {
 struct GlassButtonModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
-        if LaunchConfiguration.isUITesting() {
-            content.buttonStyle(.borderedProminent)
+        if LaunchConfiguration.isUITesting() && !LaunchConfiguration.shouldUseProductionGlass() {
+            content
+                .buttonStyle(.borderedProminent)
+                .foregroundStyle(.black)
         } else if #available(iOS 26, *) {
-            content.buttonStyle(.glassProminent)
+            content
+                .buttonStyle(.glassProminent)
+                .foregroundStyle(.black)
         } else {
-            content.buttonStyle(.borderedProminent)
+            content
+                .buttonStyle(.borderedProminent)
+                .foregroundStyle(.black)
         }
     }
 }
@@ -53,7 +59,7 @@ extension View {
 
     @ViewBuilder
     func glassContainer(spacing: CGFloat = DesignTokens.Spacing.md) -> some View {
-        if LaunchConfiguration.isUITesting() {
+        if LaunchConfiguration.isUITesting() && !LaunchConfiguration.shouldUseProductionGlass() {
             self
         } else if #available(iOS 26, *) {
             GlassEffectContainer(spacing: spacing) {

@@ -88,6 +88,7 @@ struct AIInsightCard: View {
                     .font(DesignTokens.Typography.subheadline.weight(.medium))
             }
             .buttonStyle(.borderedProminent)
+            .foregroundStyle(.black)
             .controlSize(.small)
         }
         .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -242,6 +243,7 @@ struct WeeklyTrendCard: View {
             Button(L10n.localized("Try Again", comment: "Retry button"), action: onRetry)
                 .font(DesignTokens.Typography.subheadline.weight(.medium))
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(.black)
                 .controlSize(.small)
         }
     }

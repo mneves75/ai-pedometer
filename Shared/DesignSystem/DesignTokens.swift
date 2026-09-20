@@ -64,8 +64,9 @@ enum DesignTokens {
 
     enum Opacity {
         // Keep "magic numbers" centralized as tokens.
-        static let textTertiary: Double = 0.8
-        static let textQuaternary: Double = 0.6
+        static let textSecondary: Double = 0.72
+        static let textTertiary: Double = 0.62
+        static let textQuaternary: Double = 0.56
         static let surfaceElevated: Double = 0.06
         static let surfaceQuaternary: Double = 0.04
         static let borderMuted: Double = 0.12
@@ -77,23 +78,9 @@ enum DesignTokens {
         static let accentSoft = Color.accentColor.opacity(0.12)
 
         static let textPrimary = Color.primary
-        static let textSecondary = Color.secondary
-        static var textTertiary: Color {
-#if canImport(UIKit) && !os(watchOS)
-            Color(uiColor: .tertiaryLabel)
-#else
-            // watchOS doesn't expose UIKit semantic label colors (tertiary/quaternary). Use SwiftUI semantics.
-            Color.secondary.opacity(DesignTokens.Opacity.textTertiary)
-#endif
-        }
-
-        static var textQuaternary: Color {
-#if canImport(UIKit) && !os(watchOS)
-            Color(uiColor: .quaternaryLabel)
-#else
-            Color.secondary.opacity(DesignTokens.Opacity.textQuaternary)
-#endif
-        }
+        static let textSecondary = Color.primary.opacity(DesignTokens.Opacity.textSecondary)
+        static let textTertiary = Color.primary.opacity(DesignTokens.Opacity.textTertiary)
+        static let textQuaternary = Color.primary.opacity(DesignTokens.Opacity.textQuaternary)
 
         static var surface: Color {
 #if canImport(UIKit) && !os(watchOS)

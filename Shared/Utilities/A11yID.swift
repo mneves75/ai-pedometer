@@ -10,6 +10,16 @@ enum A11yID {
 
     enum Dashboard {
         static let view = "dashboard_view"
+        static let healthBannerDescription = "dashboard_health_banner_description"
+        static let healthBannerGrantAccessButton = "dashboard_health_banner_grant_access_button"
+        static let premiumInsightGate = "dashboard_premium_insight_gate"
+        static let distanceStatCard = "dashboard_distance_stat_card"
+        static let caloriesStatCard = "dashboard_calories_stat_card"
+        static let floorsStatCard = "dashboard_floors_stat_card"
+        static let heartRateStatCard = "dashboard_heart_rate_stat_card"
+        static let streakStatCard = "dashboard_streak_stat_card"
+        static func statCardValue(_ card: String) -> String { "\(card)_value" }
+        static func statCardTitle(_ card: String) -> String { "\(card)_title" }
         static func steps(_ steps: Int) -> String { "dashboard_steps_\(steps)" }
         static func goal(_ goal: Int) -> String { "dashboard_goal_\(goal)" }
     }
@@ -28,6 +38,7 @@ enum A11yID {
         static let startWorkoutButton = "workouts_start_workout_button"
         static let activeWorkoutBanner = "workouts_active_workout_banner"
         static let recoveryCard = "workouts_recovery_card"
+        static let recoveryMessage = "workouts_recovery_message"
         static let finishRecoveredWorkoutButton = "workouts_finish_recovered_workout_button"
         static let discardRecoveredWorkoutButton = "workouts_discard_recovered_workout_button"
         static let trainingPlansCard = "training_plans_card"
@@ -73,6 +84,13 @@ enum A11yID {
 
     enum Onboarding {
         static let goalSlider = "onboarding_goal_slider"
+        static let goalNote = "onboarding_goal_note"
+        static let healthPermissionTitle = "onboarding_health_permission_title"
+        static let healthPermissionStatus = "onboarding_health_permission_status"
+        static let motionPermissionTitle = "onboarding_motion_permission_title"
+        static let motionPermissionStatus = "onboarding_motion_permission_status"
+        static let permissionsExplanation = "onboarding_permissions_explanation"
+        static let grantAccessButton = "onboarding_grant_access_button"
     }
 
     enum Settings {

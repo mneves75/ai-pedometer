@@ -135,6 +135,7 @@ struct AIUnavailableStateView: View {
                     openSettings()
                 }
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(.black)
             }
         }
         .frame(maxWidth: .infinity)

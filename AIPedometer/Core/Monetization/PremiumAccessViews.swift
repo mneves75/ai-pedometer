@@ -40,33 +40,23 @@ struct PremiumFeatureGateCard: View {
                     .foregroundStyle(DesignTokens.Colors.yellow)
                     .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
                     .background(DesignTokens.Colors.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(title)
                         .font(DesignTokens.Typography.headline)
                     Text(L10n.localized("Premium", comment: "Premium section title"))
                         .font(DesignTokens.Typography.caption.weight(.medium))
-                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
                 }
             }
 
             Text(message)
                 .font(DesignTokens.Typography.subheadline)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Button(L10n.localized("Unlock Premium", comment: "Premium primary button label")) {
-                    sheetMode = .paywall
-                }
-                .glassButton()
-                .disabled(!premiumAccessStore.isConfigured)
-
-                if premiumAccessStore.isConfigured {
-                    Button(L10n.localized("Restore Purchases", comment: "Restore purchases button")) {
-                        Task { await premiumAccessStore.restorePurchases() }
-                    }
-                    .buttonStyle(.bordered)
-                }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                actionButtons
             }
 
             if !premiumAccessStore.isConfigured {
@@ -86,6 +76,25 @@ struct PremiumFeatureGateCard: View {
         .sheet(item: $sheetMode) { mode in
             PremiumAccessSheet(mode: mode)
                 .environment(premiumAccessStore)
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        Button(L10n.localized("Unlock Premium", comment: "Premium primary button label")) {
+            sheetMode = .paywall
+        }
+        .glassButton()
+        .disabled(!premiumAccessStore.isConfigured)
+
+        if premiumAccessStore.isConfigured {
+            Button {
+                Task { await premiumAccessStore.restorePurchases() }
+            } label: {
+                Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
+            }
+            .buttonStyle(.bordered)
+            .tint(DesignTokens.Colors.textPrimary)
         }
     }
 }
@@ -130,6 +139,7 @@ struct PremiumSubscriptionCard: View {
                     .foregroundStyle(DesignTokens.Colors.yellow)
                     .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
                     .background(DesignTokens.Colors.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(L10n.localized("Premium", comment: "Premium section title"))
@@ -151,23 +161,8 @@ struct PremiumSubscriptionCard: View {
             .font(DesignTokens.Typography.subheadline)
             .foregroundStyle(DesignTokens.Colors.textSecondary)
 
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Button(primaryButtonTitle) {
-                    if premiumAccessStore.isPremiumActive {
-                        presentCustomerCenter = true
-                    } else {
-                        sheetMode = .paywall
-                    }
-                }
-                .glassButton()
-                .disabled(!premiumAccessStore.isConfigured)
-
-                if premiumAccessStore.isConfigured {
-                    Button(L10n.localized("Restore Purchases", comment: "Restore purchases button")) {
-                        Task { await premiumAccessStore.restorePurchases() }
-                    }
-                    .buttonStyle(.bordered)
-                }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                actionButtons
             }
         }
         .padding(DesignTokens.Spacing.md)
@@ -204,6 +199,29 @@ struct PremiumSubscriptionCard: View {
                 "Subscriptions are unavailable right now. Please try again later.",
                 comment: "RevenueCat unavailable state when API key is not configured"
             )
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        Button(primaryButtonTitle) {
+            if premiumAccessStore.isPremiumActive {
+                presentCustomerCenter = true
+            } else {
+                sheetMode = .paywall
+            }
+        }
+        .glassButton()
+        .disabled(!premiumAccessStore.isConfigured)
+
+        if premiumAccessStore.isConfigured {
+            Button {
+                Task { await premiumAccessStore.restorePurchases() }
+            } label: {
+                Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
+            }
+            .buttonStyle(.bordered)
+            .tint(DesignTokens.Colors.textPrimary)
         }
     }
 
@@ -323,18 +341,8 @@ struct PremiumAccessSheet: View {
 
     private var actionRow: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Button(L10n.localized("Restore Purchases", comment: "Restore purchases button")) {
-                    Task { await premiumAccessStore.restorePurchases() }
-                }
-                .buttonStyle(.bordered)
-
-                if premiumAccessStore.isPremiumActive {
-                    Button(L10n.localized("Manage Subscription", comment: "Manage subscription button")) {
-                        Task { _ = await premiumAccessStore.showManageSubscriptions() }
-                    }
-                    .buttonStyle(.bordered)
-                }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                managementButtons
             }
 
             Text(
@@ -345,6 +353,25 @@ struct PremiumAccessSheet: View {
             )
             .font(DesignTokens.Typography.caption)
             .foregroundStyle(DesignTokens.Colors.textTertiary)
+        }
+    }
+
+    @ViewBuilder
+    private var managementButtons: some View {
+        Button {
+            Task { await premiumAccessStore.restorePurchases() }
+        } label: {
+            Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
+        }
+        .buttonStyle(.bordered)
+        .tint(DesignTokens.Colors.textPrimary)
+
+        if premiumAccessStore.isPremiumActive {
+            Button(L10n.localized("Manage Subscription", comment: "Manage subscription button")) {
+                Task { _ = await premiumAccessStore.showManageSubscriptions() }
+            }
+            .buttonStyle(.bordered)
+            .tint(DesignTokens.Colors.textPrimary)
         }
     }
 

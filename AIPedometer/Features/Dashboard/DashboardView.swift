@@ -45,9 +45,11 @@ enum HeartRateDisplayFormatter {
 }
 
 struct DashboardView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitSyncEnabled = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
@@ -70,10 +72,6 @@ struct DashboardView: View {
 
     private let progressRingSize: CGFloat = DesignTokens.Sizing.progressRing
     private let progressRingLineWidth: CGFloat = DesignTokens.Sizing.progressRingLineWidth
-
-    private var boundedProgressValueFontSize: CGFloat {
-        min(max(progressValueFontSize, DesignTokens.FontSize.md), DesignTokens.FontSize.lg)
-    }
 
     private struct LoadTrigger: Hashable {
         let activityModeRaw: String
@@ -191,8 +189,9 @@ struct DashboardView: View {
                 }
 
                 Text(bannerDescription)
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .font(DesignTokens.Typography.subheadline.weight(.medium))
+                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                    .accessibilityIdentifier(A11yID.Dashboard.healthBannerDescription)
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     if healthAuthorization.status == .shouldRequest {
@@ -210,6 +209,7 @@ struct DashboardView: View {
                             }
                         }
                         .glassButton()
+                        .accessibilityIdentifier(A11yID.Dashboard.healthBannerGrantAccessButton)
                     } else {
                         Button(L10n.localized("How to enable", comment: "Button to open Health access instructions")) {
                             showHealthHelp = true
@@ -251,7 +251,8 @@ struct DashboardView: View {
                 message: L10n.localized(
                     "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
                     comment: "Premium gate copy for AI features"
-                )
+                ),
+                accessibilityIdentifier: A11yID.Dashboard.premiumInsightGate
             )
             .padding(.horizontal, DesignTokens.Spacing.md)
         } else if aiService.availability.isAvailable {
@@ -403,7 +404,7 @@ struct DashboardView: View {
     private var progressRingContent: some View {
         VStack(spacing: DesignTokens.Spacing.xxs) {
             Text(trackingService.todaySteps.formattedSteps)
-                .font(.system(size: boundedProgressValueFontSize, weight: .bold, design: .rounded))
+                .font(.system(size: progressValueFontSize, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -426,7 +427,7 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var statsGridSection: some View {
-        if LaunchConfiguration.isUITesting() {
+        if LaunchConfiguration.isUITesting() && !LaunchConfiguration.shouldUseProductionGlass() {
             statsGrid
                 .padding(.horizontal, DesignTokens.Spacing.md)
         } else if #available(iOS 26, *) {
@@ -447,6 +448,7 @@ struct DashboardView: View {
                 title: L10n.localized("Distance"),
                 value: .text(trackingService.todayDistance.formattedDistance(), accessibilityValue: nil),
                 color: DesignTokens.Colors.accent,
+                accessibilityIdentifier: A11yID.Dashboard.distanceStatCard
             ),
             StatItem(
                 icon: "flame.fill",
@@ -456,31 +458,37 @@ struct DashboardView: View {
                     accessibilityValue: nil
                 ),
                 color: DesignTokens.Colors.orange,
+                accessibilityIdentifier: A11yID.Dashboard.caloriesStatCard
             ),
             StatItem(
                 icon: "figure.stairs",
                 title: L10n.localized("Floors", comment: "Dashboard stat card title"),
                 value: .text("\(trackingService.todayFloors)", accessibilityValue: nil),
                 color: DesignTokens.Colors.green,
+                accessibilityIdentifier: A11yID.Dashboard.floorsStatCard
             ),
             StatItem(
                 icon: "heart.fill",
                 title: L10n.localized("Heart Rate", comment: "Dashboard stat card title"),
                 value: .heartRate(trackingService.todayHeartRateSample),
                 color: DesignTokens.Colors.red,
+                accessibilityIdentifier: A11yID.Dashboard.heartRateStatCard
             ),
             StatItem(
                 icon: "flame.circle",
                 title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
                 value: .text(Localization.streakDays(trackingService.currentStreak), accessibilityValue: nil),
                 color: DesignTokens.Colors.accent,
+                accessibilityIdentifier: A11yID.Dashboard.streakStatCard
             )
         ]
     }
 
     private var statsGrid: some View {
         LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
+            columns: dynamicTypeSize.isAccessibilitySize
+                ? [GridItem(.flexible())]
+                : [GridItem(.flexible()), GridItem(.flexible())],
             spacing: DesignTokens.Spacing.md
         ) {
             ForEach(Array(statItems.enumerated()), id: \.element.id) { index, item in
@@ -500,7 +508,8 @@ struct DashboardView: View {
                 title: item.title,
                 value: value,
                 color: item.color,
-                accessibilityValue: accessibilityValue
+                accessibilityValue: accessibilityValue,
+                accessibilityIdentifier: item.accessibilityIdentifier
             )
         case .heartRate(let sample):
             TimelineView(.periodic(from: .now, by: HeartRateDisplayFormatter.freshnessRefreshInterval)) { context in
@@ -509,7 +518,8 @@ struct DashboardView: View {
                     title: item.title,
                     value: HeartRateDisplayFormatter.visualText(sample: sample, now: context.date),
                     color: item.color,
-                    accessibilityValue: HeartRateDisplayFormatter.accessibilityText(sample: sample, now: context.date)
+                    accessibilityValue: HeartRateDisplayFormatter.accessibilityText(sample: sample, now: context.date),
+                    accessibilityIdentifier: item.accessibilityIdentifier
                 )
             }
         }
@@ -529,6 +539,7 @@ private struct StatItem: Identifiable {
     let title: String
     let value: Value
     let color: Color
+    let accessibilityIdentifier: String
 
     // Stable identity for ForEach: the title is unique per card and does not
     // change as the value updates, so reveal/transition state is preserved.
@@ -545,6 +556,7 @@ struct StatCard: View {
     let value: String
     let color: Color
     var accessibilityValue: String? = nil
+    let accessibilityIdentifier: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
@@ -559,17 +571,22 @@ struct StatCard: View {
                 Text(value)
                     .font(DesignTokens.Typography.title3.bold())
                     .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(A11yID.Dashboard.statCardValue(accessibilityIdentifier))
                     .contentTransition(.numericText())
                     .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: value)
                 Text(title)
                     .font(DesignTokens.Typography.caption)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(A11yID.Dashboard.statCardTitle(accessibilityIdentifier))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DesignTokens.Spacing.md)
         .glassCard()
         .accessibleStatistic(title: title, value: value, accessibilityValue: accessibilityValue)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
 

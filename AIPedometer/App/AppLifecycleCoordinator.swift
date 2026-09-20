@@ -107,8 +107,11 @@ final class AppLifecycleCoordinator {
     ///
     /// The app calls this after startup finishes because SwiftUI does not emit another scene-phase
     /// change when the scene remained active throughout launch.
-    func handleStartupCompletion(scenePhase: ScenePhase) async {
-        await handle(scenePhase: scenePhase)
+    func handleStartupCompletion(scenePhase initialPhase: ScenePhase) async {
+        // The SwiftUI task may have captured an older Environment value before startup awaited.
+        // Prefer the latest phase observed by this coordinator and use the supplied value only
+        // when no scene transition has reached us yet.
+        await handle(scenePhase: currentPhase ?? initialPhase)
     }
 
     private func performActiveRefresh(generation: Int) async {

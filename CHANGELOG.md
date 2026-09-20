@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clearing and restarting a Coach conversation no longer lets an older response cancel the newer Markdown rendering or lose its cancellation handle.
 - Streak refresh respects the HealthKit Sync preference and discards pending results after the preference changes, without deleting saved history.
 - Training-plan generation checks premium access when requested and before saving. Revoked access cannot add a plan; temporarily unknown access does not cancel work already authorized or erase saved plans.
+- Accessibility fixes improve button contrast, let onboarding and dashboard values scale with Dynamic Type, stack constrained actions vertically and switch dashboard statistics to one column at accessibility text sizes. Automated audits now cover onboarding, the dashboard and unfinished-workout recovery.
 
 Publication, real payments and production-device certification are separate from this source update.
 

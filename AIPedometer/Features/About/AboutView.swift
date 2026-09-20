@@ -215,6 +215,7 @@ struct AboutView: View {
                 Task { await tipJarStore.reloadProduct() }
             }
             .buttonStyle(.bordered)
+            .tint(DesignTokens.Colors.textPrimary)
             .controlSize(.small)
             .accessibilityIdentifier("tipjar_retry_button")
         }

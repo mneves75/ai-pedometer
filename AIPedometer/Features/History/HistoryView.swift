@@ -195,6 +195,7 @@ struct HistoryView: View {
                 Text(L10n.localized("Try Again", comment: "Retry button"))
             }
             .buttonStyle(.bordered)
+            .tint(DesignTokens.Colors.textPrimary)
             Spacer()
         }
         .padding(.horizontal, DesignTokens.Spacing.lg)

@@ -42,6 +42,8 @@ final class AppDriver {
         forcedPremiumEnabled: Bool? = nil,
         forceAIUnavailable: Bool = false,
         seedUnfinishedWorkout: Bool = false,
+        forceGoalSaveFailure: Bool = false,
+        useProductionGlass: Bool = false,
         extraLaunchArguments: [String] = []
     ) {
         app.launchArguments.append(contentsOf: [
@@ -62,6 +64,12 @@ final class AppDriver {
         }
         if seedUnfinishedWorkout {
             app.launchArguments.append("-seed-unfinished-workout")
+        }
+        if forceGoalSaveFailure {
+            app.launchArguments.append("-force-goal-save-failure")
+        }
+        if useProductionGlass {
+            app.launchArguments.append("-use-production-glass")
         }
         app.launchArguments.append(contentsOf: extraLaunchArguments)
 

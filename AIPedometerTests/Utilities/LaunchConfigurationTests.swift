@@ -65,6 +65,34 @@ struct LaunchConfigurationTests {
     }
 
     @Test
+    func detectsForcedGoalSaveFailureOnlyInUITesting() {
+        let arguments = ["-ui-testing", "-force-goal-save-failure"]
+
+        #expect(LaunchConfiguration.shouldForceGoalSaveFailure(
+            arguments: arguments,
+            environment: [:]
+        ))
+        #expect(!LaunchConfiguration.shouldForceGoalSaveFailure(
+            arguments: ["-force-goal-save-failure"],
+            environment: [:]
+        ))
+    }
+
+    @Test
+    func enablesProductionGlassOnlyInUITesting() {
+        let arguments = ["-ui-testing", "-use-production-glass"]
+
+        #expect(LaunchConfiguration.shouldUseProductionGlass(
+            arguments: arguments,
+            environment: [:]
+        ))
+        #expect(!LaunchConfiguration.shouldUseProductionGlass(
+            arguments: ["-use-production-glass"],
+            environment: [:]
+        ))
+    }
+
+    @Test
     func detectsForcedPremiumEnvironmentFlag() {
         let environment = ["PREMIUM_ENABLED": "false"]
         #expect(LaunchConfiguration.forcedPremiumEnabled(arguments: [], environment: environment) == false)
@@ -79,7 +107,9 @@ struct LaunchConfigurationTests {
             "-force-healthkit-sync-off",
             "-force-premium-on",
             "-force-ai-unavailable",
-            "-seed-unfinished-workout"
+            "-seed-unfinished-workout",
+            "-force-goal-save-failure",
+            "-use-production-glass"
         ]
         let environment = [
             "UI_TESTING": "1",
@@ -125,6 +155,16 @@ struct LaunchConfigurationTests {
             allowsOverrides: false
         ))
         #expect(!LaunchConfiguration.shouldSeedUnfinishedWorkout(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
+        #expect(!LaunchConfiguration.shouldForceGoalSaveFailure(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
+        #expect(!LaunchConfiguration.shouldUseProductionGlass(
             arguments: arguments,
             environment: environment,
             allowsOverrides: false

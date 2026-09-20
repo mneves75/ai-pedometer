@@ -498,16 +498,11 @@ struct WorkoutsView: View {
                 comment: "Explanation for recovering an unfinished workout"
             ))
             .font(DesignTokens.Typography.subheadline)
-            .foregroundStyle(DesignTokens.Colors.textSecondary)
+            .foregroundStyle(DesignTokens.Colors.textPrimary)
+            .accessibilityIdentifier(A11yID.Workouts.recoveryMessage)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    recoveryActionButtons
-                }
-
-                VStack(spacing: DesignTokens.Spacing.sm) {
-                    recoveryActionButtons
-                }
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                recoveryActionButtons
             }
             .disabled(isHandlingRecovery)
 
@@ -540,6 +535,7 @@ struct WorkoutsView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
+        .foregroundStyle(.black)
         .accessibilityIdentifier(A11yID.Workouts.finishRecoveredWorkoutButton)
 
         Button(role: .destructive) {
@@ -548,7 +544,9 @@ struct WorkoutsView: View {
             Text(L10n.localized("Discard Workout", comment: "Discard recovered workout action"))
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.borderedProminent)
+        .tint(DesignTokens.Colors.red)
+        .foregroundStyle(.black)
         .accessibilityIdentifier(A11yID.Workouts.discardRecoveredWorkoutButton)
     }
 

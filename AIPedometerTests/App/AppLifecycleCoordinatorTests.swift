@@ -163,6 +163,87 @@ struct AppLifecycleCoordinatorTests {
         #expect(calls == 8)
     }
 
+    @Test("Startup completion does not replace a newer background phase")
+    func startupCompletionPreservesNewerBackgroundPhase() async {
+        var calls = 0
+        var startupComplete = false
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { startupComplete },
+            refreshHealthAuthorization: { calls += 1 },
+            refreshMotionAuthorization: { calls += 1 },
+            refreshAIAvailability: { calls += 1 },
+            refreshCoachSession: { calls += 1 },
+            clearInsightCacheIfNeeded: { calls += 1 },
+            refreshTodayData: { calls += 1 },
+            refreshStreak: { calls += 1 },
+            performForegroundRefresh: { calls += 1 }
+        )
+
+        await coordinator.handle(scenePhase: .active)
+        await coordinator.handle(scenePhase: .background)
+        startupComplete = true
+
+        // The completion callback may still hold the phase captured before its await.
+        await coordinator.handleStartupCompletion(scenePhase: .active)
+
+        #expect(calls == 0)
+    }
+
+    @Test("Startup completion retries a newer active phase")
+    func startupCompletionRetriesNewerActivePhase() async {
+        var calls = 0
+        var startupComplete = false
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { startupComplete },
+            refreshHealthAuthorization: { calls += 1 },
+            refreshMotionAuthorization: { calls += 1 },
+            refreshAIAvailability: { calls += 1 },
+            refreshCoachSession: { calls += 1 },
+            clearInsightCacheIfNeeded: { calls += 1 },
+            refreshTodayData: { calls += 1 },
+            refreshStreak: { calls += 1 },
+            performForegroundRefresh: { calls += 1 }
+        )
+
+        await coordinator.handle(scenePhase: .inactive)
+        await coordinator.handle(scenePhase: .active)
+        startupComplete = true
+
+        // The completion callback may still hold the phase captured before its await.
+        await coordinator.handleStartupCompletion(scenePhase: .inactive)
+
+        #expect(calls == 8)
+    }
+
+    @Test("Startup completion seeds the initial phase when no transition was observed")
+    func startupCompletionSeedsInitialPhase() async {
+        var calls = 0
+
+        let coordinator = AppLifecycleCoordinator(
+            isTesting: { false },
+            isOnboardingCompleted: { true },
+            isStartupComplete: { true },
+            refreshHealthAuthorization: { calls += 1 },
+            refreshMotionAuthorization: { calls += 1 },
+            refreshAIAvailability: { calls += 1 },
+            refreshCoachSession: { calls += 1 },
+            clearInsightCacheIfNeeded: { calls += 1 },
+            refreshTodayData: { calls += 1 },
+            refreshStreak: { calls += 1 },
+            performForegroundRefresh: { calls += 1 }
+        )
+
+        await coordinator.handleStartupCompletion(scenePhase: .active)
+
+        #expect(calls == 8)
+    }
+
     @Test("Post-startup retry does not duplicate active work already in flight")
     func postStartupRetryDoesNotDuplicateActiveWork() async {
         let activeRefreshStarted = AppLifecycleTestLatch()

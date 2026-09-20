@@ -147,6 +147,7 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .tint(DesignTokens.Colors.textPrimary)
 
             Button {
                 showEndConfirmation = true
@@ -155,6 +156,7 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .foregroundStyle(.black)
             .accessibilityIdentifier(A11yID.ActiveWorkout.endButton)
         }
         .controlSize(.large)

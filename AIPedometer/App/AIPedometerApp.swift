@@ -64,7 +64,16 @@ struct AIPedometerApp: App {
         let motionAuth = MotionAuthorization()
         let motionService = MotionService()
         let dataStore = SharedDataStore(coalescingInterval: 5)
-        let goalService = GoalService(persistence: persistence)
+        let forceGoalSaveFailure = LaunchConfiguration.shouldForceGoalSaveFailure()
+        let goalService = GoalService(
+            persistence: persistence,
+            saveModelContext: { context in
+                if forceGoalSaveFailure {
+                    throw CocoaError(.fileWriteUnknown)
+                }
+                try context.save()
+            }
+        )
         let streakCalculator = StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
         let fmService = FoundationModelsService()
         let modelContext = persistence.container.mainContext
