@@ -227,6 +227,18 @@ final class AIPedometerUITests: XCTestCase {
         for auditTypes: XCUIAccessibilityAuditType
     ) throws {
         try app.performAccessibilityAudit(for: auditTypes) { issue in
+            if issue.auditType == .elementDetection {
+                let element = issue.element
+                print(
+                    "[AccessibilityAuditIssue] type=elementDetection "
+                        + "identifier=\(element?.identifier ?? "<nil>") "
+                        + "label=\(element?.label ?? "<nil>") "
+                        + "value=\(element?.value.map(String.init(describing:)) ?? "<nil>") "
+                        + "elementType=\(element.map { String(describing: $0.elementType) } ?? "<nil>") "
+                        + "frame=\(element.map { String(describing: $0.frame) } ?? "<nil>")"
+                )
+            }
+
             if let identifier = issue.element?.identifier,
                self.shouldAcceptKnownAuditIssue(type: issue.auditType, identifier: identifier) {
                 return true
