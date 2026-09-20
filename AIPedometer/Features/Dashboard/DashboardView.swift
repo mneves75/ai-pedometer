@@ -409,6 +409,7 @@ struct DashboardView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .accessibilityIdentifier(A11yID.Dashboard.progressValue)
                 .contentTransition(.numericText())
             Text(
                 Localization.format(
@@ -420,6 +421,7 @@ struct DashboardView: View {
             )
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .accessibilityIdentifier(A11yID.Dashboard.progressGoal)
         }
     }
 

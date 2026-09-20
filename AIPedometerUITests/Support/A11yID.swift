@@ -15,6 +15,8 @@ enum A11yID {
         static let healthBannerDescription = "dashboard_health_banner_description"
         static let healthBannerGrantAccessButton = "dashboard_health_banner_grant_access_button"
         static let premiumInsightGate = "dashboard_premium_insight_gate"
+        static let progressValue = "dashboard_progress_value"
+        static let progressGoal = "dashboard_progress_goal"
         static let distanceStatCard = "dashboard_distance_stat_card"
         static let caloriesStatCard = "dashboard_calories_stat_card"
         static let floorsStatCard = "dashboard_floors_stat_card"
