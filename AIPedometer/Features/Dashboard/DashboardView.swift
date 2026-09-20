@@ -333,9 +333,10 @@ struct DashboardView: View {
         .frame(width: progressRingSize, height: progressRingSize)
         .goalCelebration(trigger: goalReached)
         .padding(.vertical, DesignTokens.Spacing.md)
-        // The ring is shapes plus hidden text, so without its own element the label and value below
-        // reached no accessibility element and VoiceOver skipped the day's progress.
-        .accessibilityElement(children: .ignore)
+        // Merge the visible count and goal into this single progress element. Using `.ignore`
+        // made older accessibility auditors treat the rendered text as unrepresented even though
+        // VoiceOver received the replacement label and value below.
+        .accessibilityElement(children: .combine)
         .accessibleProgress(
             label: Localization.format(
                 "Daily %@ progress",
@@ -420,7 +421,6 @@ struct DashboardView: View {
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .accessibilityHidden(true)
     }
 
     // MARK: - Stats Grid

@@ -36,7 +36,7 @@ extension View {
 
     func accessibleStatistic(title: String, value: String, accessibilityValue: String? = nil) -> some View {
         self
-            .accessibilityElement(children: .ignore)
+            .accessibilityElement(children: .combine)
             .accessibilityLabel(
                 Localization.format(
                     "%@: %@",
