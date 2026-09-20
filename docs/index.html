@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07110f">
+    <meta
+      name="description"
+      content="AIPedometer tracks steps, goals, and workouts with on-device AI coaching for iPhone and Apple Watch."
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="AIPedometer — movement, understood on-device">
+    <meta
+      property="og:description"
+      content="Step tracking, workouts, and AI coaching designed around local health context."
+    >
+    <meta
+      property="og:image"
+      content="https://mneves75.github.io/ai-pedometer/assets/product/og-image.png"
+    >
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIPedometer product page with daily progress visualization">
+    <meta property="og:url" content="https://mneves75.github.io/ai-pedometer/">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="canonical" href="https://mneves75.github.io/ai-pedometer/">
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+    <title>AIPedometer — movement, understood on-device</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="AIPedometer home">
+        <img src="assets/product/app-icon.png" alt="" width="36" height="36">
+        <span>AIPedometer</span>
+      </a>
+
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="#why">Why</a>
+        <a href="#flow">Flow</a>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+      </nav>
+
+      <a class="button button-quiet header-action" href="https://github.com/mneves75/ai-pedometer">
+        View on GitHub
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+          <path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+    </header>
+
+    <main id="content">
+      <section class="hero section-shell" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy reveal">
+          <p class="eyebrow"><span></span> On-device AI walking companion</p>
+          <h1 id="hero-title">Your movement.<br><em>Understood on-device.</em></h1>
+          <p class="hero-lede">
+            Track steps, goals, and workouts across iPhone and Apple Watch. Get coaching from
+            Apple Foundation Models without sending health context to a cloud AI service.
+          </p>
+          <div class="button-row">
+            <a class="button button-primary" href="https://github.com/mneves75/ai-pedometer#quick-start">
+              Build from source
+            </a>
+            <a class="button button-secondary" href="#flow">See the app</a>
+          </div>
+          <p class="hero-note">Open source · Apache 2.0 · iOS 26+ and watchOS 26+</p>
+        </div>
+
+        <div class="hero-visual reveal" aria-hidden="true">
+          <div class="orbit orbit-one" aria-hidden="true"></div>
+          <div class="orbit orbit-two" aria-hidden="true"></div>
+
+          <div class="metric-chip metric-chip-steps" aria-hidden="true">
+            <span class="metric-icon">↗</span>
+            <span><strong>8,000</strong><small>steps today</small></span>
+          </div>
+          <div class="metric-chip metric-chip-local" aria-hidden="true">
+            <span class="privacy-dot"></span>
+            <span><strong>On-device</strong><small>AI context</small></span>
+          </div>
+
+          <div class="progress-module" aria-hidden="true">
+            <div class="progress-ring">
+              <div>
+                <strong>80%</strong>
+                <span>of today’s goal</span>
+              </div>
+            </div>
+            <div class="progress-caption">
+              <img src="assets/product/app-icon.png" alt="" width="48" height="48">
+              <span><strong>Daily progress</strong><small>2,000 steps to go</small></span>
+            </div>
+          </div>
+
+          <div class="phone phone-back phone-workout" aria-hidden="true">
+            <img src="assets/product/active-workout.webp" alt="">
+          </div>
+          <div class="phone phone-back phone-badges" aria-hidden="true">
+            <img src="assets/product/badges.webp" alt="">
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-shell" id="why" aria-labelledby="why-title">
+        <div class="section-heading reveal">
+          <p class="eyebrow"><span></span> Why AIPedometer</p>
+          <h2 id="why-title">A step counter that understands the walk around the number.</h2>
+        </div>
+
+        <div class="principle-grid">
+          <article class="principle-card wide reveal">
+            <p class="card-kicker">The signal</p>
+            <h3>Movement is more than a total.</h3>
+            <p>Goals, workouts, distance, trends, and recovery turn a daily count into useful context.</p>
+            <div class="mini-chart" aria-hidden="true">
+              <i style="--bar: 42%"></i><i style="--bar: 66%"></i><i style="--bar: 51%"></i>
+              <i style="--bar: 88%"></i><i style="--bar: 72%"></i><i style="--bar: 96%"></i>
+              <i class="active" style="--bar: 80%"></i>
+            </div>
+          </article>
+
+          <article class="principle-card reveal">
+            <p class="card-kicker">The intelligence</p>
+            <h3>Coaching stays close.</h3>
+            <p>Apple Foundation Models generate insights and plans directly on supported devices.</p>
+            <div class="local-badge" aria-hidden="true"><span></span> Local inference</div>
+          </article>
+
+          <article class="principle-card reveal">
+            <p class="card-kicker">The boundary</p>
+            <h3>Health context stays yours.</h3>
+            <p>AI inference and its activity context are not sent to a cloud AI service.</p>
+            <div class="boundary-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+          </article>
+
+          <article class="principle-card wide reveal">
+            <p class="card-kicker">The system</p>
+            <h3>One routine, every surface.</h3>
+            <p>Keep the daily snapshot nearby on iPhone, Apple Watch, Home Screen, and Lock Screen.</p>
+            <div class="surface-list" aria-label="Supported app surfaces">
+              <span>iPhone</span><span>Apple Watch</span><span>Widgets</span><span>Live Activity</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section section-shell flow-section" id="flow" aria-labelledby="flow-title">
+        <div class="section-heading reveal">
+          <p class="eyebrow"><span></span> See the routine</p>
+          <h2 id="flow-title">From a daily goal to a longer view.</h2>
+          <p>Choose a step to inspect the real app interface captured from the verified 1.0.4 build.</p>
+        </div>
+
+        <div class="flow-layout reveal">
+          <div class="flow-controls" role="group" aria-label="Choose an app step">
+            <button class="flow-button is-active" type="button" data-flow="start" aria-pressed="true">
+              <span class="flow-index">01</span>
+              <span><strong>Start</strong><small>Set a clear daily goal.</small></span>
+            </button>
+            <button class="flow-button" type="button" data-flow="track" aria-pressed="false">
+              <span class="flow-index">02</span>
+              <span><strong>Track</strong><small>See live progress and context.</small></span>
+            </button>
+            <button class="flow-button" type="button" data-flow="train" aria-pressed="false">
+              <span class="flow-index">03</span>
+              <span><strong>Train</strong><small>Keep the active workout focused.</small></span>
+            </button>
+            <button class="flow-button" type="button" data-flow="progress" aria-pressed="false">
+              <span class="flow-index">04</span>
+              <span><strong>Progress</strong><small>Turn consistency into milestones.</small></span>
+            </button>
+          </div>
+
+          <div class="flow-stage">
+            <div class="flow-glow" aria-hidden="true"></div>
+            <figure class="device-frame">
+              <img
+                id="flow-image"
+                src="assets/product/onboarding.webp"
+                alt="AIPedometer welcome screen on iPhone"
+                width="603"
+                height="1311"
+              >
+            </figure>
+            <div class="flow-caption" aria-live="polite">
+              <span id="flow-label">A calm first step</span>
+              <strong id="flow-heading">Start with a goal you can change later.</strong>
+              <p id="flow-copy">The first run explains the product before asking for health access.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-shell" id="features" aria-labelledby="features-title">
+        <div class="section-heading reveal">
+          <p class="eyebrow"><span></span> What it does</p>
+          <h2 id="features-title">Built for everyday movement and longer adventures.</h2>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card reveal">
+            <span class="feature-icon" aria-hidden="true">◎</span>
+            <h3>Daily tracking</h3>
+            <p>Steps, distance, calories, floors, heart rate, streaks, and goals in one dashboard.</p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-icon violet" aria-hidden="true">✦</span>
+            <h3>On-device AI</h3>
+            <p>Insights, coaching, training plans, and smart reminders powered by Apple Foundation Models.</p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-icon blue" aria-hidden="true">↗</span>
+            <h3>Workouts and routes</h3>
+            <p>Track live walks, recover interrupted sessions, and import validated GPX routes.</p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-icon orange" aria-hidden="true">◌</span>
+            <h3>Expedition Mode</h3>
+            <p>Reduce live-metric cadence for longer walks and hikes while preserving the workout.</p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-icon cyan" aria-hidden="true">▣</span>
+            <h3>Watch and widgets</h3>
+            <p>Keep the daily snapshot visible on Apple Watch, Home Screen, and Lock Screen.</p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-icon pink" aria-hidden="true">↔</span>
+            <h3>Inclusive movement</h3>
+            <p>Wheelchair push tracking, VoiceOver support, adaptable layouts, and regional formatting.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section section-shell privacy-section" id="privacy" aria-labelledby="privacy-title">
+        <div class="privacy-copy reveal">
+          <p class="eyebrow"><span></span> Privacy by boundary</p>
+          <h2 id="privacy-title">Your health context is not cloud-AI input.</h2>
+          <p>
+            AIPedometer reads only the HealthKit data you authorize. AI inference and the activity
+            context used for it stay on-device. Purchase services receive the transaction and
+            entitlement data needed to manage Premium access—not your workout narrative.
+          </p>
+          <a class="text-link" href="https://github.com/mneves75/ai-pedometer/blob/master/SECURITY.md">
+            Read the security model
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <ul class="privacy-list reveal">
+          <li><span aria-hidden="true">✓</span> No account or sign-in required</li>
+          <li><span aria-hidden="true">✓</span> HealthKit access remains permission-based</li>
+          <li><span aria-hidden="true">✓</span> No health context sent to a cloud AI service</li>
+          <li><span aria-hidden="true">✓</span> Sensitive log values are redacted</li>
+          <li><span aria-hidden="true">✓</span> Unverified Premium configuration fails closed</li>
+        </ul>
+      </section>
+
+      <section class="section section-shell source-section" id="source" aria-labelledby="source-title">
+        <div class="source-card reveal">
+          <div>
+            <p class="eyebrow"><span></span> Available from source</p>
+            <h2 id="source-title">Build the verified 1.0.4 source today.</h2>
+            <p>
+              The App Store release is not published yet. Developers can inspect the implementation,
+              generate the Xcode project, and run the app locally.
+            </p>
+          </div>
+          <div class="source-actions">
+            <a class="button button-primary" href="https://github.com/mneves75/ai-pedometer#quick-start">
+              Read the build guide
+            </a>
+            <a class="button button-secondary" href="https://github.com/mneves75/ai-pedometer">
+              Explore the source
+            </a>
+          </div>
+          <dl class="requirements">
+            <div><dt>iPhone</dt><dd>iOS 26+</dd></div>
+            <div><dt>Apple Watch</dt><dd>watchOS 26+</dd></div>
+            <div><dt>Toolchain</dt><dd>Swift 6.2</dd></div>
+            <div><dt>License</dt><dd>Apache 2.0</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="section-shell final-cta" aria-labelledby="final-title">
+        <img src="assets/product/app-icon.png" alt="" width="72" height="72">
+        <p class="eyebrow"><span></span> Move with context</p>
+        <h2 id="final-title">A useful companion should stay on your side of the boundary.</h2>
+        <div class="button-row">
+          <a class="button button-primary" href="https://github.com/mneves75/ai-pedometer#quick-start">
+            Build AIPedometer
+          </a>
+          <a class="button button-secondary" href="https://github.com/mneves75/ai-pedometer/issues/new/choose">
+            Share feedback
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <p>AIPedometer is an independent open-source project and is not affiliated with Apple.</p>
+      <p>
+        <a href="https://github.com/mneves75/ai-pedometer">GitHub</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/mneves75/ai-pedometer/blob/master/LICENSE">Apache 2.0</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/mneves75/ai-pedometer/security">Security</a>
+      </p>
+    </footer>
+  </body>
+</html>

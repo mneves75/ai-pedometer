@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mneves75.github.io/ai-pedometer/sitemap.xml

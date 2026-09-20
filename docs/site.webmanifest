@@ -1,0 +1,21 @@
+{
+  "name": "AIPedometer",
+  "short_name": "AIPedometer",
+  "description": "Step tracking, workouts, and on-device AI coaching for iPhone and Apple Watch.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#07110f",
+  "theme_color": "#07110f",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/product/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
