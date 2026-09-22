@@ -225,6 +225,7 @@ info = {
     "CFBundleShortVersionString": "1.2.3",
     "CFBundleVersion": "7",
     "CFBundleExecutable": "MockRelease",
+    "CFBundlePackageType": "APPL",
     "RevenueCatAPIKey": "appl_SYNTHETIC_RELEASE_KEY",
 }
 kind = os.environ.get("MOCK_ARCHIVE_CONFIGURATION", "valid")
@@ -238,12 +239,15 @@ elif kind == "wrong-bundle":
     info["CFBundleIdentifier"] = "com.example.unexpected"
 elif kind == "unresolved-version":
     info["CFBundleVersion"] = "$(CURRENT_PROJECT_VERSION)"
+elif kind == "app-package-type":
+    # ITMS-90183 rejected 1.0.5 (61) at upload: the manual Info.plists never declared the key.
+    del info["CFBundlePackageType"]
 with (app / "Info.plist").open("wb") as handle:
     plistlib.dump(info, handle)
 (app / "MockRelease").write_bytes(b"synthetic executable")
-for role, relative, suffix, executable in (
-    ("watch", "Watch/MockWatch.app", ".watch", "MockWatch"),
-    ("widget", "PlugIns/MockWidget.appex", ".widgets", "MockWidget"),
+for role, relative, suffix, executable, package_type in (
+    ("watch", "Watch/MockWatch.app", ".watch", "MockWatch", "APPL"),
+    ("widget", "PlugIns/MockWidget.appex", ".widgets", "MockWidget", "XPC!"),
 ):
     if kind == "missing-" + role:
         continue
@@ -254,6 +258,7 @@ for role, relative, suffix, executable in (
         "CFBundleShortVersionString": "1.2.3",
         "CFBundleVersion": "7",
         "CFBundleExecutable": executable,
+        "CFBundlePackageType": package_type,
     }
     if role == "watch":
         child["WKCompanionAppBundleIdentifier"] = os.environ["APP_BUNDLE_ID"]
@@ -263,6 +268,8 @@ for role, relative, suffix, executable in (
         child["CFBundleShortVersionString"] = "9.9"
     if kind == role + "-build":
         child["CFBundleVersion"] = "99"
+    if kind == role + "-package-type":
+        child["CFBundlePackageType"] = "APPL" if package_type == "XPC!" else "BNDL"
     with (product / "Info.plist").open("wb") as handle:
         plistlib.dump(child, handle)
     (product / executable).write_bytes(b"" if kind == "empty-" + role + "-executable" else b"synthetic executable")
@@ -384,7 +391,7 @@ for configuration in test-key missing-key unresolved-key wrong-bundle unresolved
 done
 
 artifact_failures=0
-for configuration in second-primary missing-watch missing-widget watch-version widget-build empty-app-executable empty-watch-executable empty-widget-executable; do
+for configuration in second-primary missing-watch missing-widget watch-version widget-build empty-app-executable empty-watch-executable empty-widget-executable app-package-type watch-package-type widget-package-type; do
   payment_exit=0
   run_mock_payment MOCK_ARCHIVE_CONFIGURATION="${configuration}" \
     IPA_DIR="${TEST_OUTPUT_DIR}/archive-${configuration}" \

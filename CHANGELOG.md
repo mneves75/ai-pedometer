@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CONFIGURATION_ERROR` or `NSURLErrorDomain:-1009`) next to the existing event names, and an
   offering that resolves without packages logs `premium.offering_empty` instead of nothing.
 - The paywall no longer shows the unavailable sentence twice when no packages are available.
+- The app, watch app and widget Info.plists declare `CFBundlePackageType`
+  (`$(PRODUCT_BUNDLE_PACKAGE_TYPE)`). Without it App Store Connect rejected the upload with
+  ITMS-90183, so no build of this app had ever reached TestFlight; `validate-release-artifact.py`
+  now rejects an artifact that lacks it. Build 61 was rejected and 62 replaces it.
 
 ### Security
 

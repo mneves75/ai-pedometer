@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.5 (61). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an Apple (`appl_`) RevenueCat configuration, signed artifacts and physical-device acceptance. The 1.0.5 code review does not publish a release or validate real payments.
+**Current source**: 1.0.5 (62). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an Apple (`appl_`) RevenueCat configuration, signed artifacts and physical-device acceptance. The 1.0.5 code review does not publish a release or validate real payments.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

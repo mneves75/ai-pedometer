@@ -7,7 +7,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-22)
 
-- Source candidate is 1.0.5 (61) in `project.yml` (paywall diagnostics, retry, `StaticString` log
+- Source candidate is 1.0.5 (62) in `project.yml` (paywall diagnostics, retry, `StaticString` log
   events); release evidence is in `memory/2026-09-22.md`.
 - 1.0.4 (60): Debug and Release simulator bundle values were verified.
   Source fixes are committed locally as `bc0542b`, with 682 unit tests passing on

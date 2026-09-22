@@ -65,6 +65,10 @@ def validate_products(
         }
         if fields["CFBundleIdentifier"] != expected_id:
             raise ArtifactError("Bundle ID de produto inesperado.")
+        # App Store Connect rejects an upload whose app or watch app lacks APPL (ITMS-90183);
+        # the manual Info.plists only get the key through $(PRODUCT_BUNDLE_PACKAGE_TYPE).
+        if info.get("CFBundlePackageType") != ("XPC!" if role == "widget" else "APPL"):
+            raise ArtifactError("CFBundlePackageType deve ser APPL no app e no Watch app e XPC! na extensao.")
         executable = fields["CFBundleExecutable"]
         if executable in (".", "..") or "/" in executable or "\\" in executable or size(location + "/" + executable) <= 0:
             raise ArtifactError("Cada produto requer um executavel nao vazio dentro do bundle.")
