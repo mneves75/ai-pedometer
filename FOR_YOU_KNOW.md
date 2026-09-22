@@ -92,8 +92,10 @@ carry the production subscription IDs or the paywall is empty for a reason that 
 with Apple; use `AIPedometer-Sandbox` on a physical device to reach the real sandbox (RevenueCat
 documents that simulators cannot reach the live App Store API). On a build installed outside Xcode
 a `CONFIGURATION_ERROR` code means StoreKit returned none of the offering's products: check the
-Paid Apps Agreement, product state (`Prepare for Submission` does not load; `Ready to Submit` does)
-and propagation (up to 24 hours) before touching code. Sandbox does not
+Paid Apps Agreement, banking and tax status, then product price and localizations, before touching
+code (Apple TN3186). The App Review screenshot that keeps a product in `Missing Metadata` is not a
+sandbox prerequisite. Product edits take up to 1 hour to reach the sandbox; agreement changes up to
+24 hours (RevenueCat). Sandbox does not
 need App Review; "Ready to Submit" products load there. `AppLogger` redacts every metadata value and
 used to mark the whole line private, which made even the event name read `<private>` in a device
 syslog; since 2026-09-21 only the event name (a `StaticString`) and the `code` field are public. The RevenueCat SDK

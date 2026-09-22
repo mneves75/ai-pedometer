@@ -398,15 +398,15 @@ também mostra esse código abaixo da mensagem.
    divergirem dele, o paywall fica vazio por esse motivo e não por App Store Connect. Para falar
    com o sandbox real, rode o scheme `AIPedometer-Sandbox`.
 2. `code` = `CONFIGURATION_ERROR` em uma build instalada fora do Xcode: a RevenueCat entregou o
-   offering, mas o StoreKit do aparelho não devolveu nenhum produto. Causas documentadas pela
-   RevenueCat ([troubleshooting de offerings](https://www.revenuecat.com/docs/offerings/troubleshooting-offerings)),
-   na ordem em que costumam aparecer: Paid Apps Agreement, tax e banking não totalmente `Active`
-   (a propagação pode levar até 24 horas); produto ainda em `Prepare for Submission` ou
-   `Missing Metadata` (sem preço, localização ou screenshot de review) em vez de `Ready to Submit`
-   ou `Approved`; grupo de assinaturas sem localização; In-App Purchase Key ou App-Specific Shared
-   Secret ausente no dashboard RevenueCat; bundle ID divergente. Produtos em `Ready to Submit`
-   aparecem no sandbox sem passar pela revisão da Apple; a revisão só é obrigatória para vender em
-   produção, e o primeiro grupo segue junto com uma versão. `code` = `missing_offering` significa
+   offering, mas o StoreKit do aparelho não devolveu nenhum produto. Pré-requisitos do sandbox
+   segundo a Apple ([TN3186](https://developer.apple.com/documentation/technotes/tn3186-troubleshooting-in-app-purchases-availability-in-the-sandbox))
+   e a RevenueCat ([troubleshooting de offerings](https://www.revenuecat.com/docs/offerings/troubleshooting-offerings)):
+   Paid Apps Agreement, banking e tax `Active` (mudanças levam até 24 horas); preço e localização
+   em cada produto (edições levam até 1 hora); bundle ID igual ao do App Store Connect e com a
+   capability In-App Purchase; assinatura válida; In-App Purchase Key ou App-Specific Shared
+   Secret no dashboard RevenueCat. O sandbox não exige enviar os produtos para revisão: o
+   screenshot de review que deixa o produto em `Missing Metadata` só é obrigatório para a revisão
+   de produção, quando o primeiro grupo segue junto com uma versão. `code` = `missing_offering` significa
    que `REVENUECAT_OFFERING_ID` aponta para um offering inexistente; `no_packages` significa
    offering sem packages.
 3. `code` começando com `NSURLErrorDomain` ou `NETWORK_ERROR`/`OFFLINE_CONNECTION_ERROR`: sem

@@ -31,11 +31,14 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   since 2026-09-20 and the RevenueCat offering `default` resolves `$rc_monthly`/`$rc_annual` to
   the production product IDs, so the `test_` blocker below is superseded. The Release 1.0.4 (60)
   paywall on the iMarcus still shows no plans: StoreKit returns none of the products. Verified with
-  `asc` on 2026-09-22: both subscriptions are `MISSING_METADATA` and neither has an App Store
-  review screenshot, which alone keeps StoreKit from serving them in sandbox and TestFlight. ASC
+  `asc` on 2026-09-22: product IDs match, both have prices (175 territories, PRT included), en-US
+  and pt-BR localizations, and the bundle ID has the In-App Purchase capability. Both are
+  `MISSING_METADATA` only for the App Review screenshot, which Apple's TN3186 says sandbox does not
+  need. The remaining sandbox/TestFlight blocker is therefore the Paid Apps Agreement, banking and
+  tax status (not exposed by the ASC API; check the Business section as Account Holder). ASC
   prices are US$ 2.99 monthly and US$ 39.99 yearly (the 2026-09-20 journal's 6.99 is wrong).
-  Still unverified: Paid Apps Agreement/tax/banking state, a Sandbox Apple Account on the phone,
-  and the first subscription group submitted together with a version for production. Diagnose with
+  Before production: review screenshots, and the first subscription group submitted with a version.
+  Diagnose with
   the `code` field of `premium.offerings_failed` and the `AIPedometer-Sandbox` scheme
   (FOR_YOU_KNOW "Health, AI and premium boundaries").
 - **Superseded (historical `test_` blocker, checked 2026-09-15 by prefix only):**
