@@ -7,8 +7,11 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-22)
 
-- Source candidate is 1.0.5 (62) in `project.yml` (paywall diagnostics, retry, `StaticString` log
-  events); release evidence is in `memory/2026-09-22.md`.
+- **1.0.5 (62) is the first build of this app in App Store Connect** (2026-09-22, commit `363d2af`,
+  tag `v1.0.5-beta1`): `VALID`, export compliance answered, `READY_FOR_BETA_TESTING` and added
+  to the existing `Internal Testers` group, which has no testers yet (adding them is an owner
+  decision). External testing is blocked on beta-review contact details and "What to Test".
+  Build 61 was rejected with ITMS-90183 (no `CFBundlePackageType`). Evidence: `memory/2026-09-22.md`.
 - 1.0.4 (60): Debug and Release simulator bundle values were verified.
   Source fixes are committed locally as `bc0542b`, with 682 unit tests passing on
   both iOS 27 and 26.5, Release/static analysis passing and autoreview P3 clean
@@ -59,9 +62,9 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   publishing role, which only surfaces on a real upload attempt.
 - CI and CodeQL are green on `b86b102` (1.0.3; CodeQL 27 rules, 0 alerts). The hosted runner uses Xcode 26.3 while this host uses
   27.0, so the supported-range selector is load-bearing, not a convenience.
-- Open before any beta or production delivery: approved App Store Connect credentials,
-  Apple (non-Test-Store) RevenueCat configuration, a signed artifact, and physical-device
-  acceptance for HealthKit, motion, notifications, paired watch and purchases.
+- Open before production delivery: the Paid Apps Agreement/banking/tax status, subscription review
+  screenshots, and physical-device acceptance for HealthKit, motion, notifications, paired watch
+  and purchases. ASC credentials, the `appl_` key and a signed, uploaded artifact are done.
 - Toolchain: native SwiftUI, iOS/watchOS 26 deployment targets, Swift 6.2, XcodeGen.
   Supported build toolchains are Xcode 26.x and 27.x. Verified 2026-09-10 on Xcode 27.0
   (27A266a): app, widgets, watch and both test targets build clean; unit suite 607/607.

@@ -28,6 +28,20 @@
   Reproduced on 2026-09-19: the x86_64 compile selected an arm64 RevenueCat module
   and failed with `built for incompatible target`. This simulator-only selection
   does not change supported device architectures or replace archive validation.
+- Release archive and TestFlight upload (first successful path, 2026-09-22, Xcode 27.0):
+  1. `xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -configuration Release -destination 'generic/platform=iOS' -archivePath <out>/AIPedometer.xcarchive -allowProvisioningUpdates archive`
+  2. `python3 Scripts/validate-release-artifact.py --archive <archive> --bundle-id com.mneves.aipedometer --version <V> --build <B>`
+  3. Export with an options plist of `method` `app-store-connect`, `destination` `export`,
+     `signingStyle` `automatic` and the team ID, **under a system-only PATH**:
+     `env PATH=/usr/bin:/bin:/usr/sbin:/sbin xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <plist> -exportPath <out>/export -allowProvisioningUpdates`.
+     Xcode's `/usr/bin/rsync` spawns the first `rsync` on `PATH`; Homebrew's rsync 3.x rejects
+     `--extended-attributes` and the export ends in the generic `Copy failed` (the real line is in
+     `IDEDistributionPipeline.log` under `/var/folders/**/T/AIPedometer_*.xcdistributionlogs`).
+  4. Rerun the validator with `--ipa`, then `asc builds upload --app 6778799265 --ipa <ipa> --wait`.
+     `--wait` surfaces Apple's processing verdict; ITMS-90183 (missing `CFBundlePackageType`)
+     rejected build 61 this way. A rejected build number is not reused.
+  `Scripts/test-payments-device.sh` automates the same path but also creates a TestFlight group
+  and invites testers; a beta delivery does not authorize those steps.
 - `asc doctor`: verify local ASC CLI/keychain/auth health before remote App Store Connect work.
 - `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`: confirm generated Xcode metadata matches `project.yml`.
 - `asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.

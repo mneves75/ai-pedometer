@@ -196,6 +196,14 @@ formatter "fix" proven only with explicit locales, and it changed nothing on the
   postGen hook; manual generated-file edits disappear.
 - The app uses a manual `AIPedometer/Resources/Info.plist`. `INFOPLIST_KEY_*` settings
   alone may not reach the bundle. Test the source plist and inspect the built one.
+  The manual plists also never declared `CFBundlePackageType`: every local build, test,
+  archive and export succeeded without it, and only App Store Connect processing rejected
+  1.0.5 (61) with ITMS-90183. No build had reached TestFlight before that fix, so an
+  upload is the first gate that sees some keys; `validate-release-artifact.py` now checks it.
+- A `Copy failed` from `xcodebuild -exportArchive` on this host is Homebrew rsync on `PATH`,
+  not signing: export under `env PATH=/usr/bin:/bin:/usr/sbin:/sbin` (build guide, "Release
+  archive and TestFlight upload"). A `VALID` build still waits on export compliance before
+  internal testers can install it; `ITSAppUsesNonExemptEncryption` answers that from 1.0.5 on.
 - Zero tests, skipped tests and inconsistent xcresult counts do not prove completion.
   A negative gate needs a violation inside its actual path/selector scope and a
   clean control. Empty redaction output is not a useful test.

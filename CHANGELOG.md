@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ITMS-90183, so no build of this app had ever reached TestFlight; `validate-release-artifact.py`
   now rejects an artifact that lacks it. Build 61 was rejected and 62 replaces it.
 
+### Changed
+
+- The app declares `ITSAppUsesNonExemptEncryption = false`: its only cryptography is SHA-256 hashing
+  and RevenueCat's signature verification over OS-provided HTTPS, so builds after 1.0.5 (62) reach
+  TestFlight without a manual export-compliance answer.
+
 ### Security
 
 - Log event names are now `StaticString`, so the newly public event field cannot carry a value
