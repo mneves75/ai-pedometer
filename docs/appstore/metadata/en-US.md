@@ -13,21 +13,29 @@
 
 ## Description
 
-`AIPedometer is a modern step tracker with on-device AI coaching.\n\n• Daily step tracking with HealthKit integration\n• Smart insights and practical recommendations\n• Adaptive training plans\n• Progress history and badges\n• Apple Watch companion and widgets\n\nThe AI experience is designed to stay useful in real-world movement routines.`
+`AIPedometer is a step and workout tracker with AI coaching that runs on your device.\n\n• Daily steps and goals with HealthKit\n• Workouts with Live Activities\n• AI insights, Coach, training plans, and smart reminders\n• History, streaks, and achievements\n• GPX routes and Expedition Mode\n• Apple Watch, widgets, and wheelchair push tracking\n\nNo account is required. On supported devices, health context used by AI remains on the device and is not sent to a cloud AI service.\n\nPremium AI features, GPX route import, and Expedition Mode require an auto-renewable subscription. Purchase, Restore Purchases, and Manage Subscription are available in More > Support AI Pedometer. The optional Tip Jar is a separate one-time purchase.`
 
 ## Keywords (max 100 chars)
 
-`steps,pedometer,fitness,workout,walking,healthkit,apple watch,goals`
+`fitness,workout,walking,healthkit,watch,goals,activity,tracker,streaks,routes,gpx`
 
-## What's New (0.98)
+## What's New (1.0.4)
 
-`Safer App Store screenshot uploads, stricter release verification, and updated development dependencies. Improved workout recovery, step and Watch reliability, accessibility, privacy safeguards, premium validation, and on-device AI consistency.`
+`Smarter, safer reminders; more accurate streaks, workouts, widgets, and Apple Watch updates; improved onboarding reliability; and stronger accessibility with better contrast, Dynamic Type layouts, and larger tap targets.`
 
 ## URLs
 
-- Support URL: `<fill>`
-- Marketing URL: `<fill>`
-- Privacy Policy URL: `<fill>`
+- Support URL: `https://mneves75.github.io/ai-pedometer/#support`
+- Marketing URL: `https://mneves75.github.io/ai-pedometer/`
+- Privacy Policy URL: `https://mneves75.github.io/ai-pedometer/#privacy`
+
+## App Privacy
+
+- Data type: `Purchases > Purchase History`
+- Purposes: `App Functionality`, `Analytics`
+- Linked to identity: `No` (RevenueCat anonymous App User ID; the app has no account)
+- Used for tracking: `No`
+- Health & Fitness collection: `No`
 
 ## App Review Information
 
@@ -35,11 +43,13 @@
 - Sign-in required: `No`
 - Review notes:
   - `Tip Jar (consumable IAP): com.mneves.aipedometer.coffee`
+  - `Premium products: com.mneves.aipedometer.premium.monthly and com.mneves.aipedometer.premium.yearly`
   - `Premium AI subscription entitlement: premium`
   - `AI processing is on-device via Apple Foundation Models; no cloud AI service is used.`
   - `Premium Expedition Mode and GPX route import are available in the Workouts tab.`
-  - `Premium access paths: Workouts > Expedition Mode / Routes & GPX; More > About > Premium`
-  - `Tip Jar access path: More > About > Buy me a coffee`
+  - `Premium access paths: Workouts > Expedition Mode / Routes & GPX; More > Support AI Pedometer > Premium`
+  - `Tip Jar access path: More > Support AI Pedometer > Buy me a coffee`
+  - `Restore Purchases and Manage Subscription are available on the Premium sheet.`
 
 ## Screenshot set (suggested order)
 

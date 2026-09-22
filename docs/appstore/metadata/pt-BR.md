@@ -13,21 +13,29 @@
 
 ## Descrição
 
-`AIPedometer é um app de contagem de passos com coaching por IA no dispositivo.\n\n• Monitoramento diário com integração HealthKit\n• Insights inteligentes e sugestões práticas\n• Planos de treino adaptativos\n• Histórico de progresso e badges\n• App para Apple Watch e widgets\n\nToda a experiência de IA foi desenhada para ser útil no dia a dia, com foco em contexto real do seu movimento.`
+`AIPedometer é um contador de passos e treinos com coaching de IA executado no dispositivo.\n\n• Passos e metas diários com HealthKit\n• Treinos com Atividades ao Vivo\n• Insights, Coach IA, planos de treino e lembretes inteligentes\n• Histórico, sequências e conquistas\n• Rotas GPX e Modo Expedição\n• Apple Watch, widgets e contagem de impulsos em cadeira de rodas\n\nNão é preciso criar conta. Em dispositivos compatíveis, o contexto de saúde usado pela IA permanece no aparelho e não é enviado a um serviço de IA na nuvem.\n\nOs recursos Premium de IA, a importação de rotas GPX e o Modo Expedição exigem assinatura com renovação automática. Compra, Restaurar Compras e Gerenciar assinatura ficam em Mais > Apoie o AI Pedometer. O Tip Jar opcional é uma compra única separada.`
 
 ## Keywords (max 100 chars)
 
-`passos,pedômetro,saúde,treino,caminhada,healthkit,apple watch,metas`
+`pedômetro,saúde,treino,caminhada,healthkit,apple watch,metas,atividade,rotas,gpx`
 
-## What's New (0.98)
+## Novidades (1.0.4)
 
-`Envio de capturas para a App Store mais seguro, verificação de release mais rigorosa e dependências de desenvolvimento atualizadas. Melhora a recuperação de treinos, a confiabilidade de passos e Apple Watch, a acessibilidade, a privacidade, o Premium e a consistência da IA no dispositivo.`
+`Lembretes mais confiáveis; sequências, treinos, widgets e Apple Watch mais precisos; onboarding mais robusto; e melhorias de acessibilidade em contraste, Dynamic Type, layouts e áreas de toque.`
 
 ## URLs
 
-- Support URL: `<preencher>`
-- Marketing URL: `<preencher>`
-- Privacy Policy URL: `<preencher>`
+- Support URL: `https://mneves75.github.io/ai-pedometer/#support`
+- Marketing URL: `https://mneves75.github.io/ai-pedometer/`
+- Privacy Policy URL: `https://mneves75.github.io/ai-pedometer/#privacy`
+
+## Privacidade do app
+
+- Tipo de dado: `Compras > Histórico de compras`
+- Finalidades: `Funcionalidade do app`, `Análises`
+- Vinculado à identidade: `Não` (App User ID anônimo da RevenueCat; o app não tem conta)
+- Usado para rastreamento: `Não`
+- Coleta de Saúde e fitness: `Não`
 
 ## App Review Information
 
@@ -35,11 +43,13 @@
 - Sign-in required: `Não`
 - Notes para revisão:
   - `Tip Jar (IAP consumable): com.mneves.aipedometer.coffee`
+  - `Produtos Premium: com.mneves.aipedometer.premium.monthly e com.mneves.aipedometer.premium.yearly`
   - `Entitlement da assinatura Premium AI: premium`
   - `A IA roda no dispositivo via Apple Foundation Models; nenhum serviço de IA em nuvem é usado.`
   - `Modo Expedição e importação de rotas GPX Premium ficam na aba Workouts.`
-  - `Fluxos Premium: Workouts > Expedition Mode / Routes & GPX; More > About > Premium`
-  - `Fluxo do Tip Jar: More > About > Buy me a coffee`
+  - `Fluxos Premium: Workouts > Expedition Mode / Routes & GPX; Mais > Apoie o AI Pedometer > Premium`
+  - `Fluxo do Tip Jar: Mais > Apoie o AI Pedometer > Comprar um café`
+  - `Restaurar Compras e Gerenciar assinatura ficam na tela Premium.`
 
 ## Screenshot set (ordem sugerida)
 
