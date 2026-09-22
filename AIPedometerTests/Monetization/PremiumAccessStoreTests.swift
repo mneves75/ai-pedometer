@@ -261,6 +261,88 @@ struct PremiumAccessStoreTests {
         #expect(store.lastError?.isEmpty == false)
     }
 
+    @Test("A RevenueCat configuration error leaves the paywall empty and names the failure class")
+    func offeringsConfigurationErrorExposesDiagnostic() async {
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        client.offeringsResult = .failure(makeRevenueCatError(.configurationError))
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: "default"),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.refresh()
+
+        #expect(store.state == .ready)
+        #expect(store.availablePackages.isEmpty)
+        #expect(store.lastError?.isEmpty == false)
+        #expect(store.storeDiagnostic?.hasPrefix("CONFIGURATION_ERROR") == true)
+    }
+
+    @Test("A network failure while loading offerings reports the URL error class")
+    func offeringsNetworkFailureExposesDiagnostic() async {
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        client.offeringsResult = .failure(URLError(.notConnectedToInternet))
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.refresh()
+
+        #expect(store.storeDiagnostic?.hasPrefix("NSURLErrorDomain:-1009") == true)
+    }
+
+    @Test("refresh clears the previous diagnostic before fetching again")
+    func refreshResetsDiagnostic() async throws {
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        client.offeringsResult = .failure(URLError(.notConnectedToInternet))
+
+        let store = PremiumAccessStore(
+            configuration: .init(apiKey: "appl_test_key", entitlementID: "premium", offeringID: nil),
+            forcedPremiumEnabled: nil,
+            isTesting: false,
+            purchasesClient: client
+        )
+
+        await store.refresh()
+        #expect(store.storeDiagnostic != nil)
+
+        client.shouldSuspendCustomerInfo = true
+        let secondRefresh = Task { await store.refresh() }
+        defer { client.resumeCustomerInfo() }
+        try await waitUntilPremiumCondition("second RevenueCat customer info request did not start") {
+            client.customerInfoCallCount == 2
+        }
+        #expect(store.state == .loading)
+        #expect(store.storeDiagnostic == nil)
+        client.resumeCustomerInfo()
+        await secondRefresh.value
+        #expect(store.storeDiagnostic?.hasPrefix("NSURLErrorDomain:-1009") == true)
+    }
+
+    @Test(
+        "diagnosticCode maps RevenueCat readable codes and falls back to domain:code",
+        arguments: [
+            (makeRevenueCatError(.configurationError) as any Error, "CONFIGURATION_ERROR"),
+            (makeRevenueCatError(.networkError) as any Error, "NETWORK_ERROR"),
+            (NSError(domain: ErrorCode.errorDomain, code: 23) as any Error, "revenuecat:23"),
+            (URLError(.notConnectedToInternet) as any Error, "NSURLErrorDomain:-1009"),
+            (CocoaError(.fileNoSuchFile) as any Error, "NSCocoaErrorDomain:4")
+        ]
+    )
+    func diagnosticCodeMapsErrors(error: any Error, expected: String) {
+        #expect(PremiumAccessStore.diagnosticCode(for: error) == expected)
+    }
+
     @Test("refresh rejects failed RevenueCat verification before publishing customer info")
     func refreshRejectsFailedVerificationBeforePublishingCustomerInfo() async {
         let client = FakePurchasesClient()
@@ -613,7 +695,7 @@ struct PremiumAccessStoreTests {
         let privateMessage = "RevenueCat sync unavailable at api.example.invalid"
         let publicMessage = String(
             localized: "Subscriptions are unavailable right now. Please try again later.",
-            comment: "RevenueCat unavailable state when API key is not configured"
+            comment: "Premium unavailable state: missing configuration, store products not fetchable, or offline"
         )
         client.syncResult = .failure(PremiumStoreTestError(message: privateMessage))
         let store = makePremiumAccessStore(client: client)
@@ -784,7 +866,7 @@ struct PremiumAccessStoreTests {
         let privateMessage = "RevenueCat purchase unavailable at api.example.invalid"
         let publicMessage = String(
             localized: "Subscriptions are unavailable right now. Please try again later.",
-            comment: "RevenueCat unavailable state when API key is not configured"
+            comment: "Premium unavailable state: missing configuration, store products not fetchable, or offline"
         )
         client.purchaseResult = .failure(PremiumStoreTestError(message: privateMessage))
         let store = makePremiumAccessStore(client: client)
@@ -1119,6 +1201,13 @@ private func waitUntilPremiumCondition(
         }
         await Task.yield()
     }
+}
+
+/// A bare `ErrorCode` bridges to `NSError` with the SDK's `rc_code_name` user-info entry, which
+/// is the same readable name (`CONFIGURATION_ERROR`) the SDK's own errors carry as
+/// `readable_error_code`.
+private func makeRevenueCatError(_ code: ErrorCode) -> any Error {
+    code
 }
 
 private func makePremiumPackage(identifier: String = "monthly") -> Package {

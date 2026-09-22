@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-09-22
+
+### Added
+
+- The Premium paywall's unavailable card has a "Try Again" button that re-queries RevenueCat and
+  StoreKit without closing the sheet. Debug builds also show the failure class and the SDK message
+  under it.
+- `AIPedometer-Sandbox` scheme: a Debug run without the local StoreKit file, so the paywall can be
+  diagnosed against the real App Store sandbox from Xcode on a physical device.
+- `StoreKit/TipJar.storekit` now carries the `AI Pedometer Premium` subscription group with both
+  production product IDs, so an Xcode run renders the paywall's plans instead of an empty card.
+
+### Fixed
+
+- Premium store failures now log a non-redacted failure class (`code`, for example
+  `CONFIGURATION_ERROR` or `NSURLErrorDomain:-1009`) next to the existing event names, and an
+  offering that resolves without packages logs `premium.offering_empty` instead of nothing.
+- The paywall no longer shows the unavailable sentence twice when no packages are available.
+
+### Security
+
+- Log event names are now `StaticString`, so the newly public event field cannot carry a value
+  built from runtime data; free-form error text and metadata remain redacted.
+
 ## [1.0.4] - 2026-09-19
 
 ### Fixed

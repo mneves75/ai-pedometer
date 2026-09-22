@@ -312,21 +312,33 @@ final class TrainingPlanService {
     }
     
     func pausePlan(_ plan: TrainingPlanRecord) {
-        applyPlanMutation(action: "pause", to: plan) {
+        applyPlanMutation(
+            to: plan,
+            successEvent: "ai.training_plan_pause",
+            failureEvent: "ai.training_plan_pause_failed"
+        ) {
             plan.status = TrainingPlanRecord.PlanStatus.paused.rawValue
             plan.updatedAt = Date()
         }
     }
     
     func resumePlan(_ plan: TrainingPlanRecord) {
-        applyPlanMutation(action: "resume", to: plan) {
+        applyPlanMutation(
+            to: plan,
+            successEvent: "ai.training_plan_resume",
+            failureEvent: "ai.training_plan_resume_failed"
+        ) {
             plan.status = TrainingPlanRecord.PlanStatus.active.rawValue
             plan.updatedAt = Date()
         }
     }
     
     func completePlan(_ plan: TrainingPlanRecord) {
-        applyPlanMutation(action: "complete", to: plan) {
+        applyPlanMutation(
+            to: plan,
+            successEvent: "ai.training_plan_complete",
+            failureEvent: "ai.training_plan_complete_failed"
+        ) {
             plan.status = TrainingPlanRecord.PlanStatus.completed.rawValue
             plan.endDate = Date()
             plan.updatedAt = Date()
@@ -334,15 +346,20 @@ final class TrainingPlanService {
     }
     
     func deletePlan(_ plan: TrainingPlanRecord) {
-        applyPlanMutation(action: "delete", to: plan) {
+        applyPlanMutation(
+            to: plan,
+            successEvent: "ai.training_plan_delete",
+            failureEvent: "ai.training_plan_delete_failed"
+        ) {
             plan.deletedAt = Date()
             plan.updatedAt = Date()
         }
     }
 
     private func applyPlanMutation(
-        action: String,
         to plan: TrainingPlanRecord,
+        successEvent: StaticString,
+        failureEvent: StaticString,
         mutation: () -> Void
     ) {
         let previousStatus = plan.status
@@ -355,13 +372,13 @@ final class TrainingPlanService {
         mutation()
         do {
             try saveModelContext(modelContext)
-            Loggers.ai.info("ai.training_plan_\(action)")
+            Loggers.ai.info(successEvent)
         } catch {
             plan.status = previousStatus
             plan.endDate = previousEndDate
             plan.updatedAt = previousUpdatedAt
             plan.deletedAt = previousDeletedAt
-            Loggers.ai.error("ai.training_plan_\(action)_failed", metadata: ["error": error.localizedDescription])
+            Loggers.ai.error(failureEvent, metadata: ["error": error.localizedDescription])
         }
     }
 }

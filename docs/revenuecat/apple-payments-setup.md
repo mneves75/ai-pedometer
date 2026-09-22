@@ -387,10 +387,39 @@ Verifique:
 
 ### App mostra assinaturas indisponíveis
 
-Verifique:
+A mesma frase cobre três situações diferentes. Leia primeiro o campo `code` do evento
+`premium.offerings_failed` (ou `premium.offering_empty`) no log do aparelho, subsystem
+`com.mneves.aipedometer`; ele sobrevive à redação de privacidade. Em builds Debug o paywall
+também mostra esse código abaixo da mensagem.
+
+1. Build rodada pelo Xcode (⌘R) com o scheme `AIPedometer`: o arquivo
+   `StoreKit/TipJar.storekit` substitui a App Store para todos os produtos. Ele inclui o grupo
+   `AI Pedometer Premium` com os dois IDs de produção; se os IDs do dashboard RevenueCat
+   divergirem dele, o paywall fica vazio por esse motivo e não por App Store Connect. Para falar
+   com o sandbox real, rode o scheme `AIPedometer-Sandbox`.
+2. `code` = `CONFIGURATION_ERROR` em uma build instalada fora do Xcode: a RevenueCat entregou o
+   offering, mas o StoreKit do aparelho não devolveu nenhum produto. Causas documentadas pela
+   RevenueCat ([troubleshooting de offerings](https://www.revenuecat.com/docs/offerings/troubleshooting-offerings)),
+   na ordem em que costumam aparecer: Paid Apps Agreement, tax e banking não totalmente `Active`
+   (a propagação pode levar até 24 horas); produto ainda em `Prepare for Submission` ou
+   `Missing Metadata` (sem preço, localização ou screenshot de review) em vez de `Ready to Submit`
+   ou `Approved`; grupo de assinaturas sem localização; In-App Purchase Key ou App-Specific Shared
+   Secret ausente no dashboard RevenueCat; bundle ID divergente. Produtos em `Ready to Submit`
+   aparecem no sandbox sem passar pela revisão da Apple; a revisão só é obrigatória para vender em
+   produção, e o primeiro grupo segue junto com uma versão. `code` = `missing_offering` significa
+   que `REVENUECAT_OFFERING_ID` aponta para um offering inexistente; `no_packages` significa
+   offering sem packages.
+3. `code` começando com `NSURLErrorDomain` ou `NETWORK_ERROR`/`OFFLINE_CONNECTION_ERROR`: sem
+   rede. O botão `Tentar Novamente` do paywall refaz a consulta sem fechar a folha.
+
+O scheme `AIPedometer-Sandbox` precisa de aparelho físico com uma conta Sandbox da App Store
+conectada: a RevenueCat documenta que o simulador não acessa a API real da App Store.
+
+Se a folha não tem o botão `Tentar Novamente` nem a linha de restaurar/gerenciar, o estado é
+`notConfigured`, ou seja, configuração local:
 
 - `Config/Local.xcconfig` existe;
-- `REVENUECAT_API_KEY` não é `REVENUECAT_API_KEY`;
+- `REVENUECAT_API_KEY` não é `REVENUECAT_API_KEY` nem começa com `test_` em Release;
 - `Info.plist` expandiu `RevenueCatAPIKey`;
 - build foi regenerado após mudanças relevantes;
 - `PremiumAccessStore.state` não está em `notConfigured`.

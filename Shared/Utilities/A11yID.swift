@@ -130,6 +130,10 @@ enum A11yID {
         static let tipJarCoffeeButton = "tipjar_coffee_button"
     }
 
+    enum Premium {
+        static let retryButton = "premium_retry_button"
+    }
+
     enum HealthAccessHelp {
         static let view = "health_access_help_view"
         static let doneButton = "health_access_help_done_button"

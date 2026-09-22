@@ -8351,7 +8351,7 @@
       }
     },
     "Subscriptions are unavailable right now. Please try again later." : {
-      "comment" : "RevenueCat unavailable state when API key is not configured",
+      "comment" : "Premium unavailable state: missing configuration, store products not fetchable, or offline",
       "localizations" : {
         "en" : {
           "stringUnit" : {

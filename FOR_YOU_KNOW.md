@@ -85,6 +85,21 @@ current owner cancels if its own attempt fails.
 
 ## Health, AI and premium boundaries
 
+An empty Premium paywall ("Subscriptions are unavailable right now") is fail-closed behaviour with
+three unrelated causes that look identical on screen. A ⌘R run of the `AIPedometer` scheme serves
+every product from `StoreKit/TipJar.storekit`, never from App Store Connect, so the local file must
+carry the production subscription IDs or the paywall is empty for a reason that has nothing to do
+with Apple; use `AIPedometer-Sandbox` on a physical device to reach the real sandbox (RevenueCat
+documents that simulators cannot reach the live App Store API). On a build installed outside Xcode
+a `CONFIGURATION_ERROR` code means StoreKit returned none of the offering's products: check the
+Paid Apps Agreement, product state (`Prepare for Submission` does not load; `Ready to Submit` does)
+and propagation (up to 24 hours) before touching code. Sandbox does not
+need App Review; "Ready to Submit" products load there. `AppLogger` redacts every metadata value and
+used to mark the whole line private, which made even the event name read `<private>` in a device
+syslog; since 2026-09-21 only the event name (a `StaticString`) and the `code` field are public. The RevenueCat SDK
+logs through NSLog at info level even in Release, so `idevicesyslog -p AIPedometer` over USB shows
+its "None of the products ... could be fetched" error without reinstalling anything.
+
 Only the iOS app owns HealthKit. Widgets read `SharedStepData` from app-group
 UserDefaults; the watch receives snapshots through WatchConnectivity and has
 neither HealthKit nor app-group entitlements. The fallback service supports denied

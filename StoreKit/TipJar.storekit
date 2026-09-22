@@ -24,7 +24,80 @@
     }
   ],
   "settings": {},
-  "subscriptionGroups": [],
+  "subscriptionGroups": [
+    {
+      "id": "7A2F91C4",
+      "localizations": [
+        {
+          "description": "AI insights, AI Coach, training plans and smart reminders.",
+          "displayName": "AI Pedometer Premium",
+          "locale": "en_US"
+        },
+        {
+          "description": "Insights de IA, AI Coach, planos de treino e lembretes inteligentes.",
+          "displayName": "AI Pedometer Premium",
+          "locale": "pt_BR"
+        }
+      ],
+      "name": "AI Pedometer Premium",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "2.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "D41B7A02",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Unlock every AI feature, billed monthly.",
+              "displayName": "Premium Monthly",
+              "locale": "en_US"
+            },
+            {
+              "description": "Libere todos os recursos de IA, cobrado mensalmente.",
+              "displayName": "Premium Mensal",
+              "locale": "pt_BR"
+            }
+          ],
+          "productID": "com.mneves.aipedometer.premium.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Premium Monthly",
+          "subscriptionGroupID": "7A2F91C4",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "39.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "E58C3B17",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Unlock every AI feature, billed yearly.",
+              "displayName": "Premium Yearly",
+              "locale": "en_US"
+            },
+            {
+              "description": "Libere todos os recursos de IA, cobrado anualmente.",
+              "displayName": "Premium Anual",
+              "locale": "pt_BR"
+            }
+          ],
+          "productID": "com.mneves.aipedometer.premium.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Premium Yearly",
+          "subscriptionGroupID": "7A2F91C4",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    }
+  ],
   "version": {
     "major": 2,
     "minor": 0

@@ -414,17 +414,16 @@ O scheme atual aponta para:
 
 Importante:
 
-- esse arquivo cobre o `Tip Jar`
-- ele não é a fonte de verdade do premium RevenueCat
-- ele não valida, sozinho, a jornada final de assinatura premium
+- esse arquivo cobre o `Tip Jar` e, desde 2026-09-21, o grupo `AI Pedometer Premium` com os
+  dois IDs de produção (`com.mneves.aipedometer.premium.monthly` e `.premium.yearly`)
+- enquanto o scheme `AIPedometer` roda pelo Xcode, o StoreKit responde só com esse arquivo:
+  o paywall renderiza os planos locais, mas isso prova apenas busca de produto e UI
+- ele não valida, sozinho, a jornada final de assinatura premium nem a validação de recibo
+  pela RevenueCat
 
-Se você quiser testar premium com StoreKit Configuration no simulador:
-
-1. crie um arquivo StoreKit dedicado para as assinaturas premium
-2. sincronize com App Store Connect, se aplicável
-3. duplique o scheme
-4. associe o novo arquivo ao scheme
-5. faça upload do certificado público/artefatos exigidos pela RevenueCat para StoreKit testing
+Para falar com o sandbox real da App Store a partir do Xcode, rode o scheme
+`AIPedometer-Sandbox` em um aparelho físico (o simulador não acessa a API real da App Store):
+mesma app, configuração Debug, sem arquivo StoreKit, logs da RevenueCat em nível debug. É o caminho para diagnosticar um paywall vazio contra o App Store Connect.
 
 Mesmo assim, antes de produção, faça um passe real em Sandbox/TestFlight.
 

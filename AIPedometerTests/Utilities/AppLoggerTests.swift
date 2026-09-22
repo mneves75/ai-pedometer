@@ -23,5 +23,38 @@ struct AppLoggerTests {
         #expect(parsed["path"] == "[private]")
         #expect(parsed["steps"] == "[private]")
         #expect(parsed["timestamp"]?.contains("1970") == true)
+        #expect(parsed["code"] == nil)
+    }
+
+    @Test("AppLogger renders the machine code verbatim while metadata stays redacted")
+    func rendersCodeWithoutRedactingIt() throws {
+        let payload = AppLogger.renderPayload(
+            event: "premium.offerings_failed",
+            level: "error",
+            code: "CONFIGURATION_ERROR",
+            metadata: ["error": "None of the products could be fetched", "code": "leaked"],
+            timestamp: Date(timeIntervalSince1970: 0)
+        )
+
+        let data = try #require(payload.data(using: .utf8))
+        let parsed = try #require(try JSONSerialization.jsonObject(with: data) as? [String: String])
+
+        #expect(parsed["code"] == "CONFIGURATION_ERROR")
+        #expect(parsed["error"] == "[private]")
+    }
+
+    @Test("AppLogger redacts a metadata key named code when no machine code is given")
+    func redactsMetadataCodeWithoutExplicitCode() throws {
+        let payload = AppLogger.renderPayload(
+            event: "test.event",
+            level: "error",
+            metadata: ["code": "user supplied"],
+            timestamp: Date(timeIntervalSince1970: 0)
+        )
+
+        let data = try #require(payload.data(using: .utf8))
+        let parsed = try #require(try JSONSerialization.jsonObject(with: data) as? [String: String])
+
+        #expect(parsed["code"] == "[private]")
     }
 }

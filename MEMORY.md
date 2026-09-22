@@ -5,9 +5,11 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-19)
+## Current state (2026-09-22)
 
-- Source candidate is 1.0.4 (60) in `project.yml`; Debug and Release simulator bundle values were verified.
+- Source candidate is 1.0.5 (61) in `project.yml` (paywall diagnostics, retry, `StaticString` log
+  events); release evidence is in `memory/2026-09-22.md`.
+- 1.0.4 (60): Debug and Release simulator bundle values were verified.
   Source fixes are committed locally as `bc0542b`, with 682 unit tests passing on
   both iOS 27 and 26.5, Release/static analysis passing and autoreview P3 clean
   after one reproduced correction. Push/remote gates and the Argent QA limitation
@@ -25,9 +27,19 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   Settings). 1.0.3 fixes units via `UnitLength(forLocale:usage:)` and counts via `NumberFormatter`; see
   FOR_YOU_KNOW "Regional formatting". `v1.0.2-beta1` was pushed for a build that never reached TestFlight,
   contrary to the rule below; the tag is left in place (pushed tags are never moved).
-- **Historical production/TestFlight blocker (not rechecked in this source-only delivery):**
-  `Config/Local.xcconfig` carried a Test Store (`test_`) RevenueCat key when checked
-  on 2026-09-15 by prefix only. `AppConstants.RevenueCat.resolveConfiguration` nils
+- **Purchases on device (2026-09-21):** `Config/Local.xcconfig` holds the Apple `appl_` key
+  since 2026-09-20 and the RevenueCat offering `default` resolves `$rc_monthly`/`$rc_annual` to
+  the production product IDs, so the `test_` blocker below is superseded. The Release 1.0.4 (60)
+  paywall on the iMarcus still shows no plans: StoreKit returns none of the products. Verified with
+  `asc` on 2026-09-22: both subscriptions are `MISSING_METADATA` and neither has an App Store
+  review screenshot, which alone keeps StoreKit from serving them in sandbox and TestFlight. ASC
+  prices are US$ 2.99 monthly and US$ 39.99 yearly (the 2026-09-20 journal's 6.99 is wrong).
+  Still unverified: Paid Apps Agreement/tax/banking state, a Sandbox Apple Account on the phone,
+  and the first subscription group submitted together with a version for production. Diagnose with
+  the `code` field of `premium.offerings_failed` and the `AIPedometer-Sandbox` scheme
+  (FOR_YOU_KNOW "Health, AI and premium boundaries").
+- **Superseded (historical `test_` blocker, checked 2026-09-15 by prefix only):**
+  `Config/Local.xcconfig` carried a Test Store (`test_`) RevenueCat key at the time. `AppConstants.RevenueCat.resolveConfiguration` nils
   it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;
   `validate-release-artifact.py` rejects it before export. The key is baked into `Info.plist` at archive time,
   so an Apple (`appl_`) key requires a new archive. No beta tag is created until a build actually ships.

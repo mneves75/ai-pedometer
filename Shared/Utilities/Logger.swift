@@ -8,20 +8,30 @@ struct AppLogger: Sendable {
         self.logger = Logger(subsystem: subsystem, category: category)
     }
 
-    func info(_ event: String, metadata: [String: String] = [:]) {
-        logger.info("\(render(event: event, level: "info", metadata: metadata), privacy: .private)")
+    /// The event name and `code` are the only public parts of a line; the JSON payload stays
+    /// private. Without that, a device log shows the whole entry as `<private>` (observed on the
+    /// iMarcus on 2026-09-21) and no failure can be told apart outside a debugger. `code` is for
+    /// enum-like machine codes only (a RevenueCat `CONFIGURATION_ERROR`, `NSURLErrorDomain:-1009`);
+    /// user input, health data, identifiers and free-form error text stay in `metadata`, which is
+    /// always redacted. `event` is a `StaticString` so a name built from runtime data cannot reach
+    /// the public part of the line.
+    func info(_ event: StaticString, code: String? = nil, metadata: [String: String] = [:]) {
+        let payload = render(event: event, level: "info", code: code, metadata: metadata)
+        logger.info("\(event.description, privacy: .public) \(code ?? "-", privacy: .public) \(payload, privacy: .private)")
     }
 
-    func warning(_ event: String, metadata: [String: String] = [:]) {
-        logger.warning("\(render(event: event, level: "warning", metadata: metadata), privacy: .private)")
+    func warning(_ event: StaticString, code: String? = nil, metadata: [String: String] = [:]) {
+        let payload = render(event: event, level: "warning", code: code, metadata: metadata)
+        logger.warning("\(event.description, privacy: .public) \(code ?? "-", privacy: .public) \(payload, privacy: .private)")
     }
 
-    func error(_ event: String, metadata: [String: String] = [:]) {
-        logger.error("\(render(event: event, level: "error", metadata: metadata), privacy: .private)")
+    func error(_ event: StaticString, code: String? = nil, metadata: [String: String] = [:]) {
+        let payload = render(event: event, level: "error", code: code, metadata: metadata)
+        logger.error("\(event.description, privacy: .public) \(code ?? "-", privacy: .public) \(payload, privacy: .private)")
     }
 
-    private func render(event: String, level: String, metadata: [String: String]) -> String {
-        Self.renderPayload(event: event, level: level, metadata: metadata, timestamp: .now)
+    private func render(event: StaticString, level: String, code: String?, metadata: [String: String]) -> String {
+        Self.renderPayload(event: event.description, level: level, code: code, metadata: metadata, timestamp: .now)
     }
 
     // Apple documents ISO8601DateFormatter as thread-safe, so sharing one instance across threads is sound despite the missing Sendable annotation.
@@ -34,6 +44,7 @@ struct AppLogger: Sendable {
     static func renderPayload(
         event: String,
         level: String,
+        code: String? = nil,
         metadata: [String: String],
         timestamp: Date
     ) -> String {
@@ -44,6 +55,9 @@ struct AppLogger: Sendable {
         ]
         for key in metadata.keys {
             payload[key] = "[private]"
+        }
+        if let code {
+            payload["code"] = code
         }
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])

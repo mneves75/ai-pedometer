@@ -106,6 +106,11 @@ final class PremiumAccessStore {
     private(set) var customerInfo: CustomerInfo?
     private(set) var offerings: Offerings?
     private(set) var lastError: String?
+    /// Why the last `refresh()` could not produce a sellable package list: the failure class (for
+    /// example `CONFIGURATION_ERROR` when StoreKit returned none of the offering's products),
+    /// followed by the SDK's message for thrown errors. Shown only in DEBUG builds, never logged or
+    /// persisted; the user-facing copy stays in `lastError`.
+    private(set) var storeDiagnostic: String?
     private(set) var isPurchaseInProgress = false
 
     let configuration: AppConstants.RevenueCatConfiguration
@@ -130,10 +135,10 @@ final class PremiumAccessStore {
     private static let pendingBaselinePurchaseDateKey = "PremiumAccessStore.pendingBaselinePurchaseDate"
     private static let pendingBaselineExpirationDateKey = "PremiumAccessStore.pendingBaselineExpirationDate"
 
-    private static var publicUnavailableMessage: String {
+    static var publicUnavailableMessage: String {
         L10n.localized(
             "Subscriptions are unavailable right now. Please try again later.",
-            comment: "RevenueCat unavailable state when API key is not configured"
+            comment: "Premium unavailable state: missing configuration, store products not fetchable, or offline"
         )
     }
 
@@ -256,6 +261,7 @@ final class PremiumAccessStore {
     func refresh() async {
         guard isConfigured else { return }
         state = .loading
+        storeDiagnostic = nil
         var encounteredError = false
 
         do {
@@ -285,7 +291,7 @@ final class PremiumAccessStore {
             return
         } catch {
             encounteredError = true
-            Loggers.app.error("premium.customer_info_failed", metadata: ["error": error.localizedDescription])
+            recordStoreFailure(event: "premium.customer_info_failed", error: error)
         }
 
         guard !Task.isCancelled else {
@@ -300,12 +306,22 @@ final class PremiumAccessStore {
                 return
             }
             offerings = resolvedOfferings
+            // The SDK throws when it can fetch none of the products, but an offering that resolved
+            // with an empty package list (or a configured offering id that does not exist) used to
+            // reach the paywall silently and render the same "unavailable" card.
+            if currentOffering == nil {
+                storeDiagnostic = "missing_offering"
+                Loggers.app.error("premium.offering_empty", code: "missing_offering")
+            } else if availablePackages.isEmpty {
+                storeDiagnostic = "no_packages"
+                Loggers.app.error("premium.offering_empty", code: "no_packages")
+            }
         } catch is CancellationError {
             settleRefreshAfterCancellation()
             return
         } catch {
             encounteredError = true
-            Loggers.app.error("premium.offerings_failed", metadata: ["error": error.localizedDescription])
+            recordStoreFailure(event: "premium.offerings_failed", error: error)
         }
 
         lastError = encounteredError ? Self.publicUnavailableMessage : nil
@@ -333,7 +349,11 @@ final class PremiumAccessStore {
         } catch {
             state = .unavailable(Self.publicUnavailableMessage)
             lastError = Self.publicUnavailableMessage
-            Loggers.app.error("premium.restore_failed", metadata: ["error": error.localizedDescription])
+            Loggers.app.error(
+                "premium.restore_failed",
+                code: Self.diagnosticCode(for: error),
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
 
@@ -352,7 +372,11 @@ final class PremiumAccessStore {
         } catch {
             state = .unavailable(Self.publicUnavailableMessage)
             lastError = Self.publicUnavailableMessage
-            Loggers.app.error("premium.sync_failed", metadata: ["error": error.localizedDescription])
+            Loggers.app.error(
+                "premium.sync_failed",
+                code: Self.diagnosticCode(for: error),
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
 
@@ -389,7 +413,7 @@ final class PremiumAccessStore {
             clearPendingPurchase()
             state = .unavailable(Self.publicUnavailableMessage)
             lastError = Self.publicUnavailableMessage
-            Loggers.app.error("premium.purchase_failed", metadata: [
+            Loggers.app.error("premium.purchase_failed", code: Self.diagnosticCode(for: error), metadata: [
                 "package": package.identifier,
                 "error": error.localizedDescription
             ])
@@ -429,6 +453,31 @@ final class PremiumAccessStore {
         return managementURLHosts.contains(host)
     }
 
+    /// Stable, non-private failure class for logs and the DEBUG paywall line. RevenueCat errors map
+    /// to the SDK's readable code (`CONFIGURATION_ERROR`, `NETWORK_ERROR`, `STORE_PROBLEM`, ...);
+    /// anything else becomes `domain:code`. No message text is included, so nothing user- or
+    /// device-specific can leak through it.
+    nonisolated static func diagnosticCode(for error: any Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == ErrorCode.errorDomain {
+            // Errors built by the SDK carry `readable_error_code`; a bare `ErrorCode` bridged to
+            // NSError carries `rc_code_name`. Both hold the same `CONFIGURATION_ERROR`-style name.
+            for key in ["readable_error_code", "rc_code_name"] {
+                if let readableCode = nsError.userInfo[key] as? String, !readableCode.isEmpty {
+                    return readableCode
+                }
+            }
+            return "revenuecat:\(nsError.code)"
+        }
+        return "\(nsError.domain):\(nsError.code)"
+    }
+
+    private func recordStoreFailure(event: StaticString, error: any Error) {
+        let code = Self.diagnosticCode(for: error)
+        storeDiagnostic = "\(code) — \(error.localizedDescription)"
+        Loggers.app.error(event, code: code, metadata: ["error": error.localizedDescription])
+    }
+
     private func configurePurchasesIfNeeded() {
         guard !purchasesClient.isConfigured() else { return }
         guard let apiKey = configuration.apiKey else { return }
@@ -439,7 +488,7 @@ final class PremiumAccessStore {
     private func publishCustomerInfo(
         _ candidate: CustomerInfo,
         failureMessage: String,
-        failureEvent: String
+        failureEvent: StaticString
     ) -> Bool {
         guard candidate.entitlements.verification.isVerified else {
             customerInfo = nil

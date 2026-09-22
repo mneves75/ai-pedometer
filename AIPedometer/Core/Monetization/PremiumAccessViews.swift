@@ -61,10 +61,7 @@ struct PremiumFeatureGateCard: View {
 
             if !premiumAccessStore.isConfigured {
                 Text(
-                    L10n.localized(
-                        "Subscriptions are unavailable right now. Please try again later.",
-                        comment: "RevenueCat unavailable state when API key is not configured"
-                    )
+                    PremiumAccessStore.publicUnavailableMessage
                 )
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
@@ -195,10 +192,7 @@ struct PremiumSubscriptionCard: View {
         case .ready:
             return L10n.localized("Unlock Premium", comment: "Premium primary button label")
         case .notConfigured, .unavailable:
-            return L10n.localized(
-                "Subscriptions are unavailable right now. Please try again later.",
-                comment: "RevenueCat unavailable state when API key is not configured"
-            )
+            return PremiumAccessStore.publicUnavailableMessage
         }
     }
 
@@ -383,7 +377,10 @@ struct PremiumAccessSheet: View {
                 packageList
                 actionRow
 
-                if let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
+                // With no packages, `packageList` already renders the unavailable card, and
+                // `lastError` carries the same sentence; showing both duplicated the message.
+                if !premiumAccessStore.availablePackages.isEmpty,
+                   let lastError = premiumAccessStore.lastError, !lastError.isEmpty {
                     Text(lastError)
                         .font(DesignTokens.Typography.caption)
                         .foregroundStyle(DesignTokens.Colors.warning)
@@ -403,14 +400,35 @@ struct PremiumAccessSheet: View {
                 .foregroundStyle(DesignTokens.Colors.warning)
 
             Text(
-                L10n.localized(
-                    "Subscriptions are unavailable right now. Please try again later.",
-                    comment: "RevenueCat unavailable state when API key is not configured"
-                )
+                PremiumAccessStore.publicUnavailableMessage
             )
             .font(DesignTokens.Typography.subheadline)
             .foregroundStyle(DesignTokens.Colors.textSecondary)
             .multilineTextAlignment(.leading)
+
+            // `prepare()` runs once per presentation, so a transient StoreKit or network failure
+            // used to require closing and reopening the sheet. Without configuration `refresh()`
+            // is a no-op, so the button is hidden there.
+            if premiumAccessStore.isConfigured {
+                Button {
+                    Task { await premiumAccessStore.refresh() }
+                } label: {
+                    Text(L10n.localized("Try Again", comment: "Retry button"))
+                }
+                .buttonStyle(.bordered)
+                .tint(DesignTokens.Colors.textPrimary)
+                .disabled(premiumAccessStore.state == .loading)
+                .accessibilityIdentifier(A11yID.Premium.retryButton)
+            }
+
+            #if DEBUG
+            if let storeDiagnostic = premiumAccessStore.storeDiagnostic {
+                Text(storeDiagnostic)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .textSelection(.enabled)
+            }
+            #endif
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()

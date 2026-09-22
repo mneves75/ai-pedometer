@@ -20,8 +20,8 @@ settings:
     SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     ENABLE_SWIFT_TESTING: YES
-    MARKETING_VERSION: "1.0.4"
-    CURRENT_PROJECT_VERSION: 60
+    MARKETING_VERSION: "1.0.5"
+    CURRENT_PROJECT_VERSION: 61
     ENABLE_PREVIEWS: YES
     SWIFT_EMIT_LOC_STRINGS: YES
     SWIFT_STRICT_CONCURRENCY: complete
@@ -66,6 +66,20 @@ schemes:
       targets:
         - AIPedometerTests
         - AIPedometerUITests
+  # Same app without the local StoreKit file: a Debug run on a physical device talks to the real
+  # App Store sandbox, with RevenueCat debug logging on, so an empty paywall can be diagnosed
+  # against App Store Connect instead of against StoreKit/TipJar.storekit. RevenueCat documents
+  # that simulators cannot reach the live App Store API, so use a device for this scheme.
+  AIPedometer-Sandbox:
+    shared: true
+    build:
+      targets:
+        AIPedometer:
+          - run
+          - profile
+          - analyze
+    run:
+      config: Debug
 targets:
   AIPedometer:
     type: application
