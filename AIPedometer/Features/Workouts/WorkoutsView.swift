@@ -535,7 +535,7 @@ struct WorkoutsView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
-        .foregroundStyle(.black)
+        .foregroundStyle(DesignTokens.Colors.onAccent)
         .accessibilityIdentifier(A11yID.Workouts.finishRecoveredWorkoutButton)
 
         Button(role: .destructive) {
@@ -546,7 +546,7 @@ struct WorkoutsView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(DesignTokens.Colors.red)
-        .foregroundStyle(.black)
+        .foregroundStyle(DesignTokens.Colors.onAccent)
         .accessibilityIdentifier(A11yID.Workouts.discardRecoveredWorkoutButton)
     }
 

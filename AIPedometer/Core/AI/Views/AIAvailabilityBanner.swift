@@ -6,8 +6,6 @@ struct AIAvailabilityBanner: View {
     let reason: AIUnavailabilityReason
     var onDismiss: (() -> Void)?
     
-    @Environment(\.openURL) private var openURL
-    
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             Image(systemName: iconName)
@@ -104,15 +102,15 @@ struct AIAvailabilityBanner: View {
     
     private func openSettings() {
         guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
-        openURL(settingsURL)
+        // Not the environment's `openURL`: inside AI Coach that action is replaced by the
+        // model-link policy, which only admits https links and would discard this URL.
+        UIApplication.shared.open(settingsURL)
     }
 }
 
 /// Full-screen AI unavailable state with a friendly explanation and optional action
 struct AIUnavailableStateView: View {
     let reason: AIUnavailabilityReason
-
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.lg) {
@@ -135,7 +133,7 @@ struct AIUnavailableStateView: View {
                     openSettings()
                 }
                 .buttonStyle(.borderedProminent)
-                .foregroundStyle(.black)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
             }
         }
         .frame(maxWidth: .infinity)
@@ -144,7 +142,9 @@ struct AIUnavailableStateView: View {
 
     private func openSettings() {
         guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
-        openURL(settingsURL)
+        // Not the environment's `openURL`: inside AI Coach that action is replaced by the
+        // model-link policy, which only admits https links and would discard this URL.
+        UIApplication.shared.open(settingsURL)
     }
 }
 

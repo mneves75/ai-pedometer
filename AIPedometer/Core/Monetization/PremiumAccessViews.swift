@@ -85,13 +85,63 @@ struct PremiumFeatureGateCard: View {
         .disabled(!premiumAccessStore.isConfigured)
 
         if premiumAccessStore.isConfigured {
-            Button {
-                Task { await premiumAccessStore.restorePurchases() }
-            } label: {
-                Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
+            PremiumRestoreButton()
+        }
+    }
+}
+
+/// Restore Purchases with visible feedback. Restoring with nothing to restore used to look like a
+/// button that did nothing, which is also what App Review sees with a fresh sandbox account.
+struct PremiumRestoreButton: View {
+    @Environment(PremiumAccessStore.self) private var premiumAccessStore
+    @State private var isRestoring = false
+    @State private var outcome: PremiumAccessStore.RestoreOutcome?
+
+    var body: some View {
+        Button {
+            Task {
+                isRestoring = true
+                outcome = await premiumAccessStore.restorePurchases()
+                isRestoring = false
             }
-            .buttonStyle(.bordered)
-            .tint(DesignTokens.Colors.textPrimary)
+        } label: {
+            Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
+        }
+        .buttonStyle(.bordered)
+        .tint(DesignTokens.Colors.textPrimary)
+        .disabled(isRestoring)
+        .alert(
+            alertTitle,
+            isPresented: Binding(get: { outcome != nil }, set: { if !$0 { outcome = nil } })
+        ) {
+            Button(L10n.localized("OK", comment: "Dismiss alert button")) {}
+        } message: {
+            Text(alertMessage)
+        }
+    }
+
+    private var alertTitle: String {
+        switch outcome {
+        case .restored:
+            L10n.localized("Purchases Restored", comment: "Alert title after a successful restore")
+        case .nothingToRestore:
+            L10n.localized("No Subscription Found", comment: "Alert title when restore finds no active subscription")
+        case .failed, nil:
+            L10n.localized("Restore Failed", comment: "Alert title when restoring purchases fails")
+        }
+    }
+
+    private var alertMessage: String {
+        switch outcome {
+        case .restored:
+            L10n.localized("Premium is active.", comment: "Premium active status in About")
+        case .nothingToRestore:
+            L10n.localized(
+                "No active Premium subscription was found for this Apple Account.",
+                comment: "Alert message when restore finds no active subscription"
+            )
+        case .failed, nil:
+            PremiumAccessStore.publicUnavailableMessage
         }
     }
 }
@@ -209,13 +259,7 @@ struct PremiumSubscriptionCard: View {
         .disabled(!premiumAccessStore.isConfigured)
 
         if premiumAccessStore.isConfigured {
-            Button {
-                Task { await premiumAccessStore.restorePurchases() }
-            } label: {
-                Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
-            }
-            .buttonStyle(.bordered)
-            .tint(DesignTokens.Colors.textPrimary)
+            PremiumRestoreButton()
         }
     }
 
@@ -303,7 +347,17 @@ struct PremiumAccessSheet: View {
                 PremiumBulletRow(text: L10n.localized("Daily AI insight grounded in your real step data.", comment: "Premium benefit bullet"))
                 PremiumBulletRow(text: L10n.localized("Adaptive training plans with safe fallback logic.", comment: "Premium benefit bullet"))
                 PremiumBulletRow(text: L10n.localized("AI Coach and smart reminders behind one entitlement.", comment: "Premium benefit bullet"))
+                PremiumBulletRow(text: L10n.localized("GPX route import and Expedition Mode.", comment: "Premium benefit bullet"))
             }
+
+            Text(
+                L10n.localized(
+                    "AI features run on your device and need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on.",
+                    comment: "Premium paywall note on AI device requirements"
+                )
+            )
+            .font(DesignTokens.Typography.caption)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
         .padding(DesignTokens.Spacing.md)
         .glassCard()
@@ -352,13 +406,7 @@ struct PremiumAccessSheet: View {
 
     @ViewBuilder
     private var managementButtons: some View {
-        Button {
-            Task { await premiumAccessStore.restorePurchases() }
-        } label: {
-            Text(L10n.localized("Restore Purchases", comment: "Restore purchases button"))
-        }
-        .buttonStyle(.bordered)
-        .tint(DesignTokens.Colors.textPrimary)
+        PremiumRestoreButton()
 
         if premiumAccessStore.isPremiumActive {
             Button(L10n.localized("Manage Subscription", comment: "Manage subscription button")) {
@@ -376,6 +424,7 @@ struct PremiumAccessSheet: View {
                 headerCard
                 packageList
                 actionRow
+                PremiumSubscriptionTerms()
 
                 // With no packages, `packageList` already renders the unavailable card, and
                 // `lastError` carries the same sentence; showing both duplicated the message.
@@ -448,6 +497,42 @@ struct PremiumAccessSheet: View {
 
         if didPurchase && premiumAccessStore.isPremiumActive {
             dismiss()
+        }
+    }
+}
+
+/// Auto-renewal terms and the legal links App Review requires next to a subscription purchase
+/// (App Store Review Guideline 3.1.2 and Schedule 2 of the Apple Developer Program License Agreement).
+private struct PremiumSubscriptionTerms: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            Text(
+                L10n.localized(
+                    "Payment is charged to your Apple Account at confirmation. The subscription renews automatically at the price shown for each period unless you cancel at least 24 hours before the period ends. Manage or cancel it in your Apple Account settings.",
+                    comment: "Premium paywall auto-renewal disclosure"
+                )
+            )
+            .font(DesignTokens.Typography.caption)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.md) { links }
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) { links }
+            }
+            .font(DesignTokens.Typography.caption.weight(.medium))
+            // Small accent-green text on the grouped background is below AA contrast.
+            .underline()
+            .tint(DesignTokens.Colors.textPrimary)
+        }
+    }
+
+    @ViewBuilder
+    private var links: some View {
+        if let termsOfUse = AppConstants.Links.termsOfUse {
+            Link(L10n.localized("Terms of Use (EULA)", comment: "Link to the subscription terms of use"), destination: termsOfUse)
+        }
+        if let privacyPolicy = AppConstants.Links.privacyPolicy {
+            Link(L10n.localized("Privacy Policy", comment: "Link title"), destination: privacyPolicy)
         }
     }
 }

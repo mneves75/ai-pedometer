@@ -371,7 +371,7 @@ struct BadgeDetailSheet: View {
                 onDismiss()
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(.black)
+            .foregroundStyle(DesignTokens.Colors.onAccent)
             .controlSize(.large)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, DesignTokens.Spacing.lg)
@@ -442,7 +442,7 @@ struct BadgeCelebrationSheet: View {
                 onDismiss()
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(.black)
+            .foregroundStyle(DesignTokens.Colors.onAccent)
             .controlSize(.large)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, DesignTokens.Spacing.lg)

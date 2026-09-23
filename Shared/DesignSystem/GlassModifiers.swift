@@ -35,15 +35,15 @@ struct GlassButtonModifier: ViewModifier {
         if LaunchConfiguration.isUITesting() && !LaunchConfiguration.shouldUseProductionGlass() {
             content
                 .buttonStyle(.borderedProminent)
-                .foregroundStyle(.black)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
         } else if #available(iOS 26, *) {
             content
                 .buttonStyle(.glassProminent)
-                .foregroundStyle(.black)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
         } else {
             content
                 .buttonStyle(.borderedProminent)
-                .foregroundStyle(.black)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
         }
     }
 }

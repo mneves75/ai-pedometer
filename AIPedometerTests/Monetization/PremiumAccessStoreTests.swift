@@ -329,6 +329,26 @@ struct PremiumAccessStoreTests {
         #expect(store.storeDiagnostic?.hasPrefix("NSURLErrorDomain:-1009") == true)
     }
 
+    @Test("An offering that resolves with nothing to sell names why the paywall is empty")
+    func emptyOfferingCodeNamesTheSilentEmptyCases() {
+        let emptyOffering = Offering(
+            identifier: "default",
+            serverDescription: "Default",
+            availablePackages: [],
+            webCheckoutUrl: nil
+        )
+        let sellableOffering = Offering(
+            identifier: "default",
+            serverDescription: "Default",
+            availablePackages: [makePremiumPackage()],
+            webCheckoutUrl: nil
+        )
+
+        #expect(PremiumAccessStore.emptyOfferingCode(for: nil) == "missing_offering")
+        #expect(PremiumAccessStore.emptyOfferingCode(for: emptyOffering) == "no_packages")
+        #expect(PremiumAccessStore.emptyOfferingCode(for: sellableOffering) == nil)
+    }
+
     @Test(
         "diagnosticCode maps RevenueCat readable codes and falls back to domain:code",
         arguments: [
@@ -507,10 +527,11 @@ struct PremiumAccessStoreTests {
             purchasesClient: client
         )
 
-        await store.restorePurchases()
+        let outcome = await store.restorePurchases()
 
         #expect(store.state == .ready)
         #expect(store.canAccessAIFeatures == true)
+        #expect(outcome == .restored)
     }
 
     @Test("restore does not unlock premium for an unrelated single active entitlement")
@@ -527,10 +548,12 @@ struct PremiumAccessStoreTests {
             purchasesClient: client
         )
 
-        await store.restorePurchases()
+        let outcome = await store.restorePurchases()
 
         #expect(store.state == .ready)
         #expect(store.canAccessAIFeatures == false)
+        // A successful restore with nothing to restore must say so; the button used to do nothing visible.
+        #expect(outcome == .nothingToRestore)
     }
 
     @Test("restore does not unlock premium from product ids without a matching entitlement")
@@ -623,8 +646,9 @@ struct PremiumAccessStoreTests {
             purchasesClient: client
         )
 
-        await store.restorePurchases()
+        let outcome = await store.restorePurchases()
 
+        #expect(outcome == .failed)
         #expect(store.customerInfo == nil)
         if case .unavailable = store.state {
             // Expected.
@@ -864,20 +888,19 @@ struct PremiumAccessStoreTests {
     func purchaseSurfacesClientError() async {
         let client = FakePurchasesClient()
         let privateMessage = "RevenueCat purchase unavailable at api.example.invalid"
-        let publicMessage = String(
-            localized: "Subscriptions are unavailable right now. Please try again later.",
-            comment: "Premium unavailable state: missing configuration, store products not fetchable, or offline"
-        )
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
         client.purchaseResult = .failure(PremiumStoreTestError(message: privateMessage))
         let store = makePremiumAccessStore(client: client)
+        await store.refresh()
 
         let didPurchase = await store.purchase(makePremiumPackage())
 
         #expect(didPurchase == false)
         #expect(client.purchaseCallCount == 1)
-        #expect(store.state == .unavailable(publicMessage))
+        // A declined card is not a store outage: the paywall stays usable and says what failed.
+        #expect(store.state == .ready)
         #expect(store.canAccessAIFeatures == false)
-        #expect(store.lastError == publicMessage)
+        #expect(store.lastError == PremiumAccessStore.purchaseFailedMessage)
         #expect(store.lastError?.contains(privateMessage) == false)
     }
 
@@ -948,6 +971,29 @@ struct PremiumAccessStoreTests {
             pendingPurchaseDefaults: defaults
         )
         #expect(resolvedStore.isPurchaseInProgress == false)
+    }
+
+    @Test("A pending approval older than the Ask to Buy window no longer blocks purchases")
+    func expiredPendingApprovalIsDiscardedOnLaunch() throws {
+        let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let productID = makePremiumPackage().storeProduct.productIdentifier
+
+        // A declined or unanswered Ask to Buy request never produces a transaction, so nothing
+        // else resolves this marker.
+        defaults.set(productID, forKey: "PremiumAccessStore.pendingProduct")
+        defaults.set("pending", forKey: "PremiumAccessStore.pendingPhase")
+        defaults.set(Date.now.addingTimeInterval(-3 * 86_400), forKey: "PremiumAccessStore.pendingStartedAt")
+        let expiredStore = makePremiumAccessStore(client: FakePurchasesClient(), pendingPurchaseDefaults: defaults)
+        #expect(expiredStore.isPurchaseInProgress == false)
+        #expect(defaults.string(forKey: "PremiumAccessStore.pendingProduct") == nil)
+
+        defaults.set(productID, forKey: "PremiumAccessStore.pendingProduct")
+        defaults.set("pending", forKey: "PremiumAccessStore.pendingPhase")
+        defaults.set(Date.now.addingTimeInterval(-3_600), forKey: "PremiumAccessStore.pendingStartedAt")
+        let recentStore = makePremiumAccessStore(client: FakePurchasesClient(), pendingPurchaseDefaults: defaults)
+        #expect(recentStore.isPurchaseInProgress)
     }
 
     @Test("orphaned pre-await purchase marker is cleared during launch refresh")

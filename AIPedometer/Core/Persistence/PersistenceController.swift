@@ -56,7 +56,7 @@ final class PersistenceController {
         } catch {
             Loggers.app.error("persistence.container_init_failed", metadata: ["error": String(describing: error)])
             guard allowInMemoryFallback else {
-                fatalError("Failed to create persistent ModelContainer: \(error)")
+                fatalError("Failed to create persistent ModelContainer")
             }
             do {
                 let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
@@ -70,7 +70,7 @@ final class PersistenceController {
                 Loggers.app.error("persistence.container_fallback_failed", metadata: [
                     "error": String(describing: error)
                 ])
-                fatalError("Failed to create fallback in-memory ModelContainer: \(error)")
+                fatalError("Failed to create fallback in-memory ModelContainer")
             }
         }
     }

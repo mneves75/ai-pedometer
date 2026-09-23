@@ -5,7 +5,16 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-22)
+## Current state (2026-09-23)
+
+- **1.0.6 (63)** carries the fixes of the 2026-09-23 review and security audit (`memory/2026-09-23.md`):
+  paywall 3.1.2 disclosures with EULA and privacy links, working About links (the old
+  `aipedometer.app` domain never resolved), restore feedback, Ask to Buy lockout, HealthKit
+  `Int(Double)` trap, CoreMotion pause/resume double count, AI Coach Settings button, widget plural.
+  Unit 697/697; UI 28/29 in the full run with the accessibility audit timing out on a saturated host
+  and passing alone. App Store Connect has never had a version submitted: 1.0.4 has sat in
+  `PREPARE_FOR_SUBMISSION` since June, so production is a first App Review submission, still gated on
+  the Paid Apps Agreement, subscription review screenshots and physical-device acceptance.
 
 - **1.0.5 (62) is the first build of this app in App Store Connect** (2026-09-22, commit `363d2af`,
   tag `v1.0.5-beta1`): `VALID`, export compliance answered, `READY_FOR_BETA_TESTING` and added

@@ -90,7 +90,7 @@ struct AIWorkoutCard: View {
                     .font(DesignTokens.Typography.subheadline.weight(.medium))
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(.black)
+            .foregroundStyle(DesignTokens.Colors.onAccent)
             .controlSize(.small)
         }
         .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -125,7 +125,7 @@ struct AIWorkoutCard: View {
                 .padding(DesignTokens.Spacing.sm)
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(.black)
+            .foregroundStyle(DesignTokens.Colors.onAccent)
             .tint(DesignTokens.Colors.accent)
         }
     }

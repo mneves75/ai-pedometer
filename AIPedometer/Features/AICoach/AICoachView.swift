@@ -360,7 +360,7 @@ struct AICoachView: View {
                     Task { await coachService.retryLastMessage() }
                 }
                 .buttonStyle(.borderedProminent)
-                .foregroundStyle(.black)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
                 .controlSize(.small)
             }
         }

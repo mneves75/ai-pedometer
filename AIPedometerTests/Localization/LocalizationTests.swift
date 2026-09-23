@@ -282,7 +282,7 @@ struct LocalizationTests {
         }
 
         #expect(Self.catalogKeys.contains("Goal %@"), "Widget goal label should exist in string catalog")
-        #expect(Self.catalogKeys.contains("Streak %lld days"), "Widget streak label should exist in string catalog")
+        #expect(Self.catalogKeys.contains("Streak: %@"), "Widget streak label should exist in string catalog")
     }
 
     @Test("Catalog membership check can fail")

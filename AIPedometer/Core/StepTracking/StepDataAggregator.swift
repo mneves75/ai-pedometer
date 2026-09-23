@@ -148,7 +148,7 @@ actor StepDataAggregator: StepHistoryProviding {
         )
         do {
             let steps = try await executor.cumulativeSteps(for: descriptor) ?? 0
-            return Int(steps)
+            return HealthCount.clamped(steps)
         } catch {
             Loggers.health.error("healthkit.aggregate_failed", metadata: ["error": String(describing: error)])
             throw HealthKitError.queryFailed
@@ -175,7 +175,7 @@ actor StepDataAggregator: StepHistoryProviding {
         for bucket in buckets {
             let day = bucketCalendar.startOfDay(for: bucket.startDate)
             let steps = bucket.steps ?? 0
-            totals[day] = Int(steps)
+            totals[day] = HealthCount.clamped(steps)
         }
         return totals
     }
@@ -190,7 +190,7 @@ actor StepDataAggregator: StepHistoryProviding {
             let sourceStatistics = try await executor.stepsBySource(for: descriptor)
             var result: [HKSource: Int] = [:]
             for statistics in sourceStatistics {
-                result[statistics.source] = Int(statistics.steps)
+                result[statistics.source] = HealthCount.clamped(statistics.steps)
             }
             return result
         } catch {

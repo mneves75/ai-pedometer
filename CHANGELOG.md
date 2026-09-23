@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-09-23
+
+Findings of a Standards/Spec code review of the 1.0.5 cycle, a whole-app senior review and a
+full source-only security audit (15 coverage units, no confirmed vulnerability).
+
+### Added
+
+- The Premium paywall states the auto-renewal terms (charged to the Apple Account, renews at the
+  shown price unless cancelled 24 hours before the period ends, managed in Apple Account settings)
+  and links to the Terms of Use (Apple's standard EULA) and the Privacy Policy, as App Review
+  Guideline 3.1.2 requires next to a subscription purchase.
+- The paywall lists GPX route import and Expedition Mode, which Premium already unlocked, and says
+  the AI features need an iPhone with Apple Intelligence turned on.
+- Restore Purchases reports its result: restored, no active subscription for this Apple Account, or
+  failure. It is disabled while running. It used to do nothing visible when there was nothing to
+  restore.
+
+### Fixed
+
+- About > Privacy Policy and Send Feedback opened `aipedometer.app`, a domain that does not resolve.
+  They now open the product page's privacy and support sections, the same URLs as App Store Connect.
+- A declined or unanswered Ask to Buy request left the plan buttons disabled on every launch,
+  because only a newer verified purchase cleared the pending marker. A pending approval older than
+  48 hours (Apple expires the request after 24) is now discarded at launch.
+- A failed purchase (for example a declined card) said "Subscriptions are unavailable" and marked
+  the whole store unavailable. It now says the purchase could not be completed and leaves the
+  paywall usable.
+- HealthKit sums and the latest heart rate are clamped before becoming integers. Any app with
+  HealthKit write access contributes to them, and `Int(_: Double)` traps on non-finite values or
+  anything at or beyond 2^63, which would crash the app on every read of that day.
+- A CoreMotion update queued before pausing a workout could land after resuming and add the
+  previous segment's steps a second time.
+- The Open Settings button on the AI Coach "Apple Intelligence is off" screen did nothing: the
+  coach's link policy, which admits only https links, intercepted the Settings URL.
+- The Weekly widget read "Streak 1 days" / "Sequência de 1 dias"; its label and accessibility value
+  now use the pluralized day count.
+- The watch no longer logs step, goal and streak values, even redacted.
+
+### Changed
+
+- Labels on prominent accent buttons use the `DesignTokens.Colors.onAccent` token instead of a raw
+  `.black`; DESIGN_SYSTEM.md now matches the current text-opacity tokens.
+- The GPX parser tracks buffered text length instead of recounting the buffer on every callback,
+  removing quadratic work on files with many small text chunks.
+- ModelContainer failure messages no longer embed the underlying error, which could carry store
+  paths into crash reports; the error is still logged with redacted metadata.
+- The Pages deploy job runs only for `refs/heads/master`, including manual dispatches.
+- App Store metadata links the standard EULA and states the Apple Intelligence requirement.
+- Local agent tool configurations (`.claude/settings.json`, `.codex/`, `.gemini/`, `.kiro/`,
+  `.zed/`) are ignored by Git.
+
 ## [1.0.5] - 2026-09-22
 
 ### Added

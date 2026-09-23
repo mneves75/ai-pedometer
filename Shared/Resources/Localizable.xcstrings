@@ -140,40 +140,6 @@
         }
       }
     },
-    "%@ steps today, %@ steps this week, %lld day streak" : {
-      "comment" : "Accessibility value for weekly steps widget",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ steps today, %2$@ steps this week, %3$lld day streak"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ passos hoje, %2$@ passos nesta semana, sequência de %3$lld dias"
-          }
-        }
-      }
-    },
-    "%@ pushes today, %@ pushes this week, %lld day streak" : {
-      "comment" : "Accessibility value for weekly wheelchair pushes widget",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ pushes today, %2$@ pushes this week, %3$lld day streak"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ impulsos hoje, %2$@ impulsos nesta semana, sequência de %3$lld dias"
-          }
-        }
-      }
-    },
     "%@ steps/day" : {
       "comment" : "A label displaying the daily step target for a training plan.",
       "extractionState" : "stale",
@@ -6407,23 +6373,6 @@
         }
       }
     },
-    "Streak %lld days" : {
-      "comment" : "Widget label for streak in days",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Streak %lld days"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sequência de %lld dias"
-          }
-        }
-      }
-    },
     "Structured plan to support your weight management journey" : {
       "comment" : "Training goal description",
       "localizations" : {
@@ -8669,6 +8618,210 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seu melhor dia nesta semana ficou acima da sua média."
+          }
+        }
+      }
+    },
+    "%@ pushes today, %@ pushes this week, streak of %@" : {
+      "comment" : "Accessibility value for weekly wheelchair pushes widget; the last argument is a pluralized day count",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ pushes today, %2$@ pushes this week, streak of %3$@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ impulsos hoje, %2$@ impulsos nesta semana, sequência de %3$@"
+          }
+        }
+      }
+    },
+    "%@ steps today, %@ steps this week, streak of %@" : {
+      "comment" : "Accessibility value for weekly steps widget; the last argument is a pluralized day count",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ steps today, %2$@ steps this week, streak of %3$@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ passos hoje, %2$@ passos nesta semana, sequência de %3$@"
+          }
+        }
+      }
+    },
+    "AI features run on your device and need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on." : {
+      "comment" : "Premium paywall note on AI device requirements",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI features run on your device and need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os recursos de IA rodam no seu aparelho e exigem um iPhone compatível com a Apple Intelligence, com a Apple Intelligence ativada."
+          }
+        }
+      }
+    },
+    "GPX route import and Expedition Mode." : {
+      "comment" : "Premium benefit bullet",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPX route import and Expedition Mode."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importação de rotas GPX e Modo Expedição."
+          }
+        }
+      }
+    },
+    "No Subscription Found" : {
+      "comment" : "Alert title when restore finds no active subscription",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Subscription Found"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma Assinatura Encontrada"
+          }
+        }
+      }
+    },
+    "No active Premium subscription was found for this Apple Account." : {
+      "comment" : "Alert message when restore finds no active subscription",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No active Premium subscription was found for this Apple Account."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma assinatura Premium ativa foi encontrada para esta Conta Apple."
+          }
+        }
+      }
+    },
+    "Payment is charged to your Apple Account at confirmation. The subscription renews automatically at the price shown for each period unless you cancel at least 24 hours before the period ends. Manage or cancel it in your Apple Account settings." : {
+      "comment" : "Premium paywall auto-renewal disclosure",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment is charged to your Apple Account at confirmation. The subscription renews automatically at the price shown for each period unless you cancel at least 24 hours before the period ends. Manage or cancel it in your Apple Account settings."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O pagamento é cobrado na sua Conta Apple ao confirmar. A assinatura renova automaticamente pelo preço exibido a cada período, a menos que você cancele pelo menos 24 horas antes do fim do período. Gerencie ou cancele nos ajustes da sua Conta Apple."
+          }
+        }
+      }
+    },
+    "Purchases Restored" : {
+      "comment" : "Alert title after a successful restore",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases Restored"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compras Restauradas"
+          }
+        }
+      }
+    },
+    "Restore Failed" : {
+      "comment" : "Alert title when restoring purchases fails",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Failed"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falha ao Restaurar"
+          }
+        }
+      }
+    },
+    "Streak: %@" : {
+      "comment" : "Widget label for streak length; the argument is a pluralized day count such as \"1 day\"",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Streak: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sequência: %@"
+          }
+        }
+      }
+    },
+    "Terms of Use (EULA)" : {
+      "comment" : "Link to the subscription terms of use",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms of Use (EULA)"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termos de Uso (EULA)"
+          }
+        }
+      }
+    },
+    "The purchase could not be completed. Please try again." : {
+      "comment" : "Premium paywall error when the App Store purchase fails for a reason other than cancellation",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The purchase could not be completed. Please try again."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível concluir a compra. Tente novamente."
           }
         }
       }

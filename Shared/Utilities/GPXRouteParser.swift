@@ -187,6 +187,8 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
     private let maxElementTextCharacters: Int
 
     private var textBuffer = ""
+    /// `String.count` walks the whole string, so re-counting the buffer on every callback was O(n²).
+    private var textBufferCount = 0
     private var currentPoint: MutablePoint?
     private var waypointDepth = 0
 
@@ -209,6 +211,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         attributes attributeDict: [String: String] = [:]
     ) {
         textBuffer = ""
+        textBufferCount = 0
         if aborted { return }
 
         switch elementName {
@@ -236,12 +239,14 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         if aborted { return }
         // Bound text accumulation so internal-entity expansion cannot balloon a single element in
         // memory. Tripping the cap is treated like the element caps: abort and surface `.tooManyElements`.
-        guard textBuffer.count + string.count <= maxElementTextCharacters else {
+        let chunkCount = string.count
+        guard textBufferCount + chunkCount <= maxElementTextCharacters else {
             aborted = true
             parser.abortParsing()
             return
         }
         textBuffer += string
+        textBufferCount += chunkCount
     }
 
     func parser(
@@ -267,6 +272,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
                     parser.abortParsing()
                     self.currentPoint = nil
                     textBuffer = ""
+                    textBufferCount = 0
                     return
                 }
                 points.append(RouteCoordinate(
@@ -283,6 +289,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         }
 
         textBuffer = ""
+        textBufferCount = 0
     }
 
     private static func parseCoordinate(_ raw: String?, range: ClosedRange<Double>) -> Double? {

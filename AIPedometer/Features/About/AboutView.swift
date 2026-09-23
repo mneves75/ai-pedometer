@@ -150,10 +150,10 @@ struct AboutView: View {
             )
             
             LinkRow(
-                icon: "envelope.fill",
+                icon: "questionmark.bubble.fill",
                 color: DesignTokens.Colors.accent,
                 title: L10n.localized("Send Feedback", comment: "Link title"),
-                action: openFeedbackEmail
+                action: openSupport
             )
             
             LinkRow(
@@ -327,13 +327,13 @@ struct AboutView: View {
         }
     }
     
-    private func openFeedbackEmail() {
-        guard let url = URL(string: "mailto:feedback@aipedometer.app?subject=AI%20Pedometer%20Feedback") else { return }
+    private func openSupport() {
+        guard let url = AppConstants.Links.support else { return }
         UIApplication.shared.open(url)
     }
     
     private func openPrivacyPolicy() {
-        guard let url = URL(string: "https://aipedometer.app/privacy") else { return }
+        guard let url = AppConstants.Links.privacyPolicy else { return }
         UIApplication.shared.open(url)
     }
 }

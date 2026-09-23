@@ -13,6 +13,9 @@ final class MotionLiveMetricsSource: WorkoutLiveMetricsSource {
     private let now: () -> Date
     private var latestSnapshot: PedometerSnapshot?
     private var startDate: Date?
+    /// Bumped on every start and stop. CoreMotion can still deliver a callback queued before
+    /// `stop()`; without this, a paused segment's total would be counted again after resuming.
+    private var segment = 0
 
     init(
         motionService: any MotionServiceProtocol,
@@ -25,12 +28,16 @@ final class MotionLiveMetricsSource: WorkoutLiveMetricsSource {
     func start(from startDate: Date) throws {
         self.startDate = startDate
         latestSnapshot = nil
+        segment += 1
+        let startedSegment = segment
         try motionService.startLiveUpdates(from: startDate) { [weak self] snapshot in
-            self?.latestSnapshot = snapshot
+            guard let self, self.segment == startedSegment else { return }
+            self.latestSnapshot = snapshot
         }
     }
 
     func stop() {
+        segment += 1
         motionService.stopLiveUpdates()
     }
 

@@ -8,7 +8,7 @@
 - Run `bash Scripts/preflight.sh` first. It resolves the toolchain, prints the exact version and build, and checks free disk, required tools, `core.hooksPath`, `Config/Local.xcconfig` and the generated project before you spend minutes on a build that cannot succeed.
 - Supported toolchains are Xcode 26.x and 27.x, selected by `Scripts/lib/xcode-toolchain.sh` (`aipedometer_select_xcode`). An explicit `AIPEDOMETER_XCODE_DEVELOPER_DIR` pin wins; otherwise it prefers `DEVELOPER_DIR`, then `xcode-select -p`, then `/Applications/Xcode.app`, skipping any candidate that is missing or unsupported, and exports `AIPEDOMETER_RESOLVED_XCODE_VERSION` / `AIPEDOMETER_RESOLVED_XCODE_BUILD`. Record both in release evidence: a range is weaker than a pin, so evidence must name the toolchain that actually produced the artifact.
 - To force one toolchain, set `AIPEDOMETER_XCODE_DEVELOPER_DIR`; an unusable explicit pin fails instead of silently drifting. `AIPEDOMETER_SUPPORTED_XCODE_MAJORS` widens or narrows the accepted range.
-- For the 1.0.4 verification on 2026-09-19, both stable Xcode 27.0 (27A266a) and Xcode-beta 27.2 are installed; the global selector points to beta. Pin both variables for scripts and direct Xcode commands:
+- When `xcode-select -p` points at an Xcode-beta but the work targets the stable SDK, pin both variables for scripts and direct Xcode commands:
 
   ```sh
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -17,7 +17,7 @@
   xcodebuild -version
   ```
 
-- Verified 2026-09-10 on Xcode 27.0 (27A266a): the app, widgets, watch app and both test targets build clean and the unit suite passes. The earlier claim that the pinned RevenueCat revision fails test builds on the 27 toolchain is **false**. What does fail is a *generic* simulator destination (`generic/platform=iOS Simulator`), which compiles arm64 and x86_64 and reports `RevenueCat.swiftmodule ... built for incompatible target`. Always use a concrete destination for `build-for-testing` and `test`.
+- Use a concrete simulator destination for `build-for-testing` and `test`. A *generic* destination (`generic/platform=iOS Simulator`) compiles arm64 and x86_64 and fails with `RevenueCat.swiftmodule ... built for incompatible target`; the pinned RevenueCat revision itself builds and tests clean on Xcode 27.0.
 - Simulator runtime drift ("iOS X.Y is not installed" with the runtime present in `simctl`): `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
 ## CLI Build and Test
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' build`
@@ -25,10 +25,10 @@
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' analyze`
 - Release simulator builds on Apple Silicon also need `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES`:
   Release otherwise requests both arm64 and x86_64 even with a concrete destination.
-  Reproduced on 2026-09-19: the x86_64 compile selected an arm64 RevenueCat module
-  and failed with `built for incompatible target`. This simulator-only selection
+  The x86_64 compile then selects an arm64 RevenueCat module
+  and fails with `built for incompatible target`. This simulator-only selection
   does not change supported device architectures or replace archive validation.
-- Release archive and TestFlight upload (first successful path, 2026-09-22, Xcode 27.0):
+- Release archive and TestFlight upload:
   1. `xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -configuration Release -destination 'generic/platform=iOS' -archivePath <out>/AIPedometer.xcarchive -allowProvisioningUpdates archive`
   2. `python3 Scripts/validate-release-artifact.py --archive <archive> --bundle-id com.mneves.aipedometer --version <V> --build <B>`
   3. Export with an options plist of `method` `app-store-connect`, `destination` `export`,

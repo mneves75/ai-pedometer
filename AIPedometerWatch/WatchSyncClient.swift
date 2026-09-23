@@ -47,17 +47,11 @@ final class WatchSyncClient: NSObject, WCSessionDelegate {
               let decoded = WatchPayload.decode(from: data) else { return }
         Task { @MainActor in
             guard acceptanceState.accept(decoded) else {
-                Loggers.sync.info("watch.payload_stale_ignored", metadata: [
-                    "steps": "\(decoded.todaySteps)"
-                ])
+                Loggers.sync.info("watch.payload_stale_ignored")
                 return
             }
             payload = decoded
-            Loggers.sync.info("watch.payload_received", metadata: [
-                "steps": "\(decoded.todaySteps)",
-                "goal": "\(decoded.goalSteps)",
-                "streak": "\(decoded.currentStreak)"
-            ])
+            Loggers.sync.info("watch.payload_received")
         }
     }
 }

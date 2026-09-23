@@ -140,11 +140,11 @@ nested delegation and leave cross-session memory to the primary.
 
 Model selection belongs to the runtime, not hardcoded rankings in this file.
 Honor an explicit Sol-with-Astra request: Sol executes; Astra advises on difficult
-decisions or reviews independently with fresh context. For Fable 5.1 or GPT-6
-Astra sessions, define observable completion criteria and execute authorized
-follow-through. Batch independent reads; keep dependent edits and shared-device
-jobs sequential. Preserve the original objective, user steering, rejected approaches,
-artifact paths and open gates across compaction. Report meaningful progress and
+decisions or reviews independently with fresh context. Define observable
+completion criteria up front and execute authorized follow-through. Batch
+independent reads; keep dependent edits and shared-device jobs sequential.
+Preserve the original objective, user steering, rejected approaches, artifact
+paths and open gates across compaction. Report meaningful progress and
 prefer targeted edits. Revalidate model availability and effort in the tool schema.
 Current prompting sources and task-specific verification belong in the ExecPlan,
 so a model release does not add another copied instruction catalog here.

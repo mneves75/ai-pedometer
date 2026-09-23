@@ -94,6 +94,12 @@ final class PremiumAccessStore {
         case pending
     }
 
+    enum RestoreOutcome: Equatable {
+        case restored
+        case nothingToRestore
+        case failed
+    }
+
     enum State: Equatable {
         case idle
         case loading
@@ -134,11 +140,28 @@ final class PremiumAccessStore {
     private static let pendingStartedAtKey = "PremiumAccessStore.pendingStartedAt"
     private static let pendingBaselinePurchaseDateKey = "PremiumAccessStore.pendingBaselinePurchaseDate"
     private static let pendingBaselineExpirationDateKey = "PremiumAccessStore.pendingBaselineExpirationDate"
+    private static let pendingPurchaseKeys = [
+        pendingProductKey,
+        pendingPhaseKey,
+        pendingStartedAtKey,
+        pendingBaselinePurchaseDateKey,
+        pendingBaselineExpirationDateKey
+    ]
+    /// Apple expires an Ask to Buy request the organizer has not approved within 24 hours, and a
+    /// declined one never produces a transaction. Twice that window keeps a late approval covered.
+    private static let pendingApprovalLifetime: TimeInterval = 48 * 60 * 60
 
     static var publicUnavailableMessage: String {
         L10n.localized(
             "Subscriptions are unavailable right now. Please try again later.",
             comment: "Premium unavailable state: missing configuration, store products not fetchable, or offline"
+        )
+    }
+
+    static var purchaseFailedMessage: String {
+        L10n.localized(
+            "The purchase could not be completed. Please try again.",
+            comment: "Premium paywall error when the App Store purchase fails for a reason other than cancellation"
         )
     }
 
@@ -161,6 +184,7 @@ final class PremiumAccessStore {
         self.isTesting = isTesting
         self.purchasesClient = purchasesClient
         self.pendingPurchaseDefaults = pendingPurchaseDefaults
+        Self.discardExpiredPendingApproval(in: pendingPurchaseDefaults, now: .now)
         let hasPendingPurchase = pendingPurchaseDefaults.string(forKey: Self.pendingProductKey) != nil
         self.hasPendingPurchase = hasPendingPurchase
         self.isPurchaseInProgress = hasPendingPurchase
@@ -240,6 +264,14 @@ final class PremiumAccessStore {
         currentOffering?.availablePackages ?? []
     }
 
+    /// Failure class for an offerings fetch that succeeded but leaves nothing to sell, or `nil` when
+    /// the offering has packages. RevenueCat's `Offerings` has no public initializer, so this is the
+    /// seam tests use for the two silent-empty cases.
+    static func emptyOfferingCode(for offering: Offering?) -> String? {
+        guard let offering else { return "missing_offering" }
+        return offering.availablePackages.isEmpty ? "no_packages" : nil
+    }
+
     func prepare() async {
         if forcedPremiumEnabled != nil {
             state = .ready
@@ -309,12 +341,9 @@ final class PremiumAccessStore {
             // The SDK throws when it can fetch none of the products, but an offering that resolved
             // with an empty package list (or a configured offering id that does not exist) used to
             // reach the paywall silently and render the same "unavailable" card.
-            if currentOffering == nil {
-                storeDiagnostic = "missing_offering"
-                Loggers.app.error("premium.offering_empty", code: "missing_offering")
-            } else if availablePackages.isEmpty {
-                storeDiagnostic = "no_packages"
-                Loggers.app.error("premium.offering_empty", code: "no_packages")
+            if let emptyOfferingCode = Self.emptyOfferingCode(for: currentOffering) {
+                storeDiagnostic = emptyOfferingCode
+                Loggers.app.error("premium.offering_empty", code: emptyOfferingCode)
             }
         } catch is CancellationError {
             settleRefreshAfterCancellation()
@@ -334,8 +363,9 @@ final class PremiumAccessStore {
         }
     }
 
-    func restorePurchases() async {
-        guard isConfigured else { return }
+    @discardableResult
+    func restorePurchases() async -> RestoreOutcome {
+        guard isConfigured else { return .failed }
 
         do {
             let resolvedCustomerInfo = try await purchasesClient.restorePurchases()
@@ -343,9 +373,10 @@ final class PremiumAccessStore {
                 resolvedCustomerInfo,
                 failureMessage: Self.publicUnavailableMessage,
                 failureEvent: "premium.restore_verification_failed"
-            ) else { return }
+            ) else { return .failed }
             state = .ready
             lastError = nil
+            return isPremiumActive ? .restored : .nothingToRestore
         } catch {
             state = .unavailable(Self.publicUnavailableMessage)
             lastError = Self.publicUnavailableMessage
@@ -354,6 +385,7 @@ final class PremiumAccessStore {
                 code: Self.diagnosticCode(for: error),
                 metadata: ["error": error.localizedDescription]
             )
+            return .failed
         }
     }
 
@@ -411,8 +443,7 @@ final class PremiumAccessStore {
             return false
         } catch {
             clearPendingPurchase()
-            state = .unavailable(Self.publicUnavailableMessage)
-            lastError = Self.publicUnavailableMessage
+            lastError = Self.purchaseFailedMessage
             Loggers.app.error("premium.purchase_failed", code: Self.diagnosticCode(for: error), metadata: [
                 "package": package.identifier,
                 "error": error.localizedDescription
@@ -609,14 +640,21 @@ final class PremiumAccessStore {
         return false
     }
 
+    /// A `.pending` marker only clears when a newer purchase shows up in verified customer info.
+    /// Without this, a declined or expired Ask to Buy request disabled the plan buttons forever.
+    private static func discardExpiredPendingApproval(in defaults: UserDefaults, now: Date) {
+        guard defaults.string(forKey: pendingProductKey) != nil,
+              PurchaseMarkerPhase(rawValue: defaults.string(forKey: pendingPhaseKey) ?? "") ?? .pending == .pending,
+              let startedAt = defaults.object(forKey: pendingStartedAtKey) as? Date,
+              now.timeIntervalSince(startedAt) > pendingApprovalLifetime else { return }
+        for key in pendingPurchaseKeys {
+            defaults.removeObject(forKey: key)
+        }
+        Loggers.app.info("premium.pending_purchase_expired")
+    }
+
     private func clearPendingPurchase() {
-        for key in [
-            Self.pendingProductKey,
-            Self.pendingPhaseKey,
-            Self.pendingStartedAtKey,
-            Self.pendingBaselinePurchaseDateKey,
-            Self.pendingBaselineExpirationDateKey
-        ] {
+        for key in Self.pendingPurchaseKeys {
             pendingPurchaseDefaults.removeObject(forKey: key)
         }
         hasPendingPurchase = false

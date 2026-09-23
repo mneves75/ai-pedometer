@@ -11,9 +11,10 @@ This file captures the design tokens and component styling currently implemented
 
 ## Color
 Semantic roles come from `DesignTokens.Colors` (accent, accentMuted, accentSoft, text and
-surface roles). It resolves platform-specific values, because watchOS does not expose the
-UIKit tertiary/quaternary label colors. Use the tokens rather than the raw SwiftUI colors
-listed below, which describe current usage.
+surface roles, plus `onAccent` for labels on prominent accent and glass-prominent buttons).
+Secondary, tertiary and quaternary text are `Color.primary` at fixed opacities on every
+platform, so iOS and watchOS share one contrast baseline. Use the tokens rather than the raw
+SwiftUI colors listed below, which describe current usage.
 
 - Primary text: .primary
 - Secondary text: .secondary
@@ -56,8 +57,9 @@ listed below, which describe current usage.
 - xxl: 28
 
 ## Opacity Tokens
-- textTertiary: 0.8
-- textQuaternary: 0.6
+- textSecondary: 0.72
+- textTertiary: 0.62
+- textQuaternary: 0.56
 - surfaceElevated: 0.06
 - surfaceQuaternary: 0.04
 - borderMuted: 0.12

@@ -17,7 +17,7 @@ enum HeartRateDisplayFormatter {
         guard let sample else {
             return L10n.localized("No Data", comment: "Dashboard stat fallback when a metric has no value")
         }
-        let bpm = "\(Int(sample.bpm.rounded())) \(L10n.localized("bpm", comment: "Heart rate unit"))"
+        let bpm = "\(HealthCount.clamped(sample.bpm.rounded())) \(L10n.localized("bpm", comment: "Heart rate unit"))"
         let age = now.timeIntervalSince(sample.endDate)
         guard age >= freshnessThreshold else { return bpm }
         let ageText = localizedAgeText(for: sample.endDate, relativeTo: now)
@@ -31,7 +31,7 @@ enum HeartRateDisplayFormatter {
         let bpm = Localization.format(
             "%lld beats per minute",
             comment: "Accessibility value for heart rate",
-            Int64(sample.bpm.rounded())
+            Int64(HealthCount.clamped(sample.bpm.rounded()))
         )
         let age = now.timeIntervalSince(sample.endDate)
         guard age >= freshnessThreshold else { return bpm }

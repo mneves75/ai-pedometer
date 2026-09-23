@@ -103,6 +103,30 @@ struct StepDataAggregatorTests {
         #expect(descriptor.statisticsOptions == [.cumulativeSum])
     }
 
+    // Any app with HealthKit write access contributes to these sums; `Int(_: Double)` traps on
+    // non-finite values and on anything at or beyond 2^63.
+    @Test(
+        "Out-of-range HealthKit sums are clamped instead of trapping",
+        arguments: [
+            (1e19, Int(HealthCount.maximum)),
+            (Double.infinity, 0),
+            (Double.nan, 0),
+            (-1, 0),
+            (1_234.7, 1_234)
+        ]
+    )
+    func outOfRangeCumulativeSumsAreClamped(raw: Double, expected: Int) async throws {
+        let executor = StepStatisticsExecutorProbe()
+        await executor.setCumulativeResult(.success(raw))
+        await executor.setDailyResult(.success([StepStatisticsBucket(startDate: Date(timeIntervalSince1970: 150), steps: raw)]))
+        let aggregator = StepDataAggregator(executor: executor)
+        let start = Date(timeIntervalSince1970: 100)
+        let end = Date(timeIntervalSince1970: 200)
+
+        #expect(try await aggregator.fetchSteps(from: start, to: end) == expected)
+        #expect(try await aggregator.fetchDailySteps(from: start, to: end).values.first == expected)
+    }
+
     @Test("Cumulative executor failures retain the public queryFailed contract")
     func cumulativeFailureMapsToQueryFailed() async {
         let executor = StepStatisticsExecutorProbe()

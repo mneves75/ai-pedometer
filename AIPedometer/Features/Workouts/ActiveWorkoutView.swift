@@ -156,7 +156,7 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(.black)
+            .foregroundStyle(DesignTokens.Colors.onAccent)
             .accessibilityIdentifier(A11yID.ActiveWorkout.endButton)
         }
         .controlSize(.large)

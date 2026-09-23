@@ -13,21 +13,22 @@
 
 ## Descrição
 
-`AIPedometer é um contador de passos e treinos com coaching de IA executado no dispositivo.\n\n• Passos e metas diários com HealthKit\n• Treinos com Atividades ao Vivo\n• Insights, Coach IA, planos de treino e lembretes inteligentes\n• Histórico, sequências e conquistas\n• Rotas GPX e Modo Expedição\n• Apple Watch, widgets e contagem de impulsos em cadeira de rodas\n\nNão é preciso criar conta. Em dispositivos compatíveis, o contexto de saúde usado pela IA permanece no aparelho e não é enviado a um serviço de IA na nuvem.\n\nOs recursos Premium de IA, a importação de rotas GPX e o Modo Expedição exigem assinatura com renovação automática. Compra, Restaurar Compras e Gerenciar assinatura ficam em Mais > Apoie o AI Pedometer. O Tip Jar opcional é uma compra única separada.`
+`AIPedometer é um contador de passos e treinos com coaching de IA executado no dispositivo.\n\n• Passos e metas diários com HealthKit\n• Treinos com Atividades ao Vivo\n• Insights, Coach IA, planos de treino e lembretes inteligentes\n• Histórico, sequências e conquistas\n• Rotas GPX e Modo Expedição\n• Apple Watch, widgets e contagem de impulsos em cadeira de rodas\n\nNão é preciso criar conta. Em dispositivos compatíveis, o contexto de saúde usado pela IA permanece no aparelho e não é enviado a um serviço de IA na nuvem.\n\nOs recursos Premium de IA, a importação de rotas GPX e o Modo Expedição exigem assinatura com renovação automática. Compra, Restaurar Compras e Gerenciar assinatura ficam em Mais > Apoie o AI Pedometer. O Tip Jar opcional é uma compra única separada.\n\nOs recursos de IA exigem um iPhone compatível com a Apple Intelligence, com ela ativada. As rotas GPX e o Modo Expedição funcionam em qualquer iPhone compatível.\n\nTermos de Uso (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`
 
 ## Keywords (max 100 chars)
 
 `pedômetro,saúde,treino,caminhada,healthkit,apple watch,metas,atividade,rotas,gpx`
 
-## Novidades (1.0.4)
+## Novidades (1.0.6)
 
-`Lembretes mais confiáveis; sequências, treinos, widgets e Apple Watch mais precisos; onboarding mais robusto; e melhorias de acessibilidade em contraste, Dynamic Type, layouts e áreas de toque.`
+`Termos da assinatura mais claros, com links para Termos de Uso e Política de Privacidade, aviso do resultado ao restaurar compras, correção do paywall travado após Pedir Compra e leitura mais robusta de dados do HealthKit e dos treinos.`
 
 ## URLs
 
 - Support URL: `https://mneves75.github.io/ai-pedometer/#support`
 - Marketing URL: `https://mneves75.github.io/ai-pedometer/`
 - Privacy Policy URL: `https://mneves75.github.io/ai-pedometer/#privacy`
+- Contrato de licença: EULA padrão da Apple (`https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`), com link na descrição e no paywall
 
 ## Privacidade do app
 

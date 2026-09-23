@@ -81,6 +81,9 @@ enum DesignTokens {
         static let textSecondary = Color.primary.opacity(DesignTokens.Opacity.textSecondary)
         static let textTertiary = Color.primary.opacity(DesignTokens.Opacity.textTertiary)
         static let textQuaternary = Color.primary.opacity(DesignTokens.Opacity.textQuaternary)
+        /// Label on prominent accent and glass-prominent buttons. Fixed rather than `.primary`: the
+        /// accent fill stays light in both appearances, and white labels failed the contrast audit.
+        static let onAccent = Color.black
 
         static var surface: Color {
 #if canImport(UIKit) && !os(watchOS)

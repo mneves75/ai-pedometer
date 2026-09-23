@@ -161,11 +161,11 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     }
 
     func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int {
-        Int(try await fetchSum(type: .stepCount, unit: .count(), from: startDate, to: endDate))
+        HealthCount.clamped(try await fetchSum(type: .stepCount, unit: .count(), from: startDate, to: endDate))
     }
 
     func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int {
-        Int(try await fetchSum(type: .pushCount, unit: .count(), from: startDate, to: endDate))
+        HealthCount.clamped(try await fetchSum(type: .pushCount, unit: .count(), from: startDate, to: endDate))
     }
 
     func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double {
@@ -177,7 +177,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
     }
 
     func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int {
-        Int(try await fetchSum(type: .flightsClimbed, unit: .count(), from: startDate, to: endDate))
+        HealthCount.clamped(try await fetchSum(type: .flightsClimbed, unit: .count(), from: startDate, to: endDate))
     }
 
     func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? {
@@ -287,7 +287,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         var summaries: [DailyStepSummary] = []
         var current = startDay
         while current <= endDay {
-            let activityCount = Int(activity[current] ?? 0)
+            let activityCount = HealthCount.clamped(activity[current] ?? 0)
 
             let dayDistance: Double
             switch distanceMode {
@@ -306,7 +306,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                 }
             }
 
-            let dayFloors = floors.map { Int($0[current] ?? 0) } ?? 0
+            let dayFloors = floors.map { HealthCount.clamped($0[current] ?? 0) } ?? 0
 
             summaries.append(
                 DailyStepSummary(

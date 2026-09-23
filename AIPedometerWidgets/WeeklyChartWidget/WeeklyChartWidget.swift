@@ -60,19 +60,19 @@ struct WeeklyChartContent: View {
         switch data.activityMode {
         case .steps:
             Localization.format(
-                "%@ steps today, %@ steps this week, %lld day streak",
-                comment: "Accessibility value for weekly steps widget",
+                "%@ steps today, %@ steps this week, streak of %@",
+                comment: "Accessibility value for weekly steps widget; the last argument is a pluralized day count",
                 data.todaySteps.formattedSteps,
                 weeklyTotal.formattedSteps,
-                Int64(data.currentStreak)
+                Localization.streakDays(data.currentStreak)
             )
         case .wheelchairPushes:
             Localization.format(
-                "%@ pushes today, %@ pushes this week, %lld day streak",
-                comment: "Accessibility value for weekly wheelchair pushes widget",
+                "%@ pushes today, %@ pushes this week, streak of %@",
+                comment: "Accessibility value for weekly wheelchair pushes widget; the last argument is a pluralized day count",
                 data.todaySteps.formattedSteps,
                 weeklyTotal.formattedSteps,
-                Int64(data.currentStreak)
+                Localization.streakDays(data.currentStreak)
             )
         }
     }
@@ -105,9 +105,9 @@ struct WeeklyChartContent: View {
 
             Text(
                 Localization.format(
-                    "Streak %lld days",
-                    comment: "Widget label for streak in days",
-                    Int64(data.currentStreak)
+                    "Streak: %@",
+                    comment: "Widget label for streak length; the argument is a pluralized day count such as \"1 day\"",
+                    Localization.streakDays(data.currentStreak)
                 )
             )
                 .font(DesignTokens.Typography.caption2)
@@ -141,9 +141,9 @@ struct WeeklyChartPlaceholder: View {
 
             Text(
                 Localization.format(
-                    "Streak %lld days",
-                    comment: "Widget placeholder label for streak in days",
-                    Int64(10)
+                    "Streak: %@",
+                    comment: "Widget label for streak length; the argument is a pluralized day count such as \"1 day\"",
+                    Localization.streakDays(10)
                 )
             )
                 .font(DesignTokens.Typography.caption2)

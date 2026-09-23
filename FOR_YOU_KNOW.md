@@ -154,6 +154,19 @@ summary; `ImportedRouteStorage` retains only the last summary. Keep file ingest 
 `currentWorkoutRecommendationSummary` own current-week selection, intent,
 difficulty and estimated duration. Views consume those projections.
 
+HealthKit statistics include samples from every app the user lets write that type, so a sum is
+lower-trust input: it can be non-finite or beyond `Int`, where `Int(_: Double)` traps (reproduced
+with an injected 1e19 on 2026-09-23). Convert counts and heart rate through `HealthCount.clamped`.
+
+`AICoachView` replaces the environment's `openURL` for its whole subtree with the model-link policy,
+which discards anything that is not https. A system URL opened through `@Environment(\.openURL)` in a
+view shown there (the Apple Intelligence Settings button was one) silently does nothing; open system
+URLs with `UIApplication.shared.open`.
+
+A `.pending` purchase marker (Ask to Buy) only clears on a newer verified purchase. A declined or
+unanswered request never produces one, so `PremiumAccessStore` discards markers older than 48 hours
+at launch (Apple expires the request after 24).
+
 ## Shared storage and performance
 
 App-group snapshot writes coalesce the latest value for at most five seconds.
@@ -188,6 +201,11 @@ the current one. The device state is pinned in UI tests with Apple's test-only a
 (`-AppleLocale en_US -AppleMetricUnits <true/> -AppleMeasurementUnits Centimeters
 -AppleICUNumberSymbols {…}`); see `launchWithUSRegionMetricAndCommaDecimals`. 1.0.2 shipped a
 formatter "fix" proven only with explicit locales, and it changed nothing on the affected phone.
+
+`Localization.format` (`String(format:)`) never applies a catalog plural variation: it gets the
+`other` form, so "%lld days" reads "1 days". Put the count through an interpolated `L10n.localized`
+(`Localization.streakDays`) and pass the resulting string as `%@`. The widget kept the old pattern
+until 1.0.6 even though the formatter's comment warned about it.
 
 ## Verification and release lessons
 
@@ -311,3 +329,8 @@ formatter "fix" proven only with explicit locales, and it changed nothing on the
 - Fresh SwiftData stores in private Application Support are the mitigation for the store
   boundary. Existing app-group stores stay in place to avoid upgrade data loss, and
   SwiftData has no public relocation API — do not implement a raw SQLite/WAL move.
+- Security audit run-1 (2026-09-23, source ref `499e615`, standard profile, 15 units; the report stays
+  outside the repository): no confirmed vulnerability. Declined there as
+  hardening, not findings: excluding the SwiftData store from backups (users would lose history on
+  restore), pinning `resolvedActiveEntitlement` to one id (the alias fallback is the tested dashboard
+  naming contract), and digest-binding the IPA to the archive (only the maintainer's host promotes).
