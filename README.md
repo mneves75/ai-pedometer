@@ -190,7 +190,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.6 (63). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an active Paid Apps Agreement, subscriptions that pass App Review, and physical-device acceptance of HealthKit, motion, notifications and purchases.
+**Current source**: 1.0.7 (64), listed as a R$ 1,99 paid download (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an active Paid Apps Agreement, the privacy-policy fix on conhecendotudo.com.br, the listing and price applied in App Store Connect, subscriptions that pass App Review, and physical-device acceptance of HealthKit, motion, notifications and purchases.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
