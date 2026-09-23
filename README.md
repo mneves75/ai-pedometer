@@ -129,6 +129,12 @@ asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
 
+The App Store listing (`store/app-store/`) validates offline, plus URL and subscription checks:
+
+```bash
+asc metadata validate --dir store/app-store --check-urls --subscription-app --output table
+```
+
 Notes for physical-device installs:
 - `devicectl` may print `Failed to load provisioning paramter list ... No provider was found.` on this host even for `--help` or `list devices`; in our verified runs it was a benign CoreDevice/Xcode warning and did not block build, install, or final launch.
 - If the iPhone is locked, the first `devicectl device process launch` attempt can be denied with `Locked`; the script already retries automatically and often succeeds on the second attempt once the device is unlocked.
@@ -174,6 +180,7 @@ Localization lookup is centralized through `L10n.localized(...)` with explicit l
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
 | `docs/appstore/` | Publicação App Store (playbook, metadata e StoreKit) |
+| [store/app-store/](store/app-store/README.md) | App Store listing (`asc metadata`): textos, links de privacidade e suporte, preço R$ 1,99 |
 | `docs/revenuecat/` | Guia completo de configuração, testes e operação do premium com RevenueCat |
 | [docs/revenuecat/apple-payments-setup.md](docs/revenuecat/apple-payments-setup.md) | Runbook de configuração Apple payments + RevenueCat para assinaturas premium |
 

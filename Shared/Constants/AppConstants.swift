@@ -86,10 +86,27 @@ enum AppConstants {
     }
 
     /// Public pages App Review and users reach from inside the app. They must match the Privacy
-    /// Policy and Support URLs in App Store Connect (`docs/appstore/metadata/`).
+    /// Policy and Support URLs of the App Store listing (`store/app-store/`), in the app language.
     enum Links {
-        static let privacyPolicy = URL(string: "https://mneves75.github.io/ai-pedometer/privacy.html")
-        static let support = URL(string: "https://mneves75.github.io/ai-pedometer/#support")
+        static let privacyPolicy = privacyPolicy(languageCode: AppLanguage.defaultLanguageCode)
+        static let support = support(languageCode: AppLanguage.defaultLanguageCode)
+
+        static func privacyPolicy(languageCode: String) -> URL? {
+            sitePage(pt: "privacidade", en: "privacy", languageCode: languageCode)
+        }
+
+        static func support(languageCode: String) -> URL? {
+            sitePage(pt: "suporte", en: "support", languageCode: languageCode)
+        }
+
+        /// Only pt-BR gets the Portuguese page; every other language gets the English one.
+        private static func sitePage(pt: String, en: String, languageCode: String) -> URL? {
+            let path = AppLanguage.supportedLanguageCode(for: languageCode) == AppLanguage.portugueseBrazilCode
+                ? "pt/apps/\(pt)"
+                : "en/apps/\(en)"
+            return URL(string: "https://www.conhecendotudo.com.br/\(path)/aipedometer/")
+        }
+
         /// Apple's standard EULA, which governs the subscription when no custom EULA is set.
         static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
     }

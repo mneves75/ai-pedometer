@@ -193,7 +193,8 @@ staged path for secrets and unrelated content. Use Conventional Commits and
 explicit paths; never clear unrelated staging or switch branches implicitly.
 Keep builds, traces, credentials and local configuration out of Git.
 
-Before beta delivery, bump the numeric version/build in `project.yml`, regenerate,
+Before beta delivery, bump the numeric version/build in `project.yml`, rename the
+`store/app-store/version/` folder to match (the App Store listing), regenerate,
 update [CHANGELOG.md](CHANGELOG.md) and relevant docs, then freeze and review.
 Inspect actual archive and IPA versions, products, entitlements and Release
 configuration. A beta tag identifies the immutable shipped commit and uses

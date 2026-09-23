@@ -1,33 +1,22 @@
 # App Store Metadata - en-US
 
+Canonical upload files: `store/app-store/` (`asc metadata` format, validated with
+`asc metadata validate --dir store/app-store --check-urls --subscription-app`).
+
 ## App Information
 
-- App Name (max 30): `AIPedometer`
-- Subtitle (max 30): `AI step tracking on-device`
 - Primary Category: `Health & Fitness`
 - Secondary Category: `Lifestyle`
+- Price: paid download, `R$ 1,99` in the Brazil base territory (price point in `store/app-store/pricing.json`), other territories equalized by Apple
 
-## Promotional Text (max 170)
+## Listing text
 
-`Track steps, goals, and workouts with on-device AI coaching. Activity and health context stay on your device.`
+Name, subtitle, promotional text, description, keywords and the marketing, privacy and support URLs live in
+`store/app-store/app-info/en-US.json` and `store/app-store/version/<version>/en-US.json`.
+The first App Store release has no What's New text.
 
-## Description
+## License Agreement
 
-`AIPedometer is a step and workout tracker with AI coaching that runs on your device.\n\n• Daily steps and goals with HealthKit\n• Workouts with Live Activities\n• AI insights, Coach, training plans, and smart reminders\n• History, streaks, and achievements\n• GPX routes and Expedition Mode\n• Apple Watch, widgets, and wheelchair push tracking\n\nNo account is required. On supported devices, health context used by AI remains on the device and is not sent to a cloud AI service.\n\nPremium AI features, GPX route import, and Expedition Mode require an auto-renewable subscription. Purchase, Restore Purchases, and Manage Subscription are available in More > Support AI Pedometer. The optional Tip Jar is a separate one-time purchase.\n\nAI features need an iPhone or iPad that supports Apple Intelligence, with it turned on. GPX routes and Expedition Mode work on every supported device.\n\nTerms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`
-
-## Keywords (max 100 chars)
-
-`fitness,workout,walking,healthkit,watch,goals,activity,tracker,streaks,routes,gpx`
-
-## What's New (1.0.6)
-
-`Clearer subscription terms with Terms of Use and Privacy Policy links, feedback when you restore purchases, a fix for a paywall stuck after Ask to Buy, and sturdier HealthKit and workout step handling.`
-
-## URLs
-
-- Support URL: `https://mneves75.github.io/ai-pedometer/#support`
-- Marketing URL: `https://mneves75.github.io/ai-pedometer/`
-- Privacy Policy URL: `https://mneves75.github.io/ai-pedometer/privacy.html`
 - License Agreement: Apple's standard EULA (`https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`), linked in the description and in the paywall
 
 ## App Privacy

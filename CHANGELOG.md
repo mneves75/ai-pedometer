@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-09-23
+
+App Store listing at R$ 1,99, following the studio's other apps.
+
+### Changed
+
+- About > Privacy Policy, About > Send Feedback and the paywall's Privacy Policy link open
+  AIPedometer's own pages on conhecendotudo.com.br, in Portuguese for pt-BR and in English for
+  every other language, instead of `mneves75.github.io`. They are the same URLs as the App Store
+  listing, which App Review compares (Guideline 5.1.1(i)); `StoreListingTests` pins them.
+
+### Store
+
+- `store/app-store/` holds the App Store listing in `asc metadata` format (en-US and pt-BR), like
+  LUME and CaptureVault, and the Brazil price point: a paid download at R$ 1,99 (proceeds R$ 1,48),
+  on top of the existing Premium subscription and Tip Jar. The description is organized in
+  sections, keeps the subscription terms and the Terms of Use link, and the privacy and support
+  links point at AIPedometer's pages on conhecendotudo.com.br. `StoreListingTests` pins the field
+  limits, the Terms of Use link and the price; the listing folder must match `MARKETING_VERSION`.
+  `docs/appstore/metadata/` keeps only what the listing files do not hold (categories, App
+  Privacy answers, review notes).
+- Nothing was written to App Store Connect: the app still has no price schedule or availability
+  there, its draft version is 1.0.4, and the site's privacy page must first disclose what
+  RevenueCat receives (the IDFV, IP address and request details, and aggregate statistics).
+
 ## [1.0.6] - 2026-09-23
 
 Findings of a Standards/Spec code review of the 1.0.5 cycle, a whole-app senior review and a

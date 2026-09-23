@@ -7,6 +7,18 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-23)
 
+- **1.0.7 (64): App Store listing at R$ 1,99** (2026-09-23). `store/app-store/` (`asc metadata`, like
+  LUME) is the listing source: paid download R$ 1,99 in BRA (price point `p:10006`, proceeds R$ 1,48)
+  on top of the Premium subscription and Tip Jar, privacy/support links on AIPedometer's
+  conhecendotudo.com.br pages, and the app's About/paywall links are the same URLs
+  (`StoreListingTests`). **Release gates:** (1) the site's AIPedometer privacy section
+  (`~/dev/MEUS_SITES/conhecendotudo/src/data/app-privacy/apps.ts`) must disclose what RevenueCat
+  receives (IDFV, IP and request details, aggregate statistics), add Notifications, and drop "collects
+  no personal data" before any build with these links ships (App Review 5.1.1(i)); (2) nothing is in
+  ASC yet: create version 1.0.7, `asc metadata apply`, price schedule and availability, with the
+  owner's approval (commands in `store/app-store/README.md`). Monetization note: LUME and CaptureVault
+  are one-time purchases with no subscription; a paid download plus a subscription invites
+  3.1.2(a) "ongoing value" scrutiny. Keeping both is the owner's current decision.
 - **1.0.6 (63) is in TestFlight** (2026-09-23, commit `e6de263`, tag `v1.0.6-beta1`, build
   `4eff36c5`): `VALID`, export compliance `exempt` automatically (the `ITSAppUsesNonExemptEncryption`
   key works), added to `Internal Testers` (still 0 testers). IPA SHA-256 `8a008a85…4b21`.
@@ -22,9 +34,9 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   lists 33 blocking errors there (24 age-rating fields, 4 review-contact fields, content rights,
   availability, screenshots, copyright, no build attached), on top of the Paid Apps Agreement,
   subscription review screenshots and physical-device acceptance. The age rating, content rights,
-  copyright and contact answers are owner declarations. The privacy policy URL is
-  `https://mneves75.github.io/ai-pedometer/privacy.html`, set in App Store Connect (en-US and pt-BR)
-  on 2026-09-23.
+  copyright and contact answers are owner declarations. App Store Connect still
+  has `https://mneves75.github.io/ai-pedometer/privacy.html` as the privacy policy URL (set
+  2026-09-23); 1.0.7 replaces it, see below.
 
 - **1.0.5 (62) is the first build of this app in App Store Connect** (2026-09-22, commit `363d2af`,
   tag `v1.0.5-beta1`): `VALID`, export compliance answered, `READY_FOR_BETA_TESTING` and added
