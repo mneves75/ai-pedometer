@@ -7,6 +7,13 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-23)
 
+- **1.0.8 (65) is in TestFlight** (2026-09-23): build `aa7d8a9f` `VALID`, encryption `exempt`, added to
+  `Internal Testers` (no testers invited); IPA SHA-256 `eae7362e…204e`, built with Xcode 27.0 from
+  `e9eb05e`, tag `v1.0.8-beta1` (created locally; pushing waits on `gh auth login`). Release build installed
+  and launched on iMarcus. Final HEAD `d696431`: unit 637/637, UI 30/30. Independent verification (GPT-6)
+  ended FAIL after its one correction round; open: the two never-submitted ASC subscription records
+  (deleting is irreversible, owner decision) and the pre-existing Settings behavior that turns smart
+  reminders off when notification permission is gone.
 - **1.0.8 (65): one-time R$ 1,99 purchase, no subscription** (2026-09-23, owner decision, like LUME
   and CaptureVault). RevenueCat, `PremiumAccessStore`, the paywall and every Premium gate are gone;
   AI is gated only by Apple Intelligence availability; the optional StoreKit 2 Tip Jar stays and
