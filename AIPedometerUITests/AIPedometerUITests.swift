@@ -219,6 +219,19 @@ final class AIPedometerUITests: XCTestCase {
             type: .contrast,
             identifier: A11yID.Dashboard.progressValue
         ))
+        // The route-import label is accepted for contrast only; the button itself and other audits are not.
+        XCTAssertTrue(shouldAcceptKnownAuditIssue(
+            type: .contrast,
+            identifier: A11yID.Workouts.routeImportButtonLabel
+        ))
+        XCTAssertFalse(shouldAcceptKnownAuditIssue(
+            type: .contrast,
+            identifier: A11yID.Workouts.routeImportButton
+        ))
+        XCTAssertFalse(shouldAcceptKnownAuditIssue(
+            type: .hitRegion,
+            identifier: A11yID.Workouts.routeImportButtonLabel
+        ))
         for identifier in dashboardStatTextIdentifiers {
             XCTAssertTrue(shouldAcceptKnownAuditIssue(
                 type: .elementDetection,
