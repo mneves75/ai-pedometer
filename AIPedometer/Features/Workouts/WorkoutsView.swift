@@ -10,7 +10,6 @@ struct WorkoutsView: View {
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(TrainingPlanService.self) private var trainingPlanService
     @Environment(WorkoutSessionController.self) private var workoutController
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
     // Bounded fetch: the carousel shows at most 6 completed sessions, but an unbounded
     // query would fetch and observe every workout ever recorded (soft-deleted rows are
@@ -49,8 +48,6 @@ struct WorkoutsView: View {
 
     private struct RecommendationTrigger: Hashable {
         let aiAvailable: Bool
-        let premiumEnabled: Bool
-        let premiumResolving: Bool
         let activePlanID: UUID?
         // Recommendations are generated for the current activity mode, so switching steps and wheelchair
         // pushes must reload rather than keep showing the other mode's recommendation.
@@ -179,8 +176,6 @@ struct WorkoutsView: View {
         }
         .task(id: RecommendationTrigger(
             aiAvailable: aiService.availability.isAvailable,
-            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
-            premiumResolving: premiumAccessStore.isResolvingAccess,
             activePlanID: activePlan?.id,
             activityMode: activityMode
         )) {
@@ -190,13 +185,6 @@ struct WorkoutsView: View {
                 hasLoadedRecommendation = true
                 recommendationError = nil
                 workoutRecommendation = nil
-                return
-            }
-
-            guard premiumAccessStore.canAccessAIFeatures else {
-                workoutRecommendation = nil
-                recommendationError = nil
-                hasLoadedRecommendation = false
                 return
             }
 
@@ -228,7 +216,7 @@ struct WorkoutsView: View {
                 isLoading: isLoadingRecommendation && activePlan == nil,
                 hasLoadedRecommendation: hasLoadedRecommendation,
                 error: activePlan == nil ? recommendationError : nil,
-                canRefresh: activePlan == nil && premiumAccessStore.canAccessAIFeatures && aiService.availability.isAvailable,
+                canRefresh: activePlan == nil && aiService.availability.isAvailable,
                 onRefresh: { Task { await loadWorkoutRecommendation(forceRefresh: true) } },
                 unitName: activityMode.unitName,
                 onStartWorkout: { recommendation in
@@ -236,32 +224,16 @@ struct WorkoutsView: View {
                 }
             )
             .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if premiumAccessStore.isResolvingAccess {
-            PremiumAccessLoadingCard(
-                title: L10n.localized("Today's Plan", comment: "AI workout card header")
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if premiumAccessStore.canAccessAIFeatures {
+        } else {
             if case .unavailable(let reason) = aiService.availability {
                 AIAvailabilityBanner(reason: reason)
                     .padding(.horizontal, DesignTokens.Spacing.md)
             }
-        } else {
-            PremiumFeatureGateCard(
-                title: L10n.localized("Today's Plan", comment: "AI workout card header"),
-                message: L10n.localized(
-                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                    comment: "Premium gate copy for AI features"
-                ),
-                accessibilityIdentifier: A11yID.Workouts.premiumTodayPlanGate
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
         }
     }
 
     private func loadWorkoutRecommendation(forceRefresh: Bool = false) async {
         guard aiService.availability.isAvailable else { return }
-        guard premiumAccessStore.canAccessAIFeatures else { return }
         guard !isLoadingRecommendation else { return }
 
         isLoadingRecommendation = true
@@ -280,13 +252,7 @@ struct WorkoutsView: View {
 
     @ViewBuilder
     private var expeditionModeSection: some View {
-        if premiumAccessStore.isResolvingAccess {
-            PremiumAccessLoadingCard(
-                title: L10n.localized("Expedition Mode", comment: "Expedition Mode card title")
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if premiumAccessStore.canAccessAIFeatures {
-            Toggle(isOn: $expeditionModeEnabled) {
+        Toggle(isOn: $expeditionModeEnabled) {
                 HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
                     Image(systemName: "battery.100.bolt")
                         .font(DesignTokens.Typography.title2)
@@ -315,29 +281,11 @@ struct WorkoutsView: View {
             .glassCard()
             .accessibilityIdentifier(A11yID.Workouts.expeditionModeToggle)
             .padding(.horizontal, DesignTokens.Spacing.md)
-        } else {
-            PremiumFeatureGateCard(
-                title: L10n.localized("Expedition Mode", comment: "Expedition Mode card title"),
-                message: L10n.localized(
-                    "Premium is required to reduce live metric updates during long workouts.",
-                    comment: "Premium gate copy for Expedition Mode"
-                ),
-                accessibilityIdentifier: A11yID.Workouts.premiumExpeditionModeGate
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .task { expeditionModeEnabled = false }
-        }
     }
 
     @ViewBuilder
     private var routeImportSection: some View {
-        if premiumAccessStore.isResolvingAccess {
-            PremiumAccessLoadingCard(
-                title: L10n.localized("Routes & GPX", comment: "Routes GPX card title")
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if premiumAccessStore.canAccessAIFeatures {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
                     Image(systemName: "map.fill")
                         .font(DesignTokens.Typography.title2)
@@ -389,17 +337,6 @@ struct WorkoutsView: View {
             .padding(DesignTokens.Spacing.md)
             .glassCard()
             .padding(.horizontal, DesignTokens.Spacing.md)
-        } else {
-            PremiumFeatureGateCard(
-                title: L10n.localized("Routes & GPX", comment: "Routes GPX card title"),
-                message: L10n.localized(
-                    "Premium is required to import GPX routes and plan map-guided workouts.",
-                    comment: "Premium gate copy for Routes GPX"
-                ),
-                accessibilityIdentifier: A11yID.Workouts.premiumRoutesGate
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        }
     }
 
     private var headerSection: some View {
@@ -556,21 +493,7 @@ struct WorkoutsView: View {
                 .font(DesignTokens.Typography.headline)
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
-            if premiumAccessStore.isResolvingAccess && !hasSavedPlans {
-                PremiumAccessLoadingCard(
-                    title: L10n.localized("AI Training Plans", comment: "Training plans card title")
-                )
-            } else if !premiumAccessStore.canAccessAIFeatures && !hasSavedPlans {
-                PremiumFeatureGateCard(
-                    title: L10n.localized("AI Training Plans", comment: "Training plans card title"),
-                    message: L10n.localized(
-                        "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                        comment: "Premium gate copy for AI features"
-                    ),
-                    accessibilityIdentifier: A11yID.Workouts.premiumTrainingPlansGate
-                )
-            } else {
-                NavigationLink {
+            NavigationLink {
                     TrainingPlansView()
                 } label: {
                     HStack(spacing: DesignTokens.Spacing.md) {
@@ -605,7 +528,6 @@ struct WorkoutsView: View {
                     label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
                     hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
                 )
-            }
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
     }
@@ -696,16 +618,6 @@ struct WorkoutsView: View {
     }
 
     private func importRoute(from result: Result<[URL], any Error>) {
-        guard premiumAccessStore.canAccessAIFeatures else {
-            routeImportError = RouteImportError(
-                message: L10n.localized(
-                    "Premium is required to import GPX routes.",
-                    comment: "Error shown when a GPX import is attempted without premium access"
-                )
-            )
-            return
-        }
-
         let url: URL
         do {
             guard let selected = try result.get().first else { return }
@@ -733,10 +645,6 @@ struct WorkoutsView: View {
 
     private var activePlan: TrainingPlanRecord? {
         trainingPlanService.fetchActivePlans().first
-    }
-
-    private var hasSavedPlans: Bool {
-        !trainingPlanService.fetchAllPlans().isEmpty
     }
 
     private var displayedRecommendation: AIWorkoutRecommendation? {
@@ -999,8 +907,7 @@ extension WorkoutType {
         foundationModelsService: foundationModelsService,
         healthKitService: healthKitService,
         goalService: goalService,
-        modelContext: persistence.container.mainContext,
-        generationAuthorization: { .authorized }
+        modelContext: persistence.container.mainContext
     )
     let workoutController = WorkoutSessionController(
         modelContext: persistence.container.mainContext,
@@ -1015,5 +922,4 @@ extension WorkoutType {
         .environment(insightService)
         .environment(trainingPlanService)
         .environment(workoutController)
-        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }

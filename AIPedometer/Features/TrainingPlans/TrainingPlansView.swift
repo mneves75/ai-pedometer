@@ -5,7 +5,6 @@ struct TrainingPlansView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @Environment(TrainingPlanService.self) private var planService
     @Environment(FoundationModelsService.self) private var aiService
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
 
     @Query(
         filter: #Predicate<TrainingPlanRecord> { $0.deletedAt == nil },
@@ -49,12 +48,6 @@ struct TrainingPlansView: View {
     private var content: some View {
         if !plans.isEmpty {
             plansList
-        } else if premiumAccessStore.isResolvingAccess {
-            PremiumAccessLoadingCard(
-                title: L10n.localized("AI Training Plans", comment: "Training plans card title")
-            )
-        } else if !premiumAccessStore.canAccessAIFeatures {
-            premiumGateView
         } else if case .unavailable(let reason) = aiService.availability {
             unavailableView(reason: reason)
         } else {
@@ -95,17 +88,6 @@ struct TrainingPlansView: View {
         }
     }
 
-    private var premiumGateView: some View {
-        PremiumFeatureGateCard(
-            title: L10n.localized("AI Training Plans", comment: "Training plans card title"),
-            message: L10n.localized(
-                "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                comment: "Premium gate copy for AI features"
-            )
-        )
-        .padding(.horizontal, DesignTokens.Spacing.md)
-    }
-
     private var plansList: some View {
         List {
             Section {
@@ -131,7 +113,7 @@ struct TrainingPlansView: View {
     }
 
     private var canCreatePlan: Bool {
-        premiumAccessStore.canAccessAIFeatures && aiService.availability.isAvailable
+        aiService.availability.isAvailable
     }
 }
 
@@ -487,11 +469,9 @@ struct CreatePlanSheet: View {
         foundationModelsService: fmService,
         healthKitService: HealthKitServiceFallback(demoModeStore: demoModeStore),
         goalService: GoalService(persistence: persistence),
-        modelContext: persistence.container.mainContext,
-        generationAuthorization: { .authorized }
+        modelContext: persistence.container.mainContext
     ))
     .environment(demoModeStore)
     .environment(fmService)
-    .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
     .modelContainer(persistence.container)
 }

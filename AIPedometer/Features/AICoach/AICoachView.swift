@@ -29,7 +29,6 @@ struct AICoachView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(CoachService.self) private var coachService
     @Environment(FoundationModelsService.self) private var aiService
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(\.openURL) private var openExternalURL
 
     private let autoScrollMinInterval: TimeInterval = DesignTokens.Animation.defaultDuration
@@ -108,25 +107,7 @@ struct AICoachView: View {
 
     private var coachContent: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            if premiumAccessStore.isResolvingAccess {
-                PremiumAccessLoadingCard(
-                    title: L10n.localized("AI Coach", comment: "AI Coach navigation title")
-                )
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.top, DesignTokens.Spacing.xl)
-                Spacer(minLength: DesignTokens.Spacing.xl)
-            } else if !premiumAccessStore.canAccessAIFeatures {
-                PremiumFeatureGateCard(
-                    title: L10n.localized("AI Coach", comment: "AI Coach navigation title"),
-                    message: L10n.localized(
-                        "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                        comment: "Premium gate copy for AI features"
-                    )
-                )
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.top, DesignTokens.Spacing.xl)
-                Spacer(minLength: DesignTokens.Spacing.xl)
-            } else if case .unavailable(let reason) = aiService.availability {
+            if case .unavailable(let reason) = aiService.availability {
                 AIUnavailableStateView(reason: reason)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                     .padding(.top, DesignTokens.Spacing.xl)
@@ -140,9 +121,7 @@ struct AICoachView: View {
         .uiTestMarker(A11yID.AICoach.marker)
         .uiTestMarker(
             A11yID.AICoach.unavailableState,
-            when: !premiumAccessStore.isResolvingAccess
-                && premiumAccessStore.canAccessAIFeatures
-                && !aiService.availability.isAvailable
+            when: !aiService.availability.isAvailable
         )
     }
 
@@ -565,7 +544,4 @@ struct FlowLayout: Layout {
         ))
         .environment(fmService)
         .environment(demoModeStore)
-        // AICoachView gates on PremiumAccessStore before rendering chat; injecting a forced-on
-        // premium store keeps the preview functional.
-        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }

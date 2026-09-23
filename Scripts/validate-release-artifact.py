@@ -79,13 +79,6 @@ def validate_products(
         if role == "widget" and info.get("NSExtension", {}).get("NSExtensionPointIdentifier") != "com.apple.widgetkit-extension":
             raise ArtifactError("Extensao embarcada deve ser WidgetKit.")
         fields["bundlePath"] = location
-        if role == "app":
-            key = info.get("RevenueCatAPIKey")
-            if (not isinstance(key, str) or not key.startswith("appl_") or len(key) <= 5
-                    or "$(" in key or any(character.isspace() for character in key)):
-                raise ArtifactError("Release requer RevenueCatAPIKey publica Apple (appl_). Configure a chave de producao e gere outro archive; Test Store e chave ausente/placeholder nao podem ser publicados.")
-            for key in ("RevenueCatAPIKey", "RevenueCatEntitlementID", "RevenueCatOfferingID"):
-                fields[key] = info.get(key)
         products[role] = fields
     return products
 

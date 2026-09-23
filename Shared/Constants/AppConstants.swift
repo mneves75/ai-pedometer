@@ -10,7 +10,7 @@ enum AppConstants {
     static func resolveAppStoreID(
         bundle: Bundle = .main,
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        allowsEnvironmentOverrides: Bool = RevenueCat.environmentOverridesEnabled
+        allowsEnvironmentOverrides: Bool = LaunchConfiguration.isOverridable
     ) -> String {
         // Launch environment is attacker input in Release (anyone with devicectl access sets it), so
         // it may only redirect the review link in Debug, like every other launch override.
@@ -68,9 +68,6 @@ enum AppConstants {
         static let healthKitSyncEnabled = "healthKitSyncEnabled"
         static let notificationsEnabled = "notificationsEnabled"
         static let smartRemindersEnabled = "smartRemindersEnabled"
-        /// Set when Premium access lapsed and delivery was suspended without clearing the user's
-        /// `smartRemindersEnabled` preference, so reminders can resume if access returns.
-        static let smartRemindersSuspendedByAccess = "smartRemindersSuspendedByAccess"
         static let smartNotificationLastDate = "smartNotificationLastDate"
         static let smartNotificationCount = "smartNotificationCount"
         static let expeditionModeEnabled = "expeditionModeEnabled"
@@ -105,110 +102,6 @@ enum AppConstants {
                 ? "pt/apps/\(pt)"
                 : "en/apps/\(en)"
             return URL(string: "https://www.conhecendotudo.com.br/\(path)/aipedometer/")
-        }
-
-        /// Apple's standard EULA, which governs the subscription when no custom EULA is set.
-        static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
-    }
-
-    struct RevenueCatConfiguration: Sendable, Equatable {
-        let apiKey: String?
-        let entitlementID: String
-        let offeringID: String?
-
-        var isConfigured: Bool {
-            guard let apiKey else { return false }
-            return !apiKey.isEmpty
-        }
-    }
-
-    enum RevenueCat {
-        private static let placeholderAPIKey = "REVENUECAT_API_KEY"
-        private static let placeholderEntitlementID = "premium"
-
-        static func resolveConfiguration(
-            bundle: Bundle = .main,
-            environment: [String: String] = ProcessInfo.processInfo.environment,
-            allowsEnvironmentOverrides: Bool = environmentOverridesEnabled,
-            allowsTestStoreAPIKeys: Bool = testStoreAPIKeysEnabled
-        ) -> RevenueCatConfiguration {
-            var resolvedKey = resolveValue(
-                environmentKey: "REVENUECAT_API_KEY",
-                infoDictionaryKey: "RevenueCatAPIKey",
-                placeholder: placeholderAPIKey,
-                bundle: bundle,
-                environment: environment,
-                allowsEnvironmentOverrides: allowsEnvironmentOverrides
-            )
-
-            // RevenueCat deliberately fatalErrors when configured with a Test Store ("test_")
-            // key in a non-DEBUG build; resolve such keys to nil so premium fails closed instead.
-            if !allowsTestStoreAPIKeys, let key = resolvedKey, key.hasPrefix(testStoreAPIKeyPrefix) {
-                resolvedKey = nil
-            }
-
-            return RevenueCatConfiguration(
-                apiKey: resolvedKey,
-                entitlementID: resolveValue(
-                    environmentKey: "REVENUECAT_ENTITLEMENT_ID",
-                    infoDictionaryKey: "RevenueCatEntitlementID",
-                    placeholder: placeholderEntitlementID,
-                    bundle: bundle,
-                    environment: environment,
-                    allowsEnvironmentOverrides: allowsEnvironmentOverrides
-                ) ?? placeholderEntitlementID,
-                offeringID: resolveValue(
-                    environmentKey: "REVENUECAT_OFFERING_ID",
-                    infoDictionaryKey: "RevenueCatOfferingID",
-                    placeholder: "",
-                    bundle: bundle,
-                    environment: environment,
-                    allowsEnvironmentOverrides: allowsEnvironmentOverrides
-                )
-            )
-        }
-
-        static var environmentOverridesEnabled: Bool {
-            #if DEBUG
-            true
-            #else
-            false
-            #endif
-        }
-
-        private static let testStoreAPIKeyPrefix = "test_"
-
-        static var testStoreAPIKeysEnabled: Bool {
-            #if DEBUG
-            true
-            #else
-            false
-            #endif
-        }
-
-        private static func resolveValue(
-            environmentKey: String,
-            infoDictionaryKey: String,
-            placeholder: String,
-            bundle: Bundle,
-            environment: [String: String],
-            allowsEnvironmentOverrides: Bool
-        ) -> String? {
-            if allowsEnvironmentOverrides,
-               let envValue = environment[environmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !envValue.isEmpty,
-               envValue != placeholder {
-                return envValue
-            }
-
-            if let bundleValue = bundle.object(forInfoDictionaryKey: infoDictionaryKey) as? String {
-                let trimmed = bundleValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty, !trimmed.contains("$("), trimmed != placeholder {
-                    return trimmed
-                }
-            }
-
-            return nil
         }
     }
 

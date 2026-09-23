@@ -29,7 +29,7 @@ struct AppLoggerTests {
     @Test("AppLogger renders the machine code verbatim while metadata stays redacted")
     func rendersCodeWithoutRedactingIt() throws {
         let payload = AppLogger.renderPayload(
-            event: "premium.offerings_failed",
+            event: "notifications.smart_schedule_failed",
             level: "error",
             code: "CONFIGURATION_ERROR",
             metadata: ["error": "None of the products could be fetched", "code": "leaked"],

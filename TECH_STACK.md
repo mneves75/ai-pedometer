@@ -34,7 +34,6 @@ Derived from current code and documentation.
 
 ## Store
 - StoreKit (tip jar)
-- RevenueCat + RevenueCatUI (premium subscriptions, fail-closed gates)
 
 ## Performance and Metrics
 - MetricKit

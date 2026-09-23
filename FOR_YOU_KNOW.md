@@ -83,24 +83,19 @@ one request identifier. `SettingsSideEffects.resumeSuspendedSmartReminder` there
 completion defer to a newer owner that also schedules, instead of cancelling that owner's request; the
 current owner cancels if its own attempt fails.
 
-## Health, AI and premium boundaries
+## Health and AI boundaries
 
-An empty Premium paywall ("Subscriptions are unavailable right now") is fail-closed behaviour with
-three unrelated causes that look identical on screen. A ⌘R run of the `AIPedometer` scheme serves
-every product from `StoreKit/TipJar.storekit`, never from App Store Connect, so the local file must
-carry the production subscription IDs or the paywall is empty for a reason that has nothing to do
-with Apple; use `AIPedometer-Sandbox` on a physical device to reach the real sandbox (RevenueCat
-documents that simulators cannot reach the live App Store API). On a build installed outside Xcode
-a `CONFIGURATION_ERROR` code means StoreKit returned none of the offering's products: check the
-Paid Apps Agreement, banking and tax status, then product price and localizations, before touching
-code (Apple TN3186). The App Review screenshot that keeps a product in `Missing Metadata` is not a
-sandbox prerequisite. Product edits take up to 1 hour to reach the sandbox; agreement changes up to
-24 hours (RevenueCat). Sandbox does not
-need App Review; "Ready to Submit" products load there. `AppLogger` redacts every metadata value and
-used to mark the whole line private, which made even the event name read `<private>` in a device
-syslog; since 2026-09-21 only the event name (a `StaticString`) and the `code` field are public. The RevenueCat SDK
-logs through NSLog at info level even in Release, so `idevicesyslog -p AIPedometer` over USB shows
-its "None of the products ... could be fetched" error without reinstalling anything.
+`AppLogger` redacts every metadata value; only the event name (a `StaticString`) and the `code` field
+are public in a device syslog, which `idevicesyslog -p AIPedometer` over USB shows without reinstalling.
+An empty Tip Jar price ("Loading price…", then "Product unavailable") on a build installed outside Xcode
+means StoreKit returned no product: check the Paid Apps Agreement, banking and tax, then the product's
+price and localizations, before touching code (Apple TN3186). A ⌘R run serves products from
+`StoreKit/TipJar.storekit`, never from App Store Connect.
+
+The app had a RevenueCat Premium subscription through 1.0.7; from 1.0.8 it is a one-time paid download with every
+feature included (2026-09-23). Every AI surface is gated only by Apple Intelligence availability. The
+lessons that came from the subscription (tri-state access, suspended smart reminders, Ask to Buy markers)
+are in Git history and `memory/2026-09-2x.md`; they no longer apply to the source.
 
 Only the iOS app owns HealthKit. Widgets read `SharedStepData` from app-group
 UserDefaults; the watch receives snapshots through WatchConnectivity and has
@@ -121,25 +116,8 @@ generation. Feature services own insights, coaching, plans and smart notificatio
 Health context and AI inference stay on-device. Heart rate is the latest current-day
 sample for display; it is not a training-zone or medical recommendation.
 
-`PremiumAccessStore` owns RevenueCat offerings and access. Missing configuration,
-unrelated entitlements, expired products and failed Trusted Entitlements verification
-cannot unlock AI. Informational SDK verification still requires the app to reject
-`.failed`. UI tests use explicit premium flags; `isUITesting` alone grants no access.
-
-Access is a tri-state, and `canAccessAIFeatures == false` also means "cannot tell":
-`isPremiumActive` is false whenever `customerInfo` is nil, and `isResolvingAccess`
-deliberately returns false for `.unavailable`, which any cold-launch fetch or
-verification failure sets. So a paying subscriber launching offline reads both as
-false. Check `hasAuthoritativeAccessState` before treating a false reading as
-revocation. Two separate attempts to auto-cancel premium smart reminders on such a
-reading would each have cancelled reminders and erased `smartRemindersEnabled` for
-paying users; both were reverted. The shipped design suspends delivery through
-`smartRemindersSuspendedByAccess` and resumes it, and only explicit user action clears
-the saved preference — see `SettingsSideEffects.smartReminderAccessAction` and the
-enforcement in `AIPedometerApp`.
-
-Expedition Mode has both a premium UI gate and a controller check of persisted
-preferences before changing live-metric cadence. Keep the controller check.
+Expedition Mode checks persisted preferences in its controller before changing live-metric cadence.
+Keep that check.
 
 GPX imports currently provide a local summary and MapKit preview. They do not
 implement live navigation, offline maps or watch maps. `GPXRouteImporter` owns
@@ -161,13 +139,7 @@ with an injected 1e19 on 2026-09-23). Convert counts and heart rate through `Hea
 `AICoachView` replaces the environment's `openURL` for its whole subtree with the model-link policy,
 which discards anything that is not https. A system URL opened through `@Environment(\.openURL)` in a
 view shown there (the Apple Intelligence Settings button was one) silently does nothing; open system
-URLs with `UIApplication.shared.open`. Sheets presented from that subtree (the Premium paywall)
-inherit the override, and its confirmation alert belongs to the view under the sheet, so `Link`s
-there reset `openURL` to `.systemAction`.
-
-A `.pending` purchase marker (Ask to Buy) only clears on a newer verified purchase. A declined or
-unanswered request never produces one, so `PremiumAccessStore` discards markers older than 48 hours
-at launch (Apple expires the request after 24).
+URLs with `UIApplication.shared.open`. Sheets presented from that subtree inherit the override.
 
 ## Shared storage and performance
 
@@ -233,8 +205,8 @@ until 1.0.6 even though the formatter's comment warned about it.
   service state. Argent reported a boot error in September 2026 while a later
   inventory showed the requested simulator booted. Reconcile state before retrying.
 - Keep project version, compiled version, archive, IPA, uploaded build, TestFlight
-  availability and App Store availability separate. Release authentication and
-  Apple RevenueCat configuration must exist before building the final artifact.
+  availability and App Store availability separate. Release authentication
+  must exist before building the final artifact.
 - AGENTS.md owns agent instructions; CLAUDE.md imports it. A copied global skill
   catalog hid project rules and made triggers stale. Keep references conditional
   and validate the portable contract on a clean clone.

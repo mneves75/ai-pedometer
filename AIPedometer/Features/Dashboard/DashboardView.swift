@@ -53,7 +53,6 @@ struct DashboardView: View {
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
 
     @State private var animateProgress = false
@@ -80,8 +79,6 @@ struct DashboardView: View {
     private struct InsightTrigger: Hashable {
         let activityModeRaw: String
         let aiAvailable: Bool
-        let premiumEnabled: Bool
-        let premiumResolving: Bool
     }
 
     private var activityMode: ActivityTrackingMode {
@@ -141,9 +138,7 @@ struct DashboardView: View {
         .accessibilityIdentifier(A11yID.Dashboard.view)
         .uiTestMarker(
             A11yID.AIAvailability.banner,
-            when: !premiumAccessStore.isResolvingAccess
-                && premiumAccessStore.canAccessAIFeatures
-                && !aiService.availability.isAvailable
+            when: !aiService.availability.isAvailable
         )
         .background(DesignTokens.Colors.surfaceGrouped)
         .navigationBarTitleDisplayMode(.inline)
@@ -169,8 +164,6 @@ struct DashboardView: View {
         .task(id: InsightTrigger(
             activityModeRaw: activityModeRaw,
             aiAvailable: aiService.availability.isAvailable,
-            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
-            premiumResolving: premiumAccessStore.isResolvingAccess
         )) {
             await loadDailyInsight()
         }
@@ -240,22 +233,7 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var aiInsightSection: some View {
-        if premiumAccessStore.isResolvingAccess {
-            PremiumAccessLoadingCard(
-                title: L10n.localized("AI-Powered Insights", comment: "Feature title")
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if !premiumAccessStore.canAccessAIFeatures {
-            PremiumFeatureGateCard(
-                title: L10n.localized("AI-Powered Insights", comment: "Feature title"),
-                message: L10n.localized(
-                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                    comment: "Premium gate copy for AI features"
-                ),
-                accessibilityIdentifier: A11yID.Dashboard.premiumInsightGate
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if aiService.availability.isAvailable {
+        if aiService.availability.isAvailable {
             AIInsightCard(
                 insight: dailyInsight,
                 isLoading: insightService.isGeneratingDailyInsight,
@@ -271,7 +249,6 @@ struct DashboardView: View {
     }
 
     private func loadDailyInsight(forceRefresh: Bool = false) async {
-        guard premiumAccessStore.canAccessAIFeatures else { return }
         guard aiService.availability.isAvailable else { return }
 
         insightError = nil
@@ -621,8 +598,4 @@ struct StatCard: View {
             dataStore: SharedDataStore()
         ))
         .environment(demoModeStore)
-        // DashboardView reads `PremiumAccessStore` from the environment to decide between the
-        // AI insight card and the premium gate. Without it, the preview crashes at runtime
-        // (see implementation-notes.html#finding-dashboard-preview-premium).
-        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }

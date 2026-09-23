@@ -19,8 +19,6 @@ enum LaunchConfiguration {
     private static let skipOnboardingArgument = "-skip-onboarding"
     private static let forceHealthKitSyncOffArgument = "-force-healthkit-sync-off"
     private static let forceHealthKitSyncOnArgument = "-force-healthkit-sync-on"
-    private static let forcePremiumOffArgument = "-force-premium-off"
-    private static let forcePremiumOnArgument = "-force-premium-on"
     private static let forceAIUnavailableArgument = "-force-ai-unavailable"
     private static let forceAIDisabledArgument = "-force-ai-disabled"
     private static let seedUnfinishedWorkoutArgument = "-seed-unfinished-workout"
@@ -28,7 +26,6 @@ enum LaunchConfiguration {
     private static let useProductionGlassArgument = "-use-production-glass"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
     private static let demoDeterministicEnvironmentKey = "DEMO_DETERMINISTIC"
-    private static let premiumEnabledEnvironmentKey = "PREMIUM_ENABLED"
 
     static func isUITesting(
         arguments: [String] = processArguments,
@@ -94,25 +91,6 @@ enum LaunchConfiguration {
         guard allowsOverrides else { return nil }
         if arguments.contains(forceHealthKitSyncOffArgument) { return false }
         if arguments.contains(forceHealthKitSyncOnArgument) { return true }
-        return nil
-    }
-
-    static func forcedPremiumEnabled(
-        arguments: [String] = processArguments,
-        environment: [String: String] = processEnvironment,
-        allowsOverrides: Bool = isOverridable
-    ) -> Bool? {
-        guard allowsOverrides else { return nil }
-
-        if arguments.contains(forcePremiumOffArgument) { return false }
-        if arguments.contains(forcePremiumOnArgument) { return true }
-
-        if let value = environment[premiumEnabledEnvironmentKey] {
-            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if normalized == "0" || normalized == "false" { return false }
-            if normalized == "1" || normalized == "true" { return true }
-        }
-
         return nil
     }
 
@@ -188,9 +166,7 @@ enum LaunchConfiguration {
     /// DEBUG builds always allow overrides for engineering convenience. Release builds
     /// never honor them: launch arguments and environment variables are attacker-supplied
     /// input (anyone with Developer Mode can launch the app via `devicectl` with arbitrary
-    /// arguments), so a Release binary that trusted `-ui-testing`/`XCTestConfigurationFilePath`
-    /// would let `-force-premium-on` unlock premium without a purchase. All test harnesses
-    /// (UI tests, e2e script, CI) run Debug builds, so nothing legitimate needs Release overrides.
+    /// arguments). All test harnesses (UI tests, e2e script, CI) run Debug builds.
     static var isOverridable: Bool {
         #if DEBUG
         return true

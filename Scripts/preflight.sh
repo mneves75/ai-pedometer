@@ -105,16 +105,14 @@ fi
 if [[ -f Config/Local.xcconfig ]]; then
   pass "Config/Local.xcconfig presente"
 else
-  warn "Config/Local.xcconfig ausente (nao versionado). Builds assinados e RevenueCat vao falhar; copie de Config/Local.xcconfig.example."
+  warn "Config/Local.xcconfig ausente (nao versionado). Builds assinados vao falhar; copie de Config/Local.xcconfig.example."
 fi
 
 # The project is generated, not tracked. A fresh clone (or CI before its generate step) has no
-# pbxproj yet; that is an expected state, not a broken host. Gates that read it are skipped.
-PROJECT_GENERATED=1
+# pbxproj yet; that is an expected state, not a broken host.
 if [[ -f AIPedometer.xcodeproj/project.pbxproj ]]; then
   pass "AIPedometer.xcodeproj gerado"
 else
-  PROJECT_GENERATED=0
   warn "AIPedometer.xcodeproj ausente (gerado, nao versionado). Rode: xcodegen generate"
 fi
 
@@ -146,13 +144,6 @@ gate "check-agents-sync.sh" /bin/bash Scripts/check-agents-sync.sh
 gate "verify-device-identifiers.sh" /bin/bash Scripts/verify-device-identifiers.sh
 gate "verify-entitlements.sh" /bin/bash Scripts/verify-entitlements.sh
 gate "verify-swift-build-settings.sh" /bin/bash Scripts/verify-swift-build-settings.sh
-# Needs the generated pbxproj to cross-check the package reference.
-if [[ "${PROJECT_GENERATED}" -eq 1 ]]; then
-  gate "verify-revenuecat-lock.sh" /bin/bash Scripts/verify-revenuecat-lock.sh
-else
-  say "  ----  verify-revenuecat-lock.sh pulado (projeto nao gerado)"
-fi
-
 if [[ "${WITH_TESTS}" -eq 1 ]]; then
   say ""
   say "== Suite de scripts =="

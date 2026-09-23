@@ -79,30 +79,30 @@ struct BadgeServiceTests {
         #expect(service.earnedBadgesCache.contains { $0.badgeType == .steps5K })
     }
 
-    @Test("Badge celebration is gated by AI coaching permission")
-    func celebrationGatedByAICoachingPermission() async {
+    @Test("Badge celebration runs when AI is available without a purchase")
+    func celebrationRunsWhenAIAvailableWithoutPurchase() async {
         let persistence = PersistenceController(inMemory: true)
         let service = BadgeService(persistence: persistence)
         let mockAI = MockFoundationModelsService()
         mockAI.availability = .available
-        service.configure(with: mockAI, canGenerateAICoaching: { false })
+        mockAI.respondResult = .success(Self.celebration(message: "Nice work"))
+        service.configure(with: mockAI)
 
         let unlocked = service.unlock(.steps5K)
         #expect(unlocked == true)
         await service.pendingCelebrationTask?.value
 
-        #expect(service.celebratingBadge == nil)
-        #expect(service.pendingCelebration == nil)
-        #expect(mockAI.respondCallCount == 0)
+        #expect(service.pendingCelebration != nil)
+        #expect(mockAI.respondCallCount == 1)
     }
 
-    @Test("Badge celebration is skipped when AI is unavailable even if coaching is allowed")
+    @Test("Badge celebration is skipped when AI is unavailable")
     func celebrationSkippedWhenAIUnavailable() async {
         let persistence = PersistenceController(inMemory: true)
         let service = BadgeService(persistence: persistence)
         let mockAI = MockFoundationModelsService()
         mockAI.availability = .unavailable(reason: .modelNotReady)
-        service.configure(with: mockAI, canGenerateAICoaching: { true })
+        service.configure(with: mockAI)
 
         let unlocked = service.unlock(.streak3)
         #expect(unlocked == true)
@@ -120,7 +120,7 @@ struct BadgeServiceTests {
         let mockAI = MockFoundationModelsService()
         mockAI.availability = .available
         mockAI.respondResult = .failure(.generationFailed(underlying: "celebration unavailable"))
-        service.configure(with: mockAI, canGenerateAICoaching: { true })
+        service.configure(with: mockAI)
 
         let unlocked = service.unlock(.streak7)
         #expect(unlocked == true)
@@ -144,7 +144,7 @@ struct BadgeServiceTests {
             await releaseModel.wait()
         }
         mockAI.respondResult = .success(Self.celebration(message: "Late response"))
-        service.configure(with: mockAI, canGenerateAICoaching: { true })
+        service.configure(with: mockAI)
 
         #expect(service.unlock(.streak7))
         let generationTask = try #require(service.pendingCelebrationTask)
@@ -178,7 +178,7 @@ struct BadgeServiceTests {
             }
         }
         mockAI.respondResult = .success(Self.celebration(message: "Current response"))
-        service.configure(with: mockAI, canGenerateAICoaching: { true })
+        service.configure(with: mockAI)
 
         #expect(service.unlock(.streak7))
         let replacedTask = try #require(service.pendingCelebrationTask)

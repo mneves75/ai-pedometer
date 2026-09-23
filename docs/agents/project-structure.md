@@ -11,8 +11,8 @@
 ## Project Configuration
 - `project.yml` is the XcodeGen source of truth for the Xcode project.
 - `Config/` holds xcconfig build settings: the compilation mode plus the gitignored
-  `Local.xcconfig`, which carries the local `DEVELOPMENT_TEAM`, the RevenueCat key,
-  entitlement and offering identifiers, and the App Store ID (see `Local.xcconfig.example`).
+  `Local.xcconfig`, which carries the local `DEVELOPMENT_TEAM` and the App Store ID
+  (see `Local.xcconfig.example`).
   Warnings-as-errors and strict concurrency live in `project.yml`.
 - Minimum targets: iOS 26.0, watchOS 26.0 (see `project.yml`).
 - The iOS app owns HealthKit. Widgets read only the bounded `SharedStepData` snapshot from app-group

@@ -10,7 +10,6 @@ final class BadgeService {
     private let fetchEarnedBadges: @MainActor (ModelContext) throws -> [EarnedBadge]
     private var foundationModelsService: (any FoundationModelsServiceProtocol)?
     @ObservationIgnored private var didLoadEarnedBadges = false
-    @ObservationIgnored private var canGenerateAICoaching: @MainActor @Sendable () -> Bool = { false }
 
     private(set) var earnedBadgesCache: [EarnedBadge] = []
     private(set) var pendingCelebration: AchievementCelebration?
@@ -31,15 +30,8 @@ final class BadgeService {
         refreshEarnedBadges()
     }
 
-    /// Wire up the AI service and the premium gate. The badge celebration generator only runs
-    /// when both AI availability and `canGenerateAICoaching()` are true, keeping AI coaching
-    /// behind the same fail-closed premium boundary as the rest of the AI surfaces.
-    func configure(
-        with aiService: any FoundationModelsServiceProtocol,
-        canGenerateAICoaching: @escaping @MainActor @Sendable () -> Bool = { false }
-    ) {
+    func configure(with aiService: any FoundationModelsServiceProtocol) {
         self.foundationModelsService = aiService
-        self.canGenerateAICoaching = canGenerateAICoaching
     }
 
     @discardableResult
@@ -149,7 +141,6 @@ final class BadgeService {
         }
 
         guard celebrationGeneration == generation, !Task.isCancelled else { return }
-        guard canGenerateAICoaching() else { return }
         guard let aiService = foundationModelsService,
               aiService.availability.isAvailable else { return }
 

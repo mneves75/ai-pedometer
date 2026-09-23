@@ -246,8 +246,7 @@ extension MainTabView {
                 foundationModelsService: fmService,
                 healthKitService: healthKitService,
                 goalService: goalService,
-                modelContext: modelContext,
-                generationAuthorization: { .authorized }
+                modelContext: modelContext
             ))
             .environment(WorkoutSessionController(
                 modelContext: modelContext,
@@ -269,7 +268,6 @@ extension MainTabView {
                 goalService: goalService
             ))
             .environment(TipJarStore())
-            .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
             .modelContainer(persistence.container)
     }
 }

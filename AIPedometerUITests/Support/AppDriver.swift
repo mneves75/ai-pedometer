@@ -39,7 +39,6 @@ final class AppDriver {
     func launch(
         skipOnboarding: Bool = true,
         forcedHealthKitSyncEnabled: Bool? = nil,
-        forcedPremiumEnabled: Bool? = nil,
         forceAIUnavailable: Bool = false,
         seedUnfinishedWorkout: Bool = false,
         forceGoalSaveFailure: Bool = false,
@@ -55,9 +54,6 @@ final class AppDriver {
         }
         if let forcedHealthKitSyncEnabled {
             app.launchArguments.append(forcedHealthKitSyncEnabled ? "-force-healthkit-sync-on" : "-force-healthkit-sync-off")
-        }
-        if let forcedPremiumEnabled {
-            app.launchArguments.append(forcedPremiumEnabled ? "-force-premium-on" : "-force-premium-off")
         }
         if forceAIUnavailable {
             app.launchArguments.append("-force-ai-unavailable")

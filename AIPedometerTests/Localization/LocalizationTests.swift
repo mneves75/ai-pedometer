@@ -192,8 +192,7 @@ struct LocalizationTests {
             "About",
             "Version",
             "Build",
-            "App Version",
-            "Legal"
+            "App Version"
         ]
 
         for key in criticalKeys {

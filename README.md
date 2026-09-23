@@ -9,16 +9,15 @@
 
 ## Overview
 
-AIPedometer is a modern step tracking application featuring **on-device AI coaching** powered by Apple Foundation Models. AI inference and its activity/health context stay on the device and are not sent to a cloud AI service. App Store and RevenueCat process the purchase and entitlement data needed for subscriptions.
+AIPedometer is a modern step tracking application featuring **on-device AI coaching** powered by Apple Foundation Models. AI inference and its activity/health context stay on the device and are not sent to a cloud AI service. It is a one-time R$ 1,99 purchase with no subscription: every feature is included, and the App Store (Apple) processes the purchase and the optional tip.
 
 ### Key Features
 
 - **Step Tracking** — HealthKit integration with real-time pedometer, Apple Watch merging, flights climbed, and latest heart-rate display
 - **AI Insights** — On-device AI analysis using Apple Foundation Models
-- **Premium AI** — RevenueCat-backed subscription gating for AI insights, coach, reminders, history trends, and workout planning
 - **AI Coach** — Personalized coaching with local Markdown rendering and resilient fallback behavior
 - **AI Training Plans** — AI-generated workout programs adapted to your fitness level, with deterministic localized fallbacks when the model response is invalid
-- **Workouts** — Live workout tracking with history, plans, Premium Expedition Mode, and GPX route import for long walks or hikes
+- **Workouts** — Live workout tracking with history, plans, Expedition Mode, and GPX route import for long walks or hikes
 - **watchOS App** — Companion app that mirrors the phone's daily step snapshot
 - **Widgets** — Lock screen and Home Screen widgets
 - **Accessibility** — Wheelchair mode for push tracking, VoiceOver support
@@ -46,18 +45,14 @@ xcodegen generate
 open AIPedometer.xcodeproj
 ```
 
-Local signing and premium configuration (copy once, then edit the existing file):
+Local signing configuration (copy once, then edit the existing file):
 
 ```bash
 test -f Config/Local.xcconfig || cp Config/Local.xcconfig.example Config/Local.xcconfig
 # set DEVELOPMENT_TEAM
-# set REVENUECAT_API_KEY
-# optionally override REVENUECAT_ENTITLEMENT_ID and REVENUECAT_OFFERING_ID
 ```
 
-If `REVENUECAT_API_KEY` is not configured, premium surfaces fail closed and the app shows an unavailable subscriptions state instead of exposing gated AI actions. RevenueCat Trusted Entitlements verification is enabled in informational mode, and failed verification is treated as untrusted data that does not unlock Premium AI.
-
-Release/TestFlight requires the Apple RevenueCat configuration; Test Store keys are development-only. Follow the [payment runbook](docs/revenuecat/apple-payments-setup.md) for actual sandbox purchase validation.
+The only in-app purchase is the optional Tip Jar (StoreKit 2, `StoreKit/TipJar.storekit` locally); it unlocks nothing. See [StoreKit](docs/appstore/howto-storekit.md).
 
 Agent setup and verification commands live in [AGENTS.md](AGENTS.md) and the [testing guide](docs/agents/testing.md). CLAUDE.md imports the same contract. Native builds use Xcode/SPM; optional JavaScript development tooling uses the pinned pnpm version and `pnpm install --frozen-lockfile`.
 
@@ -129,10 +124,10 @@ asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
 
-The App Store listing (`store/app-store/`) validates offline, plus URL and subscription checks:
+The App Store listing (`store/app-store/`) validates offline, plus URL checks:
 
 ```bash
-asc metadata validate --dir store/app-store --check-urls --subscription-app --output table
+asc metadata validate --dir store/app-store --check-urls --output table
 ```
 
 Notes for physical-device installs:
@@ -181,8 +176,6 @@ Localization lookup is centralized through `L10n.localized(...)` with explicit l
 | `DESIGN_SYSTEM.md` / `FRONTEND_GUIDELINES.md` | UI tokens and UI engineering conventions |
 | `docs/appstore/` | Publicação App Store (playbook, metadata e StoreKit) |
 | [store/app-store/](store/app-store/README.md) | App Store listing (`asc metadata`): textos, links de privacidade e suporte, preço R$ 1,99 |
-| `docs/revenuecat/` | Guia completo de configuração, testes e operação do premium com RevenueCat |
-| [docs/revenuecat/apple-payments-setup.md](docs/revenuecat/apple-payments-setup.md) | Runbook de configuração Apple payments + RevenueCat para assinaturas premium |
 
 ## Contributing
 
@@ -190,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.7 (64), listed as a R$ 1,99 paid download (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an active Paid Apps Agreement, the privacy-policy fix on conhecendotudo.com.br, the listing and price applied in App Store Connect, subscriptions that pass App Review, and physical-device acceptance of HealthKit, motion, notifications and purchases.
+**Current source**: 1.0.7 (64), listed as a R$ 1,99 paid download (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an active Paid Apps Agreement, the privacy-policy fix on conhecendotudo.com.br, the listing and price applied in App Store Connect, and physical-device acceptance of HealthKit, motion, notifications and the Tip Jar.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

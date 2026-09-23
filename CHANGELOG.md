@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-09-23
+
+AIPedometer becomes a one-time R$ 1,99 purchase with no subscription (owner decision, following
+LUME and CaptureVault). Everything Premium used to unlock is included.
+
+### Changed
+
+- AI insights, AI Coach, training plans, smart reminders, badge celebrations, GPX route import and
+  Expedition Mode need no purchase inside the app. AI features are still gated only by Apple
+  Intelligence availability on the device.
+- A smart reminder that 1.0.7 or earlier had suspended because a subscription lapsed comes back once,
+  when the on-device model can generate it; the saved preference is untouched.
+- About: the Premium card is gone; the optional Tip Jar stays, unlocks nothing, and its copy no longer
+  mentions recurring support.
+- App Store listing (`store/app-store/`): the description and promotional text say "One-time purchase,
+  no subscription" and drop the subscription terms and the Terms of Use link a subscription needed; the
+  App Privacy label becomes "Data Not Collected" (`store/app-store/privacy.json`).
+
+### Removed
+
+- The RevenueCat and RevenueCatUI SDKs, `PremiumAccessStore`, the paywall and every Premium gate, the
+  `-force-premium-on/off` and `PREMIUM_ENABLED` launch overrides, the subscription products in
+  `StoreKit/TipJar.storekit`, the RevenueCat keys in `Info.plist` and `Local.xcconfig.example`, the
+  `verify-revenuecat-lock.sh` and `check-revenuecat-staleness.sh` gates with their tests and CI
+  workflow, and `docs/revenuecat/`. The app now sends no data to the developer or to third parties.
+
+### Store and site
+
+- The AIPedometer privacy page on conhecendotudo.com.br describes the new app: nothing collected, Apple as
+  the only recipient (the app purchase and the tip), the Notifications permission, and the paired Apple
+  Watch receiving steps, goal, streak and weekly steps through WatchConnectivity.
+
 ## [1.0.7] - 2026-09-23
 
 App Store listing at R$ 1,99, following the studio's other apps.

@@ -5,7 +5,6 @@ import UIKit
 struct AboutView: View {
     @Environment(\.requestReview) private var requestReview
     @Environment(TipJarStore.self) private var tipJarStore
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     private let appVersion: AppVersion
     @State private var tipJarAlert: TipJarAlert?
     
@@ -17,7 +16,6 @@ struct AboutView: View {
         ScrollView {
             VStack(spacing: DesignTokens.Spacing.xl) {
                 heroSection
-                premiumSection
                 supportSection
                 featuresSection
                 linksSection
@@ -32,7 +30,6 @@ struct AboutView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await tipJarStore.loadProduct()
-            await premiumAccessStore.prepare()
         }
         .onChange(of: tipJarStore.purchaseState) { _, newValue in
             switch newValue {
@@ -169,10 +166,6 @@ struct AboutView: View {
 
     // MARK: - Support
 
-    private var premiumSection: some View {
-        PremiumSubscriptionCard()
-    }
-
     private var supportSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack(spacing: DesignTokens.Spacing.sm) {
@@ -186,7 +179,7 @@ struct AboutView: View {
                     .font(DesignTokens.Typography.headline)
             }
 
-            Text(L10n.localized("Recurring support keeps AI Pedometer improving, and the coffee tip stays optional.", comment: "Tip jar description in About"))
+            Text(L10n.localized("One-time tip to support ongoing development.", comment: "Tip jar description in About"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
 
@@ -428,5 +421,4 @@ private struct LinkRow: View {
         AboutView()
     }
     .environment(TipJarStore())
-    .environment(PremiumAccessStore(forcedPremiumEnabled: false, isTesting: true))
 }

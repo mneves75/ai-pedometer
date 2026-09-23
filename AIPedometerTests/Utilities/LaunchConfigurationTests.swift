@@ -37,12 +37,6 @@ struct LaunchConfigurationTests {
     }
 
     @Test
-    func detectsForcedPremiumFlag() {
-        let args = ["-force-premium-on"]
-        #expect(LaunchConfiguration.forcedPremiumEnabled(arguments: args, environment: [:]) == true)
-    }
-
-    @Test
     func detectsForcedAIUnavailableOnlyInUITesting() {
         let arguments = ["-ui-testing", "-force-ai-unavailable"]
 
@@ -99,19 +93,12 @@ struct LaunchConfigurationTests {
     }
 
     @Test
-    func detectsForcedPremiumEnvironmentFlag() {
-        let environment = ["PREMIUM_ENABLED": "false"]
-        #expect(LaunchConfiguration.forcedPremiumEnabled(arguments: [], environment: environment) == false)
-    }
-
-    @Test
     func nonOverridableModeIgnoresTestLaunchInputs() {
         let arguments = [
             "-ui-testing",
             "-reset-state",
             "-skip-onboarding",
             "-force-healthkit-sync-off",
-            "-force-premium-on",
             "-force-ai-unavailable",
             "-force-ai-disabled",
             "-seed-unfinished-workout",
@@ -122,7 +109,6 @@ struct LaunchConfigurationTests {
             "UI_TESTING": "1",
             "XCTestConfigurationFilePath": "/tmp/test.xctestconfiguration",
             "DEMO_DETERMINISTIC": "1",
-            "PREMIUM_ENABLED": "true"
         ]
 
         #expect(!LaunchConfiguration.isUITesting(
@@ -149,11 +135,6 @@ struct LaunchConfigurationTests {
         ))
         #expect(LaunchConfiguration.forcedHealthKitSyncEnabled(
             arguments: arguments,
-            allowsOverrides: false
-        ) == nil)
-        #expect(LaunchConfiguration.forcedPremiumEnabled(
-            arguments: arguments,
-            environment: environment,
             allowsOverrides: false
         ) == nil)
         #expect(!LaunchConfiguration.isAIUnavailableForced(

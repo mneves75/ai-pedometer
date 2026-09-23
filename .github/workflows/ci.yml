@@ -81,7 +81,6 @@ jobs:
           xcodegen generate
           bash Scripts/verify-entitlements.sh
           bash Scripts/verify-swift-build-settings.sh
-          bash Scripts/verify-revenuecat-lock.sh
 
       - name: Compile watchOS arm64_32
         run: |

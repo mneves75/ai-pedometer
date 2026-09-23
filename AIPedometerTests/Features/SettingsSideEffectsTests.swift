@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import AIPedometer
@@ -11,9 +12,6 @@ struct SettingsSideEffectsTests {
         var refreshFinished = false
         let refreshStarted = SettingsAsyncTestLatch()
         let releaseRefresh = SettingsAsyncTestLatch()
-        // Wait on an explicit completion signal rather than a bare `Task.yield()`. A single yield only
-        // guarantees this task suspends once, not that the released refresh task runs to completion, so
-        // the old form failed under full-suite load while passing in isolation.
         let refreshCompleted = SettingsAsyncTestLatch()
 
         let didSave = SettingsSideEffects.persistGoalAndScheduleRefresh(
@@ -33,7 +31,6 @@ struct SettingsSideEffectsTests {
         #expect(didSave)
         #expect(persistedGoal == 12_000)
         await refreshStarted.wait()
-        // The contract under test: persistence returned before the refresh finished.
         #expect(refreshFinished == false)
         releaseRefresh.signal()
         await refreshCompleted.wait()
@@ -92,175 +89,51 @@ struct SettingsSideEffectsTests {
         #expect(refreshedAuthorization == 1)
     }
 
-    @Test("Smart reminders are disabled when premium is unavailable")
-    func smartRemindersDisableWhenPremiumUnavailable() {
-        let decision = SettingsSideEffects.smartReminderAccessDecision(
-            isEnabled: true,
-            premiumEnabled: false,
-            aiAvailability: .available,
-            hasAuthoritativeAccess: true
+    @Test("Available AI schedules a smart reminder without a purchase")
+    func availableAISchedulesReminderWithoutPurchase() async {
+        var scheduled = false
+        let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
+            isCurrent: { true },
+            isEnabled: { true },
+            aiAvailability: { .available },
+            ensureAuthorization: { true },
+            scheduleReminder: { scheduled = true; return true },
+            cancelReminders: { scheduled = false }
         )
-
-        #expect(decision == .disablePremium)
-    }
-
-    @Test("Smart reminders are disabled when AI is unavailable")
-    func smartRemindersDisableWhenAIUnavailable() {
-        let decision = SettingsSideEffects.smartReminderAccessDecision(
+        #expect(result == .scheduled)
+        #expect(scheduled)
+        #expect(SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: true,
-            premiumEnabled: true,
-            aiAvailability: .unavailable(reason: .appleIntelligenceNotEnabled),
-            hasAuthoritativeAccess: true
-        )
-
-        #expect(decision == .disableUnavailableAI(.appleIntelligenceNotEnabled))
-    }
-
-    @Test("Smart reminders stay enabled when access is valid")
-    func smartRemindersStayEnabledWhenAccessValid() {
-        let decision = SettingsSideEffects.smartReminderAccessDecision(
-            isEnabled: true,
-            premiumEnabled: true,
-            aiAvailability: .available,
-            hasAuthoritativeAccess: true
-        )
-
-        #expect(decision == .keep)
-    }
-
-    @Test("Background enforcement never acts while entitlement state is unknown")
-    func accessActionDefersWhileEntitlementUnknown() {
-        // The defect that broke two earlier attempts: `canAccessAIFeatures == false` is value-identical
-        // for "not entitled" and "could not determine". An offline launch reaches `.unavailable` with
-        // no customer info, so acting here cancels a paying subscriber's reminders.
-        let action = SettingsSideEffects.smartReminderAccessAction(
-            isEnabled: true,
-            isSuspended: false,
-            hasAuthoritativeAccess: false,
-            premiumEnabled: false,
             aiAvailability: .available
-        )
-
-        #expect(action == .none)
+        ) == .keep)
     }
 
-    @Test("Background enforcement suspends delivery once revocation is authoritative")
-    func accessActionSuspendsOnAuthoritativeRevocation() {
-        let action = SettingsSideEffects.smartReminderAccessAction(
-            isEnabled: true,
-            isSuspended: false,
-            hasAuthoritativeAccess: true,
-            premiumEnabled: false,
-            aiAvailability: .available
+    @Test("Unavailable AI blocks smart reminder scheduling")
+    func unavailableAIBlocksReminder() async {
+        var scheduleCalls = 0
+        let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
+            isCurrent: { true },
+            isEnabled: { true },
+            aiAvailability: { .unavailable(reason: .modelNotReady) },
+            ensureAuthorization: { true },
+            scheduleReminder: { scheduleCalls += 1; return true },
+            cancelReminders: {}
         )
-
-        #expect(action == .suspend)
-    }
-
-    @Test("Background enforcement does not suspend twice")
-    func accessActionDoesNotSuspendTwice() {
-        let action = SettingsSideEffects.smartReminderAccessAction(
+        #expect(result == .stale)
+        #expect(scheduleCalls == 0)
+        #expect(SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: true,
-            isSuspended: true,
-            hasAuthoritativeAccess: true,
-            premiumEnabled: false,
-            aiAvailability: .available
-        )
-
-        #expect(action == .none)
-    }
-
-    @Test("Background enforcement resumes delivery when premium returns")
-    func accessActionResumesWhenPremiumReturns() {
-        let action = SettingsSideEffects.smartReminderAccessAction(
-            isEnabled: true,
-            isSuspended: true,
-            hasAuthoritativeAccess: true,
-            premiumEnabled: true,
-            aiAvailability: .available
-        )
-
-        #expect(action == .resume)
-    }
-
-    @Test("Resume waits for on-device AI because rescheduling regenerates content")
-    func accessActionWaitsForAIBeforeResuming() {
-        let action = SettingsSideEffects.smartReminderAccessAction(
-            isEnabled: true,
-            isSuspended: true,
-            hasAuthoritativeAccess: true,
-            premiumEnabled: true,
             aiAvailability: .unavailable(reason: .modelNotReady)
-        )
-
-        #expect(action == .none)
-    }
-
-    @Test("Transient AI unavailability never suspends an already-scheduled reminder")
-    func accessActionIgnoresAIAvailabilityWhenEntitled() {
-        // The reminder carries pre-generated content, so a model that is still downloading is not a
-        // reason to stop delivering it.
-        let action = SettingsSideEffects.smartReminderAccessAction(
-            isEnabled: true,
-            isSuspended: false,
-            hasAuthoritativeAccess: true,
-            premiumEnabled: true,
-            aiAvailability: .unavailable(reason: .modelNotReady)
-        )
-
-        #expect(action == .none)
-    }
-
-    @Test("Background enforcement ignores reminders the user turned off")
-    func accessActionIgnoresDisabledReminders() {
-        let action = SettingsSideEffects.smartReminderAccessAction(
+        ) == .disableUnavailableAI(.modelNotReady))
+        #expect(SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: false,
-            isSuspended: true,
-            hasAuthoritativeAccess: true,
-            premiumEnabled: true,
-            aiAvailability: .available
-        )
-
-        #expect(action == .none)
+            aiAvailability: .unavailable(reason: .modelNotReady)
+        ) == .keep)
     }
 
-    @Test("Settings does not disable reminders while entitlement state is unknown")
-    func smartRemindersSurviveUnresolvedPremiumAccess() {
-        // Regression: `premiumEnabled` is false both when RevenueCat is still resolving and when the
-        // fetch failed (offline launch). Treating either as revocation cancels a paying user's reminders
-        // and, before this guard, erased the setting the moment they opened Settings.
-        let decision = SettingsSideEffects.smartReminderAccessDecision(
-            isEnabled: true,
-            premiumEnabled: false,
-            aiAvailability: .available,
-            hasAuthoritativeAccess: false
-        )
-
-        #expect(decision == .keep)
-    }
-
-    @Test("Settings still disables reminders once revocation is authoritative")
-    func smartRemindersDisableOnAuthoritativeRevocation() {
-        let decision = SettingsSideEffects.smartReminderAccessDecision(
-            isEnabled: true,
-            premiumEnabled: false,
-            aiAvailability: .available,
-            hasAuthoritativeAccess: true
-        )
-
-        #expect(decision == .disablePremium)
-    }
-
-
-    @Test(
-        "Smart reminder authorization cannot schedule after eligibility revocation",
-        arguments: SmartReminderRevocation.allCases
-    )
-    func smartReminderAuthorizationCannotScheduleAfterRevocation(
-        _ revocation: SmartReminderRevocation
-    ) async {
+    @Test("Smart reminder authorization cannot schedule after preference or AI eligibility changes", arguments: [false, true])
+    func smartReminderAuthorizationCannotScheduleAfterEligibilityChanges(aiBecomesUnavailable: Bool) async {
         var isEnabled = true
-        var premiumEnabled = true
         var aiAvailability = AIModelAvailability.available
         var scheduleCallCount = 0
         let authorizationStarted = SettingsAsyncTestLatch()
@@ -270,7 +143,6 @@ struct SettingsSideEffectsTests {
             await SettingsSideEffects.scheduleSmartReminderIfCurrent(
                 isCurrent: { true },
                 isEnabled: { isEnabled },
-                premiumEnabled: { premiumEnabled },
                 aiAvailability: { aiAvailability },
                 ensureAuthorization: {
                     authorizationStarted.signal()
@@ -286,209 +158,39 @@ struct SettingsSideEffectsTests {
         }
 
         await authorizationStarted.wait()
-        switch revocation {
-        case .toggle:
-            isEnabled = false
-        case .premium:
-            premiumEnabled = false
-        case .ai:
+        if aiBecomesUnavailable {
             aiAvailability = .unavailable(reason: .appleIntelligenceNotEnabled)
+        } else {
+            isEnabled = false
         }
         resumeAuthorization.signal()
 
-        let result = await update.value
-
-        #expect(result == .stale)
+        #expect(await update.value == .stale)
         #expect(scheduleCallCount == 0)
     }
 
-    // Settings runs recovery from three independent `.task(id:)` modifiers, so several resumes can be in
-    // flight at once, and all of them add the same request identifier. These tests drive the completions
-    // out of order with explicit latches.
-
-    @Test("A stale resume completion never cancels the reminder a newer resume scheduled")
-    func staleResumeDefersToNewerSchedulingOwner() async {
-        var generation = 1
-        var pendingRequests: Set<String> = []
-        let firstScheduleStarted = SettingsAsyncTestLatch()
-        let releaseFirstSchedule = SettingsAsyncTestLatch()
-
-        let first = Task {
-            await SettingsSideEffects.resumeSuspendedSmartReminder(
-                isCurrent: { generation == 1 },
-                newestOwnerSchedules: { true },
-                isStillWanted: { true },
-                scheduleReminder: {
-                    firstScheduleStarted.signal()
-                    await releaseFirstSchedule.wait()
-                    pendingRequests.insert("reminder")
-                    return true
-                },
-                cancelReminders: { pendingRequests.removeAll() },
-                newestOwnerFinished: {}
-            )
-        }
-        await firstScheduleStarted.wait()
-
-        generation = 2
-        let second = await SettingsSideEffects.resumeSuspendedSmartReminder(
-            isCurrent: { generation == 2 },
-            newestOwnerSchedules: { true },
-            isStillWanted: { true },
-            scheduleReminder: {
-                pendingRequests.insert("reminder")
-                return true
-            },
-            cancelReminders: { pendingRequests.removeAll() },
-            newestOwnerFinished: {}
-        )
-        #expect(second == .resumed)
-
-        releaseFirstSchedule.signal()
-        let firstResult = await first.value
-
-        #expect(firstResult == .deferredToNewerOwner)
-        #expect(pendingRequests == ["reminder"])
+    @Test(
+        "A reminder the old subscription suspended is resumed once AI can generate it, or cleared if turned off",
+        arguments: [
+            (false, true, AIModelAvailability.available, LegacySmartReminderAction.none),
+            (true, false, AIModelAvailability.available, LegacySmartReminderAction.clear),
+            (true, true, AIModelAvailability.available, LegacySmartReminderAction.resume),
+            (true, true, AIModelAvailability.checking, LegacySmartReminderAction.none),
+            (true, true, AIModelAvailability.unavailable(reason: .modelNotReady), LegacySmartReminderAction.none),
+        ]
+    )
+    func legacySuspendedReminderAction(
+        isSuspended: Bool,
+        isEnabled: Bool,
+        availability: AIModelAvailability,
+        expected: LegacySmartReminderAction
+    ) {
+        #expect(SettingsSideEffects.legacySmartReminderAction(
+            isSuspended: isSuspended,
+            isEnabled: isEnabled,
+            aiAvailability: availability
+        ) == expected)
     }
-
-    @Test("A stale resume completion still cancels after a newer owner suspended delivery")
-    func staleResumeCancelsAfterNewerCancellingOwner() async {
-        var generation = 1
-        var newestOwnerSchedules = true
-        var pendingRequests: Set<String> = []
-        let scheduleStarted = SettingsAsyncTestLatch()
-        let releaseSchedule = SettingsAsyncTestLatch()
-
-        let resume = Task {
-            await SettingsSideEffects.resumeSuspendedSmartReminder(
-                isCurrent: { generation == 1 },
-                newestOwnerSchedules: { newestOwnerSchedules },
-                isStillWanted: { true },
-                scheduleReminder: {
-                    scheduleStarted.signal()
-                    await releaseSchedule.wait()
-                    pendingRequests.insert("reminder")
-                    return true
-                },
-                cancelReminders: { pendingRequests.removeAll() },
-                newestOwnerFinished: {}
-            )
-        }
-        await scheduleStarted.wait()
-
-        // A newer suspension cancels synchronously, before the in-flight add lands.
-        generation = 2
-        newestOwnerSchedules = false
-        pendingRequests.removeAll()
-
-        releaseSchedule.signal()
-        let result = await resume.value
-
-        #expect(result == .cancelled)
-        #expect(pendingRequests.isEmpty)
-    }
-
-    @Test("A stale resume finishing after the newest attempt failed cancels instead of deferring")
-    func staleResumeAfterNewestFailureCancels() async {
-        var generation = 1
-        var newestOwnerSchedules = true
-        var pendingRequests: Set<String> = []
-        let firstStarted = SettingsAsyncTestLatch()
-        let releaseFirst = SettingsAsyncTestLatch()
-
-        let first = Task {
-            await SettingsSideEffects.resumeSuspendedSmartReminder(
-                isCurrent: { generation == 1 },
-                newestOwnerSchedules: { newestOwnerSchedules },
-                isStillWanted: { true },
-                scheduleReminder: {
-                    firstStarted.signal()
-                    await releaseFirst.wait()
-                    pendingRequests.insert("reminder")
-                    return true
-                },
-                cancelReminders: { pendingRequests.removeAll() },
-                newestOwnerFinished: { newestOwnerSchedules = false }
-            )
-        }
-        await firstStarted.wait()
-
-        // The newer, current attempt fails before the stale one lands its add.
-        generation = 2
-        let second = await SettingsSideEffects.resumeSuspendedSmartReminder(
-            isCurrent: { generation == 2 },
-            newestOwnerSchedules: { newestOwnerSchedules },
-            isStillWanted: { true },
-            scheduleReminder: { false },
-            cancelReminders: { pendingRequests.removeAll() },
-            newestOwnerFinished: { newestOwnerSchedules = false }
-        )
-        #expect(second == .scheduleFailed)
-
-        releaseFirst.signal()
-        #expect(await first.value == .cancelled)
-        // The toggle still reads suspended; no reminder may be left pending behind it.
-        #expect(pendingRequests.isEmpty)
-    }
-
-    @Test("A failed current resume clears a request a stale sibling deferred to it")
-    func failedCurrentResumeClearsDeferredRequest() async {
-        var generation = 1
-        var pendingRequests: Set<String> = []
-        let firstStarted = SettingsAsyncTestLatch()
-        let releaseFirst = SettingsAsyncTestLatch()
-        let secondStarted = SettingsAsyncTestLatch()
-        let releaseSecond = SettingsAsyncTestLatch()
-
-        let first = Task {
-            await SettingsSideEffects.resumeSuspendedSmartReminder(
-                isCurrent: { generation == 1 },
-                newestOwnerSchedules: { true },
-                isStillWanted: { true },
-                scheduleReminder: {
-                    firstStarted.signal()
-                    await releaseFirst.wait()
-                    pendingRequests.insert("reminder")
-                    return true
-                },
-                cancelReminders: { pendingRequests.removeAll() },
-                newestOwnerFinished: {}
-            )
-        }
-        await firstStarted.wait()
-
-        generation = 2
-        let second = Task {
-            await SettingsSideEffects.resumeSuspendedSmartReminder(
-                isCurrent: { generation == 2 },
-                newestOwnerSchedules: { true },
-                isStillWanted: { true },
-                scheduleReminder: {
-                    secondStarted.signal()
-                    await releaseSecond.wait()
-                    return false
-                },
-                cancelReminders: { pendingRequests.removeAll() },
-                newestOwnerFinished: {}
-            )
-        }
-        await secondStarted.wait()
-
-        releaseFirst.signal()
-        #expect(await first.value == .deferredToNewerOwner)
-        #expect(pendingRequests == ["reminder"])
-
-        releaseSecond.signal()
-        #expect(await second.value == .scheduleFailed)
-        // The toggle still reads suspended, so no reminder may be left pending behind it.
-        #expect(pendingRequests.isEmpty)
-    }
-}
-
-enum SmartReminderRevocation: CaseIterable, Sendable {
-    case toggle
-    case premium
-    case ai
 }
 
 @MainActor

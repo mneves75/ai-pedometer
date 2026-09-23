@@ -22,7 +22,7 @@ policy, which covers website forms the app does not have.
 ## Validating
 
 ```bash
-asc metadata validate --dir store/app-store --check-urls --subscription-app --output table
+asc metadata validate --dir store/app-store --check-urls --output table
 ```
 
 ## Applying

@@ -12,7 +12,6 @@ enum A11yID {
         static let view = "dashboard_view"
         static let healthBannerDescription = "dashboard_health_banner_description"
         static let healthBannerGrantAccessButton = "dashboard_health_banner_grant_access_button"
-        static let premiumInsightGate = "dashboard_premium_insight_gate"
         static let progressValue = "dashboard_progress_value"
         static let progressGoal = "dashboard_progress_goal"
         static let distanceStatCard = "dashboard_distance_stat_card"
@@ -44,14 +43,10 @@ enum A11yID {
         static let finishRecoveredWorkoutButton = "workouts_finish_recovered_workout_button"
         static let discardRecoveredWorkoutButton = "workouts_discard_recovered_workout_button"
         static let trainingPlansCard = "training_plans_card"
-        static let premiumTodayPlanGate = "workouts_premium_today_plan_gate"
-        static let premiumTrainingPlansGate = "workouts_premium_training_plans_gate"
         static let expeditionModeToggle = "workouts_expedition_mode_toggle"
-        static let premiumExpeditionModeGate = "workouts_premium_expedition_mode_gate"
         static let routeImportCard = "workouts_route_import_card"
         static let routeImportButton = "workouts_route_import_button"
         static let routeRemoveButton = "workouts_route_remove_button"
-        static let premiumRoutesGate = "workouts_premium_routes_gate"
         static let recentWorkoutsEmptyState = "workouts_recent_empty_state"
         static let recentWorkoutsCarousel = "workouts_recent_carousel"
         static let confirmDiscardRecoveredWorkoutButton = "workouts_confirm_discard_recovered_workout_button"
@@ -128,10 +123,6 @@ enum A11yID {
     enum About {
         static let view = "about_view"
         static let tipJarCoffeeButton = "tipjar_coffee_button"
-    }
-
-    enum Premium {
-        static let retryButton = "premium_retry_button"
     }
 
     enum HealthAccessHelp {

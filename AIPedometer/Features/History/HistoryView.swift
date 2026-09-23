@@ -7,7 +7,6 @@ struct HistoryView: View {
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var foundationModelsService
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @State private var animateChart = false
     @State private var isLoading = true
@@ -21,9 +20,7 @@ struct HistoryView: View {
     private struct LoadTrigger: Hashable {
         let syncEnabled: Bool
         let activityModeRaw: String
-        let premiumEnabled: Bool
         let aiAvailable: Bool
-        let premiumResolving: Bool
     }
 
     private var activityMode: ActivityTrackingMode {
@@ -51,9 +48,7 @@ struct HistoryView: View {
         .task(id: LoadTrigger(
             syncEnabled: healthKitSyncEnabled,
             activityModeRaw: activityModeRaw,
-            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
             aiAvailable: foundationModelsService.availability.isAvailable,
-            premiumResolving: premiumAccessStore.isResolvingAccess
         )) {
             await loadData(forceRefreshAnalysis: false)
         }
@@ -100,7 +95,6 @@ struct HistoryView: View {
     }
 
     private func loadWeeklyAnalysis(forceRefresh: Bool, isCurrent: @escaping @MainActor () -> Bool) async {
-        guard premiumAccessStore.canAccessAIFeatures else { return }
         guard foundationModelsService.availability.isAvailable else { return }
 
         isLoadingAnalysis = true
@@ -353,21 +347,7 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var aiTrendCard: some View {
-        if premiumAccessStore.isResolvingAccess {
-            PremiumAccessLoadingCard(
-                title: L10n.localized("Weekly Trend", comment: "Weekly trend card header")
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if !premiumAccessStore.canAccessAIFeatures {
-            PremiumFeatureGateCard(
-                title: L10n.localized("Weekly Trend", comment: "Weekly trend card header"),
-                message: L10n.localized(
-                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                    comment: "Premium gate copy for AI features"
-                )
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if foundationModelsService.availability.isAvailable {
+        if foundationModelsService.availability.isAvailable {
             WeeklyTrendCard(
                 analysis: weeklyAnalysis,
                 isLoading: isLoadingAnalysis,
@@ -593,9 +573,6 @@ struct GoalStatusBadge: View {
         .environment(insightService)
         .environment(foundationModelsService)
         .environment(demoModeStore)
-        // HistoryView gates the weekly AI trend card on PremiumAccessStore. Without it the
-        // preview crashes (same pattern as the Dashboard and AICoach previews).
-        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }
 
 #Preview("HistoryRow - Steps") {

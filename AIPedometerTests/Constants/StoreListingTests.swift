@@ -67,8 +67,7 @@ struct StoreListingTests {
         #expect(AppConstants.Links.support == AppConstants.Links.support(languageCode: AppLanguage.defaultLanguageCode))
     }
 
-    /// App Store Connect field limits, and the Terms of Use link a subscription app needs in its
-    /// description (Guideline 3.1.2).
+    /// App Store Connect field limits, and no price in the name, subtitle or keywords (Guideline 2.3.7).
     @Test(arguments: locales)
     func listingFitsAppStoreConnectLimits(locale: String) throws {
         let appInfo = try Self.load(AppInfo.self, "app-info/\(locale).json")
@@ -79,7 +78,22 @@ struct StoreListingTests {
         #expect((1...100).contains(versionInfo.keywords.count))
         #expect((1...170).contains(versionInfo.promotionalText.count))
         #expect((1...4000).contains(versionInfo.description.count))
-        #expect(versionInfo.description.contains(try #require(AppConstants.Links.termsOfUse).absoluteString))
+        for field in [appInfo.name, appInfo.subtitle, versionInfo.keywords] {
+            #expect(!field.contains("$") && !field.contains("1,99") && !field.contains("1.99"))
+        }
+    }
+
+    /// The app is a one-time purchase with no subscription: the listing says so and promises no
+    /// renewing plan (Guidelines 2.3.1 and 2.3.2).
+    @Test(arguments: [("en-US", "One-time purchase, no subscription."), ("pt-BR", "Compra única, sem assinatura.")])
+    func listingDescribesAOneTimePurchase(locale: String, promise: String) throws {
+        let versionInfo = try Self.versionInfo(locale)
+        let text = (versionInfo.promotionalText + " " + versionInfo.description).lowercased()
+
+        #expect(versionInfo.promotionalText.contains(promise))
+        for renewal in ["auto-renew", "renovação automática", "restore purchases", "restaurar compras"] {
+            #expect(!text.contains(renewal))
+        }
     }
 
     /// Paid download at R$ 1,99 in the Brazil base territory, like the studio's other paid apps.

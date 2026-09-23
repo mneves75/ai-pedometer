@@ -73,7 +73,7 @@ Read only the references relevant to the work:
 | Tests, UI QA, performance and release evidence | [testing](docs/agents/testing.md) |
 | Commits, review and beta delivery | [Git workflow](docs/agents/git-workflow.md) |
 | Issue-linked acceptance and Spec review | [issue tracker](docs/agents/issue-tracker.md) |
-| RevenueCat, subscriptions, paywalls or purchases | [RevenueCat](docs/revenuecat/README.md), [Apple payments](docs/revenuecat/apple-payments-setup.md) |
+| App Store listing, price or Tip Jar | [store listing](store/app-store/README.md), [StoreKit](docs/appstore/howto-storekit.md) |
 | Security review | [SECURITY.md](SECURITY.md), [security guidelines](SECURITY-GUIDELINES.md) |
 | Significant feature or refactor | Maintain an ExecPlan under `agent_planning/`; use the installed ExecPlan guidance when available. |
 
@@ -105,14 +105,11 @@ independent work before requesting missing input.
   not serialize an async operation. Keep refresh chaining, generation ownership
   and terminal workout single-flight behavior. C/ObjC callbacks invoked off-main
   must not inherit main-actor isolation; inspect the SDK callback declaration.
-- Premium access is a tri-state. A false `canAccessAIFeatures` is not proof of
-  revocation. Check `PremiumAccessStore.hasAuthoritativeAccessState` before
-  revoking access; `isResolvingAccess` does not cover unavailable/offline state.
-  Suspend smart-reminder delivery through `smartRemindersSuspendedByAccess`;
-  only explicit user action clears the saved preference.
-- Unavailable or unverified RevenueCat configuration fails closed. Keep the
-  recurring subscription separate from the StoreKit 2 tip jar. Release builds
-  reject Test Store keys and debug launch overrides.
+- The app is a one-time paid download with no subscription: every feature is
+  available to whoever has the app, gated only by Apple Intelligence
+  availability. The only in-app purchase is the optional StoreKit 2 Tip Jar,
+  which unlocks nothing. Release builds reject debug launch overrides. Only
+  explicit user action clears a saved preference such as smart reminders.
 - AI inference and health context stay on-device. Validate GPX files, watch
   payloads and model output at their boundary. Preserve local data and pending
   HealthKit exports across failures. Log no health data, secrets or private IDs.

@@ -17,17 +17,17 @@
   xcodebuild -version
   ```
 
-- Use a concrete simulator destination for `build-for-testing` and `test`. A *generic* destination (`generic/platform=iOS Simulator`) compiles arm64 and x86_64 and fails with `RevenueCat.swiftmodule ... built for incompatible target`; the pinned RevenueCat revision itself builds and tests clean on Xcode 27.0.
+- Use a concrete simulator destination for `build-for-testing` and `test`. A *generic* destination (`generic/platform=iOS Simulator`) compiles arm64 and x86_64; through 1.0.7 that failed on the prebuilt RevenueCat module (`built for incompatible target`). RevenueCat was removed in 1.0.8 and the generic destination has not been re-tested since, so keep the concrete destination.
 - Simulator runtime drift ("iOS X.Y is not installed" with the runtime present in `simctl`): `xcrun simctl runtime match set iphoneosX.Y <installed-build>`.
 ## CLI Build and Test
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' build`
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' test`
 - `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>' analyze`
 - Release simulator builds on Apple Silicon also need `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES`:
-  Release otherwise requests both arm64 and x86_64 even with a concrete destination.
-  The x86_64 compile then selects an arm64 RevenueCat module
-  and fails with `built for incompatible target`. This simulator-only selection
-  does not change supported device architectures or replace archive validation.
+  Release otherwise requests both arm64 and x86_64 even with a concrete destination, and
+  through 1.0.7 the x86_64 compile failed on the prebuilt RevenueCat module (removed in 1.0.8;
+  not re-tested without it). This simulator-only selection does not change supported device
+  architectures or replace archive validation.
 - Release archive and TestFlight upload:
   1. `xcodebuild -project AIPedometer.xcodeproj -scheme AIPedometer -configuration Release -destination 'generic/platform=iOS' -archivePath <out>/AIPedometer.xcarchive -allowProvisioningUpdates archive`
   2. `python3 Scripts/validate-release-artifact.py --archive <archive> --bundle-id com.mneves.aipedometer --version <V> --build <B>`
@@ -73,7 +73,6 @@
 - `bash Scripts/verify-device-identifiers.sh`: fail if device IDs/UDIDs/ECIDs are hardcoded in tracked files.
 - `bash Scripts/verify-entitlements.sh`: validate entitlement plist syntax and required/forbidden capabilities.
 - `bash Scripts/verify-swift-build-settings.sh`: fail if `project.yml` declares a `SWIFT_*` build setting the selected Xcode does not define. Xcode ignores unknown settings silently, so a fabricated name reads as an enabled feature forever.
-- `bash Scripts/verify-revenuecat-lock.sh`: verify that `project.yml`, the generated Xcode package reference, and `Package.resolved` agree on the immutable RevenueCat tag object and its resolved commit.
 - `bash Scripts/appstore-materials-prepare.sh`: assemble ordered App Store screenshots from captured UI-test artifacts.
 - `bash Scripts/appstore-screenshots-validate.sh`: validate screenshot dimensions for ASC upload sets.
 - `bash Scripts/appstore-screenshots-upload.sh`: upload prepared screenshot sets with `asc`.

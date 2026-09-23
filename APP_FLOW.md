@@ -27,22 +27,22 @@ NavigationSplitView sidebar:
 
 ## Dashboard
 - Daily header
-- Premium-gated AI Insight card (if premium and AI are available)
+- AI Insight card (if Apple Intelligence is available)
 - Progress ring
 - Stats grid with distance, calories, floors, latest heart rate, and streak
 - Profile button routes to Settings
 
 ## History
 - Weekly summary chart
-- Premium-gated weekly trend AI card (if premium and AI are available)
+- Weekly trend AI card (if Apple Intelligence is available)
 - Daily history rows
 - Empty/loading/error states
 
 ## Workouts
 - Active workout banner (if active) -> ActiveWorkoutView sheet
-- Premium-gated AI workout recommendation (if premium and AI are available)
-- Premium-gated Expedition Mode toggle for reduced live metrics cadence during long workouts
-- Premium-gated Routes & GPX card for importing a route file and reviewing distance, estimated time, elevation gain, waypoints, and a MapKit route preview
+- AI workout recommendation (if Apple Intelligence is available)
+- Expedition Mode toggle for reduced live metrics cadence during long workouts
+- Routes & GPX card for importing a route file and reviewing distance, estimated time, elevation gain, waypoints, and a MapKit route preview
 - Start workout action
 - Training Plans card -> TrainingPlansView
 - Recent workouts carousel
@@ -55,7 +55,7 @@ NavigationSplitView sidebar:
 - Discard action (toolbar)
 
 ## Training Plans
-- Empty state -> Create plan (premium-gated for AI generation)
+- Empty state -> Create plan (AI generation needs Apple Intelligence)
 - List of plans -> Plan detail
 - CreatePlanSheet for new plan
 
@@ -67,7 +67,6 @@ NavigationSplitView sidebar:
 - Message list
 - Suggested questions
 - Input field and send action
-- Premium gate before coach access when entitlement is unavailable
 - AI availability banner and disclaimer
 
 ## Settings
@@ -83,12 +82,11 @@ NavigationSplitView sidebar:
 - Hero and feature cards
 - Links (App Store review, feedback, privacy policy)
 - Support (tip jar) section
-- Premium subscription status, restore/manage actions, and RevenueCat Customer Center when available
 - Version info
 
 ## More
 - Badges
-- Support AI Pedometer (opens About, the tip jar and subscription entry point)
+- Support AI Pedometer (opens About and the optional tip jar)
 - Settings
 
 ## watchOS

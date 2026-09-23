@@ -22,7 +22,6 @@ struct AIPedometerApp: App {
     @State private var notificationService: NotificationService
     @State private var smartNotificationService: SmartNotificationService
     @State private var tipJarStore: TipJarStore
-    @State private var premiumAccessStore: PremiumAccessStore
     @State private var startupCoordinator: AppStartupCoordinator
     @State private var lifecycleCoordinator: AppLifecycleCoordinator
     private let persistence: PersistenceController
@@ -30,7 +29,7 @@ struct AIPedometerApp: App {
     private let metricKitService = MetricKitService.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var lifecycleTask: Task<Void, Never>?
-    @State private var isEnforcingSmartReminderAccess = false
+    @State private var isResumingLegacySmartReminder = false
 
     init() {
         if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldResetState() {
@@ -114,11 +113,8 @@ struct AIPedometerApp: App {
             liveActivityManager = LiveActivityManager()
         }
 
-        let premiumAccessStore = PremiumAccessStore()
         let badges = BadgeService(persistence: persistence)
-        badges.configure(with: fmService) { [premiumAccessStore] in
-            premiumAccessStore.canAccessAIFeatures
-        }
+        badges.configure(with: fmService)
 
         // Create StepTrackingService with shared dependencies
         let trackingService = StepTrackingService(
@@ -162,13 +158,7 @@ struct AIPedometerApp: App {
             foundationModelsService: fmService,
             healthKitService: healthKitService,
             goalService: goalService,
-            modelContext: modelContext,
-            generationAuthorization: {
-                if premiumAccessStore.canAccessAIFeatures {
-                    return .authorized
-                }
-                return premiumAccessStore.hasAuthoritativeAccessState ? .denied : .unknown
-            }
+            modelContext: modelContext
         ))
         _workoutSessionController = State(initialValue: WorkoutSessionController(
             modelContext: modelContext,
@@ -177,7 +167,6 @@ struct AIPedometerApp: App {
             liveActivityManager: liveActivityManager,
             isExpeditionModeEnabled: {
                 UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.expeditionModeEnabled)
-                    && premiumAccessStore.canAccessAIFeatures
             }
         ))
         _demoModeStore = State(initialValue: demoStore)
@@ -188,7 +177,6 @@ struct AIPedometerApp: App {
             goalService: goalService
         ))
         _tipJarStore = State(initialValue: TipJarStore())
-        _premiumAccessStore = State(initialValue: premiumAccessStore)
 
         _badgeService = State(initialValue: badges)
 
@@ -256,64 +244,46 @@ struct AIPedometerApp: App {
         ))
     }
 
-    /// Suspends or resumes already-scheduled Premium smart reminders when entitlement changes.
-    ///
-    /// Runs at deterministic points — after premium preparation completes at launch, and on each
-    /// foreground — rather than reacting to observable state, so it never depends on whether SwiftUI
-    /// re-evaluates an id at Scene scope. It never clears `smartRemindersEnabled`; suspension is
-    /// reversible so a resubscribing user keeps their setting.
-    private func enforceSmartReminderAccess() async {
+    /// Brings back a smart reminder that the removed Premium subscription suspended (through 1.0.7).
+    /// The key is dropped only once the reminder is rescheduled or the preference is off, so a launch
+    /// where the on-device model is still loading retries on the next foreground.
+    private func resumeLegacySmartReminderIfNeeded() async {
         // Lifecycle side effects are skipped under UI testing, the same contract
         // `AppLifecycleCoordinator.handle` enforces: XCUITest drives foregrounds via `app.activate()`
-        // during tap retries, so running notification work there perturbs the very interaction under
-        // test. The behavior itself is covered by unit tests over `smartReminderAccessAction`.
+        // during tap retries, so running notification work there perturbs the very interaction under test.
         guard !LaunchConfiguration.isTesting() else { return }
 
-        // Foreground, launch, and every verified customer-info publication can all fire close together.
-        // Resuming regenerates reminder content on-device, so overlapping runs would burn redundant model
-        // work; this keeps enforcement single-flight.
-        guard !isEnforcingSmartReminderAccess else { return }
-        isEnforcingSmartReminderAccess = true
-        defer { isEnforcingSmartReminderAccess = false }
+        // Rescheduling generates reminder content on-device; launch and foreground can overlap.
+        guard !isResumingLegacySmartReminder else { return }
+        isResumingLegacySmartReminder = true
+        defer { isResumingLegacySmartReminder = false }
 
         let defaults = UserDefaults.standard
-        let action = SettingsSideEffects.smartReminderAccessAction(
+        let key = SettingsSideEffects.legacySmartReminderSuspensionKey
+        let action = SettingsSideEffects.legacySmartReminderAction(
+            isSuspended: defaults.bool(forKey: key),
             isEnabled: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
-            isSuspended: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess),
-            hasAuthoritativeAccess: premiumAccessStore.hasAuthoritativeAccessState,
-            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
             aiAvailability: foundationModelsService.availability
         )
-
         switch action {
         case .none:
-            break
-        case .suspend:
-            smartNotificationService.cancelAllSmartNotifications()
-            defaults.set(true, forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess)
-            Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "premium_unavailable"])
+            return
+        case .clear:
+            defaults.removeObject(forKey: key)
         case .resume:
             let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
                 at: AppConstants.Notifications.defaultSmartReminderHour,
                 minute: AppConstants.Notifications.defaultSmartReminderMinute
             )
             guard didSchedule else { return }
-            // Scheduling generates content on-device and takes seconds, during which the user can turn
-            // the toggle off or entitlement can lapse again. Re-validate before committing, and undo the
-            // request otherwise — the same post-await eligibility re-check `scheduleSmartReminderIfCurrent`
-            // performs. Without this a repeating premium reminder can outlive the preference that allowed it.
-            // Undo only on a *definite* loss. Verification can fail mid-generation, which nils customer
-            // info and makes entitlement indeterminate again; cancelling on that would re-introduce the
-            // "cannot determine" == "not entitled" conflation this whole design exists to avoid.
-            let lostEntitlement = premiumAccessStore.hasAuthoritativeAccessState
-                && !premiumAccessStore.canAccessAIFeatures
-            guard defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
-                  !lostEntitlement else {
+            // Generation takes seconds; the user may have turned reminders off meanwhile.
+            guard defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled) else {
                 smartNotificationService.cancelAllSmartNotifications()
+                defaults.removeObject(forKey: key)
                 return
             }
-            defaults.set(false, forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess)
-            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "premium_restored"])
+            defaults.removeObject(forKey: key)
+            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "paid_app"])
         }
     }
 
@@ -345,25 +315,11 @@ struct AIPedometerApp: App {
                 .environment(notificationService)
                 .environment(smartNotificationService)
                 .environment(tipJarStore)
-                .environment(premiumAccessStore)
                 .modelContainer(persistence.container)
                 .task {
-                    // RevenueCat refreshes customer info asynchronously on foreground and publishes the
-                    // result through its stream. Without this hook a revocation arriving that way would
-                    // sit unenforced until the next launch, which is exactly the leak 0.95 set out to close.
-                    premiumAccessStore.onAuthoritativeAccessPublished = {
-                        Task { @MainActor in await enforceSmartReminderAccess() }
-                    }
-                    await AppLaunchSequence.start(
-                        preparePremiumAccess: {
-                            await premiumAccessStore.prepare()
-                        },
-                        startLocalServices: {
-                            await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
-                        }
-                    )
+                    await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
                     await lifecycleCoordinator.handleStartupCompletion(scenePhase: scenePhase)
-                    await enforceSmartReminderAccess()
+                    await resumeLegacySmartReminderIfNeeded()
                 }
                 .onChange(of: onboardingCompleted) { _, _ in
                     Task { @MainActor in
@@ -379,7 +335,7 @@ struct AIPedometerApp: App {
                     lifecycleTask = Task { @MainActor in
                         await lifecycleCoordinator.handle(scenePhase: newPhase)
                         guard newPhase == .active, !Task.isCancelled else { return }
-                        await enforceSmartReminderAccess()
+                        await resumeLegacySmartReminderIfNeeded()
                     }
                 }
         }

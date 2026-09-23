@@ -197,8 +197,6 @@ with zipfile.ZipFile(sys.argv[2], "w") as ipa:
             info = plistlib.loads(data)
             if kind == "metadata-mismatch":
                 info["CFBundleVersion"] = "8"
-            if kind == "key-mismatch" and len(relative.parts) == 2:
-                info["RevenueCatAPIKey"] = "appl_SYNTHETIC_DIFFERENT_KEY"
             data = plistlib.dumps(info)
         ipa.writestr("Payload/" + relative.as_posix(), data)
     if kind == "second-primary":
@@ -226,16 +224,9 @@ info = {
     "CFBundleVersion": "7",
     "CFBundleExecutable": "MockRelease",
     "CFBundlePackageType": "APPL",
-    "RevenueCatAPIKey": "appl_SYNTHETIC_RELEASE_KEY",
 }
 kind = os.environ.get("MOCK_ARCHIVE_CONFIGURATION", "valid")
-if kind == "test-key":
-    info["RevenueCatAPIKey"] = "test_SYNTHETIC_DEVELOPMENT_KEY"
-elif kind == "missing-key":
-    del info["RevenueCatAPIKey"]
-elif kind == "unresolved-key":
-    info["RevenueCatAPIKey"] = "$(REVENUECAT_API_KEY)"
-elif kind == "wrong-bundle":
+if kind == "wrong-bundle":
     info["CFBundleIdentifier"] = "com.example.unexpected"
 elif kind == "unresolved-version":
     info["CFBundleVersion"] = "$(CURRENT_PROJECT_VERSION)"
@@ -375,7 +366,7 @@ for phase in archive export publish empty-ipa; do
   fi
 done
 
-for configuration in test-key missing-key unresolved-key wrong-bundle unresolved-version; do
+for configuration in wrong-bundle unresolved-version; do
   payment_exit=0
   run_mock_payment MOCK_ARCHIVE_CONFIGURATION="${configuration}" \
     IPA_DIR="${TEST_OUTPUT_DIR}/${configuration}" \
@@ -384,8 +375,8 @@ for configuration in test-key missing-key unresolved-key wrong-bundle unresolved
     echo "Expected archived ${configuration} to fail before export with exit 6; got ${payment_exit}." >&2
     exit 1
   fi
-  if grep -E 'export-control|publish-control|SYNTHETIC_.*KEY' "${TMP_DIR}/${configuration}.log" >/dev/null; then
-    echo "Invalid archive configuration proceeded or exposed its key." >&2
+  if grep -E 'export-control|publish-control' "${TMP_DIR}/${configuration}.log" >/dev/null; then
+    echo "Invalid archive configuration proceeded." >&2
     exit 1
   fi
 done
@@ -402,7 +393,7 @@ for configuration in second-primary missing-watch missing-widget watch-version w
     artifact_failures=$((artifact_failures + 1))
   fi
 done
-for configuration in second-primary missing-widget empty-executable metadata-mismatch key-mismatch; do
+for configuration in second-primary missing-widget empty-executable metadata-mismatch; do
   payment_exit=0
   run_mock_payment MOCK_IPA_CONFIGURATION="${configuration}" \
     IPA_DIR="${TEST_OUTPUT_DIR}/ipa-${configuration}" \

@@ -11,7 +11,7 @@ struct AppLogger: Sendable {
     /// The event name and `code` are the only public parts of a line; the JSON payload stays
     /// private. Without that, a device log shows the whole entry as `<private>` (observed on the
     /// iMarcus on 2026-09-21) and no failure can be told apart outside a debugger. `code` is for
-    /// enum-like machine codes only (a RevenueCat `CONFIGURATION_ERROR`, `NSURLErrorDomain:-1009`);
+    /// enum-like machine codes only (for example `NSURLErrorDomain:-1009`);
     /// user input, health data, identifiers and free-form error text stay in `metadata`, which is
     /// always redacted. `event` is a `StaticString` so a name built from runtime data cannot reach
     /// the public part of the line.

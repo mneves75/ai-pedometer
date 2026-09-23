@@ -73,12 +73,6 @@ enum FitnessLevel: String, Codable, Sendable, CaseIterable {
     }
 }
 
-enum TrainingPlanGenerationAuthorization: Sendable {
-    case authorized
-    case denied
-    case unknown
-}
-
 @MainActor
 @Observable
 final class TrainingPlanService {
@@ -86,7 +80,6 @@ final class TrainingPlanService {
     private let healthKitService: any HealthKitServiceProtocol
     private let goalService: any GoalServiceProtocol
     private let modelContext: ModelContext
-    private let generationAuthorization: @MainActor () -> TrainingPlanGenerationAuthorization
     private let saveModelContext: @MainActor (ModelContext) throws -> Void
     private let userDefaults: UserDefaults
 
@@ -107,7 +100,6 @@ final class TrainingPlanService {
         healthKitService: any HealthKitServiceProtocol,
         goalService: any GoalServiceProtocol,
         modelContext: ModelContext,
-        generationAuthorization: @escaping @MainActor () -> TrainingPlanGenerationAuthorization,
         saveModelContext: @escaping @MainActor (ModelContext) throws -> Void = { try $0.save() },
         userDefaults: UserDefaults = .standard
     ) {
@@ -115,7 +107,6 @@ final class TrainingPlanService {
         self.healthKitService = healthKitService
         self.goalService = goalService
         self.modelContext = modelContext
-        self.generationAuthorization = generationAuthorization
         self.saveModelContext = saveModelContext
         self.userDefaults = userDefaults
     }
@@ -125,9 +116,6 @@ final class TrainingPlanService {
         level: FitnessLevel,
         daysPerWeek: Int
     ) async throws(AIServiceError) -> TrainingPlanRecord {
-        guard generationAuthorization() == .authorized else {
-            throw AIServiceError.generationFailed(underlying: "Training plan access is not authorized")
-        }
         guard !isGenerating else {
             throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
         }
@@ -144,9 +132,6 @@ final class TrainingPlanService {
         
         do {
             let recentData = try await fetchRecentActivityData()
-            guard generationAuthorization() != .denied else {
-                throw AIServiceError.generationFailed(underlying: "Training plan access was revoked")
-            }
             let prompt = buildPlanPrompt(
                 goal: goal,
                 level: level,
@@ -181,10 +166,6 @@ final class TrainingPlanService {
                 ])
             }
 
-            // Unknown/offline access is not revocation of work admitted while authorized.
-            guard generationAuthorization() != .denied else {
-                throw AIServiceError.generationFailed(underlying: "Training plan access was revoked")
-            }
             let record = try createPlanRecord(from: resolvedPlan, goal: goal)
             modelContext.insert(record)
             defer { invalidatePlanCaches() }

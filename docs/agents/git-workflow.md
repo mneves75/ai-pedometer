@@ -22,14 +22,12 @@
 
 ## Beta delivery
 
-- Follow the [testing gates](testing.md) and [payment runbook](../revenuecat/apple-payments-setup.md).
+- Follow the [testing gates](testing.md) and the [StoreKit guide](../appstore/howto-storekit.md) for the Tip Jar.
 - Update the version/build in `project.yml`, rename `store/app-store/version/<old>` to the new version (`StoreListingTests` fails otherwise), regenerate, update docs and freeze the candidate before independent review. Use the initial task commit as the review base and the accepted plan as the specification.
 - Review staged files for private data before an authorized push. This repository's visibility must be checked live; historical notes are not an access-control guarantee.
 - Tag the shipped commit `v<version>-beta<count>` using the next unused count. Never move an existing remote tag.
 - Verify archive/IPA version and build, upload processing and existing TestFlight group availability separately. Do not infer App Store publication or tester-invitation authority from a beta request.
-- Required CI and CodeQL must finish successfully for the pushed candidate. The
-  RevenueCat freshness workflow is tracked separately: exit 10 needs a current
-  update/retention decision; network/provenance failure remains unresolved.
+- Required CI and CodeQL must finish successfully for the pushed candidate.
 
 ## Production delivery
 

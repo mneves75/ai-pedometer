@@ -93,7 +93,7 @@ write_entitlement "$REPO_ROOT/AIPedometerWatch/Resources/AIPedometerWatch.entitl
 write_entitlement "$REPO_ROOT/AIPedometerWidgets/Resources/AIPedometerWidgets.entitlements" "$APPGROUP_ONLY"
 
 # Enhanced Security enables pointer authentication (arm64e); SPM packages
-# (RevenueCat) only build arm64e when the workspace opts in. xcodegen rewrites
+# Only build arm64e when the workspace opts in. xcodegen rewrites
 # the project, so re-assert the workspace setting after every generate.
 WORKSPACE_SETTINGS="$REPO_ROOT/AIPedometer.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings"
 if [ -d "$REPO_ROOT/AIPedometer.xcodeproj" ]; then

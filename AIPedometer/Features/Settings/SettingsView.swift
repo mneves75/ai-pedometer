@@ -10,9 +10,6 @@ struct SettingsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitEnabled = true
     @AppStorage(AppConstants.UserDefaultsKeys.notificationsEnabled) private var notificationsEnabled = false
     @AppStorage(AppConstants.UserDefaultsKeys.smartRemindersEnabled) private var smartRemindersEnabled = false
-    // Only meaningful while `smartRemindersEnabled` is true; cleared whenever the user acts on the
-    // toggle so background enforcement never resumes a reminder the user turned off themselves.
-    @AppStorage(AppConstants.UserDefaultsKeys.smartRemindersSuspendedByAccess) private var smartRemindersSuspendedByAccess = false
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(HealthKitSyncService.self) private var healthKitSyncService
@@ -20,7 +17,6 @@ struct SettingsView: View {
     @Environment(NotificationService.self) private var notificationService
     @Environment(SmartNotificationService.self) private var smartNotificationService
     @Environment(FoundationModelsService.self) private var aiService
-    @Environment(PremiumAccessStore.self) private var premiumAccessStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isPresented) private var isPresented
     private let appVersion = AppVersion()
@@ -32,10 +28,6 @@ struct SettingsView: View {
     @State private var isUpdatingNotifications = false
     @State private var isUpdatingSmartReminders = false
     @State private var smartReminderUpdateGeneration = 0
-    // Whether the operation that owns the newest generation schedules a reminder (resume or enable) rather
-    // than cancelling one. Every scheduling path shares one request identifier, so a stale completion defers
-    // to a newer scheduler instead of cancelling the reminder that scheduler owns.
-    @State private var smartReminderNewestOwnerSchedules = false
     @State private var showHealthHelp = false
 
     private var activityMode: ActivityTrackingMode {
@@ -92,14 +84,6 @@ struct SettingsView: View {
         .task {
             await refreshNotificationStatus()
             await healthAuthorization.refreshStatus()
-        }
-        .task(id: premiumAccessStore.canAccessAIFeatures) {
-            await enforceSmartReminderAccessIfNeeded()
-        }
-        // Also observed on its own: when access resolves from "unknown" to an authoritative revocation,
-        // `canAccessAIFeatures` is false before and after, so that id alone never changes.
-        .task(id: premiumAccessStore.hasAuthoritativeAccessState) {
-            await enforceSmartReminderAccessIfNeeded()
         }
         .task(id: aiService.availability.isAvailable) {
             await enforceSmartReminderAccessIfNeeded()
@@ -439,14 +423,7 @@ struct SettingsView: View {
 
     private var smartRemindersRow: some View {
         Group {
-            // While suspended the preference is intentionally preserved so reminders resume on
-            // resubscribe, but delivery is stopped — so the toggle shows the effective state (off)
-            // rather than a switch that reads on and delivers nothing. The "Premium is required"
-            // caption below explains why, and resuming flips it back on without user action.
-            Toggle(isOn: Binding(
-                get: { smartRemindersEnabled && !smartRemindersSuspendedByAccess },
-                set: { smartRemindersEnabled = $0 }
-            )) {
+            Toggle(isOn: $smartRemindersEnabled) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Label(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"), systemImage: "sparkles")
                         .foregroundStyle(DesignTokens.Colors.accent)
@@ -455,27 +432,14 @@ struct SettingsView: View {
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
-            .disabled(isUpdatingSmartReminders || premiumAccessStore.isResolvingAccess || !aiService.availability.isAvailable || !premiumAccessStore.canAccessAIFeatures)
+            .disabled(isUpdatingSmartReminders || (!aiService.availability.isAvailable && !smartRemindersEnabled))
             .onChange(of: smartRemindersEnabled) { _, newValue in
                 HapticService.shared.selection()
                 Task { await updateSmartReminders(enabled: newValue) }
             }
             .accessibilityLabel(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"))
-            .accessibilityValue((smartRemindersEnabled && !smartRemindersSuspendedByAccess) ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
-            if premiumAccessStore.isResolvingAccess {
-                Text(L10n.localized("Loading...", comment: "Premium loading status"))
-                    .font(DesignTokens.Typography.caption)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-            } else if !premiumAccessStore.canAccessAIFeatures {
-                Text(
-                    L10n.localized(
-                        "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                        comment: "Premium gate copy for AI features"
-                    )
-                )
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-            } else if case .unavailable(let reason) = aiService.availability {
+            .accessibilityValue(smartRemindersEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
+            if case .unavailable(let reason) = aiService.availability {
                 Text(reason.userFacingMessage)
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -570,7 +534,6 @@ struct SettingsView: View {
 
     private func updateSmartReminders(enabled: Bool) async {
         smartReminderUpdateGeneration &+= 1
-        smartReminderNewestOwnerSchedules = false
         let updateGeneration = smartReminderUpdateGeneration
         isUpdatingSmartReminders = true
         defer {
@@ -579,19 +542,7 @@ struct SettingsView: View {
             }
         }
 
-        guard premiumAccessStore.canAccessAIFeatures else {
-            smartRemindersEnabled = false
-            showNotificationAlert(
-                message: L10n.localized(
-                    "Premium is required to generate new AI insights, coaching, plans, and smart reminders.",
-                    comment: "Premium gate copy for AI features"
-                ),
-                offersSettings: false
-            )
-            return
-        }
-
-        guard aiService.availability.isAvailable else {
+        guard !enabled || aiService.availability.isAvailable else {
             smartRemindersEnabled = false
             if case .unavailable(let reason) = aiService.availability {
                 showNotificationAlert(message: reason.userFacingMessage, offersSettings: false)
@@ -600,11 +551,9 @@ struct SettingsView: View {
         }
 
         if enabled {
-            smartReminderNewestOwnerSchedules = true
             let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
                 isCurrent: { smartReminderUpdateGeneration == updateGeneration },
                 isEnabled: { smartRemindersEnabled },
-                premiumEnabled: { premiumAccessStore.canAccessAIFeatures },
                 aiAvailability: { aiService.availability },
                 ensureAuthorization: { await ensureNotificationAuthorization() },
                 scheduleReminder: {
@@ -618,21 +567,15 @@ struct SettingsView: View {
 
             switch result {
             case .scheduled:
-                smartRemindersSuspendedByAccess = false
                 Loggers.ai.info("notifications.smart_enabled")
             case .stale:
                 break
             case .authorizationDenied:
-                // A stale resume that deferred to this owner may have left a request pending.
-                smartReminderNewestOwnerSchedules = false
                 smartNotificationService.cancelAllSmartNotifications()
                 smartRemindersEnabled = false
-                smartRemindersSuspendedByAccess = false
             case .scheduleFailed:
-                smartReminderNewestOwnerSchedules = false
                 smartNotificationService.cancelAllSmartNotifications()
                 smartRemindersEnabled = false
-                smartRemindersSuspendedByAccess = false
                 showNotificationAlert(
                     message: L10n.localized("Unable to schedule notifications. Please try again.", comment: "Alert when scheduling notifications fails"),
                     offersSettings: false
@@ -640,89 +583,38 @@ struct SettingsView: View {
             }
         } else {
             smartNotificationService.cancelAllSmartNotifications()
-            smartRemindersSuspendedByAccess = false
             Loggers.ai.info("notifications.smart_disabled")
         }
     }
 
     private func enforceSmartReminderAccessIfNeeded() async {
-        // Recovery first: when premium or the on-device model comes back while Settings is open, a
-        // suspended reminder has to be rescheduled here. The decision function below is one-way — it
-        // returns `.keep` on recovery — so without this the toggle would read off, be tappable again, and
-        // writing the already-true `smartRemindersEnabled` would not fire `.onChange`, leaving delivery
-        // suspended until some later foreground.
-        if await resumeSuspendedSmartRemindersIfPossible() { return }
-
         switch SettingsSideEffects.smartReminderAccessDecision(
             isEnabled: smartRemindersEnabled,
-            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
-            aiAvailability: aiService.availability,
-            hasAuthoritativeAccess: premiumAccessStore.hasAuthoritativeAccessState
+            aiAvailability: aiService.availability
         ) {
         case .keep:
-            break
-        case .disablePremium:
-            // Suspend rather than erase: the toggle is already disabled and captioned "Premium is
-            // required…", so the state stays legible, and the user's preference survives so reminders
-            // resume automatically if they resubscribe. Only explicit user action clears it.
+            guard smartRemindersEnabled, aiService.availability.isAvailable else { return }
             smartReminderUpdateGeneration &+= 1
-            smartReminderNewestOwnerSchedules = false
-            smartNotificationService.cancelAllSmartNotifications()
-            smartRemindersSuspendedByAccess = true
-            isUpdatingSmartReminders = false
-            Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "premium_unavailable"])
+            let generation = smartReminderUpdateGeneration
+            _ = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
+                isCurrent: { smartReminderUpdateGeneration == generation },
+                isEnabled: { smartRemindersEnabled },
+                aiAvailability: { aiService.availability },
+                ensureAuthorization: { await ensureNotificationAuthorization() },
+                scheduleReminder: {
+                    await smartNotificationService.scheduleMotivationalReminder(
+                        at: AppConstants.Notifications.defaultSmartReminderHour,
+                        minute: AppConstants.Notifications.defaultSmartReminderMinute
+                    )
+                },
+                cancelReminders: { smartNotificationService.cancelAllSmartNotifications() }
+            )
         case .disableUnavailableAI:
-            // Also suspend rather than erase: most unavailability reasons are transient (the model can
-            // still be downloading), so destroying the preference would punish the user for a temporary
-            // device state. Automatic enforcement never clears the preference; only the user does.
             smartReminderUpdateGeneration &+= 1
-            smartReminderNewestOwnerSchedules = false
             smartNotificationService.cancelAllSmartNotifications()
-            smartRemindersSuspendedByAccess = true
             isUpdatingSmartReminders = false
             Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "ai_unavailable"])
         }
-    }
-
-    /// Reschedules a reminder that background enforcement suspended, once access is authoritatively back.
-    /// Returns true when it handled the state, so the caller skips the one-way disable decision.
-    private func resumeSuspendedSmartRemindersIfPossible() async -> Bool {
-        guard SettingsSideEffects.smartReminderAccessAction(
-            isEnabled: smartRemindersEnabled,
-            isSuspended: smartRemindersSuspendedByAccess,
-            hasAuthoritativeAccess: premiumAccessStore.hasAuthoritativeAccessState,
-            premiumEnabled: premiumAccessStore.canAccessAIFeatures,
-            aiAvailability: aiService.availability
-        ) == .resume else { return false }
-
-        smartReminderUpdateGeneration &+= 1
-        smartReminderNewestOwnerSchedules = true
-        let generation = smartReminderUpdateGeneration
-        let result = await SettingsSideEffects.resumeSuspendedSmartReminder(
-            isCurrent: { smartReminderUpdateGeneration == generation },
-            newestOwnerSchedules: { smartReminderNewestOwnerSchedules },
-            // Same post-await eligibility re-check the scheduling path uses: generating content takes
-            // seconds, during which the user can toggle off or entitlement can lapse again.
-            isStillWanted: {
-                let lostEntitlement = premiumAccessStore.hasAuthoritativeAccessState
-                    && !premiumAccessStore.canAccessAIFeatures
-                return smartRemindersEnabled && !lostEntitlement
-            },
-            scheduleReminder: {
-                await smartNotificationService.scheduleMotivationalReminder(
-                    at: AppConstants.Notifications.defaultSmartReminderHour,
-                    minute: AppConstants.Notifications.defaultSmartReminderMinute
-                )
-            },
-            cancelReminders: { smartNotificationService.cancelAllSmartNotifications() },
-            newestOwnerFinished: { smartReminderNewestOwnerSchedules = false }
-        )
-
-        if result == .resumed {
-            smartRemindersSuspendedByAccess = false
-            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "access_restored"])
-        }
-        return true
     }
 
     private func ensureNotificationAuthorization() async -> Bool {
@@ -914,7 +806,6 @@ struct GoalEditorSheet: View {
             goalService: goalService
         ))
         .environment(fmService)
-        .environment(PremiumAccessStore(forcedPremiumEnabled: true, isTesting: true))
 }
 
 #Preview("Goal Editor") {

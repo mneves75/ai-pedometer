@@ -1,7 +1,7 @@
 # Metadata App Store - pt-BR
 
 Arquivos canônicos de envio: `store/app-store/` (formato `asc metadata`, validados com
-`asc metadata validate --dir store/app-store --check-urls --subscription-app`).
+`asc metadata validate --dir store/app-store --check-urls`).
 
 ## App Information
 
@@ -17,29 +17,26 @@ A primeira versão na App Store não tem texto de Novidades.
 
 ## Contrato de licença
 
-- Contrato de licença: EULA padrão da Apple (`https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`), com link na descrição e no paywall
+- Contrato de licença: EULA padrão da Apple (vale automaticamente; o app não tem assinatura)
 
 ## Privacidade do app
 
-- Tipo de dado: `Compras > Histórico de compras`
-- Finalidades: `Funcionalidade do app`, `Análises`
-- Vinculado à identidade: `Não` (App User ID anônimo da RevenueCat; o app não tem conta)
+Arquivo canônico: `store/app-store/privacy.json` (formato `asc web privacy`).
+
+- Coleta de dados: `Dados não coletados`. Nada é enviado ao desenvolvedor nem a terceiros; a Apple processa
+  a compra na App Store e a gorjeta opcional como controladora independente.
 - Usado para rastreamento: `Não`
-- Coleta de Saúde e fitness: `Não`
 
 ## App Review Information
 
 - Demo account required: `Não`
 - Sign-in required: `Não`
-- Notes para revisão:
-  - `Tip Jar (IAP consumable): com.mneves.aipedometer.coffee`
-  - `Produtos Premium: com.mneves.aipedometer.premium.monthly e com.mneves.aipedometer.premium.yearly`
-  - `Entitlement da assinatura Premium AI: premium`
-  - `A IA roda no dispositivo via Apple Foundation Models; nenhum serviço de IA em nuvem é usado.`
-  - `Modo Expedição e importação de rotas GPX Premium ficam na aba Workouts.`
-  - `Fluxos Premium: Workouts > Expedition Mode / Routes & GPX; Mais > Apoie o AI Pedometer > Premium`
-  - `Fluxo do Tip Jar: Mais > Apoie o AI Pedometer > Comprar um café`
-  - `Restaurar Compras e Gerenciar assinatura ficam na tela Premium.`
+- Notes para revisão (em inglês no ASC):
+  - `Paid app (one-time purchase). There is no subscription: every feature is available without further purchase.`
+  - `Only in-app purchase: optional Tip Jar (consumable), com.mneves.aipedometer.coffee. It unlocks nothing.`
+  - `Tip Jar access path: More > Support AI Pedometer > Buy me a coffee`
+  - `AI processing is on-device via Apple Foundation Models; no cloud AI service is used. AI features need a device with Apple Intelligence turned on.`
+  - `Expedition Mode and GPX route import are in the Workouts tab.`
 
 ## Screenshot set (ordem sugerida)
 

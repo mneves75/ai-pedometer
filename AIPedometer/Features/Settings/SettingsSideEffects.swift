@@ -2,21 +2,14 @@ import Foundation
 
 enum SmartReminderAccessDecision: Equatable {
     case keep
-    case disablePremium
     case disableUnavailableAI(AIUnavailabilityReason?)
 }
 
-/// Background enforcement of Premium access for already-scheduled smart reminders.
-///
-/// Deliberately never persists the user's `smartRemindersEnabled` preference off: losing access
-/// suspends delivery, and regaining it resumes delivery, so a resubscribing user does not have to
-/// rediscover the setting. Settings keeps its own interactive path, where the change is visible and
-/// explained to the user.
-enum SmartReminderAccessAction: Equatable {
+enum LegacySmartReminderAction: Equatable, Sendable {
     case none
-    /// Cancel the pending repeating request but leave the user's preference intact.
-    case suspend
-    /// Re-schedule a previously suspended reminder now that access is back.
+    /// The preference is off: drop the stale key.
+    case clear
+    /// Reschedule the reminder, then drop the key.
     case resume
 }
 
@@ -27,14 +20,23 @@ enum SmartReminderSchedulingResult: Equatable {
     case scheduleFailed
 }
 
-enum SmartReminderResumeResult: Equatable {
-    case resumed
-    case scheduleFailed
-    case cancelled
-    case deferredToNewerOwner
-}
-
 enum SettingsSideEffects {
+    /// Through 1.0.7 a lapsed Premium subscription cancelled smart reminders and set this key while
+    /// keeping the user's preference. The app is paid now, so such a reminder comes back once.
+    static let legacySmartReminderSuspensionKey = "smartRemindersSuspendedByAccess"
+
+    /// Rescheduling needs the on-device model to generate the reminder, so an unavailable or still
+    /// loading model leaves the key in place for a later attempt.
+    static func legacySmartReminderAction(
+        isSuspended: Bool,
+        isEnabled: Bool,
+        aiAvailability: AIModelAvailability
+    ) -> LegacySmartReminderAction {
+        guard isSuspended else { return .none }
+        guard isEnabled else { return .clear }
+        return aiAvailability.isAvailable ? .resume : .none
+    }
+
     @MainActor
     static func persistGoalAndScheduleRefresh(
         goal: Int,
@@ -50,18 +52,9 @@ enum SettingsSideEffects {
 
     static func smartReminderAccessDecision(
         isEnabled: Bool,
-        premiumEnabled: Bool,
-        aiAvailability: AIModelAvailability,
-        hasAuthoritativeAccess: Bool
+        aiAvailability: AIModelAvailability
     ) -> SmartReminderAccessDecision {
         guard isEnabled else { return .keep }
-        // `premiumEnabled` is false both when the user is not entitled and when entitlement could not be
-        // determined — still resolving, or the last fetch/verification failed, as on an offline launch.
-        // Defer until the answer is authoritative; acting on the unknown case cancels reminders for
-        // paying subscribers. See `PremiumAccessStore.hasAuthoritativeAccessState`.
-        guard hasAuthoritativeAccess else { return .keep }
-        guard premiumEnabled else { return .disablePremium }
-
         if case .unavailable(let reason) = aiAvailability {
             return .disableUnavailableAI(reason)
         }
@@ -69,45 +62,17 @@ enum SettingsSideEffects {
         return .keep
     }
 
-    /// Decides whether background access enforcement should suspend or resume smart reminders.
-    ///
-    /// Acts only on authoritative entitlement state. While access is unknown — still resolving, or the
-    /// last fetch/verification failed, as happens on an offline launch — this returns `.none`, because
-    /// "cannot determine entitlement" is value-identical to "not entitled" and acting on it cancels
-    /// reminders for paying subscribers.
-    ///
-    /// Scoped to Premium only. On-device AI availability is transient (assets can still be downloading)
-    /// and an already-scheduled reminder carries pre-generated content, so AI availability does not
-    /// suspend delivery; it only gates re-scheduling, which needs the model to generate fresh content.
-    static func smartReminderAccessAction(
-        isEnabled: Bool,
-        isSuspended: Bool,
-        hasAuthoritativeAccess: Bool,
-        premiumEnabled: Bool,
-        aiAvailability: AIModelAvailability
-    ) -> SmartReminderAccessAction {
-        guard isEnabled else { return .none }
-        guard hasAuthoritativeAccess else { return .none }
-
-        guard premiumEnabled else {
-            return isSuspended ? .none : .suspend
-        }
-        guard isSuspended else { return .none }
-        return aiAvailability.isAvailable ? .resume : .none
-    }
-
     @MainActor
     static func scheduleSmartReminderIfCurrent(
         isCurrent: @escaping @MainActor () -> Bool,
         isEnabled: @escaping @MainActor () -> Bool,
-        premiumEnabled: @escaping @MainActor () -> Bool,
         aiAvailability: @escaping @MainActor () -> AIModelAvailability,
         ensureAuthorization: @escaping @MainActor () async -> Bool,
         scheduleReminder: @escaping @MainActor () async -> Bool,
         cancelReminders: @escaping @MainActor () -> Void
     ) async -> SmartReminderSchedulingResult {
         let isEligible: @MainActor () -> Bool = {
-            isEnabled() && premiumEnabled() && aiAvailability().isAvailable
+            isEnabled() && aiAvailability().isAvailable
         }
 
         guard isCurrent(), isEligible() else {
@@ -131,47 +96,6 @@ enum SettingsSideEffects {
             return .stale
         }
         return didSchedule ? .scheduled : .scheduleFailed
-    }
-
-    /// Reschedules a suspended smart reminder and decides what the finished attempt does with its request.
-    ///
-    /// Settings starts recovery from several `.task(id:)` modifiers, so attempts overlap, and every
-    /// scheduling path adds the same request identifier. A completion that is no longer current therefore
-    /// must not cancel blindly: when the newest owner also schedules, that owner's request is the one that
-    /// would be removed. It defers instead, and the current owner clears the request if its own attempt fails.
-    /// When the newest owner cancels (suspension, disable) or ends without a request (failure), the stale add
-    /// is removed: `newestOwnerFinished` tells the caller that deferring to this attempt is no longer valid.
-    @MainActor
-    static func resumeSuspendedSmartReminder(
-        isCurrent: @escaping @MainActor () -> Bool,
-        newestOwnerSchedules: @escaping @MainActor () -> Bool,
-        isStillWanted: @escaping @MainActor () -> Bool,
-        scheduleReminder: @escaping @MainActor () async -> Bool,
-        cancelReminders: @escaping @MainActor () -> Void,
-        newestOwnerFinished: @escaping @MainActor () -> Void
-    ) async -> SmartReminderResumeResult {
-        let didSchedule = await scheduleReminder()
-        guard isCurrent() else {
-            guard didSchedule else { return .scheduleFailed }
-            if newestOwnerSchedules() {
-                return .deferredToNewerOwner
-            }
-            cancelReminders()
-            return .cancelled
-        }
-        guard didSchedule else {
-            // A stale sibling may have deferred to this attempt and left its request pending, while the
-            // toggle keeps reading "suspended"; nothing may stay scheduled behind it.
-            cancelReminders()
-            newestOwnerFinished()
-            return .scheduleFailed
-        }
-        guard isStillWanted() else {
-            cancelReminders()
-            newestOwnerFinished()
-            return .cancelled
-        }
-        return .resumed
     }
 
     @MainActor

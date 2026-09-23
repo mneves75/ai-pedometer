@@ -22,15 +22,13 @@ List devices with Argent and select an available simulator whose runtime the pro
 - Script regressions: `bash -c 'set -euo pipefail; for test_script in Scripts/tests/*.sh; do bash "$test_script"; done'`.
 - Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh Scripts/lib/*.sh .githooks/pre-commit` and `actionlint`.
 - Development dependency audit: `pnpm audit --audit-level moderate`. Include dev dependencies; `--prod` omits the Wrangler toolchain and cannot verify it.
-- Project invariants: `bash Scripts/verify-entitlements.sh`, `bash Scripts/verify-swift-build-settings.sh`, `bash Scripts/verify-revenuecat-lock.sh`, `bash Scripts/check-agents-sync.sh` and `bash Scripts/verify-device-identifiers.sh`. All of these run together via `bash Scripts/preflight.sh`, except that `verify-revenuecat-lock.sh` is skipped until `xcodegen generate` has produced the project it cross-checks.
+- Project invariants: `bash Scripts/verify-entitlements.sh`, `bash Scripts/verify-swift-build-settings.sh`, `bash Scripts/check-agents-sync.sh` and `bash Scripts/verify-device-identifiers.sh`. All of these run together via `bash Scripts/preflight.sh`.
 - Staged candidate: `bash .githooks/pre-commit` after explicit staging.
 - Shared 32-bit code: use CI's direct `-project AIPedometer.xcodeproj -target AIPedometerWatch -configuration Debug -sdk watchos` build with `ARCHS=arm64_32`, `ONLY_ACTIVE_ARCH=YES`, `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO` and task-specific `SYMROOT`, `OBJROOT`, `SHARED_PRECOMPS_DIR`. The watch scheme can also pull in iPhone dependencies that cannot build for this architecture. An iOS or watch simulator build is insufficient.
 - Release archive: use the [build guide](build-and-dev.md), preserving the embedded watch app. Inspect actual bundle versions and archive `ApplicationProperties`; there must be exactly one primary app under `Products/Applications`.
 - Project metadata: `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`.
 
 Validate every xcresult with `python3 Scripts/xcresult-summary.py <result.xcresult> --validate`. Zero, failed, skipped, negative or inconsistent test counts fail validation. Swift Testing function selectors need trailing `()`; prefer suite selectors when possible. Never weaken assertions or count an empty test selection as proof.
-
-Before release, also run `bash Scripts/check-revenuecat-staleness.sh` and review upstream notes. Exit 10 reports a newer version and requires a recorded update/retention decision; it is not a passing freshness check or proof of a vulnerability. Network/provenance errors remain unresolved. The separate immutable-pin integrity check above must pass regardless of that decision. A payment SDK update requires relevant purchase/restore and archive validation.
 
 ## Debug and UI verification
 
@@ -42,7 +40,7 @@ named for another repository is not an available test destination.
 
 `AIPedometerUITests/Support/AppDriver.swift` owns deterministic launch/reset and fixture flags. Use its synthetic data instead of personal HealthKit data. Debug overrides are disabled in Release. Keep stable accessibility identifiers as the primary selectors and retain xcresult screenshots when a UI check fails.
 
-Run relevant onboarding, five-tab navigation, premium unavailable/locked, workout start/end/recovery and settings flows on iPhone; include iPad for layout/navigation changes. Use Argent for manual app interaction and accessibility discovery. Real motion, HealthKit permissions/export, notification delivery, paired watch UI and StoreKit sandbox transactions need an explicitly selected device and remain unverified until exercised there.
+Run relevant onboarding, five-tab navigation, AI unavailable, workout start/end/recovery and settings flows on iPhone; include iPad for layout/navigation changes. Use Argent for manual app interaction and accessibility discovery. Real motion, HealthKit permissions/export, notification delivery, paired watch UI and StoreKit sandbox transactions need an explicitly selected device and remain unverified until exercised there.
 
 Do not add another E2E runner merely to duplicate XCUITest. Add a saved Argent flow when a repeated manual path lacks coverage; record before walking the path and require stable replay evidence.
 
@@ -50,10 +48,10 @@ Do not add another E2E runner merely to duplicate XCUITest. Add a saved Argent f
 
 You do not need a new XCUITest to look at one seeded screen. On a Debug build:
 
-- Seed and launch: `xcrun simctl launch <udid> com.mneves.aipedometer -ui-testing -reset-state -skip-onboarding -force-premium-on`. `LaunchConfiguration` reads `ProcessInfo.arguments` directly, so every flag works outside XCUITest. The full set is `-ui-testing`, `-reset-state`, `-skip-onboarding`, `-force-healthkit-sync-on|-off`, `-force-premium-on|-off`, `-force-ai-unavailable`, `-seed-unfinished-workout`, `-force-goal-save-failure`, `-use-production-glass`; environment: `UI_TESTING`, `DEMO_DETERMINISTIC`, `PREMIUM_ENABLED`. The glass flag lets accessibility tests exercise the production material instead of the deterministic UI-test fallback. All overrides are inert in Release by design — see `LaunchConfiguration.isOverridable`.
+- Seed and launch: `xcrun simctl launch <udid> com.mneves.aipedometer -ui-testing -reset-state -skip-onboarding`. `LaunchConfiguration` reads `ProcessInfo.arguments` directly, so every flag works outside XCUITest. The full set is `-ui-testing`, `-reset-state`, `-skip-onboarding`, `-force-healthkit-sync-on|-off`, `-force-ai-unavailable`, `-force-ai-disabled`, `-seed-unfinished-workout`, `-force-goal-save-failure`, `-use-production-glass`; environment: `UI_TESTING`, `DEMO_DETERMINISTIC`. The glass flag lets accessibility tests exercise the production material instead of the deterministic UI-test fallback. All overrides are inert in Release by design — see `LaunchConfiguration.isOverridable`.
 - Screenshot: `xcrun simctl io <udid> screenshot <path>.png`.
 - Logs: `xcrun simctl spawn <udid> log stream --predicate 'subsystem == "com.mneves.aipedometer"'`. Categories are `app, health, motion, tracking, workouts, badges, background, widgets, ai, sync`, plus `metrics`.
-- **Known ceiling:** `AppLogger` replaces every metadata *value* with `[private]` before the payload reaches `os_log`, and wraps that payload in `privacy: .private`. Only the event name (a `StaticString`) and the optional `code` field are public, so a device syslog shows lines such as `premium.offerings_failed CONFIGURATION_ERROR <private>`. Pass `code` only enum-like machine codes; never a value derived from user or health data. To observe state, use the `#if DEBUG` debug section in Settings (`HealthKitDebugView`), or assert it in a test.
+- **Known ceiling:** `AppLogger` replaces every metadata *value* with `[private]` before the payload reaches `os_log`, and wraps that payload in `privacy: .private`. Only the event name (a `StaticString`) and the optional `code` field are public, so a device syslog shows lines such as `healthkit.authorization_request_failed <private>`. Pass `code` only enum-like machine codes; never a value derived from user or health data. To observe state, use the `#if DEBUG` debug section in Settings (`HealthKitDebugView`), or assert it in a test.
 - Debug menu: any Debug build exposes `SettingsView.debugSection` with `HealthKitDebugView` and a fake-data toggle; no test code required.
 
 For production, record the build, device/OS, scenario and observed result for these
@@ -66,15 +64,14 @@ physical checks. Use synthetic data or data the owner explicitly authorizes:
 | Export failure and retry | Pending export survives; eventual success produces one workout. |
 | Watch disconnect and reconnect | The current valid snapshot replaces stale state without losing phone history. |
 | Notification delivery | Enabled reminders arrive under the chosen access state; suspension preserves the saved preference. |
-| Purchase, restore and offline access | Real sandbox transactions unlock only verified access; unavailable state does not erase preferences. |
+| Tip Jar purchase | A real sandbox purchase completes, finishes the transaction and unlocks nothing; a cancelled or pending purchase leaves the app unchanged. |
 | Upgrade from an existing installation | History and pending exports survive; a clean-install pass is insufficient. |
 
 On iOS 27 the HealthKit authorization flow has an extra step ("Past 30 Days" versus
 "Full History"); a script or UI driver that does not handle it will stall there.
 
-The [payment runbook](../revenuecat/apple-payments-setup.md) owns the complete
-purchase matrix. Simulation, launch overrides and mocked SDK calls do not close
-these physical checks.
+The [StoreKit guide](../appstore/howto-storekit.md) owns the Tip Jar purchase checks.
+Simulation, launch overrides and mocked StoreKit calls do not close these physical checks.
 
 CodeQL builds the complete app scheme once with `ARCHS=arm64`. Do not combine the
 `-arch` option with its generic simulator destination: Xcode rejects that pair.
@@ -94,7 +91,7 @@ Use Instruments/Argent profiling for SwiftUI updates, CPU and hangs; retain trac
 ## App Store Connect Gate
 
 - Before export, run `python3 Scripts/validate-release-artifact.py --archive <archive> --bundle-id com.mneves.aipedometer --version <VERSION> --build <BUILD>`; after export, add `--ipa <ipa>`. It checks the app/watch/widget structure, resolved configuration, nonempty executables and archive/IPA metadata equality without extracting the ZIP.
-- That validator does not verify code signatures, provisioning profiles or entitlements. Inspect those on the real signed products separately; a synthetic fixture or metadata match is insufficient. An Apple key prefix does not prove RevenueCat products, offerings or purchase/restore behavior.
+- That validator does not verify code signatures, provisioning profiles or entitlements. Inspect those on the real signed products separately; a synthetic fixture or metadata match is insufficient.
 - Remote ASC validation requires stored credentials or `ASC_KEY_ID`, `ASC_ISSUER_ID`, and private key configuration.
 - ASC auth health: `asc auth doctor`; never print tokens or private-key contents. Use an explicitly verified app record rather than the global default app ID.
 - Version readiness: `asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table`.
