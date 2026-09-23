@@ -86,6 +86,41 @@ struct PluralTests {
         #expect(Localization.streakDays(days, locale: Locale(identifier: language)) == expected)
     }
 
+    // The widget composed "Streak %lld days" through `Localization.format`, which ignores plural
+    // variations and rendered "Streak 1 days". These pin the strings the widget actually shows.
+    @Test(
+        "Weekly widget streak label pluralizes",
+        arguments: [
+            (1, "en", "Streak: 1 day"),
+            (2, "en", "Streak: 2 days"),
+            (1, "pt-BR", "Sequência: 1 dia"),
+            (2, "pt-BR", "Sequência: 2 dias")
+        ]
+    )
+    func widgetStreakLabelPluralizes(days: Int, language: String, expected: String) {
+        #expect(Localization.widgetStreakLabel(days, locale: Locale(identifier: language)) == expected)
+    }
+
+    @Test(
+        "Weekly widget accessibility summary pluralizes the streak",
+        arguments: [
+            (false, "en", "8 steps today, 40 steps this week, streak of 1 day"),
+            (true, "en", "8 pushes today, 40 pushes this week, streak of 1 day"),
+            (false, "pt-BR", "8 passos hoje, 40 passos nesta semana, sequência de 1 dia"),
+            (true, "pt-BR", "8 impulsos hoje, 40 impulsos nesta semana, sequência de 1 dia")
+        ]
+    )
+    func widgetWeeklySummaryPluralizes(isWheelchair: Bool, language: String, expected: String) {
+        let summary = Localization.widgetWeeklySummary(
+            today: "8",
+            week: "40",
+            streakDays: 1,
+            isWheelchair: isWheelchair,
+            locale: Locale(identifier: language)
+        )
+        #expect(summary == expected)
+    }
+
     // MARK: - Date Formatting
 
     @Test("Day name formatting produces output")

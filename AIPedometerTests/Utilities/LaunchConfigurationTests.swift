@@ -54,6 +54,12 @@ struct LaunchConfigurationTests {
     }
 
     @Test
+    func detectsForcedAIDisabledOnlyInUITesting() {
+        #expect(LaunchConfiguration.isAIDisabledForced(arguments: ["-ui-testing", "-force-ai-disabled"], environment: [:]))
+        #expect(!LaunchConfiguration.isAIDisabledForced(arguments: ["-force-ai-disabled"], environment: [:]))
+    }
+
+    @Test
     func detectsUnfinishedWorkoutSeedOnlyInUITesting() {
         let arguments = ["-ui-testing", "-seed-unfinished-workout"]
 
@@ -107,6 +113,7 @@ struct LaunchConfigurationTests {
             "-force-healthkit-sync-off",
             "-force-premium-on",
             "-force-ai-unavailable",
+            "-force-ai-disabled",
             "-seed-unfinished-workout",
             "-force-goal-save-failure",
             "-use-production-glass"
@@ -150,6 +157,11 @@ struct LaunchConfigurationTests {
             allowsOverrides: false
         ) == nil)
         #expect(!LaunchConfiguration.isAIUnavailableForced(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
+        #expect(!LaunchConfiguration.isAIDisabledForced(
             arguments: arguments,
             environment: environment,
             allowsOverrides: false

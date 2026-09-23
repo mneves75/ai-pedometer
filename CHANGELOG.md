@@ -25,7 +25,9 @@ full source-only security audit (15 coverage units, no confirmed vulnerability).
 ### Fixed
 
 - About > Privacy Policy and Send Feedback opened `aipedometer.app`, a domain that does not resolve.
-  They now open the product page's privacy and support sections, the same URLs as App Store Connect.
+  Privacy Policy now opens a full policy page (`docs/privacy.html`, English and pt-BR: what stays on
+  the device, what RevenueCat receives, retention, deletion and withdrawing consent), and Send
+  Feedback opens the support section. App Store metadata uses the same URLs.
 - A declined or unanswered Ask to Buy request left the plan buttons disabled on every launch,
   because only a newer verified purchase cleared the pending marker. A pending approval older than
   48 hours (Apple expires the request after 24) is now discarded at launch.
@@ -35,12 +37,18 @@ full source-only security audit (15 coverage units, no confirmed vulnerability).
 - HealthKit sums and the latest heart rate are clamped before becoming integers. Any app with
   HealthKit write access contributes to them, and `Int(_: Double)` traps on non-finite values or
   anything at or beyond 2^63, which would crash the app on every read of that day.
+- A huge but finite HealthKit distance (at or beyond 2^63 meters) still trapped in the distance-badge
+  check, which only guarded against non-finite values.
+- The expired Ask to Buy marker is also discarded on every paywall refresh, so a process that keeps
+  running past the window is released without a relaunch.
 - A CoreMotion update queued before pausing a workout could land after resuming and add the
   previous segment's steps a second time.
 - The Open Settings button on the AI Coach "Apple Intelligence is off" screen did nothing: the
   coach's link policy, which admits only https links, intercepted the Settings URL.
 - The Weekly widget read "Streak 1 days" / "Sequência de 1 dias"; its label and accessibility value
-  now use the pluralized day count.
+  now come from tested `Localization.widgetStreakLabel`/`widgetWeeklySummary`, which pluralize.
+- UI tests can force the "Apple Intelligence is off" state (`-force-ai-disabled`, DEBUG only) and
+  assert that Open Settings hands off to the Settings app.
 - The watch no longer logs step, goal and streak values, even redacted.
 
 ### Changed

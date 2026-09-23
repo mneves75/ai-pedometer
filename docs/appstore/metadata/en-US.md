@@ -27,7 +27,7 @@
 
 - Support URL: `https://mneves75.github.io/ai-pedometer/#support`
 - Marketing URL: `https://mneves75.github.io/ai-pedometer/`
-- Privacy Policy URL: `https://mneves75.github.io/ai-pedometer/#privacy`
+- Privacy Policy URL: `https://mneves75.github.io/ai-pedometer/privacy.html`
 - License Agreement: Apple's standard EULA (`https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`), linked in the description and in the paywall
 
 ## App Privacy

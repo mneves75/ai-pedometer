@@ -523,6 +523,9 @@ private struct PremiumSubscriptionTerms: View {
             // Small accent-green text on the grouped background is below AA contrast.
             .underline()
             .tint(DesignTokens.Colors.textPrimary)
+            // Opened from AI Coach, this sheet inherits the coach's model-link policy, whose
+            // confirmation alert belongs to the view under the sheet. Legal links go straight out.
+            .environment(\.openURL, OpenURLAction { _ in .systemAction })
         }
     }
 

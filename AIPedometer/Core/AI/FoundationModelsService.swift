@@ -42,12 +42,8 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     ) {
         self.instructions = instructions
         self.systemAvailability = systemAvailability
-        if LaunchConfiguration.isAIUnavailableForced() {
-            self.availability = .unavailable(reason: .deviceNotEligible)
-            return
-        }
-        if LaunchConfiguration.isUITesting() {
-            self.availability = .unavailable(reason: .deviceNotEligible)
+        if let forced = Self.uiTestAvailability() {
+            self.availability = forced
             return
         }
         self.availability = checkAvailability()
@@ -83,12 +79,8 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
     }
 
     func refreshAvailability() {
-        if LaunchConfiguration.isAIUnavailableForced() {
-            availability = .unavailable(reason: .deviceNotEligible)
-            return
-        }
-        if LaunchConfiguration.isUITesting() {
-            availability = .unavailable(reason: .deviceNotEligible)
+        if let forced = Self.uiTestAvailability() {
+            availability = forced
             return
         }
         let updatedAvailability = checkAvailability()
@@ -97,12 +89,20 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
         }
     }
 
-    func checkAvailability() -> AIModelAvailability {
-        if LaunchConfiguration.isAIUnavailableForced() {
+    /// UI tests never touch the real model. Unavailable unless a test asks for the "turned off" state.
+    private static func uiTestAvailability() -> AIModelAvailability? {
+        if LaunchConfiguration.isAIDisabledForced() {
+            return .unavailable(reason: .appleIntelligenceNotEnabled)
+        }
+        if LaunchConfiguration.isAIUnavailableForced() || LaunchConfiguration.isUITesting() {
             return .unavailable(reason: .deviceNotEligible)
         }
-        if LaunchConfiguration.isUITesting() {
-            return .unavailable(reason: .deviceNotEligible)
+        return nil
+    }
+
+    func checkAvailability() -> AIModelAvailability {
+        if let forced = Self.uiTestAvailability() {
+            return forced
         }
         let currentAvailability = systemAvailability()
         // Public os_log on purpose: AppLogger redacts every metadata value by design, and this

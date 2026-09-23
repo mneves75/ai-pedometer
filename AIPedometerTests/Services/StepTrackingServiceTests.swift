@@ -860,6 +860,29 @@ struct StepTrackingServiceTests {
         #expect(service.todayFloors == 6)
     }
 
+    // Another app can write any finite distance; the badge threshold check used `Int(distance)`,
+    // which traps at or beyond 2^63 even though the value is finite.
+    @Test("A huge finite HealthKit distance does not crash the badge evaluation")
+    @MainActor
+    func hugeHealthKitDistanceDoesNotTrap() async {
+        let mockHealthKit = MockHealthKitService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+
+        mockHealthKit.stepsToReturn = 100
+        mockHealthKit.distanceToReturn = 1e19
+
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: MockMotionService(),
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.start()
+
+        #expect(service.todayDistance == 1e19)
+    }
+
     @Test("Live updates keep pedometer totals when HealthKit lags")
     @MainActor
     func liveUpdatesUsePedometerWhenHigher() async {

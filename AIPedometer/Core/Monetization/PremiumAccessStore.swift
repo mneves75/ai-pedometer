@@ -292,6 +292,11 @@ final class PremiumAccessStore {
 
     func refresh() async {
         guard isConfigured else { return }
+        if !ownsLivePurchaseAttempt,
+           Self.discardExpiredPendingApproval(in: pendingPurchaseDefaults, now: .now) {
+            hasPendingPurchase = false
+            isPurchaseInProgress = false
+        }
         state = .loading
         storeDiagnostic = nil
         var encounteredError = false
@@ -642,15 +647,18 @@ final class PremiumAccessStore {
 
     /// A `.pending` marker only clears when a newer purchase shows up in verified customer info.
     /// Without this, a declined or expired Ask to Buy request disabled the plan buttons forever.
-    private static func discardExpiredPendingApproval(in defaults: UserDefaults, now: Date) {
+    /// Runs at launch and on every refresh, so a long-lived process is released too.
+    @discardableResult
+    private static func discardExpiredPendingApproval(in defaults: UserDefaults, now: Date) -> Bool {
         guard defaults.string(forKey: pendingProductKey) != nil,
               PurchaseMarkerPhase(rawValue: defaults.string(forKey: pendingPhaseKey) ?? "") ?? .pending == .pending,
               let startedAt = defaults.object(forKey: pendingStartedAtKey) as? Date,
-              now.timeIntervalSince(startedAt) > pendingApprovalLifetime else { return }
+              now.timeIntervalSince(startedAt) > pendingApprovalLifetime else { return false }
         for key in pendingPurchaseKeys {
             defaults.removeObject(forKey: key)
         }
         Loggers.app.info("premium.pending_purchase_expired")
+        return true
     }
 
     private func clearPendingPurchase() {

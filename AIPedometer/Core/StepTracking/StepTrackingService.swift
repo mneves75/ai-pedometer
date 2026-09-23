@@ -539,9 +539,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
 
         if let distance {
             // `distance` is the day's walking/running distance in meters, matched against the
-            // meter thresholds in BadgeDefinitions. Negative/NaN distances can't clear any
-            // threshold, so `Int(...)` is guarded to avoid trapping on non-finite input.
-            let distanceMeters = distance.isFinite ? Int(distance) : 0
+            // meter thresholds in BadgeDefinitions. HealthKit sums come from any writer app, and
+            // `Int(_: Double)` traps on non-finite values and on finite ones at or beyond 2^63.
+            let distanceMeters = HealthCount.clamped(distance)
             let distanceBadges = BadgeDefinitions.all.filter {
                 $0.type.category == .distance && distanceMeters >= $0.requiredValue
             }

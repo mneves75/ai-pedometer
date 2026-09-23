@@ -88,7 +88,7 @@ enum AppConstants {
     /// Public pages App Review and users reach from inside the app. They must match the Privacy
     /// Policy and Support URLs in App Store Connect (`docs/appstore/metadata/`).
     enum Links {
-        static let privacyPolicy = URL(string: "https://mneves75.github.io/ai-pedometer/#privacy")
+        static let privacyPolicy = URL(string: "https://mneves75.github.io/ai-pedometer/privacy.html")
         static let support = URL(string: "https://mneves75.github.io/ai-pedometer/#support")
         /// Apple's standard EULA, which governs the subscription when no custom EULA is set.
         static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")

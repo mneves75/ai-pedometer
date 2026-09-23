@@ -161,7 +161,9 @@ with an injected 1e19 on 2026-09-23). Convert counts and heart rate through `Hea
 `AICoachView` replaces the environment's `openURL` for its whole subtree with the model-link policy,
 which discards anything that is not https. A system URL opened through `@Environment(\.openURL)` in a
 view shown there (the Apple Intelligence Settings button was one) silently does nothing; open system
-URLs with `UIApplication.shared.open`.
+URLs with `UIApplication.shared.open`. Sheets presented from that subtree (the Premium paywall)
+inherit the override, and its confirmation alert belongs to the view under the sheet, so `Link`s
+there reset `openURL` to `.systemAction`.
 
 A `.pending` purchase marker (Ask to Buy) only clears on a newer verified purchase. A declined or
 unanswered request never produces one, so `PremiumAccessStore` discards markers older than 48 hours

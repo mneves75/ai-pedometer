@@ -93,6 +93,42 @@ enum Localization {
         L10n.localized("\(Int64(days)) days", locale: locale, comment: "Streak length in days")
     }
 
+    /// Weekly widget streak label, "Streak: 1 day". The count is a pluralized `%@` argument because
+    /// `format(_:)` drops plural variations.
+    static func widgetStreakLabel(_ days: Int, locale: Locale? = nil) -> String {
+        String(
+            format: L10n.localized(
+                "Streak: %@",
+                locale: locale,
+                comment: "Widget label for streak length; the argument is a pluralized day count such as \"1 day\""
+            ),
+            locale: locale ?? .autoupdatingCurrent,
+            streakDays(days, locale: locale)
+        )
+    }
+
+    /// Weekly widget accessibility value. `today` and `week` arrive already formatted as counts.
+    static func widgetWeeklySummary(
+        today: String,
+        week: String,
+        streakDays days: Int,
+        isWheelchair: Bool,
+        locale: Locale? = nil
+    ) -> String {
+        let format = isWheelchair
+            ? L10n.localized(
+                "%@ pushes today, %@ pushes this week, streak of %@",
+                locale: locale,
+                comment: "Accessibility value for weekly wheelchair pushes widget; the last argument is a pluralized day count"
+            )
+            : L10n.localized(
+                "%@ steps today, %@ steps this week, streak of %@",
+                locale: locale,
+                comment: "Accessibility value for weekly steps widget; the last argument is a pluralized day count"
+            )
+        return String(format: format, locale: locale ?? .autoupdatingCurrent, today, week, streakDays(days, locale: locale))
+    }
+
     static func format(_ key: String.LocalizationValue, comment: StaticString, _ arguments: any CVarArg...) -> String {
         let format = L10n.localized(key, comment: comment)
         return String(format: format, locale: Locale.autoupdatingCurrent, arguments: arguments)

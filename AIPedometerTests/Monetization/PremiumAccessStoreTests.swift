@@ -996,6 +996,26 @@ struct PremiumAccessStoreTests {
         #expect(recentStore.isPurchaseInProgress)
     }
 
+    @Test("A pending approval that expires while the app keeps running is discarded on refresh")
+    func pendingApprovalExpiresWithoutRelaunch() async throws {
+        let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(makePremiumPackage().storeProduct.productIdentifier, forKey: "PremiumAccessStore.pendingProduct")
+        defaults.set("pending", forKey: "PremiumAccessStore.pendingPhase")
+        defaults.set(Date.now.addingTimeInterval(-3_600), forKey: "PremiumAccessStore.pendingStartedAt")
+        let client = FakePurchasesClient()
+        client.customerInfoResult = .success(makeCustomerInfo(activeEntitlementIDs: []))
+        let store = makePremiumAccessStore(client: client, pendingPurchaseDefaults: defaults)
+        #expect(store.isPurchaseInProgress)
+
+        // Same process, two days later: the paywall's refresh must release the plan buttons.
+        defaults.set(Date.now.addingTimeInterval(-3 * 86_400), forKey: "PremiumAccessStore.pendingStartedAt")
+        await store.refresh()
+
+        #expect(store.isPurchaseInProgress == false)
+    }
+
     @Test("orphaned pre-await purchase marker is cleared during launch refresh")
     func orphanedPurchaseAttemptIsClearedOnRecreation() async throws {
         let suiteName = "PremiumAccessStoreTests.\(UUID().uuidString)"

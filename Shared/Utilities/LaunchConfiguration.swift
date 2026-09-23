@@ -22,6 +22,7 @@ enum LaunchConfiguration {
     private static let forcePremiumOffArgument = "-force-premium-off"
     private static let forcePremiumOnArgument = "-force-premium-on"
     private static let forceAIUnavailableArgument = "-force-ai-unavailable"
+    private static let forceAIDisabledArgument = "-force-ai-disabled"
     private static let seedUnfinishedWorkoutArgument = "-seed-unfinished-workout"
     private static let forceGoalSaveFailureArgument = "-force-goal-save-failure"
     private static let useProductionGlassArgument = "-use-production-glass"
@@ -126,6 +127,21 @@ enum LaunchConfiguration {
             allowsOverrides: allowsOverrides
         ) else { return false }
         return arguments.contains(forceAIUnavailableArgument)
+    }
+
+    /// Apple Intelligence supported but turned off: the only unavailability reason whose screen
+    /// offers an Open Settings action.
+    static func isAIDisabledForced(
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(forceAIDisabledArgument)
     }
 
     static func shouldSeedUnfinishedWorkout(

@@ -616,6 +616,32 @@ final class AIPedometerUITests: XCTestCase {
         XCTAssertFalse(d.app.buttons[A11yID.AICoach.sendButton].exists)
     }
 
+    // The coach replaces `openURL` with its https-only link policy, which used to discard the
+    // Settings URL, so this button did nothing on the AI Coach screen.
+    func testAICoachOpenSettingsLeavesTheAppWhenAppleIntelligenceIsOff() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, forcedPremiumEnabled: true, extraLaunchArguments: ["-force-ai-disabled"])
+
+        d.openTab(.aiCoach)
+        UITestWait.assertAnyExists(
+            [
+                d.app.otherElements[A11yID.AICoach.unavailableState],
+                d.app.staticTexts[A11yID.AICoach.unavailableState],
+            ],
+            timeout: navigationTimeout
+        )
+        let openSettings = d.app.buttons
+            .matching(NSPredicate(format: "label IN %@", ["Open Settings", "Abrir Ajustes"]))
+            .firstMatch
+        XCTAssertTrue(openSettings.waitForExistence(timeout: navigationTimeout))
+        openSettings.tap()
+
+        XCTAssertTrue(
+            XCUIApplication(bundleIdentifier: "com.apple.Preferences").wait(for: .runningForeground, timeout: navigationTimeout),
+            "Open Settings must hand off to the Settings app"
+        )
+    }
+
     func testDashboardShowsAIUnavailableBannerWhenForced() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true, forcedPremiumEnabled: true, forceAIUnavailable: true)
