@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.8 (65), a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. Production delivery still requires an active Paid Apps Agreement, the privacy-policy fix on conhecendotudo.com.br, the listing and price applied in App Store Connect, and physical-device acceptance of HealthKit, motion, notifications and the Tip Jar.
+**Current source**: 1.0.8 (65), a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, R$ 1,99 price, availability and "Data Not Collected" label are applied in App Store Connect, and the AIPedometer privacy page on conhecendotudo.com.br describes the paid app. Production delivery still requires the owner's App Store Connect declarations (age rating, content rights, review contact) and physical-device acceptance of HealthKit, motion, notifications and the Tip Jar.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

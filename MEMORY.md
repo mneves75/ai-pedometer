@@ -15,9 +15,11 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   Collected` (`privacy.json`), privacy/support on AIPedometer's conhecendotudo.com.br pages, which the
   app's About links also open (`StoreListingTests`). Onboarding redesigned to the HIG (value, goal
   presets, one-button "Connect Apple Health" pre-permission screen). A smart reminder suspended by the
-  old subscription resumes once (`SettingsSideEffects.legacySmartReminderAction`). The site's
-  AIPedometer policy for the paid app ships in conhecendotudo v0.9.3; github.io `privacy.html` now
-  points there. The App Store Connect subscriptions (`premium.monthly`/`.yearly`) were never
+  old subscription, or by on-device AI becoming unavailable, resumes when the model is available
+  (`SettingsSideEffects.suspendedSmartReminderAction`, key `smartRemindersSuspended`). The site's
+  AIPedometer policy for the paid app is live (conhecendotudo v0.9.3, image v19); github.io
+  `privacy.html` points there. App Store Connect (2026-09-23): version 1.0.8, listing identical to the
+  repo, `Data Not Collected` published, price R$ 1,99, 175 territories. The App Store Connect subscriptions (`premium.monthly`/`.yearly`) were never
   submitted and are left untouched (not deleted).
 - **1.0.6 (63) is in TestFlight** (2026-09-23, commit `e6de263`, tag `v1.0.6-beta1`, build
   `4eff36c5`): `VALID`, export compliance `exempt` automatically (the `ITSAppUsesNonExemptEncryption`

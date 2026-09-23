@@ -281,6 +281,13 @@ until 1.0.6 even though the formatter's comment warned about it.
 - When a structural argument and an experiment disagree, the experiment wins. Bisect
   before defending a hypothesis, and scope any find/replace to the specific call.
 
+- Xcode 27 accessibility audits of production-glass screens scrolled with `swipeUp()` (momentum) or a long
+  drag flag opaque black text across the board and report "inaccessible text" with no element; the same
+  nodes pass at rest. Scroll with a short press-drag that holds before lifting
+  (`scrollWithoutMomentum`), then audit. Content entirely behind the tab bar is not judged for contrast
+  (`isHiddenBehind`, which keeps the tab bar's own buttons audited); it is audited after the scroll.
+  Exemptions stay keyed by identifier and backed by an inspected screenshot, never by label.
+
 ## Settled non-findings (do not re-audit)
 
 - `ActiveWorkoutView` labels its count "Steps" in every activity mode on purpose: workout metrics come

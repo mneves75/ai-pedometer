@@ -330,6 +330,7 @@ struct WorkoutsView: View {
                         systemImage: "square.and.arrow.down"
                     )
                     .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier(A11yID.Workouts.routeImportButtonLabel)
                 }
                 .glassButton()
                 .accessibilityIdentifier(A11yID.Workouts.routeImportButton)

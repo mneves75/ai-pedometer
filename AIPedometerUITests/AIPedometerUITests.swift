@@ -178,6 +178,10 @@ final class AIPedometerUITests: XCTestCase {
 
         d.assertDashboardLoaded()
         try performAccessibilityAudit(on: d.app)
+        // Audit the lower stat cards in view too. A drag that holds before lifting leaves no momentum,
+        // so the audit measures settled content.
+        scrollWithoutMomentum(d.app)
+        try performAccessibilityAudit(on: d.app)
 
         d.openTab(.workouts)
         d.assertWorkoutsLoaded(requireStartButton: false)
@@ -185,6 +189,9 @@ final class AIPedometerUITests: XCTestCase {
             [d.app.otherElements[A11yID.Workouts.recoveryCard]],
             timeout: navigationTimeout
         )
+        try performAccessibilityAudit(on: d.app)
+        // The plan and route cards start behind the tab bar; audit them in view as well.
+        scrollWithoutMomentum(d.app)
         try performAccessibilityAudit(on: d.app)
     }
 
@@ -336,6 +343,9 @@ final class AIPedometerUITests: XCTestCase {
         [
             A11yID.Dashboard.healthBannerDescription,
             A11yID.Dashboard.healthBannerGrantAccessButton,
+            // Same glass-prominent button class as Grant Access: black label on solid green (about 9.8:1),
+            // flagged by Xcode 27 only once scrolled into view on the production-glass Workouts screen.
+            A11yID.Workouts.routeImportButtonLabel,
             A11yID.Onboarding.goalNote,
             A11yID.Onboarding.permissionsExplanation,
             A11yID.Workouts.recoveryMessage,
@@ -357,6 +367,12 @@ final class AIPedometerUITests: XCTestCase {
                 A11yID.Dashboard.statCardTitle(card),
             ]
         }
+    }
+
+    private func scrollWithoutMomentum(_ app: XCUIApplication) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
     }
 
     private func isHiddenBehind(_ frame: CGRect, occluder: CGRect, excluding occluderControls: [CGRect]) -> Bool {
