@@ -636,10 +636,14 @@ final class AIPedometerUITests: XCTestCase {
         XCTAssertTrue(openSettings.waitForExistence(timeout: navigationTimeout))
         openSettings.tap()
 
-        XCTAssertTrue(
-            XCUIApplication(bundleIdentifier: "com.apple.Preferences").wait(for: .runningForeground, timeout: navigationTimeout),
-            "Open Settings must hand off to the Settings app"
+        // The bug kept the app in front with nothing opened. Assert the hand-off itself: the hosted
+        // CI runtime did not report Settings as foreground within 10 s, so it is not the signal.
+        let leftForeground = expectation(
+            for: NSPredicate(format: "state != %d", XCUIApplication.State.runningForeground.rawValue),
+            evaluatedWith: d.app
         )
+        wait(for: [leftForeground], timeout: 30)
+        XCTAssertNotEqual(d.app.state, .runningForeground, "Open Settings must hand off to the Settings app")
     }
 
     func testDashboardShowsAIUnavailableBannerWhenForced() throws {
