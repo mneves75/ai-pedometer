@@ -17,7 +17,7 @@ full source-only security audit (15 coverage units, no confirmed vulnerability).
   and links to the Terms of Use (Apple's standard EULA) and the Privacy Policy, as App Review
   Guideline 3.1.2 requires next to a subscription purchase.
 - The paywall lists GPX route import and Expedition Mode, which Premium already unlocked, and says
-  the AI features need an iPhone with Apple Intelligence turned on.
+  the AI features need an iPhone or iPad with Apple Intelligence turned on.
 - Restore Purchases reports its result: restored, no active subscription for this Apple Account, or
   failure. It is disabled while running. It used to do nothing visible when there was nothing to
   restore.

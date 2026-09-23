@@ -8656,19 +8656,19 @@
         }
       }
     },
-    "AI features run on your device and need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on." : {
+    "AI features run on your device and need an iPhone or iPad that supports Apple Intelligence, with Apple Intelligence turned on." : {
       "comment" : "Premium paywall note on AI device requirements",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI features run on your device and need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on."
+            "value" : "AI features run on your device and need an iPhone or iPad that supports Apple Intelligence, with Apple Intelligence turned on."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Os recursos de IA rodam no seu aparelho e exigem um iPhone compatível com a Apple Intelligence, com a Apple Intelligence ativada."
+            "value" : "Os recursos de IA rodam no seu aparelho e exigem um iPhone ou iPad compatível com a Apple Intelligence, com a Apple Intelligence ativada."
           }
         }
       }

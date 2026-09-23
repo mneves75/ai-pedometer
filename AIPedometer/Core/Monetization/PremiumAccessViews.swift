@@ -352,7 +352,7 @@ struct PremiumAccessSheet: View {
 
             Text(
                 L10n.localized(
-                    "AI features run on your device and need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on.",
+                    "AI features run on your device and need an iPhone or iPad that supports Apple Intelligence, with Apple Intelligence turned on.",
                     comment: "Premium paywall note on AI device requirements"
                 )
             )
