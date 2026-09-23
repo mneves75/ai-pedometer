@@ -29,7 +29,7 @@ struct AIPedometerApp: App {
     private let metricKitService = MetricKitService.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var lifecycleTask: Task<Void, Never>?
-    @State private var isResumingLegacySmartReminder = false
+    @State private var isResumingSuspendedSmartReminder = false
 
     init() {
         if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldResetState() {
@@ -244,36 +244,33 @@ struct AIPedometerApp: App {
         ))
     }
 
-    /// Brings back a smart reminder that the removed Premium subscription suspended (through 1.0.7).
-    /// While the on-device model is still loading the key stays, so the next foreground retries;
-    /// once the model is available the reminder gets one scheduling attempt.
-    private func resumeLegacySmartReminderIfNeeded() async {
+    /// Brings back a smart reminder whose delivery was suspended without the user asking: on-device AI
+    /// was unavailable (see Settings), or, through 1.0.7, a subscription lapsed. The marker is dropped
+    /// once the reminder is rescheduled or the preference is off; otherwise the next launch or
+    /// foreground tries again.
+    private func resumeSuspendedSmartReminderIfNeeded() async {
         // Lifecycle side effects are skipped under UI testing, the same contract
         // `AppLifecycleCoordinator.handle` enforces: XCUITest drives foregrounds via `app.activate()`
         // during tap retries, so running notification work there perturbs the very interaction under test.
         guard !LaunchConfiguration.isTesting() else { return }
 
         // Rescheduling generates reminder content on-device; launch and foreground can overlap.
-        guard !isResumingLegacySmartReminder else { return }
-        isResumingLegacySmartReminder = true
-        defer { isResumingLegacySmartReminder = false }
+        guard !isResumingSuspendedSmartReminder else { return }
+        isResumingSuspendedSmartReminder = true
+        defer { isResumingSuspendedSmartReminder = false }
 
         let defaults = UserDefaults.standard
-        let key = SettingsSideEffects.legacySmartReminderSuspensionKey
-        let action = SettingsSideEffects.legacySmartReminderAction(
+        let key = AppConstants.UserDefaultsKeys.smartRemindersSuspended
+        switch SettingsSideEffects.suspendedSmartReminderAction(
             isSuspended: defaults.bool(forKey: key),
             isEnabled: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
             aiAvailability: foundationModelsService.availability
-        )
-        switch action {
+        ) {
         case .none:
             return
         case .clear:
             defaults.removeObject(forKey: key)
         case .resume:
-            // One attempt only: a failure (for example, notifications denied) would otherwise
-            // regenerate the reminder on-device at every foreground. Settings reschedules it again.
-            defaults.removeObject(forKey: key)
             let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
                 at: AppConstants.Notifications.defaultSmartReminderHour,
                 minute: AppConstants.Notifications.defaultSmartReminderMinute
@@ -282,9 +279,11 @@ struct AIPedometerApp: App {
             // Generation takes seconds; the user may have turned reminders off meanwhile.
             guard defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled) else {
                 smartNotificationService.cancelAllSmartNotifications()
+                defaults.removeObject(forKey: key)
                 return
             }
-            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "paid_app"])
+            defaults.removeObject(forKey: key)
+            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "suspension_cleared"])
         }
     }
 
@@ -320,7 +319,7 @@ struct AIPedometerApp: App {
                 .task {
                     await startupCoordinator.startIfNeeded(onboardingCompleted: onboardingCompleted)
                     await lifecycleCoordinator.handleStartupCompletion(scenePhase: scenePhase)
-                    await resumeLegacySmartReminderIfNeeded()
+                    await resumeSuspendedSmartReminderIfNeeded()
                 }
                 .onChange(of: onboardingCompleted) { _, _ in
                     Task { @MainActor in
@@ -336,7 +335,7 @@ struct AIPedometerApp: App {
                     lifecycleTask = Task { @MainActor in
                         await lifecycleCoordinator.handle(scenePhase: newPhase)
                         guard newPhase == .active, !Task.isCancelled else { return }
-                        await resumeLegacySmartReminderIfNeeded()
+                        await resumeSuspendedSmartReminderIfNeeded()
                     }
                 }
         }

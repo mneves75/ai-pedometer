@@ -10,6 +10,9 @@ struct SettingsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitEnabled = true
     @AppStorage(AppConstants.UserDefaultsKeys.notificationsEnabled) private var notificationsEnabled = false
     @AppStorage(AppConstants.UserDefaultsKeys.smartRemindersEnabled) private var smartRemindersEnabled = false
+    // Set when delivery stopped because on-device AI became unavailable, so the reminder comes back when
+    // it returns. Cleared whenever the user acts on the toggle.
+    @AppStorage(AppConstants.UserDefaultsKeys.smartRemindersSuspended) private var smartRemindersSuspended = false
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(HealthKitSyncService.self) private var healthKitSyncService
@@ -533,6 +536,7 @@ struct SettingsView: View {
     }
 
     private func updateSmartReminders(enabled: Bool) async {
+        smartRemindersSuspended = false
         smartReminderUpdateGeneration &+= 1
         let updateGeneration = smartReminderUpdateGeneration
         isUpdatingSmartReminders = true
@@ -593,10 +597,16 @@ struct SettingsView: View {
             aiAvailability: aiService.availability
         ) {
         case .keep:
-            guard smartRemindersEnabled, aiService.availability.isAvailable else { return }
+            // Recovery only: a reminder that is already scheduled is left alone, so opening Settings does
+            // not regenerate it with the model.
+            guard SettingsSideEffects.suspendedSmartReminderAction(
+                isSuspended: smartRemindersSuspended,
+                isEnabled: smartRemindersEnabled,
+                aiAvailability: aiService.availability
+            ) == .resume else { return }
             smartReminderUpdateGeneration &+= 1
             let generation = smartReminderUpdateGeneration
-            _ = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
+            let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
                 isCurrent: { smartReminderUpdateGeneration == generation },
                 isEnabled: { smartRemindersEnabled },
                 aiAvailability: { aiService.availability },
@@ -609,9 +619,16 @@ struct SettingsView: View {
                 },
                 cancelReminders: { smartNotificationService.cancelAllSmartNotifications() }
             )
+            if result == .scheduled {
+                smartRemindersSuspended = false
+                Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "ai_available"])
+            }
         case .disableUnavailableAI:
+            // Suspend rather than erase: unavailability is often transient (the model can still be
+            // downloading), and only the user clears the preference.
             smartReminderUpdateGeneration &+= 1
             smartNotificationService.cancelAllSmartNotifications()
+            smartRemindersSuspended = true
             isUpdatingSmartReminders = false
             Loggers.ai.info("notifications.smart_suspended", metadata: ["reason": "ai_unavailable"])
         }

@@ -170,22 +170,22 @@ struct SettingsSideEffectsTests {
     }
 
     @Test(
-        "A reminder the old subscription suspended is resumed once AI can generate it, or cleared if turned off",
+        "A suspended reminder resumes once AI can generate it, or its marker is cleared if the user turned it off",
         arguments: [
-            (false, true, AIModelAvailability.available, LegacySmartReminderAction.none),
-            (true, false, AIModelAvailability.available, LegacySmartReminderAction.clear),
-            (true, true, AIModelAvailability.available, LegacySmartReminderAction.resume),
-            (true, true, AIModelAvailability.checking, LegacySmartReminderAction.none),
-            (true, true, AIModelAvailability.unavailable(reason: .modelNotReady), LegacySmartReminderAction.none),
+            (false, true, AIModelAvailability.available, SuspendedSmartReminderAction.none),
+            (true, false, AIModelAvailability.available, SuspendedSmartReminderAction.clear),
+            (true, true, AIModelAvailability.available, SuspendedSmartReminderAction.resume),
+            (true, true, AIModelAvailability.checking, SuspendedSmartReminderAction.none),
+            (true, true, AIModelAvailability.unavailable(reason: .modelNotReady), SuspendedSmartReminderAction.none),
         ]
     )
-    func legacySuspendedReminderAction(
+    func suspendedReminderAction(
         isSuspended: Bool,
         isEnabled: Bool,
         availability: AIModelAvailability,
-        expected: LegacySmartReminderAction
+        expected: SuspendedSmartReminderAction
     ) {
-        #expect(SettingsSideEffects.legacySmartReminderAction(
+        #expect(SettingsSideEffects.suspendedSmartReminderAction(
             isSuspended: isSuspended,
             isEnabled: isEnabled,
             aiAvailability: availability

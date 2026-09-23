@@ -15,8 +15,10 @@ LUME and CaptureVault). Everything Premium used to unlock is included.
 - AI insights, AI Coach, training plans, smart reminders, badge celebrations, GPX route import and
   Expedition Mode need no purchase inside the app. AI features are still gated only by Apple
   Intelligence availability on the device.
-- A smart reminder that 1.0.7 or earlier had suspended because a subscription lapsed comes back once,
-  when the on-device model can generate it; the saved preference is untouched.
+- Smart reminders suspended without the user asking (a lapsed subscription through 1.0.7, or on-device
+  AI unavailable) come back when the model can generate them: at launch, on foreground, or in Settings.
+  The saved preference is untouched, and Settings no longer regenerates an already scheduled reminder
+  on every visit.
 - About: the Premium card is gone; the optional Tip Jar stays, unlocks nothing, and its copy no longer
   mentions recurring support.
 - App Store listing (`store/app-store/`): the description and promotional text say "One-time purchase,

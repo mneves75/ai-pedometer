@@ -68,6 +68,9 @@ enum AppConstants {
         static let healthKitSyncEnabled = "healthKitSyncEnabled"
         static let notificationsEnabled = "notificationsEnabled"
         static let smartRemindersEnabled = "smartRemindersEnabled"
+        /// Set when delivery was stopped without the user asking (on-device AI unavailable; through 1.0.7
+        /// also a lapsed subscription) so the reminder can come back. The stored name predates 1.0.8.
+        static let smartRemindersSuspended = "smartRemindersSuspendedByAccess"
         static let smartNotificationLastDate = "smartNotificationLastDate"
         static let smartNotificationCount = "smartNotificationCount"
         static let expeditionModeEnabled = "expeditionModeEnabled"

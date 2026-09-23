@@ -116,7 +116,6 @@ enum A11yID {
 
     enum AIAvailability {
         static let banner = "ai_availability_banner"
-        static let bannerMessage = "ai_availability_banner_message"
     }
 
     enum HealthAccessHelp {

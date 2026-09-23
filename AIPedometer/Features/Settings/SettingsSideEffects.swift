@@ -5,11 +5,12 @@ enum SmartReminderAccessDecision: Equatable {
     case disableUnavailableAI(AIUnavailabilityReason?)
 }
 
-enum LegacySmartReminderAction: Equatable, Sendable {
+/// What to do with a smart reminder whose delivery was suspended without the user asking.
+enum SuspendedSmartReminderAction: Equatable, Sendable {
     case none
-    /// The preference is off: drop the stale key.
+    /// The preference is off: drop the suspension marker.
     case clear
-    /// Reschedule the reminder, then drop the key.
+    /// Reschedule the reminder, then drop the marker once it is scheduled.
     case resume
 }
 
@@ -21,17 +22,13 @@ enum SmartReminderSchedulingResult: Equatable {
 }
 
 enum SettingsSideEffects {
-    /// Through 1.0.7 a lapsed Premium subscription cancelled smart reminders and set this key while
-    /// keeping the user's preference. The app is paid now, so such a reminder comes back once.
-    static let legacySmartReminderSuspensionKey = "smartRemindersSuspendedByAccess"
-
     /// Rescheduling needs the on-device model to generate the reminder, so an unavailable or still
-    /// loading model leaves the key in place for a later attempt.
-    static func legacySmartReminderAction(
+    /// loading model leaves the marker in place for a later attempt.
+    static func suspendedSmartReminderAction(
         isSuspended: Bool,
         isEnabled: Bool,
         aiAvailability: AIModelAvailability
-    ) -> LegacySmartReminderAction {
+    ) -> SuspendedSmartReminderAction {
         guard isSuspended else { return .none }
         guard isEnabled else { return .clear }
         return aiAvailability.isAvailable ? .resume : .none
