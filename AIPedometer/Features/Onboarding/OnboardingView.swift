@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 enum OnboardingGoalPersistenceAction: Equatable {
     case complete
@@ -8,6 +7,14 @@ enum OnboardingGoalPersistenceAction: Equatable {
     init(didPersistGoal: Bool) {
         self = didPersistGoal ? .complete : .showSaveError
     }
+}
+
+/// One-tap daily goals on the goal page. They sit on the slider's grid, so choosing one and then
+/// dragging lands on the same values.
+enum OnboardingGoalPreset {
+    static let sliderRange: ClosedRange<Double> = 1_000...20_000
+    static let sliderStep: Double = 500
+    static let values = [5_000, 7_500, 10_000, 12_500]
 }
 
 struct OnboardingView: View {
@@ -21,6 +28,9 @@ struct OnboardingView: View {
     @State private var isRequestingPermissions = false
     @State private var showGoalSaveError = false
     @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.md
+
+    private static let pageCount = 3
+    private var isLastPage: Bool { currentPage == Self.pageCount - 1 }
 
     var body: some View {
         ZStack {
@@ -39,7 +49,9 @@ struct OnboardingView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .accessibilityIdentifier("onboarding_pages")
             .overlay(alignment: .topTrailing) {
-                if currentPage < 2 {
+                // The Apple Health page is a pre-permission screen: its only action opens the system
+                // alert (HIG, Privacy > Pre-alert screens), so it offers no way around it.
+                if !isLastPage {
                     skipButton
                 }
             }
@@ -57,38 +69,97 @@ struct OnboardingView: View {
             Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) {}
         }
     }
-    
+
+    // MARK: - Pages
+
     private var welcomePage: some View {
         onboardingScrollPage {
             Image(systemName: "figure.walk")
-                .font(.system(size: DesignTokens.FontSize.xxl))
+                .font(.system(size: DesignTokens.FontSize.xl))
                 .foregroundStyle(DesignTokens.Colors.accent)
-                .padding(DesignTokens.Spacing.md)
+                .padding(DesignTokens.Spacing.sm)
                 .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
                 .breathingGlow(DesignTokens.Colors.accent)
                 .applyIfMotionEnabled { view in
                     view.symbolEffect(.bounce, options: .repeating.speed(0.4))
                 }
+                .accessibilityHidden(true)
 
-            Text(L10n.localized("Welcome to AI Pedometer", comment: "Onboarding welcome title"))
-                .font(DesignTokens.Typography.largeTitle)
-                .bold()
-                .multilineTextAlignment(.center)
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                Text(L10n.localized("Welcome to AI Pedometer", comment: "Onboarding welcome title"))
+                    .font(DesignTokens.Typography.largeTitle)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
 
-            Text(L10n.localized("Track your steps with the power of AI.", comment: "Onboarding welcome subtitle"))
+                Text(L10n.localized(
+                    "Steps, workouts and an AI coach that runs on your device.",
+                    comment: "Onboarding welcome subtitle"
+                ))
                 .font(DesignTokens.Typography.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                OnboardingFeatureRow(
+                    symbol: "sparkles",
+                    title: L10n.localized("AI on your device", comment: "Onboarding feature title"),
+                    detail: L10n.localized(
+                        "Insights, coaching and plans from Apple Intelligence on supported devices, without a cloud AI service.",
+                        comment: "Onboarding feature detail for on-device AI"
+                    )
+                )
+                OnboardingFeatureRow(
+                    symbol: "lock.shield.fill",
+                    title: L10n.localized("Private by design", comment: "Onboarding feature title"),
+                    detail: L10n.localized(
+                        "No account and no ads. The app never sends your health data to us or to third parties.",
+                        comment: "Onboarding feature detail for privacy"
+                    )
+                )
+                OnboardingFeatureRow(
+                    symbol: "applewatch",
+                    title: L10n.localized("iPhone, Apple Watch and widgets", comment: "Onboarding feature title"),
+                    detail: L10n.localized(
+                        "Your progress on your wrist and on your Home Screen.",
+                        comment: "Onboarding feature detail for watch and widgets"
+                    )
+                )
+                OnboardingFeatureRow(
+                    symbol: "checkmark.seal.fill",
+                    title: L10n.localized("Everything included", comment: "Onboarding feature title"),
+                    detail: L10n.localized(
+                        "Every feature comes with the app. No subscription.",
+                        comment: "Onboarding feature detail for the one-time purchase"
+                    )
+                )
+            }
+            .padding(DesignTokens.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
         }
     }
-    
+
     private var goalPage: some View {
         onboardingScrollPage(spacing: DesignTokens.Spacing.xl) {
-            Text(L10n.localized("Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
-                .font(DesignTokens.Typography.title)
-                .bold()
-
             VStack(spacing: DesignTokens.Spacing.sm) {
+                Text(L10n.localized("Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
+                    .font(DesignTokens.Typography.title)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text(L10n.localized(
+                    "Pick a goal you can reach on most days.",
+                    comment: "Onboarding goal page subtitle"
+                ))
+                .font(DesignTokens.Typography.body)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+
+            VStack(spacing: DesignTokens.Spacing.md) {
                 Text(
                     Localization.format(
                         "%@ steps",
@@ -102,8 +173,15 @@ struct OnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .contentTransition(.numericText(value: dailyGoal))
                     .animation(reduceMotion ? nil : DesignTokens.Animation.snappy, value: dailyGoal)
+                    .accessibilityHidden(true)
 
-                Slider(value: $dailyGoal, in: 1000...20000, step: 500)
+                goalPresets
+
+                Slider(
+                    value: $dailyGoal,
+                    in: OnboardingGoalPreset.sliderRange,
+                    step: OnboardingGoalPreset.sliderStep
+                )
                     .tint(DesignTokens.Colors.accent)
                     .accessibilityIdentifier(A11yID.Onboarding.goalSlider)
                     .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for daily step goal slider"))
@@ -122,70 +200,106 @@ struct OnboardingView: View {
             Text(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textPrimary)
+                .multilineTextAlignment(.center)
                 .accessibilityIdentifier(A11yID.Onboarding.goalNote)
+        }
+    }
+
+    private var goalPresets: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.xs) { goalPresetButtons }
+            VStack(spacing: DesignTokens.Spacing.xs) {
+                HStack(spacing: DesignTokens.Spacing.xs) { goalPresetButtons(OnboardingGoalPreset.values.prefix(2)) }
+                HStack(spacing: DesignTokens.Spacing.xs) { goalPresetButtons(OnboardingGoalPreset.values.suffix(2)) }
+            }
+        }
+    }
+
+    private var goalPresetButtons: some View {
+        goalPresetButtons(OnboardingGoalPreset.values[...])
+    }
+
+    private func goalPresetButtons(_ values: ArraySlice<Int>) -> some View {
+        ForEach(values, id: \.self) { value in
+            let isSelected = Int(dailyGoal) == value
+            Button {
+                HapticService.shared.tap()
+                dailyGoal = Double(value)
+            } label: {
+                Text(value.formattedSteps)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, minHeight: DesignTokens.TouchTarget.minimum)
+            }
+            .buttonStyle(.bordered)
+            .tint(isSelected ? DesignTokens.Colors.accent : DesignTokens.Colors.textSecondary)
+            .accessibilityIdentifier(A11yID.Onboarding.goalPreset(value))
+            .accessibilityLabel(Localization.format("%@ steps", comment: "Step count with unit", value.formattedSteps))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
         }
     }
 
     private var permissionsPage: some View {
         onboardingScrollPage {
-            Image(systemName: "hand.raised.fill")
+            Image(systemName: "heart.text.square.fill")
                 .font(.system(size: DesignTokens.FontSize.lg))
                 .foregroundStyle(DesignTokens.Colors.accent)
-
-            Text(L10n.localized("Permissions", comment: "Onboarding permissions page title"))
-                .font(DesignTokens.Typography.title)
-                .bold()
-
-            Text(L10n.localized("We need access to your motion and Health data to count steps.", comment: "Onboarding permissions explanation"))
-                .multilineTextAlignment(.center)
-                .padding(DesignTokens.Spacing.md)
-                .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
-                .accessibilityIdentifier(A11yID.Onboarding.permissionsExplanation)
+                .accessibilityHidden(true)
 
             VStack(spacing: DesignTokens.Spacing.sm) {
-                permissionStatusRow(
+                Text(L10n.localized("Connect Apple Health", comment: "Onboarding permissions page title"))
+                    .font(DesignTokens.Typography.title)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text(L10n.localized(
+                    "AI Pedometer counts your steps with Apple Health and your device's motion sensor. iOS asks for each one next.",
+                    comment: "Onboarding permissions explanation"
+                ))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
+                .accessibilityIdentifier(A11yID.Onboarding.permissionsExplanation)
+            }
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                OnboardingFeatureRow(
+                    symbol: "heart.fill",
                     title: L10n.localized("Health", comment: "Permission label for Apple Health access"),
-                    status: healthAuthorization.status
+                    detail: L10n.localized(
+                        "Reads steps, distance, floors, heart rate and workouts, and saves the workouts you record.",
+                        comment: "Onboarding explanation of the Health permission"
+                    )
                 )
-                permissionStatusRow(
+                OnboardingFeatureRow(
+                    symbol: "figure.walk.motion",
                     title: L10n.localized("Motion & Fitness", comment: "Permission label for Motion & Fitness access"),
-                    status: motionAuthorization.status
+                    detail: L10n.localized(
+                        "Counts steps live between Health updates.",
+                        comment: "Onboarding explanation of the Motion & Fitness permission"
+                    )
+                )
+                OnboardingFeatureRow(
+                    symbol: "lock.fill",
+                    title: L10n.localized("Stays with you", comment: "Onboarding privacy row title"),
+                    detail: L10n.localized(
+                        "The app never sends your health data to us or to third parties. You can change access anytime in Settings.",
+                        comment: "Onboarding privacy row detail"
+                    )
                 )
             }
             .padding(DesignTokens.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
-
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Button {
-                    Task { await requestPermissionsIfNeeded() }
-                } label: {
-                    Text(
-                        isRequestingPermissions
-                            ? L10n.localized("Requesting Access...", comment: "Onboarding permissions button while requesting access")
-                            : L10n.localized("Grant Access", comment: "Onboarding permissions button to request access")
-                    )
-                    .font(DesignTokens.Typography.headline)
-                    .frame(maxWidth: .infinity)
-                }
-                .glassButton()
-                .accessibilityIdentifier(A11yID.Onboarding.grantAccessButton)
-                .disabled(isRequestingPermissions)
-
-                if healthAuthorization.status == .requested || motionAuthorization.status == .denied {
-                    Button(L10n.localized("Open Settings", comment: "Button to open system settings")) {
-                        openSystemSettings()
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(DesignTokens.Colors.textPrimary)
-                }
-            }
         }
     }
+
+    // MARK: - Footer
 
     private var footer: some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
             HStack(spacing: DesignTokens.Spacing.xs) {
-                ForEach(0..<3, id: \.self) { index in
+                ForEach(0..<Self.pageCount, id: \.self) { index in
                     Capsule()
                         .fill(index == currentPage ? DesignTokens.Colors.accent : DesignTokens.Colors.textQuaternary)
                         .frame(width: index == currentPage ? 20 : 8, height: 8)
@@ -203,10 +317,15 @@ struct OnboardingView: View {
             }
             .glassButton()
             .accessibilityIdentifier(primaryButtonIdentifier)
-            .disabled(currentPage == 2 && isRequestingPermissions)
+            .disabled(isLastPage && isRequestingPermissions)
             .accessibleButton(
                 label: primaryButtonTitle,
-                hint: currentPage == 2 ? L10n.localized("Finishes onboarding", comment: "Accessibility hint for Get Started button") : L10n.localized("Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
+                hint: isLastPage
+                    ? L10n.localized(
+                        "Asks iOS for Health and motion access, then opens the app",
+                        comment: "Accessibility hint for the last onboarding button"
+                    )
+                    : L10n.localized("Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
             )
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
@@ -232,18 +351,20 @@ struct OnboardingView: View {
         .scrollIndicators(.hidden)
     }
 
+    /// The last page's single button opens the system permission alerts, so it reads "Continue",
+    /// not "Allow" (HIG, Privacy > Pre-alert screens).
     private var primaryButtonTitle: String {
-        if currentPage == 2 && isRequestingPermissions {
+        if isLastPage && isRequestingPermissions {
             return L10n.localized("Requesting Access...", comment: "Onboarding permissions button while requesting access")
         }
 
-        return currentPage == 2
-            ? L10n.localized("Get Started", comment: "Final onboarding button")
+        return isLastPage
+            ? L10n.localized("Continue", comment: "Last onboarding button; opens the system permission alerts")
             : L10n.localized("Next", comment: "Onboarding navigation button")
     }
 
     private var primaryButtonIdentifier: String {
-        currentPage == 2 ? "onboarding_get_started_button" : "onboarding_next_button"
+        isLastPage ? "onboarding_get_started_button" : "onboarding_next_button"
     }
 
     private var pageIndicatorAccessibilityLabel: String {
@@ -251,7 +372,7 @@ struct OnboardingView: View {
             "Step %lld of %lld",
             comment: "Accessibility label for onboarding page indicator",
             Int64(currentPage + 1),
-            Int64(3)
+            Int64(Self.pageCount)
         )
     }
 
@@ -271,10 +392,12 @@ struct OnboardingView: View {
         .accessibilityIdentifier("onboarding_skip_button")
         .accessibleButton(label: L10n.localized("Skip", comment: "Onboarding skip button"))
     }
-    
+
+    // MARK: - Actions
+
     private func handleNext() {
         HapticService.shared.tap()
-        if currentPage < 2 {
+        if !isLastPage {
             withAnimation(reduceMotion ? nil : DesignTokens.Animation.snappy) {
                 currentPage += 1
             }
@@ -337,7 +460,7 @@ struct OnboardingView: View {
             do {
                 try await healthAuthorization.requestAuthorization()
             } catch {
-                // If denied, the correct next step is Settings.
+                // A denial is not an error for onboarding: the Dashboard offers Health access again.
                 Loggers.health.warning("onboarding.healthkit_request_failed", metadata: [
                     "error": error.localizedDescription
                 ])
@@ -351,135 +474,34 @@ struct OnboardingView: View {
         await healthAuthorization.refreshStatus()
         motionAuthorization.refreshStatus()
     }
+}
 
-    private func permissionStatusRow(title: String, status: HealthKitAccessStatus) -> some View {
-        permissionStatusRow(
-            title: title,
-            status: statusLabel(for: status),
-            symbol: statusSymbol(for: status),
-            color: statusColor(for: status),
-            titleIdentifier: A11yID.Onboarding.healthPermissionTitle,
-            statusIdentifier: A11yID.Onboarding.healthPermissionStatus
-        )
-    }
+/// An icon, a title and one sentence, read by VoiceOver as a single element.
+private struct OnboardingFeatureRow: View {
+    let symbol: String
+    let title: String
+    let detail: String
 
-    private func permissionStatusRow(title: String, status: MotionAuthStatus) -> some View {
-        permissionStatusRow(
-            title: title,
-            status: statusLabel(for: status),
-            symbol: statusSymbol(for: status),
-            color: statusColor(for: status),
-            titleIdentifier: A11yID.Onboarding.motionPermissionTitle,
-            statusIdentifier: A11yID.Onboarding.motionPermissionStatus
-        )
-    }
+    var body: some View {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
+            Image(systemName: symbol)
+                .font(DesignTokens.Typography.title3)
+                .foregroundStyle(DesignTokens.Colors.accent)
+                .frame(minWidth: DesignTokens.FontSize.md)
+                .accessibilityHidden(true)
 
-    private func permissionStatusRow(
-        title: String,
-        status: String,
-        symbol: String,
-        color: Color,
-        titleIdentifier: String,
-        statusIdentifier: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            permissionStatusTitle(
-                title: title,
-                symbol: symbol,
-                color: color,
-                identifier: titleIdentifier
-            )
-            permissionStatusText(status, identifier: statusIdentifier)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(title)
+                    .font(DesignTokens.Typography.headline)
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(detail)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(status)")
-    }
-
-    private func permissionStatusTitle(
-        title: String,
-        symbol: String,
-        color: Color,
-        identifier: String
-    ) -> some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            Image(systemName: symbol)
-                .foregroundStyle(color)
-            Text(title)
-                .font(DesignTokens.Typography.subheadline.weight(.semibold))
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier(identifier)
-        }
-    }
-
-    private func permissionStatusText(_ status: String, identifier: String) -> some View {
-        Text(status)
-            .font(DesignTokens.Typography.caption)
-            .foregroundStyle(DesignTokens.Colors.textPrimary)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier(identifier)
-    }
-
-    private func statusSymbol(for status: HealthKitAccessStatus) -> String {
-        switch status {
-        case .requested: "checkmark.circle.fill"
-        case .shouldRequest: "questionmark.circle"
-        case .unavailable: "exclamationmark.triangle.fill"
-        }
-    }
-
-    private func statusColor(for status: HealthKitAccessStatus) -> Color {
-        switch status {
-        case .requested: DesignTokens.Colors.success
-        case .shouldRequest: DesignTokens.Colors.textSecondary
-        case .unavailable: DesignTokens.Colors.warning
-        }
-    }
-
-    private func statusLabel(for status: HealthKitAccessStatus) -> String {
-        switch status {
-        case .requested:
-            L10n.localized("Requested", comment: "Permissions status: authorization already requested")
-        case .shouldRequest:
-            L10n.localized("Not Requested", comment: "Permissions status: not requested yet")
-        case .unavailable:
-            L10n.localized("Unavailable", comment: "Permissions status: unavailable on this device")
-        }
-    }
-
-    private func statusSymbol(for status: MotionAuthStatus) -> String {
-        switch status {
-        case .authorized: "checkmark.circle.fill"
-        case .notDetermined: "questionmark.circle"
-        case .denied: "xmark.circle.fill"
-        case .unavailable: "exclamationmark.triangle.fill"
-        }
-    }
-
-    private func statusColor(for status: MotionAuthStatus) -> Color {
-        switch status {
-        case .authorized: DesignTokens.Colors.success
-        case .notDetermined: DesignTokens.Colors.textSecondary
-        case .denied: DesignTokens.Colors.warning
-        case .unavailable: DesignTokens.Colors.warning
-        }
-    }
-
-    private func statusLabel(for status: MotionAuthStatus) -> String {
-        switch status {
-        case .authorized:
-            L10n.localized("Granted", comment: "Permissions status: granted")
-        case .notDetermined:
-            L10n.localized("Not Requested", comment: "Permissions status: not requested yet")
-        case .denied:
-            L10n.localized("Denied", comment: "Permissions status: denied")
-        case .unavailable:
-            L10n.localized("Unavailable", comment: "Permissions status: unavailable on this device")
-        }
-    }
-
-    private func openSystemSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        UIApplication.shared.open(url)
     }
 }
 

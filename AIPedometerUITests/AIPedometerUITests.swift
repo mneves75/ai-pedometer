@@ -114,6 +114,41 @@ final class AIPedometerUITests: XCTestCase {
         d.captureScreen(named: "Onboarding - Permissions")
     }
 
+    /// The Apple Health page is a pre-permission screen: one forward action, titled like "Continue",
+    /// and no way around the system alert (HIG, Privacy > Pre-alert screens).
+    func testOnboardingPermissionPageOffersOnlyContinue() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: false)
+
+        UITestWait.tapFirstExisting([d.app.buttons[A11yID.Onboarding.nextButton]], timeout: navigationTimeout)
+        UITestWait.tapFirstExisting([d.app.buttons[A11yID.Onboarding.nextButton]], timeout: navigationTimeout)
+
+        let continueButton = d.app.buttons[A11yID.Onboarding.getStartedButton]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: navigationTimeout))
+        XCTAssertTrue(try localizedStringCatalogValues(for: "Continue").contains(continueButton.label))
+        XCTAssertTrue(d.app.descendants(matching: .any)[A11yID.Onboarding.permissionsExplanation].exists)
+        XCTAssertFalse(d.app.buttons[A11yID.Onboarding.skipButton].exists)
+        // The old page had a second, "Allow"-like button; no language may bring it back.
+        for label in try localizedStringCatalogValues(for: "Grant Access") {
+            XCTAssertFalse(d.app.buttons[label].exists, "Unexpected second permission button: \(label)")
+        }
+    }
+
+    func testOnboardingGoalPresetSetsTheGoal() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: false)
+
+        UITestWait.tapFirstExisting([d.app.buttons[A11yID.Onboarding.nextButton]], timeout: navigationTimeout)
+        let preset = d.app.buttons[A11yID.Onboarding.goalPreset(12_500)]
+        XCTAssertTrue(preset.waitForExistence(timeout: navigationTimeout))
+        preset.tap()
+
+        let goalSlider = d.app.descendants(matching: .any)[A11yID.Onboarding.goalSlider]
+        let sliderValue = try XCTUnwrap(goalSlider.value as? String)
+        XCTAssertTrue(sliderValue.contains("12"), "Unexpected slider value after preset: \(sliderValue)")
+        XCTAssertTrue(preset.isSelected)
+    }
+
     func testOnboardingScreensPassAccessibilityAudit() throws {
         continueAfterFailure = true
         let d = AppDriver(test: self)
@@ -152,8 +187,8 @@ final class AIPedometerUITests: XCTestCase {
             [d.app.otherElements[A11yID.Workouts.recoveryCard]],
             timeout: navigationTimeout
         )
-        // The now-unlocked route and plan cards extend beneath the translucent tab bar.
-        // Bring their labels into the visible scroll region before auditing contrast.
+        try performAccessibilityAudit(on: d.app)
+        // The route and plan cards extend beneath the translucent tab bar; audit them too.
         d.app.swipeUp()
         try performAccessibilityAudit(on: d.app)
     }
@@ -193,15 +228,6 @@ final class AIPedometerUITests: XCTestCase {
             identifier: A11yID.Dashboard.statCardValue(A11yID.Dashboard.distanceStatCard)
         ))
         XCTAssertFalse(shouldAcceptKnownAuditIssue(type: .contrast, identifier: "unknown"))
-        XCTAssertTrue(shouldAcceptKnownWorkoutsContrastIssue(
-            type: .contrast, label: "Import GPX", isWorkoutsScreen: true
-        ))
-        XCTAssertFalse(shouldAcceptKnownWorkoutsContrastIssue(
-            type: .contrast, label: "Import GPX", isWorkoutsScreen: false
-        ))
-        XCTAssertFalse(shouldAcceptKnownWorkoutsContrastIssue(
-            type: .hitRegion, label: "Import GPX", isWorkoutsScreen: true
-        ))
     }
 
     private func performAccessibilityAudit(on app: XCUIApplication) throws {
@@ -262,28 +288,8 @@ final class AIPedometerUITests: XCTestCase {
                 return true
             }
 
-            if let label = issue.element?.label,
-               self.shouldAcceptKnownWorkoutsContrastIssue(
-                   type: issue.auditType,
-                   label: label,
-                   isWorkoutsScreen: app.scrollViews[A11yID.Workouts.scroll].exists
-               ) {
-                return true
-            }
             return false
         }
-    }
-
-    private func shouldAcceptKnownWorkoutsContrastIssue(
-        type: XCUIAccessibilityAuditType,
-        label: String,
-        isWorkoutsScreen: Bool
-    ) -> Bool {
-        // Xcode 27 reports these two labels as low contrast on the production glass screen.
-        // Captured pixels show opaque black text on white and green surfaces respectively.
-        type == .contrast && isWorkoutsScreen && (
-            label == "Your device doesn't support Apple Intelligence" || label == "Import GPX"
-        )
     }
 
     private func shouldAcceptKnownAuditIssue(
@@ -315,8 +321,11 @@ final class AIPedometerUITests: XCTestCase {
             A11yID.Dashboard.healthBannerGrantAccessButton,
             A11yID.Onboarding.goalNote,
             A11yID.Onboarding.permissionsExplanation,
-            A11yID.Onboarding.grantAccessButton,
             A11yID.Workouts.recoveryMessage,
+            // Xcode 27 reports these two as low contrast on the production glass Workouts screen;
+            // the captured pixels show opaque black text on white and green surfaces.
+            A11yID.Workouts.routeImportButton,
+            A11yID.AIAvailability.bannerMessage,
             A11yID.Dashboard.progressValue,
             A11yID.Dashboard.progressGoal,
         ] + dashboardStatTextIdentifiers

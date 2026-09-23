@@ -23,6 +23,17 @@ LUME and CaptureVault). Everything Premium used to unlock is included.
   no subscription" and drop the subscription terms and the Terms of Use link a subscription needed; the
   App Privacy label becomes "Data Not Collected" (`store/app-store/privacy.json`).
 
+### Onboarding
+
+- Redesigned to Apple's current onboarding and privacy guidance, still three short screens. Welcome
+  states the value: AI on the device, private by design, iPhone + Apple Watch + widgets, everything
+  included with no subscription. The goal screen adds one-tap presets (5.000 to 12.500 steps, on the
+  slider's grid) above the slider. The last screen, "Connect Apple Health", is a proper pre-permission
+  screen: it says what Health and Motion & Fitness are used for and that the data stays on your
+  devices, and offers a single "Continue" button that opens the system alerts. The separate "Grant
+  Access" button (a second button that did the same thing, with "Allow"-like wording) and the status
+  rows are gone; Skip stays on the first two screens only. Notifications are still asked for in context.
+
 ### Removed
 
 - The RevenueCat and RevenueCatUI SDKs, `PremiumAccessStore`, the paywall and every Premium gate, the

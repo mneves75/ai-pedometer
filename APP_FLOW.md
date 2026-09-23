@@ -3,10 +3,12 @@
 This flow is derived from current SwiftUI navigation and tabs.
 
 ## Onboarding
-1. Welcome
-2. Daily goal setup
-3. Permissions
-4. Completion sets onboardingCompleted and routes to MainTabView
+1. Welcome: value rows (on-device AI, privacy, iPhone + Watch + widgets, everything included); Skip
+2. Daily goal: one-tap presets (5.000-12.500) and a slider; Skip
+3. Connect Apple Health: pre-permission screen with one "Continue" that opens the Health and Motion
+   system alerts (no Skip, no second action)
+4. Completion saves the goal, sets onboardingCompleted and routes to MainTabView; a goal save failure
+   keeps onboarding open with an alert
 
 ## Main Navigation (iPhone)
 Tabs:

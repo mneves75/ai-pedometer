@@ -90,7 +90,7 @@ a deliberate design pass.
 ## Icon Sizes
 - xs: 20 (small inline accents)
 - sm: 24 (chat avatars, accessory icons, list-row glyphs)
-- md: 32 (settings rows, premium crown)
+- md: 32 (settings rows, section icons)
 - lg: 36 (About feature/link badges)
 - touchTarget: 44 (circular tappable badges, refresh buttons)
 - hero: 100 (About hero circle)

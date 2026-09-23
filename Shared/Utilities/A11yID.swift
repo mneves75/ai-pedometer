@@ -82,12 +82,8 @@ enum A11yID {
     enum Onboarding {
         static let goalSlider = "onboarding_goal_slider"
         static let goalNote = "onboarding_goal_note"
-        static let healthPermissionTitle = "onboarding_health_permission_title"
-        static let healthPermissionStatus = "onboarding_health_permission_status"
-        static let motionPermissionTitle = "onboarding_motion_permission_title"
-        static let motionPermissionStatus = "onboarding_motion_permission_status"
+        static func goalPreset(_ steps: Int) -> String { "onboarding_goal_preset_\(steps)" }
         static let permissionsExplanation = "onboarding_permissions_explanation"
-        static let grantAccessButton = "onboarding_grant_access_button"
     }
 
     enum Settings {
@@ -118,6 +114,7 @@ enum A11yID {
 
     enum AIAvailability {
         static let banner = "ai_availability_banner"
+        static let bannerMessage = "ai_availability_banner_message"
     }
 
     enum About {

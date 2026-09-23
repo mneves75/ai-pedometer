@@ -7,20 +7,18 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-23)
 
-- **1.0.7 (64): App Store listing at R$ 1,99** (2026-09-23). `store/app-store/` (`asc metadata`, like
-  LUME) is the listing source: paid download R$ 1,99 in BRA (price point `p:10006`, proceeds R$ 1,48)
-  on top of the Premium subscription and Tip Jar, privacy/support links on AIPedometer's
-  conhecendotudo.com.br pages, and the app's About/paywall links are the same URLs
-  (`StoreListingTests`). **Release gates:** (1) the site's AIPedometer privacy section
-  (`~/dev/MEUS_SITES/conhecendotudo/src/data/app-privacy/apps.ts`) must disclose what RevenueCat
-  receives (IDFV, IP and request details, aggregate statistics), add Notifications, drop "collects
-  no personal data", and say that steps/goal/streak go to the paired Watch over WatchConnectivity (it
-  claims "no health data leaves the device" and "the Watch uses a local app group") before any build
-  with these links ships (App Review 5.1.1(i)); (2) nothing is in
-  ASC yet: create version 1.0.7, `asc metadata apply`, price schedule and availability, with the
-  owner's approval (commands in `store/app-store/README.md`). Monetization note: LUME and CaptureVault
-  are one-time purchases with no subscription; a paid download plus a subscription invites
-  3.1.2(a) "ongoing value" scrutiny. Keeping both is the owner's current decision.
+- **1.0.8 (65): one-time R$ 1,99 purchase, no subscription** (2026-09-23, owner decision, like LUME
+  and CaptureVault). RevenueCat, `PremiumAccessStore`, the paywall and every Premium gate are gone;
+  AI is gated only by Apple Intelligence availability; the optional StoreKit 2 Tip Jar stays and
+  unlocks nothing. `store/app-store/` (`asc metadata`) is the listing source: "One-time purchase, no
+  subscription", BRA price point `p:10006` (R$ 1,99, proceeds R$ 1,48), App Privacy `Data Not
+  Collected` (`privacy.json`), privacy/support on AIPedometer's conhecendotudo.com.br pages, which the
+  app's About links also open (`StoreListingTests`). Onboarding redesigned to the HIG (value, goal
+  presets, one-button "Connect Apple Health" pre-permission screen). A smart reminder suspended by the
+  old subscription resumes once (`SettingsSideEffects.legacySmartReminderAction`). The site's
+  AIPedometer policy for the paid app ships in conhecendotudo v0.9.3; github.io `privacy.html` now
+  points there. The App Store Connect subscriptions (`premium.monthly`/`.yearly`) were never
+  submitted and are left untouched (not deleted).
 - **1.0.6 (63) is in TestFlight** (2026-09-23, commit `e6de263`, tag `v1.0.6-beta1`, build
   `4eff36c5`): `VALID`, export compliance `exempt` automatically (the `ITSAppUsesNonExemptEncryption`
   key works), added to `Internal Testers` (still 0 testers). IPA SHA-256 `8a008a85…4b21`.
@@ -54,34 +52,14 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   currently points to beta; use both command-scoped pins documented in
   `docs/agents/build-and-dev.md` for reproducible stable builds. This supersedes
   the historical claim below that selecting Xcode.app was a no-op.
-- RevenueCat remains pinned to 5.81.1 after review against 5.90.2. Freshness
-  reports a newer SDK; no applicable required fix was established. The app uses
-  its native package paywall and RevenueCatUI Customer Center, not PaywallView.
+- Through 1.0.7 the app used a RevenueCat subscription; its pins, offerings, `test_`/`appl_` key
+  history and sandbox diagnosis are in `memory/2026-09-1x/2x.md` and Git. Superseded by 1.0.8.
 - **1.0.2 (58) did not fix the reported distances.** iMarcus reports `en_US` (lockdown); a US region with
   Measurement System = Metric keeps the identifier `en_US`, and `MeasurementFormatter` natural scale ignored
   the preference, so 1.0.2 still rendered miles there (reproduced on an iOS 27 simulator set through
   Settings). 1.0.3 fixes units via `UnitLength(forLocale:usage:)` and counts via `NumberFormatter`; see
   FOR_YOU_KNOW "Regional formatting". `v1.0.2-beta1` was pushed for a build that never reached TestFlight,
   contrary to the rule below; the tag is left in place (pushed tags are never moved).
-- **Purchases on device (2026-09-21):** `Config/Local.xcconfig` holds the Apple `appl_` key
-  since 2026-09-20 and the RevenueCat offering `default` resolves `$rc_monthly`/`$rc_annual` to
-  the production product IDs, so the `test_` blocker below is superseded. The Release 1.0.4 (60)
-  paywall on the iMarcus still shows no plans: StoreKit returns none of the products. Verified with
-  `asc` on 2026-09-22: product IDs match, both have prices (175 territories, PRT included), en-US
-  and pt-BR localizations, and the bundle ID has the In-App Purchase capability. Both are
-  `MISSING_METADATA` only for the App Review screenshot, which Apple's TN3186 says sandbox does not
-  need. The remaining sandbox/TestFlight blocker is therefore the Paid Apps Agreement, banking and
-  tax status (not exposed by the ASC API; check the Business section as Account Holder). ASC
-  prices are US$ 2.99 monthly and US$ 39.99 yearly (the 2026-09-20 journal's 6.99 is wrong).
-  Before production: review screenshots, and the first subscription group submitted with a version.
-  Diagnose with
-  the `code` field of `premium.offerings_failed` and the `AIPedometer-Sandbox` scheme
-  (FOR_YOU_KNOW "Health, AI and premium boundaries").
-- **Superseded (historical `test_` blocker, checked 2026-09-15 by prefix only):**
-  `Config/Local.xcconfig` carried a Test Store (`test_`) RevenueCat key at the time. `AppConstants.RevenueCat.resolveConfiguration` nils
-  it outside DEBUG, so a Release archive resolves *no* key and premium/purchase/restore are dead;
-  `validate-release-artifact.py` rejects it before export. The key is baked into `Info.plist` at archive time,
-  so an Apple (`appl_`) key requires a new archive. No beta tag is created until a build actually ships.
 - 2026-09-15 full review pass, two review rounds (finding ledger in `memory/2026-09-15.md`): unit 654/654 and
   UI 20/20 (iPhone 17 Pro, iOS 27.0) on the final 1.0.1 (57) tree, zero skips, validated result bundles.
   `testTrainingPlansOpensFromWorkouts` used to fail on the iPhone 17 Pro Max simulator (also at `08c0b72`):
@@ -95,9 +73,9 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   publishing role, which only surfaces on a real upload attempt.
 - CI and CodeQL are green on `b86b102` (1.0.3; CodeQL 27 rules, 0 alerts). The hosted runner uses Xcode 26.3 while this host uses
   27.0, so the supported-range selector is load-bearing, not a convenience.
-- Open before production delivery: the Paid Apps Agreement/banking/tax status, subscription review
-  screenshots, and physical-device acceptance for HealthKit, motion, notifications, paired watch
-  and purchases. ASC credentials, the `appl_` key and a signed, uploaded artifact are done.
+- Open before production delivery: the Paid Apps Agreement/banking/tax status (needed for the
+  R$ 1,99 price and the Tip Jar), and physical-device acceptance for HealthKit, motion,
+  notifications, paired watch and the Tip Jar. ASC credentials and a signed upload path are done.
 - Toolchain: native SwiftUI, iOS/watchOS 26 deployment targets, Swift 6.2, XcodeGen.
   Supported build toolchains are Xcode 26.x and 27.x. Verified 2026-09-10 on Xcode 27.0
   (27A266a): app, widgets, watch and both test targets build clean; unit suite 607/607.
@@ -136,15 +114,6 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 - Swift 6.2 with complete strict concurrency and warnings-as-errors is enforced in
   `project.yml`, not in the xcconfigs.
 - AI inference runs on-device through Apple Foundation Models; health context stays local.
-- RevenueCat gates premium AI surfaces and fails closed when unconfigured or when Trusted
-  Entitlements verification fails. It is pinned by an immutable annotated-tag object in
-  `project.yml` while `Package.resolved` records the resolving commit; run
-  `Scripts/check-revenuecat-staleness.sh` before release and never swap the pin for a branch.
-- A `test_…` RevenueCat key is rejected outside DEBUG by
-  `AppConstants.RevenueCat.resolveConfiguration` (`allowsTestStoreAPIKeys`), so premium fails
-  closed instead of reaching the SDK's own Release trap. Reproducers live in `AppConstantsTests`.
-  `Config/Local.xcconfig` is gitignored and carries a Test Store key, so Release installs with
-  it are unsupported by design.
 - `asc` has two authentication planes and only one can publish: `asc web auth` is a browser
   session for `asc web …` and cannot mint an API key or upload a build; app, build, TestFlight
   and `asc publish` need `asc auth login` with key ID, issuer ID and a `chmod 600` `.p8`.

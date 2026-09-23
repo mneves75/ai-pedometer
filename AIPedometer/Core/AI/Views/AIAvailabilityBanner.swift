@@ -17,6 +17,7 @@ struct AIAvailabilityBanner: View {
                 Text(reason.userFacingMessage)
                     .font(DesignTokens.Typography.subheadline)
                     .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .accessibilityIdentifier(A11yID.AIAvailability.bannerMessage)
                 
                 if reason.hasAction {
                     Button(action: openSettings) {

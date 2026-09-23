@@ -2356,23 +2356,6 @@
         }
       }
     },
-    "Denied" : {
-      "comment" : "Permissions status: denied",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Denied"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Negado"
-          }
-        }
-      }
-    },
     "Disabled" : {
       "comment" : "Accessibility value for disabled toggle",
       "localizations" : {
@@ -2782,23 +2765,6 @@
         }
       }
     },
-    "Finishes onboarding" : {
-      "comment" : "Accessibility hint for Get Started button",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finishes onboarding"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finaliza a introdução"
-          }
-        }
-      }
-    },
     "Fitness Level" : {
       "comment" : "Training plan fitness level picker label",
       "localizations" : {
@@ -3001,23 +2967,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Receba planos personalizados com IA"
-          }
-        }
-      }
-    },
-    "Get Started" : {
-      "comment" : "Final onboarding button",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Get Started"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Começar"
           }
         }
       }
@@ -3254,23 +3203,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Conceder acesso"
-          }
-        }
-      }
-    },
-    "Granted" : {
-      "comment" : "Permissions status: granted",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Granted"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Concedido"
           }
         }
       }
@@ -6584,23 +6516,6 @@
         }
       }
     },
-    "Track your steps with the power of AI." : {
-      "comment" : "Onboarding welcome subtitle",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Track your steps with the power of AI."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Acompanhe seus passos com o poder da IA."
-          }
-        }
-      }
-    },
     "Training Plans" : {
       "comment" : "Section header for training plans\nTraining plans navigation title",
       "localizations" : {
@@ -7043,23 +6958,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível carregar seus dados de saúde. Tente novamente."
-          }
-        }
-      }
-    },
-    "We need access to your motion and Health data to count steps." : {
-      "comment" : "Onboarding permissions explanation",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "We need access to your motion and Health data to count steps."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Precisamos de acesso aos seus dados de movimento e de Saúde para contar seus passos."
           }
         }
       }
@@ -8082,6 +7980,295 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sequência: %@"
+          }
+        }
+      }
+    },
+    "AI on your device" : {
+      "comment" : "Onboarding feature title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI on your device"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IA no seu aparelho"
+          }
+        }
+      }
+    },
+    "Asks iOS for Health and motion access, then opens the app" : {
+      "comment" : "Accessibility hint for the last onboarding button",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks iOS for Health and motion access, then opens the app"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pede ao iOS acesso ao Saúde e ao movimento e depois abre o app"
+          }
+        }
+      }
+    },
+    "Connect Apple Health" : {
+      "comment" : "Onboarding permissions page title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Apple Health"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecte o app Saúde"
+          }
+        }
+      }
+    },
+    "Counts steps live between Health updates." : {
+      "comment" : "Onboarding explanation of the Motion & Fitness permission",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counts steps live between Health updates."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conta os passos ao vivo entre as atualizações do app Saúde."
+          }
+        }
+      }
+    },
+    "Every feature comes with the app. No subscription." : {
+      "comment" : "Onboarding feature detail for the one-time purchase",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every feature comes with the app. No subscription."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos os recursos vêm com o app. Sem assinatura."
+          }
+        }
+      }
+    },
+    "Everything included" : {
+      "comment" : "Onboarding feature title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everything included"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tudo incluído"
+          }
+        }
+      }
+    },
+    "No account and no ads. The app never sends your health data to us or to third parties." : {
+      "comment" : "Onboarding feature detail for privacy",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No account and no ads. The app never sends your health data to us or to third parties."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem conta e sem anúncios. O app nunca envia seus dados de saúde a nós nem a terceiros."
+          }
+        }
+      }
+    },
+    "Pick a goal you can reach on most days." : {
+      "comment" : "Onboarding goal page subtitle",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick a goal you can reach on most days."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha uma meta que você alcance na maioria dos dias."
+          }
+        }
+      }
+    },
+    "Private by design" : {
+      "comment" : "Onboarding feature title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private by design"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privado por padrão"
+          }
+        }
+      }
+    },
+    "Reads steps, distance, floors, heart rate and workouts, and saves the workouts you record." : {
+      "comment" : "Onboarding explanation of the Health permission",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reads steps, distance, floors, heart rate and workouts, and saves the workouts you record."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lê passos, distância, andares, frequência cardíaca e treinos, e salva os treinos que você registrar."
+          }
+        }
+      }
+    },
+    "Stays with you" : {
+      "comment" : "Onboarding privacy row title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stays with you"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fica com você"
+          }
+        }
+      }
+    },
+    "Your progress on your wrist and on your Home Screen." : {
+      "comment" : "Onboarding feature detail for watch and widgets",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your progress on your wrist and on your Home Screen."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu progresso no pulso e na Tela de Início."
+          }
+        }
+      }
+    },
+    "iPhone, Apple Watch and widgets" : {
+      "comment" : "Onboarding feature title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone, Apple Watch and widgets"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone, Apple Watch e widgets"
+          }
+        }
+      }
+    },
+    "Steps, workouts and an AI coach that runs on your device." : {
+      "comment" : "Onboarding welcome subtitle",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps, workouts and an AI coach that runs on your device."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passos, treinos e um treinador de IA que roda no seu aparelho."
+          }
+        }
+      }
+    },
+    "Insights, coaching and plans from Apple Intelligence on supported devices, without a cloud AI service." : {
+      "comment" : "Onboarding feature detail for on-device AI",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights, coaching and plans from Apple Intelligence on supported devices, without a cloud AI service."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights, coaching e planos com a Apple Intelligence nos aparelhos compatíveis, sem serviço de IA na nuvem."
+          }
+        }
+      }
+    },
+    "AI Pedometer counts your steps with Apple Health and your device's motion sensor. iOS asks for each one next." : {
+      "comment" : "Onboarding permissions explanation",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Pedometer counts your steps with Apple Health and your device's motion sensor. iOS asks for each one next."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O AI Pedometer conta seus passos com o app Saúde e o sensor de movimento do aparelho. Em seguida, o iOS pede cada acesso."
+          }
+        }
+      }
+    },
+    "The app never sends your health data to us or to third parties. You can change access anytime in Settings." : {
+      "comment" : "Onboarding privacy row detail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app never sends your health data to us or to third parties. You can change access anytime in Settings."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O app nunca envia seus dados de saúde a nós nem a terceiros. Você muda o acesso quando quiser em Ajustes."
           }
         }
       }

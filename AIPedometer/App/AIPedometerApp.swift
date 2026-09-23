@@ -245,8 +245,8 @@ struct AIPedometerApp: App {
     }
 
     /// Brings back a smart reminder that the removed Premium subscription suspended (through 1.0.7).
-    /// The key is dropped only once the reminder is rescheduled or the preference is off, so a launch
-    /// where the on-device model is still loading retries on the next foreground.
+    /// While the on-device model is still loading the key stays, so the next foreground retries;
+    /// once the model is available the reminder gets one scheduling attempt.
     private func resumeLegacySmartReminderIfNeeded() async {
         // Lifecycle side effects are skipped under UI testing, the same contract
         // `AppLifecycleCoordinator.handle` enforces: XCUITest drives foregrounds via `app.activate()`
@@ -271,6 +271,9 @@ struct AIPedometerApp: App {
         case .clear:
             defaults.removeObject(forKey: key)
         case .resume:
+            // One attempt only: a failure (for example, notifications denied) would otherwise
+            // regenerate the reminder on-device at every foreground. Settings reschedules it again.
+            defaults.removeObject(forKey: key)
             let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
                 at: AppConstants.Notifications.defaultSmartReminderHour,
                 minute: AppConstants.Notifications.defaultSmartReminderMinute
@@ -279,10 +282,8 @@ struct AIPedometerApp: App {
             // Generation takes seconds; the user may have turned reminders off meanwhile.
             guard defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled) else {
                 smartNotificationService.cancelAllSmartNotifications()
-                defaults.removeObject(forKey: key)
                 return
             }
-            defaults.removeObject(forKey: key)
             Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "paid_app"])
         }
     }
