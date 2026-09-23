@@ -130,7 +130,7 @@ enum LaunchConfiguration {
     }
 
     /// Apple Intelligence supported but turned off: the only unavailability reason whose screen
-    /// offers an Open Settings action.
+    /// offers an Open Settings action, so manual QA and screenshots can reach it in the simulator.
     static func isAIDisabledForced(
         arguments: [String] = processArguments,
         environment: [String: String] = processEnvironment,

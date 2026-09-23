@@ -1,0 +1,13 @@
+id: swift-ai-views-no-environment-openurl
+valid:
+  - |
+      func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+      }
+invalid:
+  - |
+      func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(url)
+      }

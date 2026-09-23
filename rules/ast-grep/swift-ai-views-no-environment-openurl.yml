@@ -1,0 +1,9 @@
+id: swift-ai-views-no-environment-openurl
+language: Swift
+severity: error
+message: Open system URLs from AI availability views with UIApplication.shared.open, not the environment's openURL.
+note: These views render inside AI Coach, which replaces openURL with the https-only model-link policy. A Settings URL sent through it is silently discarded (the 1.0.6 Open Settings bug).
+rule:
+  pattern: openURL($URL)
+files:
+  - "AIPedometer/Core/AI/Views/**/*.swift"

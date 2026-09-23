@@ -47,8 +47,10 @@ full source-only security audit (15 coverage units, no confirmed vulnerability).
   coach's link policy, which admits only https links, intercepted the Settings URL.
 - The Weekly widget read "Streak 1 days" / "Sequência de 1 dias"; its label and accessibility value
   now come from tested `Localization.widgetStreakLabel`/`widgetWeeklySummary`, which pluralize.
-- UI tests can force the "Apple Intelligence is off" state (`-force-ai-disabled`, DEBUG only) and
-  assert that Open Settings hands off to the Settings app.
+- DEBUG launches can force the "Apple Intelligence is off" state (`-force-ai-disabled`) to check the
+  Open Settings button, and an ast-grep rule (`swift-ai-views-no-environment-openurl`) rejects the
+  environment `openURL` in the AI availability views. A UI test that waited for the Settings app was
+  dropped: the hosted iOS 26.2 runtime starts the transition but never finishes launching Settings.
 - The watch no longer logs step, goal and streak values, even redacted.
 
 ### Changed
