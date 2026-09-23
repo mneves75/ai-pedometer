@@ -13,8 +13,10 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   conhecendotudo.com.br pages, and the app's About/paywall links are the same URLs
   (`StoreListingTests`). **Release gates:** (1) the site's AIPedometer privacy section
   (`~/dev/MEUS_SITES/conhecendotudo/src/data/app-privacy/apps.ts`) must disclose what RevenueCat
-  receives (IDFV, IP and request details, aggregate statistics), add Notifications, and drop "collects
-  no personal data" before any build with these links ships (App Review 5.1.1(i)); (2) nothing is in
+  receives (IDFV, IP and request details, aggregate statistics), add Notifications, drop "collects
+  no personal data", and say that steps/goal/streak go to the paired Watch over WatchConnectivity (it
+  claims "no health data leaves the device" and "the Watch uses a local app group") before any build
+  with these links ships (App Review 5.1.1(i)); (2) nothing is in
   ASC yet: create version 1.0.7, `asc metadata apply`, price schedule and availability, with the
   owner's approval (commands in `store/app-store/README.md`). Monetization note: LUME and CaptureVault
   are one-time purchases with no subscription; a paid download plus a subscription invites
