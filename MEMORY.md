@@ -5,7 +5,20 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-23)
+## Current state (2026-09-24)
+
+- **1.0.8 (67) source** (2026-09-24): the AI Coach now receives the user's Apple Health data with the turn
+  (first turn of a session, after 30 min / a new day / a rebuilt session, and any message naming Apple
+  Health), because the on-device model almost never called its tools and asked the user for data (owner
+  screenshots). Settings no longer clears reminder preferences when notification permission is missing; the
+  suspended-reminder resume has one owner and shares an in-flight generation. Real-model replay
+  `Scripts/coach-grounding-eval.swift`: before 14/20 replies asked for data, after 0/20, 20/20 quote it.
+  mneves-verify (GPT-6 Astra, two fresh rounds) ended FAIL on residuals fixed afterwards without a third
+  independent round (journal). Final tree: unit 653/653, UI 31/31 (iOS 27.0), watch arm64_32, analyze.
+- App Store Connect has **no in-app purchase**: the Tip Jar consumable exists only in
+  `StoreKit/TipJar.storekit`, so TestFlight/production show it as unavailable. Creating it needs the owner's
+  price. App Store screenshots for 1.0.8 are uploaded (22/22); `asc validate` blocks only on owner
+  declarations (age rating, review contact, content rights).
 
 - **1.0.8 (66) is in TestFlight** (2026-09-24): build `d318f6fd` `VALID`, Internal Testers, tag
   `v1.0.8-beta2` → `2bff42b`, IPA SHA-256 `baa01b94…79be`; installed on owner-iPhone (launch waited on

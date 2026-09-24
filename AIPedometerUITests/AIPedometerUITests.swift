@@ -541,6 +541,36 @@ final class AIPedometerUITests: XCTestCase {
         )
     }
 
+    /// A fresh simulator install has never granted notifications (`.notDetermined`), the same state a
+    /// restore to a new device or turning notifications off in iOS Settings leaves. Opening Settings must
+    /// not clear reminders the user turned on; it explains why they are not delivered instead.
+    func testSavedRemindersSurviveMissingNotificationPermission() throws {
+        let d = AppDriver(test: self)
+        d.launch(
+            skipOnboarding: true,
+            extraLaunchArguments: ["-seed-saved-reminders", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        )
+
+        d.openSettings(timeout: navigationTimeout)
+        d.assertSettingsLoaded()
+
+        // The notice appears only after Settings has read the permission, which is when the old code
+        // wrote both preferences to false.
+        d.scrollTo(id: A11yID.Settings.notificationPermissionButton)
+        UITestWait.assertAnyExists(
+            [d.app.buttons[A11yID.Settings.notificationPermissionButton]],
+            timeout: navigationTimeout
+        )
+        d.captureScreen(named: "Settings - Reminders Without Permission")
+
+        for id in [A11yID.Settings.notificationsToggle, A11yID.Settings.smartNotificationsToggle] {
+            d.scrollTo(id: id)
+            let toggle = d.app.switches[id]
+            XCTAssertTrue(toggle.waitForExistence(timeout: navigationTimeout), "missing \(id)")
+            XCTAssertEqual(toggle.value as? String, "Enabled", "\(id) was cleared without user action")
+        }
+    }
+
     func testHealthAccessHelpOpensFromSettings() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)

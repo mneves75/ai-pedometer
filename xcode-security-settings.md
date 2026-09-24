@@ -14,8 +14,8 @@ encoded there, never in the `.entitlements` files directly.
   iOS app target (the only supported product type in this project — widgets are an
   app-extension, the watch app is watchOS).
 - `ENABLE_POINTER_AUTHENTICATION` (cascaded `YES` from Enhanced Security): arm64e build
-  for the iOS app and widget extension. RevenueCat (`purchases-ios-spm`, pinned revision)
-  is a source-only SPM package (0 binaryTargets), so no binary-dependency blocker.
+  for the iOS app and widget extension. Since 1.0.8 the project has no Swift packages (RevenueCat,
+  the only one, was a source-only package), so no binary-dependency blocker exists.
   SPM arm64e opt-in lives in `WorkspaceSettings.xcsettings`
   (`iOSPackagesShouldBuildARM64e=YES`), re-asserted by `Scripts/restore-entitlements.sh`
   after every generate.

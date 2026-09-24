@@ -96,6 +96,10 @@ enum A11yID {
         static let healthAccessRow = "settings_health_access_row"
         static let healthKitSyncToggle = "healthkit_sync_toggle"
         static let aboutRow = "about_row"
+        static let notificationsToggle = "notifications_enabled_toggle"
+        static let smartNotificationsToggle = "smart_notifications_enabled_toggle"
+        static let notificationPermissionNotice = "notification_permission_notice"
+        static let notificationPermissionButton = "notification_permission_button"
     }
 
     enum GoalEditor {

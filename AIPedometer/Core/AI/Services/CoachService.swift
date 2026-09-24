@@ -100,8 +100,11 @@ final class CoachService {
     private let goalService: GoalService
     private let sessionBuilder: SessionBuilder
     private let liveMarkdownRenderer: LiveMarkdownRenderer
+    private let now: @MainActor () -> Date
     
     @ObservationIgnored private var session: (any CoachSessionProtocol)?
+    /// When the live session last received the user's Apple Health data; `nil` for a new session.
+    @ObservationIgnored private var groundedAt: Date?
     @ObservationIgnored private var streamAccumulator = AIStreamMarkdownAccumulator()
     @ObservationIgnored private var streamRenderInputContinuation: AsyncStream<StreamRenderRequest>.Continuation?
     @ObservationIgnored private var streamRenderWorkerTask: Task<Void, Never>?
@@ -136,6 +139,10 @@ final class CoachService {
     static let maxFinalMarkdownChars = 80_000
     /// Coalesce bursty token updates into fewer markdown renders.
     static let streamRenderDebounce = Duration.milliseconds(30)
+    /// Days of Apple Health data sent with the first turn of a session.
+    nonisolated static let groundingDays = HealthKitDataTool.defaultDays
+    /// After this, the next turn carries fresh Apple Health data again.
+    nonisolated static let groundingLifetime: TimeInterval = 30 * 60
     
     static var suggestedQuestions: [String] {
         [
@@ -156,8 +163,10 @@ final class CoachService {
         healthKitService: any HealthKitServiceProtocol,
         goalService: GoalService,
         sessionBuilder: SessionBuilder? = nil,
-        liveMarkdownRenderer: LiveMarkdownRenderer? = nil
+        liveMarkdownRenderer: LiveMarkdownRenderer? = nil,
+        now: @escaping @MainActor () -> Date = { Date() }
     ) {
+        self.now = now
         self.foundationModelsService = foundationModelsService
         self.healthKitService = healthKitService
         self.goalService = goalService
@@ -256,9 +265,21 @@ final class CoachService {
         }
 
         var exceededLiveMarkdownLimit = false
-        
+
+        // The on-device model decides on its own whether to call a tool, and in practice it often asks
+        // the user for the data instead. Sending the data with the turn grounds the answer regardless.
+        let requestTime = now()
+        let groundsTurn = Self.needsGrounding(lastGroundedAt: groundedAt, now: requestTime)
+            || Self.asksAboutHealthData(message)
+        var prompt = message
+        if groundsTurn {
+            let context = await activityContext()
+            guard generation == responseGeneration else { return }
+            prompt = Self.groundedPrompt(message: message, activityContext: context, now: requestTime)
+        }
+
         do {
-            let stream = session.streamResponse(to: message)
+            let stream = session.streamResponse(to: prompt)
             
             for try await newContent in stream {
                 guard generation == responseGeneration else { return }
@@ -314,7 +335,11 @@ final class CoachService {
                 renderedContent: finalAttributed
             )
             messages.append(assistantMessage)
-            
+            // Only a completed turn stays in the transcript; a failed one is rolled back with its data.
+            if groundsTurn {
+                groundedAt = requestTime
+            }
+
             Loggers.ai.info("ai.coach_response_completed", metadata: [
                 "message_length": "\(fullResponse.count)"
             ])
@@ -421,7 +446,31 @@ final class CoachService {
             StreakDataTool()
         ]
 
+        groundedAt = nil
         session = sessionBuilder(tools, Self.coachInstructions())
+    }
+
+    /// The same text the tools return, so the model reads one format whether the data came with the
+    /// turn or from a tool call it made.
+    private func activityContext() async -> String {
+        var parts: [String] = []
+        do {
+            parts.append(try await HealthKitDataTool(healthKitService: healthKitService, goalService: goalService)
+                .call(arguments: .init(days: Self.groundingDays)))
+        } catch {
+            Loggers.ai.error("ai.coach_grounding_failed", metadata: ["error": error.localizedDescription])
+            parts.append(L10n.localized(
+                "Apple Health data could not be read right now.",
+                comment: "AI Coach prompt line when reading Apple Health fails; the model may quote it to the user"
+            ))
+        }
+        if let goal = try? await GoalDataTool(goalService: goalService).call(arguments: .init()) {
+            parts.append(goal)
+        }
+        if let streak = try? await StreakDataTool().call(arguments: .init()) {
+            parts.append(streak)
+        }
+        return parts.joined(separator: "\n")
     }
 
     private func scheduleStreamRender(document: MarkdownDocument) {
@@ -617,6 +666,33 @@ final class CoachService {
 }
 
 extension CoachService {
+    nonisolated static func needsGrounding(lastGroundedAt: Date?, now: Date) -> Bool {
+        guard let lastGroundedAt else { return true }
+        return now.timeIntervalSince(lastGroundedAt) >= groundingLifetime
+            || !Calendar.current.isDate(lastGroundedAt, inSameDayAs: now)
+    }
+
+    /// Headings are localized: the model quotes them back to the user, so they must read in the user's
+    /// language like the tool output they introduce.
+    /// A request to look at Apple Health gets the data again with it: answering from an earlier turn's
+    /// block, the model sometimes still claimed it could not access Health.
+    nonisolated static func asksAboutHealthData(_ message: String) -> Bool {
+        message.contains(/(?i)\b(sa[úu]de|health|healthkit)\b/)
+    }
+
+    nonisolated static func groundedPrompt(message: String, activityContext: String, now: Date) -> String {
+        let dataHeading = Localization.format(
+            "Your Apple Health data, read by the app just now (%@):",
+            comment: "AI Coach prompt heading before the user's Apple Health data; the model may quote it to the user",
+            now.formatted(date: .complete, time: .shortened)
+        )
+        let messageHeading = L10n.localized(
+            "User message:",
+            comment: "AI Coach prompt heading before the user's own message"
+        )
+        return "\(dataHeading)\n\(activityContext)\n\n\(messageHeading)\n\(message)"
+    }
+
     nonisolated static func coachInstructions(
         languageInstruction: String = AppLanguage.promptInstruction()
     ) -> String {
@@ -632,13 +708,18 @@ extension CoachService {
         - Celebrate achievements, no matter how small
         - Focus on progress, not perfection
         
+        Apple Health data:
+        - The app reads the user's Apple Health data for you. A message can begin with that data (the latest days, goal and streak); base your answer on it and quote the numbers that matter
+        - When the user asks you to check, search or look at Apple Health, answer from that data
+        - For a period that data does not cover, call fetchActivityData; if the user names no period, use 7 days
+        - Never ask the user for their steps, active days, distance, goal or streak, and never say you cannot access Apple Health or HealthKit
+        - If the data or a tool reports "HealthKit Sync is Off" or no activity data, clearly explain data is unavailable and suggest enabling HealthKit Sync in Settings; do not invent numbers or trends
+
         Guidelines:
-        - Use the available tools to fetch the user's actual activity data before giving advice
         - Personalize recommendations based on their data and patterns
         - Suggest achievable, incremental improvements (5-10% increases)
         - Focus on walking, running, step counting, and general fitness
-        - Use metric units (kilometers, meters) by default
-        - If tools report "HealthKit Sync is Off" or no activity data, clearly explain data is unavailable and suggest enabling HealthKit Sync in Settings; do not invent numbers or trends
+        - Report distances in the units the data uses
 
         IMPORTANT RESTRICTIONS:
         - Never provide medical advice - always recommend consulting a doctor for health concerns
@@ -647,10 +728,8 @@ extension CoachService {
         - If asked about medical conditions, politely redirect to consulting a healthcare professional
         
         When the user asks about their progress:
-        1. First use fetchActivityData to get their recent data
-        2. Use fetchGoalData to understand their current goal
-        3. Use fetchStreakData to know their streak
-        4. Then provide personalized, data-driven advice
+        1. Read the Apple Health data you were given, or call fetchActivityData, fetchGoalData and fetchStreakData when you have none
+        2. Then provide personalized, data-driven advice
         """
     }
 }

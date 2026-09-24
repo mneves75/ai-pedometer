@@ -462,6 +462,135 @@ struct SmartNotificationServiceTests {
         #expect(notificationCenter.addedRequests.count == 1)
         #expect(testDefaults.defaults.integer(forKey: AppConstants.UserDefaultsKeys.smartNotificationCount) == 1)
     }
+
+    // MARK: - Resuming a suspended reminder
+
+    private func makeResumeFixture(
+        suspended: Bool = true,
+        enabled: Bool = true
+    ) -> (TestUserDefaults, MockFoundationModelsService, MockNotificationCenter, SmartNotificationService) {
+        let testDefaults = TestUserDefaults()
+        testDefaults.defaults.set(suspended, forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspended)
+        testDefaults.defaults.set(enabled, forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled)
+        let models = MockFoundationModelsService()
+        models.respondResult = .success(NotificationContent(title: "Keep going", body: "You are making progress!"))
+        let notifications = MockNotificationCenter()
+        let service = SmartNotificationService(
+            foundationModelsService: models, healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            notificationCenter: notifications, userDefaults: testDefaults.defaults,
+            sharedUserDefaults: testDefaults.defaults
+        )
+        return (testDefaults, models, notifications, service)
+    }
+
+    @Test("Resuming a suspended reminder reschedules it once and drops the marker")
+    func resumeSuspendedReminderReschedules() async {
+        let (testDefaults, models, notifications, service) = makeResumeFixture()
+        defer { testDefaults.reset() }
+
+        await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { true })
+
+        #expect(models.respondCallCount == 1)
+        #expect(notifications.addedRequests.count == 1)
+        #expect(!testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspended))
+        #expect(testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled))
+    }
+
+    @Test("Without notification permission the resume neither generates nor drops the marker")
+    func resumeWithoutPermissionSkipsGeneration() async {
+        let (testDefaults, models, notifications, service) = makeResumeFixture()
+        defer { testDefaults.reset() }
+
+        await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { false })
+
+        #expect(models.respondCallCount == 0)
+        #expect(notifications.addedRequests.isEmpty)
+        #expect(testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspended))
+        #expect(testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled))
+    }
+
+    @Test("A resume while one is generating does not start a second generation")
+    func concurrentResumesGenerateOnce() async {
+        let (testDefaults, models, notifications, service) = makeResumeFixture()
+        defer { testDefaults.reset() }
+        let firstStarted = ResumeTestLatch()
+        let releaseFirst = ResumeTestLatch()
+        models.beforeRespond = {
+            firstStarted.open()
+            await releaseFirst.wait()
+        }
+
+        let first = Task { await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { true }) }
+        await firstStarted.wait()
+        await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { true })
+        releaseFirst.open()
+        await first.value
+
+        #expect(models.respondCallCount == 1)
+        #expect(notifications.addedRequests.count == 1)
+    }
+
+    @Test("A reminder scheduled while another generation runs shares it instead of starting a second")
+    func overlappingSchedulesGenerateOnce() async {
+        let (testDefaults, models, notifications, service) = makeResumeFixture()
+        defer { testDefaults.reset() }
+        let firstStarted = ResumeTestLatch()
+        let releaseFirst = ResumeTestLatch()
+        models.beforeRespond = {
+            firstStarted.open()
+            await releaseFirst.wait()
+        }
+
+        // The automatic resume is generating when the user turns the Settings toggle back on.
+        let resume = Task { await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { true }) }
+        await firstStarted.wait()
+        let toggle = Task {
+            await service.scheduleMotivationalReminder(
+                at: AppConstants.Notifications.defaultSmartReminderHour,
+                minute: AppConstants.Notifications.defaultSmartReminderMinute
+            )
+        }
+        // Both run on the main actor: give the toggle task turns to reach its first suspension (the
+        // shared generation with the fix, a second model call without it) before the first finishes.
+        for _ in 0..<50 { await Task.yield() }
+        releaseFirst.open()
+        await resume.value
+        let toggleScheduled = await toggle.value
+
+        #expect(models.respondCallCount == 1)
+        #expect(toggleScheduled)
+        #expect(notifications.addedRequests.count == 1)
+    }
+
+    @Test("Turning reminders off during generation cancels the resumed reminder")
+    func resumeHonorsPreferenceTurnedOffMidGeneration() async {
+        let (testDefaults, models, notifications, service) = makeResumeFixture()
+        defer { testDefaults.reset() }
+        models.beforeRespond = {
+            testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled)
+        }
+
+        await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { true })
+
+        #expect(!notifications.removedIdentifiers.isEmpty)
+        #expect(!testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspended))
+    }
+
+    @Test("Resume leaves the marker when reminders are enabled but AI is unavailable, and clears it when off",
+          arguments: [(true, false, true), (false, true, false)])
+    func resumeRespectsAvailabilityAndPreference(enabled: Bool, aiAvailable: Bool, markerAfter: Bool) async {
+        let (testDefaults, models, notifications, service) = makeResumeFixture(enabled: enabled)
+        defer { testDefaults.reset() }
+        models.availability = aiAvailable ? .available : .unavailable(reason: .modelNotReady)
+
+        await service.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: { true })
+
+        #expect(models.respondCallCount == 0)
+        #expect(notifications.addedRequests.isEmpty)
+        #expect(testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersSuspended) == markerAfter)
+        #expect(testDefaults.defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled) == enabled)
+    }
 }
 
 @MainActor
@@ -475,5 +604,25 @@ final class MockNotificationCenter: NotificationScheduling {
 
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
         removedIdentifiers.append(contentsOf: identifiers)
+    }
+}
+
+@MainActor
+private final class ResumeTestLatch {
+    private var isOpen = false
+
+    func open() { isOpen = true }
+
+    func wait(timeout: Duration = .seconds(5)) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while !isOpen {
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for a resume test rendezvous")
+                isOpen = true
+                return
+            }
+            await Task.yield()
+        }
     }
 }

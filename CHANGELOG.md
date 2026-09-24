@@ -45,6 +45,36 @@ LUME and CaptureVault). Everything Premium used to unlock is included.
   Access" button (a second button that did the same thing, with "Allow"-like wording) and the status
   rows are gone; Skip stays on the first two screens only. Notifications are still asked for in context.
 
+### Fixed (build 67)
+
+- AI Coach: asked to look at Apple Health, the coach answered that it could not access HealthKit and asked
+  how many active days you had. The on-device model decides on its own whether to call the app's data
+  tools and in practice almost never did (0 calls in 16 replayed turns). The first message of a conversation
+  now carries your last 7 days of Apple Health data, your goal and your streak, refreshed after 30 minutes,
+  on a new day, or whenever you ask about Apple Health; the tools still fetch longer periods, and their period now defaults to 7 days instead of
+  requiring one. The data opens with the app's own total, daily average and goal-met count, and every
+  heading the coach may quote is localized. Replaying the owner's conversation against the real model: before,
+  13 of 20 replies asked for data and 1 quoted it; after, 20 of 20 quote the real numbers with the correct
+  average and none switch to English (`Scripts/coach-grounding-eval.swift`).
+- Settings turned the daily goal reminder and smart reminders off whenever notification permission was
+  missing, including on a fresh install or a restore to a new device, and that also dropped a smart reminder
+  suspended for AI availability. It now only reads the permission: your reminders stay on, a notice explains
+  why nothing is delivered, and Allow Notifications (or Open Settings, which now opens the app's
+  notification settings) fixes it. Allowing notifications from the notice keeps a smart reminder suspended
+  while Apple Intelligence is unavailable instead of switching it off.
+- Resuming a smart reminder suspended without the user asking no longer shows a "Notifications are
+  disabled" alert or a permission prompt every time Settings opens, no longer runs the on-device model while
+  notifications cannot be delivered, and runs once even when launch, foreground and Settings overlap (one
+  owner, `SmartNotificationService`).
+- AI tool output formats step counts and goals through `Formatters`, following the device's number format.
+- Onboarding on iPad and in landscape: the content and the Next/Continue button keep a readable width
+  (560 pt, centered) instead of stretching edge to edge.
+
+### Documentation
+
+- `SECURITY.md` states the data-at-rest choice (iOS default protection, needed by background refresh and
+  Lock Screen widgets); `xcode-security-settings.md` no longer lists RevenueCat.
+
 ### Fixed (build 66)
 
 - VoiceOver read the symbol name ("iphone.slash", "sparkles.slash") on the Apple Intelligence

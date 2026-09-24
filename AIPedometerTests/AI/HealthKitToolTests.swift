@@ -117,6 +117,48 @@ struct HealthKitToolTests {
         #expect(healthKit.lastFetchDailySummariesArgs?.days == fetched)
     }
 
+    @Test("HealthKit data tool opens with totals the model would otherwise miscalculate")
+    func healthKitDataToolLeadsWithComputedTotals() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let goalService = GoalService(persistence: PersistenceController(inMemory: true))
+        goalService.setGoal(6_000)
+        let healthKit = MockHealthKitService()
+        healthKit.dailySummariesToReturn = [
+            DailyStepSummary(date: Date(timeIntervalSince1970: 1_700_000_000), steps: 4_000, distance: 3_000, floors: 0, calories: 100, goal: 6_000),
+            DailyStepSummary(date: Date(timeIntervalSince1970: 1_700_086_400), steps: 6_001, distance: 4_500, floors: 0, calories: 150, goal: 6_000)
+        ]
+        let tool = HealthKitDataTool(
+            healthKitService: healthKit,
+            goalService: goalService,
+            userDefaultsSuiteName: testDefaults.suiteName
+        )
+
+        let response = try await tool.call(arguments: .init(days: 2))
+        let firstLine = String(response.split(separator: "\n").first ?? "")
+
+        #expect(firstLine.contains(Formatters.stepCountString(10_001)))
+        #expect(firstLine.contains(Formatters.stepCountString(5_000)))
+        #expect(firstLine.contains("1"))
+        #expect(firstLine.contains("2"))
+    }
+
+    @Test("HealthKit data tool reads the last 7 days when the model omits the period")
+    func healthKitDataToolDefaultsToAWeek() async throws {
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        let healthKit = MockHealthKitService()
+        let tool = HealthKitDataTool(
+            healthKitService: healthKit,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            userDefaultsSuiteName: testDefaults.suiteName
+        )
+
+        _ = try await tool.call(arguments: .init(days: nil))
+
+        #expect(healthKit.lastFetchDailySummariesArgs?.days == 7)
+    }
+
     @Test("HealthKit data tool skips when sync disabled")
     func healthKitDataToolSkipsWhenSyncDisabled() async throws {
         let testDefaults = TestUserDefaults()

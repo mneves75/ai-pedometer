@@ -20,6 +20,7 @@ enum OnboardingGoalPreset {
 struct OnboardingView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.onboardingCompleted) private var onboardingCompleted = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
     @Environment(MotionAuthorization.self) private var motionAuthorization
@@ -328,6 +329,8 @@ struct OnboardingView: View {
                     : L10n.localized("Moves to the next step", comment: "Accessibility hint for Next button in onboarding")
             )
         }
+        .frame(maxWidth: DesignTokens.Sizing.onboardingContentMaxWidth)
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, DesignTokens.Spacing.md)
         .padding(.top, DesignTokens.Spacing.sm)
         .padding(.bottom, DesignTokens.Spacing.md)
@@ -339,16 +342,22 @@ struct OnboardingView: View {
         spacing: CGFloat = DesignTokens.Spacing.lg,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        ScrollView {
-            VStack(spacing: spacing) {
-                content()
+        let pageContent = content()
+        return GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: spacing) {
+                    pageContent
+                }
+                .frame(maxWidth: DesignTokens.Sizing.onboardingContentMaxWidth)
+                .frame(maxWidth: .infinity)
+                .padding(DesignTokens.Spacing.md)
+                .padding(.top, DesignTokens.Spacing.xl)
+                .padding(.bottom, DesignTokens.Sizing.onboardingPageBottomInset)
+                // On iPad a short page would sit in the top half; center it there, keep iPhone top-aligned.
+                .frame(minHeight: horizontalSizeClass == .regular ? proxy.size.height : nil)
             }
-            .frame(maxWidth: .infinity)
-            .padding(DesignTokens.Spacing.md)
-            .padding(.top, DesignTokens.Spacing.xl)
-            .padding(.bottom, DesignTokens.Sizing.onboardingPageBottomInset)
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
     }
 
     /// The last page's single button opens the system permission alerts, so it reads "Continue",
@@ -487,7 +496,7 @@ private struct OnboardingFeatureRow: View {
             Image(systemName: symbol)
                 .font(DesignTokens.Typography.title3)
                 .foregroundStyle(DesignTokens.Colors.accent)
-                .frame(minWidth: DesignTokens.FontSize.md)
+                .frame(minWidth: DesignTokens.IconSize.md)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {

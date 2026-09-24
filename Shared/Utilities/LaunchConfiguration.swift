@@ -22,6 +22,7 @@ enum LaunchConfiguration {
     private static let forceAIUnavailableArgument = "-force-ai-unavailable"
     private static let forceAIDisabledArgument = "-force-ai-disabled"
     private static let seedUnfinishedWorkoutArgument = "-seed-unfinished-workout"
+    private static let seedSavedRemindersArgument = "-seed-saved-reminders"
     private static let forceGoalSaveFailureArgument = "-force-goal-save-failure"
     private static let useProductionGlassArgument = "-use-production-glass"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
@@ -133,6 +134,21 @@ enum LaunchConfiguration {
             allowsOverrides: allowsOverrides
         ) else { return false }
         return arguments.contains(seedUnfinishedWorkoutArgument)
+    }
+
+    /// Starts with both reminder preferences saved as on, the state a user keeps after iOS stops
+    /// delivering notifications (or after a restore to a device that never granted them).
+    static func shouldSeedSavedReminders(
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(seedSavedRemindersArgument)
     }
 
     static func shouldForceGoalSaveFailure(

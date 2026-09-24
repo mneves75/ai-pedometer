@@ -65,6 +65,15 @@ struct LaunchConfigurationTests {
     }
 
     @Test
+    func detectsSavedRemindersSeedOnlyInUITesting() {
+        #expect(LaunchConfiguration.shouldSeedSavedReminders(
+            arguments: ["-ui-testing", "-seed-saved-reminders"],
+            environment: [:]
+        ))
+        #expect(!LaunchConfiguration.shouldSeedSavedReminders(arguments: ["-seed-saved-reminders"], environment: [:]))
+    }
+
+    @Test
     func detectsForcedGoalSaveFailureOnlyInUITesting() {
         let arguments = ["-ui-testing", "-force-goal-save-failure"]
 
@@ -101,6 +110,7 @@ struct LaunchConfigurationTests {
             "-force-healthkit-sync-off",
             "-force-ai-unavailable",
             "-force-ai-disabled",
+            "-seed-saved-reminders",
             "-seed-unfinished-workout",
             "-force-goal-save-failure",
             "-use-production-glass"
@@ -153,6 +163,11 @@ struct LaunchConfigurationTests {
             allowsOverrides: false
         ))
         #expect(!LaunchConfiguration.shouldForceGoalSaveFailure(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
+        #expect(!LaunchConfiguration.shouldSeedSavedReminders(
             arguments: arguments,
             environment: environment,
             allowsOverrides: false

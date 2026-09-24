@@ -21,7 +21,23 @@ enum SmartReminderSchedulingResult: Equatable {
     case scheduleFailed
 }
 
+/// Which saved reminders to schedule once the user grants notification permission.
+struct SavedReminderReschedule: Equatable {
+    let daily: Bool
+    let smart: Bool
+}
+
 enum SettingsSideEffects {
+    static func savedRemindersToReschedule(
+        dailyEnabled: Bool,
+        smartEnabled: Bool,
+        aiAvailability: AIModelAvailability
+    ) -> SavedReminderReschedule {
+        // Without the model, rescheduling the smart reminder would run the path that switches it off;
+        // it stays saved and suspended, and resumes once the model is available.
+        SavedReminderReschedule(daily: dailyEnabled, smart: smartEnabled && aiAvailability.isAvailable)
+    }
+
     /// Rescheduling needs the on-device model to generate the reminder, so an unavailable or still
     /// loading model leaves the marker in place for a later attempt.
     static func suspendedSmartReminderAction(

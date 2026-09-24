@@ -532,7 +532,8 @@ struct CoachServiceStreamingTests {
         await service.send(message: "olá")
 
         #expect(builderCallCount == 1)
-        #expect(session.prompts == ["olá"])
+        #expect(session.prompts.count == 1)
+        #expect(session.prompts.first?.hasSuffix("olá") == true)
         #expect(service.messages.last?.content == "recovered response")
         #expect(service.lastError == nil)
     }

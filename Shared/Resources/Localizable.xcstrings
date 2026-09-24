@@ -8272,6 +8272,125 @@
           }
         }
       }
+    },
+    "Allow notifications so your reminders can be delivered." : {
+      "comment" : "Settings notice when reminders are on but notification permission was never granted",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow notifications so your reminders can be delivered."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permita as notificações para que seus lembretes sejam entregues."
+          }
+        }
+      }
+    },
+    "Notifications are off for AI Pedometer in iOS Settings. Your reminders stay saved and resume when you turn notifications back on." : {
+      "comment" : "Settings notice when reminders are on but notifications are turned off in iOS Settings",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are off for AI Pedometer in iOS Settings. Your reminders stay saved and resume when you turn notifications back on."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As notificações do AI Pedometer estão desativadas nos Ajustes do iOS. Seus lembretes continuam salvos e voltam quando você reativar as notificações."
+          }
+        }
+      }
+    },
+    "Allow Notifications" : {
+      "comment" : "Button that asks iOS for notification permission for saved reminders",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Notifications"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir Notificações"
+          }
+        }
+      }
+    },
+    "Your Apple Health data, read by the app just now (%@):" : {
+      "comment" : "AI Coach prompt heading before the user's Apple Health data; the model may quote it to the user",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Apple Health data, read by the app just now (%@):"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seus dados do app Saúde, lidos agora pelo app (%@):"
+          }
+        }
+      }
+    },
+    "User message:" : {
+      "comment" : "AI Coach prompt heading before the user's own message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User message:"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensagem do usuário:"
+          }
+        }
+      }
+    },
+    "Apple Health data could not be read right now." : {
+      "comment" : "AI Coach prompt line when reading Apple Health fails; the model may quote it to the user",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Health data could not be read right now."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler os dados do app Saúde agora."
+          }
+        }
+      }
+    },
+    "Last %@ days: total %@ %@, daily average %@ %@, goal met on %@ of them" : {
+      "comment" : "AI tool summary line before the per-day activity data; the day counts are formatted numbers",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last %@ days: total %@ %@, daily average %@ %@, goal met on %@ of them"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Últimos %@ dias: total de %@ %@, média diária de %@ %@, meta alcançada em %@ deles"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

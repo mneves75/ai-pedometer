@@ -29,11 +29,14 @@ struct AIPedometerApp: App {
     private let metricKitService = MetricKitService.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var lifecycleTask: Task<Void, Never>?
-    @State private var isResumingSuspendedSmartReminder = false
 
     init() {
         if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldResetState() {
             Self.resetStateForUITesting()
+        }
+        if LaunchConfiguration.shouldSeedSavedReminders() {
+            UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.notificationsEnabled)
+            UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled)
         }
         if LaunchConfiguration.isTesting() && LaunchConfiguration.shouldSkipOnboarding() {
             onboardingCompleted = true
@@ -244,47 +247,14 @@ struct AIPedometerApp: App {
         ))
     }
 
-    /// Brings back a smart reminder whose delivery was suspended without the user asking: on-device AI
-    /// was unavailable (see Settings), or, through 1.0.7, a subscription lapsed. The marker is dropped
-    /// once the reminder is rescheduled or the preference is off; otherwise the next launch or
-    /// foreground tries again.
     private func resumeSuspendedSmartReminderIfNeeded() async {
         // Lifecycle side effects are skipped under UI testing, the same contract
         // `AppLifecycleCoordinator.handle` enforces: XCUITest drives foregrounds via `app.activate()`
         // during tap retries, so running notification work there perturbs the very interaction under test.
         guard !LaunchConfiguration.isTesting() else { return }
-
-        // Rescheduling generates reminder content on-device; launch and foreground can overlap.
-        guard !isResumingSuspendedSmartReminder else { return }
-        isResumingSuspendedSmartReminder = true
-        defer { isResumingSuspendedSmartReminder = false }
-
-        let defaults = UserDefaults.standard
-        let key = AppConstants.UserDefaultsKeys.smartRemindersSuspended
-        switch SettingsSideEffects.suspendedSmartReminderAction(
-            isSuspended: defaults.bool(forKey: key),
-            isEnabled: defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled),
-            aiAvailability: foundationModelsService.availability
-        ) {
-        case .none:
-            return
-        case .clear:
-            defaults.removeObject(forKey: key)
-        case .resume:
-            let didSchedule = await smartNotificationService.scheduleMotivationalReminder(
-                at: AppConstants.Notifications.defaultSmartReminderHour,
-                minute: AppConstants.Notifications.defaultSmartReminderMinute
-            )
-            guard didSchedule else { return }
-            // Generation takes seconds; the user may have turned reminders off meanwhile.
-            guard defaults.bool(forKey: AppConstants.UserDefaultsKeys.smartRemindersEnabled) else {
-                smartNotificationService.cancelAllSmartNotifications()
-                defaults.removeObject(forKey: key)
-                return
-            }
-            defaults.removeObject(forKey: key)
-            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "suspension_cleared"])
-        }
+        await smartNotificationService.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: {
+            await notificationService.authorizationStatus().allowsDelivery
+        })
     }
 
     private static func resetStateForUITesting() {

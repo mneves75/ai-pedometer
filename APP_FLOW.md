@@ -70,12 +70,15 @@ NavigationSplitView sidebar:
 - Suggested questions
 - Input field and send action
 - AI availability banner and disclaimer
+- The first message of a conversation carries the last 7 days of Apple Health data, the goal and the
+  streak (refreshed after 30 minutes, a new day, or a message about Apple Health); tools fetch longer periods
 
 ## Settings
 - Daily goal editor sheet
 - Activity tracking mode
 - Distance estimation mode
-- Notifications + Smart reminders
+- Notifications + Smart reminders (a notice with Allow Notifications / Open Settings when a saved
+  reminder cannot be delivered; the saved choice is never cleared for the user)
 - HealthKit sync
 - About row -> AboutView
 - Debug section in DEBUG builds

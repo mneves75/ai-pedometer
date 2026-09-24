@@ -6,6 +6,28 @@ import Testing
 @Suite("SettingsSideEffects")
 @MainActor
 struct SettingsSideEffectsTests {
+    @Test("Allowing notifications reschedules saved reminders but never turns one off",
+          arguments: [
+            (true, true, true, (true, true)),
+            (true, true, false, (true, false)),
+            (false, true, false, (false, false)),
+            (true, false, true, (true, false)),
+          ])
+    func savedRemindersToReschedule(
+        daily: Bool, smart: Bool, aiAvailable: Bool, expected: (Bool, Bool)
+    ) {
+        let plan = SettingsSideEffects.savedRemindersToReschedule(
+            dailyEnabled: daily,
+            smartEnabled: smart,
+            aiAvailability: aiAvailable ? .available : .unavailable(reason: .deviceNotEligible)
+        )
+
+        #expect(plan.daily == expected.0)
+        // With AI unavailable the smart reminder stays saved and suspended; rescheduling it would
+        // run the path that switches it off.
+        #expect(plan.smart == expected.1)
+    }
+
     @Test("Goal persistence returns before its follow-up refresh finishes")
     func goalPersistenceDoesNotAwaitRefresh() async {
         var persistedGoal: Int?

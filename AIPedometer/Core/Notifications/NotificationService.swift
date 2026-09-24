@@ -56,3 +56,18 @@ final class NotificationService {
         center.removePendingNotificationRequests(withIdentifiers: [AppConstants.Notifications.dailyGoalReminder])
     }
 }
+
+extension UNAuthorizationStatus {
+    /// Whether the system delivers this app's notifications. `.notDetermined` does not: nothing has
+    /// been granted yet.
+    var allowsDelivery: Bool {
+        switch self {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .denied, .notDetermined:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+}

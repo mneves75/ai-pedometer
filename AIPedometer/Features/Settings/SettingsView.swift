@@ -22,9 +22,11 @@ struct SettingsView: View {
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isPresented) private var isPresented
+    @Environment(\.scenePhase) private var scenePhase
     private let appVersion = AppVersion()
     @State private var showGoalEditor = false
-    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    /// `nil` until the first read, so no permission notice flashes before the status is known.
+    @State private var notificationStatus: UNAuthorizationStatus?
     @State private var showNotificationAlert = false
     @State private var notificationAlertMessage = ""
     @State private var notificationAlertOffersSettings = false
@@ -90,6 +92,11 @@ struct SettingsView: View {
         }
         .task(id: aiService.availability.isAvailable) {
             await enforceSmartReminderAccessIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Returning from iOS Settings is how the permission changes; reread it.
+            guard phase == .active else { return }
+            Task { await refreshNotificationStatus() }
         }
         .sheet(isPresented: $showGoalEditor) {
             GoalEditorSheet(
@@ -287,10 +294,13 @@ struct SettingsView: View {
                 HapticService.shared.selection()
                 Task { await updateDailyReminder(enabled: newValue) }
             }
+            .accessibilityIdentifier(A11yID.Settings.notificationsToggle)
             .accessibilityLabel(L10n.localized("Daily Goal Reminder", comment: "Settings toggle for daily reminder"))
             .accessibilityValue(notificationsEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
 
             smartRemindersRow
+
+            notificationPermissionNotice
 
             Button {
                 showHealthHelp = true
@@ -440,6 +450,7 @@ struct SettingsView: View {
                 HapticService.shared.selection()
                 Task { await updateSmartReminders(enabled: newValue) }
             }
+            .accessibilityIdentifier(A11yID.Settings.smartNotificationsToggle)
             .accessibilityLabel(L10n.localized("Smart Reminders", comment: "Settings toggle for AI reminders"))
             .accessibilityValue(smartRemindersEnabled ? L10n.localized("Enabled", comment: "Accessibility value for enabled toggle") : L10n.localized("Disabled", comment: "Accessibility value for disabled toggle"))
             if case .unavailable(let reason) = aiService.availability {
@@ -478,31 +489,58 @@ struct SettingsView: View {
         }
     }
 
-    private var isNotificationAuthorized: Bool {
-        switch notificationStatus {
-        case .authorized, .provisional, .ephemeral:
-            return true
-        case .denied, .notDetermined:
-            return false
-        @unknown default:
-            return false
+    /// Reads the permission only. A reminder the user turned on stays on when iOS stops delivering it:
+    /// only the user clears that preference, and delivery resumes when they allow notifications again.
+    private func refreshNotificationStatus() async {
+        notificationStatus = await notificationService.authorizationStatus()
+    }
+
+    /// Shown while a saved reminder cannot be delivered, with the one action that fixes it.
+    @ViewBuilder
+    private var notificationPermissionNotice: some View {
+        if let status = notificationStatus, !status.allowsDelivery,
+           notificationsEnabled || smartRemindersEnabled {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                Label(
+                    status == .notDetermined
+                        ? L10n.localized("Allow notifications so your reminders can be delivered.", comment: "Settings notice when reminders are on but notification permission was never granted")
+                        : L10n.localized("Notifications are off for AI Pedometer in iOS Settings. Your reminders stay saved and resume when you turn notifications back on.", comment: "Settings notice when reminders are on but notifications are turned off in iOS Settings"),
+                    systemImage: "bell.slash"
+                )
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                Button {
+                    HapticService.shared.tap()
+                    if status == .notDetermined {
+                        Task { await allowNotificationsForSavedReminders() }
+                    } else {
+                        openNotificationSettings()
+                    }
+                } label: {
+                    Text(status == .notDetermined
+                        ? L10n.localized("Allow Notifications", comment: "Button that asks iOS for notification permission for saved reminders")
+                        : L10n.localized("Open Settings", comment: "Button to open system settings"))
+                }
+                .accessibilityIdentifier(A11yID.Settings.notificationPermissionButton)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(A11yID.Settings.notificationPermissionNotice)
         }
     }
 
-    private func refreshNotificationStatus() async {
-        let status = await notificationService.authorizationStatus()
-        notificationStatus = status
-
-        guard isNotificationAuthorized else {
-            if notificationsEnabled {
-                notificationService.cancelDailyGoalReminder()
-            }
-            if smartRemindersEnabled {
-                smartNotificationService.cancelAllSmartNotifications()
-            }
-            notificationsEnabled = false
-            smartRemindersEnabled = false
-            return
+    /// The user asked for permission from the notice: schedule the reminders they had already turned on.
+    private func allowNotificationsForSavedReminders() async {
+        guard await ensureNotificationAuthorization() else { return }
+        let plan = SettingsSideEffects.savedRemindersToReschedule(
+            dailyEnabled: notificationsEnabled,
+            smartEnabled: smartRemindersEnabled,
+            aiAvailability: aiService.availability
+        )
+        if plan.daily {
+            await updateDailyReminder(enabled: true)
+        }
+        if plan.smart {
+            await updateSmartReminders(enabled: true)
         }
     }
 
@@ -598,31 +636,10 @@ struct SettingsView: View {
         ) {
         case .keep:
             // Recovery only: a reminder that is already scheduled is left alone, so opening Settings does
-            // not regenerate it with the model.
-            guard SettingsSideEffects.suspendedSmartReminderAction(
-                isSuspended: smartRemindersSuspended,
-                isEnabled: smartRemindersEnabled,
-                aiAvailability: aiService.availability
-            ) == .resume else { return }
-            smartReminderUpdateGeneration &+= 1
-            let generation = smartReminderUpdateGeneration
-            let result = await SettingsSideEffects.scheduleSmartReminderIfCurrent(
-                isCurrent: { smartReminderUpdateGeneration == generation },
-                isEnabled: { smartRemindersEnabled },
-                aiAvailability: { aiService.availability },
-                ensureAuthorization: { await ensureNotificationAuthorization() },
-                scheduleReminder: {
-                    await smartNotificationService.scheduleMotivationalReminder(
-                        at: AppConstants.Notifications.defaultSmartReminderHour,
-                        minute: AppConstants.Notifications.defaultSmartReminderMinute
-                    )
-                },
-                cancelReminders: { smartNotificationService.cancelAllSmartNotifications() }
-            )
-            if result == .scheduled {
-                smartRemindersSuspended = false
-                Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "ai_available"])
-            }
+            // not regenerate it with the model. Nobody asked for this, so it never prompts or alerts.
+            await smartNotificationService.resumeSuspendedReminderIfNeeded(isNotificationAuthorized: {
+                await notificationService.authorizationStatus().allowsDelivery
+            })
         case .disableUnavailableAI:
             // Suspend rather than erase: unavailability is often transient (the model can still be
             // downloading), and only the user clears the preference.
@@ -679,7 +696,7 @@ struct SettingsView: View {
     }
 
     private func openNotificationSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
         UIApplication.shared.open(url)
     }
 }

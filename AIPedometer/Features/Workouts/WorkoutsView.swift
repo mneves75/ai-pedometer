@@ -250,98 +250,96 @@ struct WorkoutsView: View {
         }
     }
 
-    @ViewBuilder
     private var expeditionModeSection: some View {
         Toggle(isOn: $expeditionModeEnabled) {
-                HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-                    Image(systemName: "battery.100.bolt")
-                        .font(DesignTokens.Typography.title2)
-                        .foregroundStyle(DesignTokens.Colors.green)
-                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
-                        .background(DesignTokens.Colors.green.opacity(0.14), in: Circle())
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                Image(systemName: "battery.100.bolt")
+                    .font(DesignTokens.Typography.title2)
+                    .foregroundStyle(DesignTokens.Colors.green)
+                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                    .background(DesignTokens.Colors.green.opacity(0.14), in: Circle())
 
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Text(L10n.localized("Expedition Mode", comment: "Expedition Mode card title"))
-                            .font(DesignTokens.Typography.headline)
-                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    Text(L10n.localized("Expedition Mode", comment: "Expedition Mode card title"))
+                        .font(DesignTokens.Typography.headline)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-                        Text(
-                            L10n.localized(
-                                "Use fewer live metric updates during long hikes and walks to reduce battery impact.",
-                                comment: "Expedition Mode explanatory copy"
-                            )
+                    Text(
+                        L10n.localized(
+                            "Use fewer live metric updates during long hikes and walks to reduce battery impact.",
+                            comment: "Expedition Mode explanatory copy"
                         )
-                        .font(DesignTokens.Typography.subheadline)
-                        .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    }
+                    )
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
             }
-            .toggleStyle(.switch)
-            .padding(DesignTokens.Spacing.md)
-            .glassCard()
-            .accessibilityIdentifier(A11yID.Workouts.expeditionModeToggle)
-            .padding(.horizontal, DesignTokens.Spacing.md)
+        }
+        .toggleStyle(.switch)
+        .padding(DesignTokens.Spacing.md)
+        .glassCard()
+        .accessibilityIdentifier(A11yID.Workouts.expeditionModeToggle)
+        .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
-    @ViewBuilder
     private var routeImportSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-                    Image(systemName: "map.fill")
-                        .font(DesignTokens.Typography.title2)
-                        .foregroundStyle(DesignTokens.Colors.mint)
-                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
-                        .background(DesignTokens.Colors.mint.opacity(0.14), in: Circle())
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                Image(systemName: "map.fill")
+                    .font(DesignTokens.Typography.title2)
+                    .foregroundStyle(DesignTokens.Colors.mint)
+                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                    .background(DesignTokens.Colors.mint.opacity(0.14), in: Circle())
 
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Text(L10n.localized("Routes & GPX", comment: "Routes GPX card title"))
-                            .font(DesignTokens.Typography.headline)
-                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    Text(L10n.localized("Routes & GPX", comment: "Routes GPX card title"))
+                        .font(DesignTokens.Typography.headline)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-                        Text(
-                            L10n.localized(
-                                "Import a GPX route before a walk or hike to keep distance, elevation, and waypoints close at hand.",
-                                comment: "Routes GPX explanatory copy"
-                            )
+                    Text(
+                        L10n.localized(
+                            "Import a GPX route before a walk or hike to keep distance, elevation, and waypoints close at hand.",
+                            comment: "Routes GPX explanatory copy"
                         )
-                        .font(DesignTokens.Typography.subheadline)
-                        .foregroundStyle(DesignTokens.Colors.textSecondary)
-                        .accessibilityIdentifier(A11yID.Workouts.routeImportDescription)
-                    }
-                }
-                // A container keeps the card identifier on the group; without it SwiftUI stamped the
-                // card identifier onto the child texts and hid their own.
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier(A11yID.Workouts.routeImportCard)
-
-                if let importedRoute {
-                    ImportedRouteSummary(route: importedRoute) {
-                        GPXRouteImporter.clearImportedRoute()
-                        self.importedRoute = nil
-                    }
-                } else {
-                    Text(L10n.localized("No route imported", comment: "Empty state for route import card"))
-                        .font(DesignTokens.Typography.subheadline)
-                        .foregroundStyle(DesignTokens.Colors.textTertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                Button {
-                    isImportingRoute = true
-                } label: {
-                    Label(
-                        L10n.localized("Import GPX", comment: "Button to import a GPX route"),
-                        systemImage: "square.and.arrow.down"
                     )
-                    .frame(maxWidth: .infinity)
-                    .accessibilityIdentifier(A11yID.Workouts.routeImportButtonLabel)
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .accessibilityIdentifier(A11yID.Workouts.routeImportDescription)
                 }
-                .glassButton()
-                .accessibilityIdentifier(A11yID.Workouts.routeImportButton)
             }
-            .padding(DesignTokens.Spacing.md)
-            .glassCard()
-            .padding(.horizontal, DesignTokens.Spacing.md)
+            // A container keeps the card identifier on the group; without it SwiftUI stamped the
+            // card identifier onto the child texts and hid their own.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(A11yID.Workouts.routeImportCard)
+
+            if let importedRoute {
+                ImportedRouteSummary(route: importedRoute) {
+                    GPXRouteImporter.clearImportedRoute()
+                    self.importedRoute = nil
+                }
+            } else {
+                Text(L10n.localized("No route imported", comment: "Empty state for route import card"))
+                    .font(DesignTokens.Typography.subheadline)
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Button {
+                isImportingRoute = true
+            } label: {
+                Label(
+                    L10n.localized("Import GPX", comment: "Button to import a GPX route"),
+                    systemImage: "square.and.arrow.down"
+                )
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier(A11yID.Workouts.routeImportButtonLabel)
+            }
+            .glassButton()
+            .accessibilityIdentifier(A11yID.Workouts.routeImportButton)
+        }
+        .padding(DesignTokens.Spacing.md)
+        .glassCard()
+        .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
     private var headerSection: some View {
@@ -499,40 +497,40 @@ struct WorkoutsView: View {
                 .padding(.horizontal, DesignTokens.Spacing.md)
 
             NavigationLink {
-                    TrainingPlansView()
-                } label: {
-                    HStack(spacing: DesignTokens.Spacing.md) {
-                        Image(systemName: "calendar.badge.plus")
-                            .font(DesignTokens.Typography.title2)
-                            .foregroundStyle(DesignTokens.Colors.accent)
-                            .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
-                            .background(DesignTokens.Colors.accentSoft, in: Circle())
+                TrainingPlansView()
+            } label: {
+                HStack(spacing: DesignTokens.Spacing.md) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(DesignTokens.Typography.title2)
+                        .foregroundStyle(DesignTokens.Colors.accent)
+                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                        .background(DesignTokens.Colors.accentSoft, in: Circle())
 
-                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                            Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
-                                .font(DesignTokens.Typography.headline)
-                                .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
+                            .font(DesignTokens.Typography.headline)
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-                            Text(trainingPlansSubtitle)
-                                .font(DesignTokens.Typography.subheadline)
-                                .foregroundStyle(DesignTokens.Colors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(DesignTokens.Typography.subheadline.weight(.semibold))
-                            .foregroundStyle(DesignTokens.Colors.textTertiary)
+                        Text(trainingPlansSubtitle)
+                            .font(DesignTokens.Typography.subheadline)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
-                    .padding(DesignTokens.Spacing.md)
-                    .glassCard(interactive: true)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
-                .accessibleCard(
-                    label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
-                    hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
-                )
+                .padding(DesignTokens.Spacing.md)
+                .glassCard(interactive: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
+            .accessibleCard(
+                label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
+                hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
+            )
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
     }

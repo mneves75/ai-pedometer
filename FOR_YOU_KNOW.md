@@ -97,6 +97,24 @@ feature included (2026-09-23). Every AI surface is gated only by Apple Intellige
 lessons that came from the subscription (tri-state access, suspended smart reminders, Ask to Buy markers)
 are in Git history and `memory/2026-09-2x.md`; they no longer apply to the source.
 
+The on-device model decides on its own whether to call a tool, and in the AI Coach it almost never did:
+it asked the user for the tool's `days` argument, then said it could not access HealthKit (owner report,
+2026-09-24; 0 tool calls in 16 replayed turns). `CoachService` therefore sends the Apple Health data with
+the first turn of a session (refreshed after 30 minutes, a new day, a rebuilt session, or a message that
+names Apple Health, which is when the model most often still claimed it had no access), and the tools
+stay for longer periods. Two rules came out of measuring it with the real model
+(`Scripts/coach-grounding-eval.swift`): anything the model can
+quote back, headings included, must be localized, or English leaks into pt-BR answers; and the app states
+totals and averages, because the model miscalculates them. Measure prompt changes with that eval, not by
+reading one reply. Also note: an App Store Connect product must exist for the Tip Jar to load outside ⌘R;
+as of 2026-09-24 there is none.
+
+A notification permission read never writes a reminder preference. `.notDetermined` (a fresh install or a
+restore to a new device) and `.denied` both leave the saved choice as is; Settings explains why nothing is
+delivered and offers Allow Notifications or Open Settings. Pending requests survive a denial and deliver
+again once the user allows notifications. The suspended-smart-reminder resume has one owner,
+`SmartNotificationService.resumeSuspendedReminderIfNeeded`, which only reads the permission.
+
 Only the iOS app owns HealthKit. Widgets read `SharedStepData` from app-group
 UserDefaults; the watch receives snapshots through WatchConnectivity and has
 neither HealthKit nor app-group entitlements. The fallback service supports denied

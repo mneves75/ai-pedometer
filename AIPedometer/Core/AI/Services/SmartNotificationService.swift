@@ -24,6 +24,8 @@ final class SmartNotificationService {
 
     private var lastNotificationDate: Date?
     private var notificationCountToday = 0
+    @ObservationIgnored private var isResumingSuspendedReminder = false
+    @ObservationIgnored private var inFlightMotivationalReminder: (hour: Int, minute: Int, task: Task<Bool, Never>)?
 
     private let maxNotificationsPerDay = 3
 
@@ -67,8 +69,23 @@ final class SmartNotificationService {
         }
     }
 
+    /// Launch, foreground, Settings and the user's toggle can all ask for the same reminder while one is
+    /// being generated; they share that generation instead of running the model again.
     @discardableResult
     func scheduleMotivationalReminder(at hour: Int, minute: Int) async -> Bool {
+        if let inFlight = inFlightMotivationalReminder, inFlight.hour == hour, inFlight.minute == minute {
+            return await inFlight.task.value
+        }
+        let task = Task { await generateAndScheduleMotivationalReminder(at: hour, minute: minute) }
+        inFlightMotivationalReminder = (hour, minute, task)
+        let didSchedule = await task.value
+        if inFlightMotivationalReminder?.task == task {
+            inFlightMotivationalReminder = nil
+        }
+        return didSchedule
+    }
+
+    private func generateAndScheduleMotivationalReminder(at hour: Int, minute: Int) async -> Bool {
         guard foundationModelsService.availability.isAvailable else { return false }
 
         var dateComponents = DateComponents()
@@ -97,6 +114,45 @@ final class SmartNotificationService {
                 "error": error.localizedDescription
             ])
             return false
+        }
+    }
+
+    /// Brings back a smart reminder whose delivery was suspended without the user asking: on-device AI
+    /// was unavailable, or, through 1.0.7, a subscription lapsed. Launch, foreground and Settings all
+    /// call this one owner, so two generations never run at once. Nobody asked for this work, so it
+    /// only reads the notification permission: it never prompts or alerts, and without permission it
+    /// skips the model call and keeps the marker for a later attempt.
+    func resumeSuspendedReminderIfNeeded(isNotificationAuthorized: @MainActor () async -> Bool) async {
+        guard !isResumingSuspendedReminder else { return }
+        isResumingSuspendedReminder = true
+        defer { isResumingSuspendedReminder = false }
+
+        let suspendedKey = AppConstants.UserDefaultsKeys.smartRemindersSuspended
+        let enabledKey = AppConstants.UserDefaultsKeys.smartRemindersEnabled
+        switch SettingsSideEffects.suspendedSmartReminderAction(
+            isSuspended: userDefaults.bool(forKey: suspendedKey),
+            isEnabled: userDefaults.bool(forKey: enabledKey),
+            aiAvailability: foundationModelsService.availability
+        ) {
+        case .none:
+            return
+        case .clear:
+            userDefaults.removeObject(forKey: suspendedKey)
+        case .resume:
+            guard await isNotificationAuthorized() else { return }
+            let didSchedule = await scheduleMotivationalReminder(
+                at: AppConstants.Notifications.defaultSmartReminderHour,
+                minute: AppConstants.Notifications.defaultSmartReminderMinute
+            )
+            guard didSchedule else { return }
+            // Generation takes seconds; the user may have turned reminders off meanwhile.
+            guard userDefaults.bool(forKey: enabledKey) else {
+                cancelAllSmartNotifications()
+                userDefaults.removeObject(forKey: suspendedKey)
+                return
+            }
+            userDefaults.removeObject(forKey: suspendedKey)
+            Loggers.ai.info("notifications.smart_resumed", metadata: ["reason": "suspension_cleared"])
         }
     }
 

@@ -42,4 +42,7 @@ This project follows security best practices:
 - The app sends no data to the developer or third parties; Apple processes the App Store purchase and the optional Tip Jar under its own policy
 - The App Store privacy label is "Data Not Collected" (`store/app-store/privacy.json`), consistent with the empty privacy-manifest collection arrays
 - App-group UserDefaults access is declared with the Apple-required reason for shared app/widget/watch state
+- Local data (the SwiftData store, the imported GPX route and the shared step snapshot) uses iOS's default
+  Data Protection class, protected until the first unlock after boot. Stricter `.complete` protection is a
+  deliberate non-goal: background refresh and the Lock Screen widgets read that data while the device is locked
 - See Apple's [HealthKit privacy documentation](https://developer.apple.com/documentation/healthkit/protecting_user_privacy)

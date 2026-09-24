@@ -176,6 +176,8 @@ enum DesignTokens {
         static let chartBarMaxHeight: CGFloat = 120
         static let chatBubbleGutter: CGFloat = 40
         static let onboardingPageBottomInset: CGFloat = 132
+        /// Readable width for onboarding content and its button on iPad and in landscape.
+        static let onboardingContentMaxWidth: CGFloat = 560
     }
 
     enum IconSize {

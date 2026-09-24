@@ -22,9 +22,12 @@ struct HealthKitDataTool: Tool, Sendable {
     
     @Generable
     struct Arguments: Sendable {
-        @Guide(description: "Number of days to fetch data for, between 1 and 90", .range(1...90))
-        let days: Int
+        // Optional so the model never asks the user for a period before it can call the tool.
+        @Guide(description: "Past days to fetch, 1 to 90. Omit for the last 7 days.", .range(1...90))
+        let days: Int?
     }
+
+    static let defaultDays = 7
     
     func call(arguments: Arguments) async throws -> String {
         let defaults = userDefaultsSuiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
@@ -47,7 +50,7 @@ struct HealthKitDataTool: Tool, Sendable {
         let dailyGoal = await MainActor.run { goalService.currentGoal }
         // `@Guide(.range(1...90))` steers generation; it does not bind the value the model returns.
         let summaries = try await healthKitService.fetchDailySummaries(
-            days: min(max(arguments.days, 1), 90),
+            days: min(max(arguments.days ?? Self.defaultDays, 1), 90),
             activityMode: settings.activityMode,
             distanceMode: settings.distanceMode,
             manualStepLength: settings.manualStepLength,
@@ -94,7 +97,7 @@ struct HealthKitDataTool: Tool, Sendable {
                 "%@: %@",
                 comment: "AI tool summary line for activity unit and value",
                 unitName.capitalized,
-                summary.steps.formatted()
+                Formatters.stepCountString(summary.steps)
             ))
             \(Localization.format(
                 "Distance: %@",
@@ -114,7 +117,7 @@ struct HealthKitDataTool: Tool, Sendable {
             \(Localization.format(
                 "Goal: %@ %@",
                 comment: "AI tool summary line for daily goal with unit",
-                summary.goal.formatted(),
+                Formatters.stepCountString(summary.goal),
                 unitName
             ))
             \(Localization.format(
@@ -125,7 +128,22 @@ struct HealthKitDataTool: Tool, Sendable {
             """
         } }
         
-        return lines.joined(separator: "\n---\n")
+        // The on-device model miscalculates sums and averages, so the app states them.
+        let summaryLine = await MainActor.run {
+            let total = summaries.reduce(0) { $0 + $1.steps }
+            return Localization.format(
+                "Last %@ days: total %@ %@, daily average %@ %@, goal met on %@ of them",
+                comment: "AI tool summary line before the per-day activity data; the day counts are formatted numbers",
+                Formatters.stepCountString(summaries.count),
+                Formatters.stepCountString(total),
+                unitName,
+                Formatters.stepCountString(total / summaries.count),
+                unitName,
+                Formatters.stepCountString(summaries.filter { $0.steps >= $0.goal }.count)
+            )
+        }
+
+        return summaryLine + "\n---\n" + lines.joined(separator: "\n---\n")
     }
 }
 
@@ -148,11 +166,11 @@ struct GoalDataTool: Tool, Sendable {
     func call(arguments: Arguments) async throws -> String {
         let defaults = userDefaultsSuiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
         let unitName = ActivitySettings.current(userDefaults: defaults).activityMode.unitName
-        let currentGoal = await MainActor.run { goalService.currentGoal }
+        let currentGoal = await MainActor.run { Formatters.stepCountString(goalService.currentGoal) }
         return Localization.format(
             "Current daily goal: %@ %@",
             comment: "AI tool response for current daily goal",
-            currentGoal.formatted(),
+            currentGoal,
             unitName
         )
     }
