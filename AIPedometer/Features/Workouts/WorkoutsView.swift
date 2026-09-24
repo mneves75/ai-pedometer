@@ -306,8 +306,12 @@ struct WorkoutsView: View {
                         )
                         .font(DesignTokens.Typography.subheadline)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
+                        .accessibilityIdentifier(A11yID.Workouts.routeImportDescription)
                     }
                 }
+                // A container keeps the card identifier on the group; without it SwiftUI stamped the
+                // card identifier onto the child texts and hid their own.
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier(A11yID.Workouts.routeImportCard)
 
                 if let importedRoute {

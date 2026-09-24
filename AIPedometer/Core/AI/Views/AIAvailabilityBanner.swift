@@ -12,6 +12,9 @@ struct AIAvailabilityBanner: View {
                 .font(DesignTokens.Typography.title2)
                 .foregroundStyle(iconColor)
                 .frame(width: DesignTokens.IconSize.md)
+                // Decorative: the message says why AI is unavailable. Exposed, VoiceOver read the
+                // symbol name (for example "iphone.slash").
+                .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text(reason.userFacingMessage)
@@ -117,6 +120,7 @@ struct AIUnavailableStateView: View {
             Image(systemName: "sparkles.slash")
                 .font(.system(size: DesignTokens.FontSize.md, weight: .semibold))
                 .foregroundStyle(DesignTokens.Colors.accent)
+                .accessibilityHidden(true)
 
             VStack(spacing: DesignTokens.Spacing.xs) {
                 Text(L10n.localized("AI Features Unavailable", comment: "Title for AI unavailable state"))

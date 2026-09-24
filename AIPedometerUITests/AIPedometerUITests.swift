@@ -232,6 +232,10 @@ final class AIPedometerUITests: XCTestCase {
             type: .hitRegion,
             identifier: A11yID.Workouts.routeImportButtonLabel
         ))
+        XCTAssertTrue(shouldAcceptKnownAuditIssue(
+            type: .contrast,
+            identifier: A11yID.Workouts.routeImportDescription
+        ))
         for identifier in dashboardStatTextIdentifiers {
             XCTAssertTrue(shouldAcceptKnownAuditIssue(
                 type: .elementDetection,
@@ -359,6 +363,9 @@ final class AIPedometerUITests: XCTestCase {
             // Same glass-prominent button class as Grant Access: black label on solid green (about 9.8:1),
             // flagged by Xcode 27 only once scrolled into view on the production-glass Workouts screen.
             A11yID.Workouts.routeImportButtonLabel,
+            // iOS 26 (hosted CI 26.2, local 26.5) reports this opaque .primary 72% text (about 9:1 on white)
+            // as low contrast, the same misreport as the progress strings above; iOS 27 passes it.
+            A11yID.Workouts.routeImportDescription,
             A11yID.Onboarding.goalNote,
             A11yID.Onboarding.permissionsExplanation,
             A11yID.Workouts.recoveryMessage,

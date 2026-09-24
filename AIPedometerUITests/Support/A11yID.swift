@@ -41,6 +41,7 @@ enum A11yID {
         static let routeImportCard = "workouts_route_import_card"
         static let routeImportButton = "workouts_route_import_button"
         static let routeImportButtonLabel = "workouts_route_import_button_label"
+        static let routeImportDescription = "workouts_route_import_description"
         static let routeRemoveButton = "workouts_route_remove_button"
         static let recentWorkoutsEmptyState = "workouts_recent_empty_state"
         static let recentWorkoutsCarousel = "workouts_recent_carousel"

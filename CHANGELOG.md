@@ -45,6 +45,15 @@ LUME and CaptureVault). Everything Premium used to unlock is included.
   Access" button (a second button that did the same thing, with "Allow"-like wording) and the status
   rows are gone; Skip stays on the first two screens only. Notifications are still asked for in context.
 
+### Fixed (build 66)
+
+- VoiceOver read the symbol name ("iphone.slash", "sparkles.slash") on the Apple Intelligence
+  unavailable banner and state view; the decorative icons are now hidden, since the text explains
+  it. The banner became visible on Dashboard and Workouts once the Premium gates were removed, and
+  the iOS 26 accessibility audit on CI (build 65, `d04313e`) caught it.
+- The Routes & GPX card header is an accessibility container, so its texts keep their own
+  identifiers instead of inheriting the card's.
+
 ### Removed
 
 - The RevenueCat and RevenueCatUI SDKs, `PremiumAccessStore`, the paywall and every Premium gate, the
