@@ -7,6 +7,11 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-24)
 
+- **1.0.8 (67) is in TestFlight** (2026-09-24): build `fb000a65` `VALID` (encryption exempt), Internal
+  Testers, attached to the App Store version 1.0.8 in place of 66; archive from a clean `git archive` of
+  `725530e` with Xcode 27.0, IPA SHA-256 `bd20fa23…5d05`, both validator passes OK; CI green on `725530e`,
+  tag `v1.0.8-beta3` → `725530e`. Production stays blocked
+  on owner declarations only (`asc validate`: 24 age-rating fields, 4 review-contact fields, content rights).
 - **1.0.8 (67) source** (2026-09-24): the AI Coach now receives the user's Apple Health data with the turn
   (first turn of a session, after 30 min / a new day / a rebuilt session, and any message naming Apple
   Health), because the on-device model almost never called its tools and asked the user for data (owner
