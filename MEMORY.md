@@ -7,7 +7,12 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-09-23)
 
-- **1.0.8 (65) is in TestFlight** (2026-09-23): build `aa7d8a9f` `VALID`, encryption `exempt`, added to
+- **1.0.8 (66) is in TestFlight** (2026-09-24): build `d318f6fd` `VALID`, Internal Testers, tag
+  `v1.0.8-beta2` → `2bff42b`, IPA SHA-256 `baa01b94…79be`; installed on owner-iPhone (launch waited on
+  unlock). Fixes CI's iOS 26 accessibility failure on build 65 (VoiceOver read SF Symbol names on the
+  AI-unavailable banner). CI + CodeQL green on `2bff42b`; iOS 26.5 and 27.0 unit 637/637, UI 30/30.
+  Pushes go over SSH (`git@github.com:mneves75/ai-pedometer.git`) while `gh` is logged out.
+- **1.0.8 (65) was in TestFlight** (2026-09-23): build `aa7d8a9f` `VALID`, encryption `exempt`, added to
   `Internal Testers` (no testers invited); IPA SHA-256 `eae7362e…204e`, built with Xcode 27.0 from
   `e9eb05e`, tag `v1.0.8-beta1` (created locally; pushing waits on `gh auth login`). Release build installed
   and launched on owner-iPhone. Final HEAD `d696431`: unit 637/637, UI 30/30. Independent verification (GPT-6)
