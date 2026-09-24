@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Repository
+
+- The owner's name no longer appears in the public repository: the license notice names
+  conhecendotudo.com.br as copyright holder, and the docs and journals call the owner's test device
+  `owner-iPhone` instead of its personal name. Git history keeps earlier text (published history is
+  not rewritten). No change to the app binary, so no version bump.
+
 ## [1.0.8] - 2026-09-23
 
 AIPedometer becomes a one-time R$ 1,99 purchase with no subscription (owner decision, following
@@ -599,7 +608,7 @@ built — the key is baked into `Info.plist` at archive time, so a later config 
 
 ### Fixed
 
-- **Launch crash on device (EXC_BREAKPOINT / SIGTRAP, crash type 309).** `MotionService.query(from:to:)` satisfies a `@MainActor` protocol requirement, so its inline completion closure inherited MainActor isolation. `CMPedometerHandler` is a plain Objective-C block (not `@Sendable`), and CoreMotion invokes it on its own background queue — under the iOS 26 Swift runtime a MainActor-isolated closure running off-main trips `swift_task_isCurrentExecutor` (`dispatch_assert_queue`) and traps. This fired through the step-tracking motion fallback (`StepTrackingService.refreshTodayData`), reached on launch and from the background-refresh path that backs smart reminders, so the app crashed on launch on iMarcus. The completion handler is now built by a `nonisolated static func makeQueryCallback(...) -> @Sendable …`, mirroring the already-correct `startLiveUpdates`/`makePedometerCallback` pattern in the same file, so it runs nonisolated and resumes the continuation safely off-main. Regression tests `queryCallbackResumesErrorOffMainWithoutIsolationTrap` and `queryCallbackResumesNoDataOffMain` drive the callback from a detached (off-main) task; verified by a clean launch on iMarcus.
+- **Launch crash on device (EXC_BREAKPOINT / SIGTRAP, crash type 309).** `MotionService.query(from:to:)` satisfies a `@MainActor` protocol requirement, so its inline completion closure inherited MainActor isolation. `CMPedometerHandler` is a plain Objective-C block (not `@Sendable`), and CoreMotion invokes it on its own background queue — under the iOS 26 Swift runtime a MainActor-isolated closure running off-main trips `swift_task_isCurrentExecutor` (`dispatch_assert_queue`) and traps. This fired through the step-tracking motion fallback (`StepTrackingService.refreshTodayData`), reached on launch and from the background-refresh path that backs smart reminders, so the app crashed on launch on owner-iPhone. The completion handler is now built by a `nonisolated static func makeQueryCallback(...) -> @Sendable …`, mirroring the already-correct `startLiveUpdates`/`makePedometerCallback` pattern in the same file, so it runs nonisolated and resumes the continuation safely off-main. Regression tests `queryCallbackResumesErrorOffMainWithoutIsolationTrap` and `queryCallbackResumesNoDataOffMain` drive the callback from a detached (off-main) task; verified by a clean launch on owner-iPhone.
 
 ### Audit
 
@@ -682,7 +691,7 @@ built — the key is baked into `Info.plist` at archive time, so a later config 
 
 ### Changed
 
-- Release metadata bump to `0.84 (40)` and on-device install milestone for the 0.83 audit-cycle fixes (goal-change gap, zero-week trend, streak start date, off-main GPX parse, DesignTokens cleanup). No source changes beyond the version bump. Built and **installed** on the `iMarcus` physical device (iPhone 17 Pro Max) — verified `0.84 (40)` present via `devicectl device info apps`, with the embedded watch app auto-delivered to the paired Apple Watch. Post-install launch initially failed because the device was locked (`FBSOpenApplicationErrorDomain error 7`); after the device was unlocked, a bounded auto-retry **launched the app successfully** on iMarcus.
+- Release metadata bump to `0.84 (40)` and on-device install milestone for the 0.83 audit-cycle fixes (goal-change gap, zero-week trend, streak start date, off-main GPX parse, DesignTokens cleanup). No source changes beyond the version bump. Built and **installed** on the `owner-iPhone` physical device (iPhone 17 Pro Max) — verified `0.84 (40)` present via `devicectl device info apps`, with the embedded watch app auto-delivered to the paired Apple Watch. Post-install launch initially failed because the device was locked (`FBSOpenApplicationErrorDomain error 7`); after the device was unlocked, a bounded auto-retry **launched the app successfully** on owner-iPhone.
 
 ### Docs
 
@@ -897,7 +906,7 @@ built — the key is baked into `Info.plist` at archive time, so a later config 
 ### Tests
 
 - Full simulator release verification passed with RevenueCatUI enabled: `395` unit tests and `14` UI tests.
-- Physical-device release verification passed on `iMarcus` after install and direct launch.
+- Physical-device release verification passed on `owner-iPhone` after install and direct launch.
 
 ## [0.74] - 2026-03-10
 

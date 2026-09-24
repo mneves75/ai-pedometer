@@ -10,7 +10,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 - **1.0.8 (65) is in TestFlight** (2026-09-23): build `aa7d8a9f` `VALID`, encryption `exempt`, added to
   `Internal Testers` (no testers invited); IPA SHA-256 `eae7362e…204e`, built with Xcode 27.0 from
   `e9eb05e`, tag `v1.0.8-beta1` (created locally; pushing waits on `gh auth login`). Release build installed
-  and launched on iMarcus. Final HEAD `d696431`: unit 637/637, UI 30/30. Independent verification (GPT-6)
+  and launched on owner-iPhone. Final HEAD `d696431`: unit 637/637, UI 30/30. Independent verification (GPT-6)
   ended FAIL after its one correction round; open: the two never-submitted ASC subscription records
   (deleting is irreversible, owner decision) and the pre-existing Settings behavior that turns smart
   reminders off when notification permission is gone.
@@ -63,7 +63,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   the historical claim below that selecting Xcode.app was a no-op.
 - Through 1.0.7 the app used a RevenueCat subscription; its pins, offerings, `test_`/`appl_` key
   history and sandbox diagnosis are in `memory/2026-09-1x/2x.md` and Git. Superseded by 1.0.8.
-- **1.0.2 (58) did not fix the reported distances.** iMarcus reports `en_US` (lockdown); a US region with
+- **1.0.2 (58) did not fix the reported distances.** owner-iPhone reports `en_US` (lockdown); a US region with
   Measurement System = Metric keeps the identifier `en_US`, and `MeasurementFormatter` natural scale ignored
   the preference, so 1.0.2 still rendered miles there (reproduced on an iOS 27 simulator set through
   Settings). 1.0.3 fixes units via `UnitLength(forLocale:usage:)` and counts via `NumberFormatter`; see
@@ -76,7 +76,7 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   scrolls an offscreen element into view; UI 20/20 on Pro Max as well.
 - Live Activities work for the first time in 1.0.1 (`NSSupportsLiveActivities` was missing). Physical-device
   verification of the Lock Screen / Dynamic Island activity is still an explicit gap.
-- Installed on iMarcus: 1.0.3 (59) Debug, confirmed by `devicectl` and launched on 2026-09-15.
+- Installed on owner-iPhone: 1.0.3 (59) Debug, confirmed by `devicectl` and launched on 2026-09-15.
 - ASC authentication is healthy (`asc auth doctor`: seven checks OK, `AIPedometer` profile complete
   in the keychain and default). That proves the key loads and parses — not that it carries a
   publishing role, which only surfaces on a real upload attempt.
