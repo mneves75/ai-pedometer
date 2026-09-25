@@ -27,24 +27,26 @@ Canonical file: `store/app-store/privacy.json` (`asc web privacy` format).
   the App Store purchase and the optional tip as an independent controller.
 - Used for tracking: `No`
 
+## Age Rating and Content Rights
+
+- Age rating: every item `None`/`No` except Health or Wellness Topics = `Yes` (exercise recommendations),
+  which rates the app 9+. The AI Coach is not Messaging and Chat, which Apple defines as users talking to
+  each other, and links open outside the app, so there is no Unrestricted Web Access.
+- Content rights: `Does not use third-party content`.
+
 ## App Review Information
 
 - Demo account required: `No`
 - Sign-in required: `No`
-- Review notes:
-  - `Paid app (one-time purchase). There is no subscription: every feature is available without further purchase.`
-  - `Only in-app purchase: optional Tip Jar (consumable), com.mneves.aipedometer.coffee. It unlocks nothing.`
-  - `Tip Jar access path: More > Support AI Pedometer > Buy me a coffee`
-  - `AI processing is on-device via Apple Foundation Models; no cloud AI service is used. AI features need a device with Apple Intelligence turned on.`
-  - `Expedition Mode and GPX route import are in the Workouts tab.`
+- Review notes: `store/app-store/review.json` (applied verbatim; `StoreListingTests` keeps the removed Premium
+  plan out of them). The contact is set only in App Store Connect.
+- Tip Jar: consumable `com.mneves.aipedometer.coffee` (`store/app-store/tip-jar.json`), More > Support AI
+  Pedometer > Buy me a coffee. As the app's first in-app purchase it goes to review with the app version.
 
-## Screenshot set (suggested order)
+## Screenshots uploaded for 1.0.8
 
-1. Dashboard
-2. AI Coach
-3. Workouts
-4. Training Plans
-5. History
-6. Badges
-7. Active Workout
-8. About - Tip Jar
+- iPhone 6.5" (captured at 6.9"): Dashboard, AI Coach, Workouts, Training Plans, History, Badges, Onboarding.
+- iPad 13": Dashboard, History, Workouts, Badges.
+- Apple Watch: 416x496 captures of the watch step summary (required because the app embeds a watch app).
+- Captured from a Debug build with demo data and on-device AI. Tip Jar and Active Workout are left out
+  because a simulator shows no price and cannot start a workout session.

@@ -3,16 +3,20 @@
 Source of truth for AIPedometer's App Store product page (app `6778799265`), in the canonical
 layout of `asc metadata` (asc 5.4), the same layout as the studio's other apps.
 `AIPedometerTests/Constants/StoreListingTests.swift` pins the in-app Privacy Policy and Support
-links to these URLs, the App Store Connect field limits, the Terms of Use link and the price.
+links to these URLs, the App Store Connect field limits, the price, the Tip Jar product and the
+review notes.
 
 | Path | Holds |
 |---|---|
 | `app-info/<locale>.json` | name, subtitle, privacy policy URL |
 | `version/<version>/<locale>.json` | description, keywords, promotional text, marketing and support URLs |
 | `pricing.json` | base territory and price point (BRA, R$ 1,99 → proceeds R$ 1,48) |
+| `tip-jar.json` | the Tip Jar consumable in App Store Connect (`6816210322`, R$ 9,90 → proceeds R$ 7,35) |
+| `review.json` | App Review notes; the contact lives only in App Store Connect |
+| `privacy.json` | App Privacy answers (`asc web privacy` format) |
 
 The version folder must equal `MARKETING_VERSION` in `project.yml`: a version bump renames it,
-or the unit tests fail. Categories, App Privacy answers and review notes are in
+or the unit tests fail. Categories, age rating and content rights are in
 [`docs/appstore/metadata/`](../../docs/appstore/metadata/).
 
 Links go to AIPedometer's own pages on conhecendotudo.com.br (`/pt/apps/privacidade/aipedometer/`,
@@ -28,7 +32,7 @@ asc metadata validate --dir store/app-store --check-urls --output table
 ## Applying
 
 These are writes to App Store Connect; run them only with the owner's approval. The App Store
-version must exist in App Store Connect first (the draft there is still 1.0.4).
+version must exist in App Store Connect first.
 
 ```bash
 V=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' project.yml)

@@ -1,0 +1,23 @@
+{
+  "iapId": "6816210322",
+  "productId": "com.mneves.aipedometer.coffee",
+  "referenceName": "Tip Jar",
+  "type": "CONSUMABLE",
+  "familySharable": false,
+  "baseTerritory": "BRA",
+  "currency": "BRL",
+  "customerPrice": "9.90",
+  "proceeds": "7.35",
+  "pricePointId": "eyJzIjoiNjgxNjIxMDMyMiIsInQiOiJCUkEiLCJwIjoiMTAwMzcifQ",
+  "availableInNewTerritories": true,
+  "localizations": {
+    "en-US": {
+      "name": "Buy me a coffee",
+      "description": "One-time tip to support ongoing development."
+    },
+    "pt-BR": {
+      "name": "Me pague um café",
+      "description": "Gorjeta única para apoiar o desenvolvimento."
+    }
+  }
+}

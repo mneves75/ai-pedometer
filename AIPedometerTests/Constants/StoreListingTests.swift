@@ -27,6 +27,27 @@ struct StoreListingTests {
         let pricePointId: String
     }
 
+    private struct TipJar: Decodable {
+        struct Localization: Decodable {
+            let name: String
+            let description: String
+        }
+
+        let iapId: String
+        let productId: String
+        let type: String
+        let baseTerritory: String
+        let currency: String
+        let customerPrice: String
+        let pricePointId: String
+        let localizations: [String: Localization]
+    }
+
+    private struct Review: Decodable {
+        let demoAccountRequired: Bool
+        let notes: String
+    }
+
     private static let locales = ["en-US", "pt-BR"]
 
     private static let storeRoot = URL(fileURLWithPath: #filePath)
@@ -106,15 +127,60 @@ struct StoreListingTests {
         #expect(pricing.currency == "BRL")
         #expect(pricing.customerPrice == "1.99")
 
-        // The price point id is base64 JSON naming this app and territory; a point copied from
-        // another app would be rejected by App Store Connect.
-        let padded = pricing.pricePointId.padding(
-            toLength: (pricing.pricePointId.count + 3) / 4 * 4, withPad: "=", startingAt: 0
-        )
-        let decoded = try JSONDecoder().decode(
-            [String: String].self, from: try #require(Data(base64Encoded: padded))
-        )
+        let decoded = try Self.decodePricePoint(pricing.pricePointId)
         #expect(decoded["s"] == pricing.appId)
         #expect(decoded["t"] == pricing.baseTerritory)
+    }
+
+    /// The Tip Jar consumable in App Store Connect is the product the app loads; a mismatch leaves
+    /// the About card waiting for a price forever (Guideline 2.1).
+    @Test
+    func tipJarRecordMatchesTheAppProduct() throws {
+        let tipJar = try Self.load(TipJar.self, "tip-jar.json")
+
+        #expect(tipJar.productId == AppConstants.TipJar.productID)
+        #expect(tipJar.type == "CONSUMABLE")
+        #expect(tipJar.baseTerritory == "BRA")
+        #expect(tipJar.currency == "BRL")
+        #expect(tipJar.customerPrice == "9.90")
+        #expect(Set(tipJar.localizations.keys) == Set(Self.locales))
+        // App Store Connect limits for an in-app purchase (display name 2-30, description up to 45);
+        // the API accepted a 53-character description that App Review's limit rejects.
+        for localization in tipJar.localizations.values {
+            #expect((2...30).contains(localization.name.count))
+            #expect((1...45).contains(localization.description.count))
+        }
+
+        let decoded = try Self.decodePricePoint(tipJar.pricePointId)
+        #expect(decoded["s"] == tipJar.iapId)
+        #expect(decoded["t"] == tipJar.baseTerritory)
+    }
+
+    /// Reviewer notes describe the shipped app: no subscription, and the tip unlocks nothing.
+    /// 1.0.8 reached App Store Connect still describing the removed Premium plan.
+    @Test
+    func reviewNotesDescribeTheShippedApp() throws {
+        let review = try Self.load(Review.self, "review.json")
+        let notes = review.notes.lowercased()
+
+        #expect(!review.demoAccountRequired)
+        #expect(review.notes.contains(AppConstants.TipJar.productID))
+        #expect(notes.contains("no subscriptions"))
+        #expect(notes.contains("it unlocks nothing"))
+        for removed in ["premium", "revenuecat", "restore purchases", "manage subscription"] {
+            #expect(!notes.contains(removed))
+        }
+        // The watch app only mirrors today's steps; workouts start on iPhone.
+        #expect(!notes.contains("run on iphone and apple watch"))
+        #expect(notes.contains("workouts are started on iphone"))
+    }
+
+    // A price point id is base64 JSON naming the product (`s`) and territory (`t`); a point copied
+    // from another product would be rejected by App Store Connect.
+    private static func decodePricePoint(_ id: String) throws -> [String: String] {
+        let padded = id.padding(toLength: (id.count + 3) / 4 * 4, withPad: "=", startingAt: 0)
+        return try JSONDecoder().decode(
+            [String: String].self, from: try #require(Data(base64Encoded: padded))
+        )
     }
 }

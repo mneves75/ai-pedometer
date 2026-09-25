@@ -27,24 +27,26 @@ Arquivo canônico: `store/app-store/privacy.json` (formato `asc web privacy`).
   a compra na App Store e a gorjeta opcional como controladora independente.
 - Usado para rastreamento: `Não`
 
+## Classificação etária e direitos de conteúdo
+
+- Classificação etária: todos os itens `Nenhum`/`Não`, exceto Temas de saúde ou bem-estar = `Sim`
+  (recomendações de exercício), o que classifica o app como 9+. O Coach IA não é Mensagens e chat, que a
+  Apple define como usuários conversando entre si, e os links abrem fora do app, sem acesso irrestrito à web.
+- Direitos de conteúdo: `Não usa conteúdo de terceiros`.
+
 ## App Review Information
 
 - Demo account required: `Não`
 - Sign-in required: `Não`
-- Notes para revisão (em inglês no ASC):
-  - `Paid app (one-time purchase). There is no subscription: every feature is available without further purchase.`
-  - `Only in-app purchase: optional Tip Jar (consumable), com.mneves.aipedometer.coffee. It unlocks nothing.`
-  - `Tip Jar access path: More > Support AI Pedometer > Buy me a coffee`
-  - `AI processing is on-device via Apple Foundation Models; no cloud AI service is used. AI features need a device with Apple Intelligence turned on.`
-  - `Expedition Mode and GPX route import are in the Workouts tab.`
+- Notas para revisão: `store/app-store/review.json` (aplicadas como estão, em inglês; `StoreListingTests`
+  impede que o plano Premium removido volte a elas). O contato fica só no App Store Connect.
+- Tip Jar: consumível `com.mneves.aipedometer.coffee` (`store/app-store/tip-jar.json`), Mais > Apoie o AI
+  Pedometer > Me pague um café. Como é a primeira compra no app, vai para revisão junto com a versão.
 
-## Screenshot set (ordem sugerida)
+## Screenshots enviados na 1.0.8
 
-1. Dashboard
-2. AI Coach
-3. Workouts
-4. Training Plans
-5. History
-6. Badges
-7. Active Workout
-8. About - Tip Jar
+- iPhone 6,5" (capturados em 6,9"): Painel, Coach IA, Treinos, Planos de Treino, Histórico, Medalhas, Introdução.
+- iPad 13": Painel, Histórico, Treinos, Medalhas.
+- Apple Watch: capturas 416x496 do resumo de passos do relógio (obrigatórias porque o app inclui um app de relógio).
+- Capturados num build Debug com dados de demonstração e IA no aparelho. Gorjeta e Treino Ativo ficaram de
+  fora: no simulador a gorjeta não mostra preço e o treino não inicia.
