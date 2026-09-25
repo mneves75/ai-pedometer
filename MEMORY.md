@@ -20,10 +20,12 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   `Scripts/coach-grounding-eval.swift`: before 14/20 replies asked for data, after 0/20, 20/20 quote it.
   mneves-verify (GPT-6 Astra, two fresh rounds) ended FAIL on residuals fixed afterwards without a third
   independent round (journal). Final tree: unit 653/653, UI 31/31 (iOS 27.0), watch arm64_32, analyze.
-- App Store Connect has **no in-app purchase**: the Tip Jar consumable exists only in
-  `StoreKit/TipJar.storekit`, so TestFlight/production show it as unavailable. Creating it needs the owner's
-  price. App Store screenshots for 1.0.8 are uploaded (22/22); `asc validate` blocks only on owner
-  declarations (age rating, review contact, content rights).
+- **App Store submission 1.0.8 (2026-09-25)**: Tip Jar IAP `6816210322` (R$ 9,90, owner's price) is
+  `READY_TO_SUBMIT` and added to review submission `98a5302a`; age rating, content rights, review contact
+  and notes are filled (owner + peer session); Premium subscriptions deleted; iPhone/iPad and Apple Watch
+  screenshots uploaded. Adding the version to the submission is refused only for the owner's regulated
+  medical device declaration (App Information, web 2FA). Production tag `v1.0.8` goes on `725530e` when
+  Apple approves and the version is released, not at submission.
 
 - **1.0.8 (66) is in TestFlight** (2026-09-24): build `d318f6fd` `VALID`, Internal Testers, tag
   `v1.0.8-beta2` → `2bff42b`, IPA SHA-256 `baa01b94…79be`; installed on owner-iPhone (launch waited on

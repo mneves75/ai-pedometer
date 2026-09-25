@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Store
+
+- App Store Connect for 1.0.8: the Tip Jar consumable `com.mneves.aipedometer.coffee` exists at R$ 9,90
+  (en-US and pt-BR names matching the app's button, review screenshot), the never-submitted Premium
+  subscriptions are deleted, age rating, content rights and App Review notes are filled, and Apple Watch
+  screenshots (416×496, en-US and pt-BR) are uploaded. Build 67 is attached to the version.
+
 ### Repository
+
+- The watch app accepts a UI-test-only `-watch-demo-payload` launch argument that shows a fixed demo
+  payload, for App Store screenshots: on its own the watch only shows what the paired iPhone sends, and a
+  simulator iPhone counts no steps. Release builds reject it like every other test override.
 
 - The owner's name no longer appears in the public repository: the license notice names
   conhecendotudo.com.br as copyright holder, and the docs and journals call the owner's test device

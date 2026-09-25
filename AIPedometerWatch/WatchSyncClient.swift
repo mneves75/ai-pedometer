@@ -14,6 +14,17 @@ final class WatchSyncClient: NSObject, WCSessionDelegate {
 
     override init() {
         super.init()
+        if LaunchConfiguration.shouldUseWatchDemoPayload() {
+            payload = WatchPayload(
+                todaySteps: 7_842,
+                goalSteps: 10_000,
+                goalProgress: 0.7842,
+                currentStreak: 5,
+                lastUpdated: .now,
+                weeklySteps: [8_120, 6_530, 10_240, 9_310, 5_870, 11_020, 7_842]
+            )
+            return
+        }
         if WCSession.isSupported() {
             let session = WCSession.default
             session.delegate = self

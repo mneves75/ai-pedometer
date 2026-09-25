@@ -74,6 +74,15 @@ struct LaunchConfigurationTests {
     }
 
     @Test
+    func detectsWatchDemoPayloadOnlyInUITesting() {
+        #expect(LaunchConfiguration.shouldUseWatchDemoPayload(
+            arguments: ["-ui-testing", "-watch-demo-payload"],
+            environment: [:]
+        ))
+        #expect(!LaunchConfiguration.shouldUseWatchDemoPayload(arguments: ["-watch-demo-payload"], environment: [:]))
+    }
+
+    @Test
     func detectsForcedGoalSaveFailureOnlyInUITesting() {
         let arguments = ["-ui-testing", "-force-goal-save-failure"]
 
@@ -111,6 +120,7 @@ struct LaunchConfigurationTests {
             "-force-ai-unavailable",
             "-force-ai-disabled",
             "-seed-saved-reminders",
+            "-watch-demo-payload",
             "-seed-unfinished-workout",
             "-force-goal-save-failure",
             "-use-production-glass"
@@ -168,6 +178,11 @@ struct LaunchConfigurationTests {
             allowsOverrides: false
         ))
         #expect(!LaunchConfiguration.shouldSeedSavedReminders(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: false
+        ))
+        #expect(!LaunchConfiguration.shouldUseWatchDemoPayload(
             arguments: arguments,
             environment: environment,
             allowsOverrides: false

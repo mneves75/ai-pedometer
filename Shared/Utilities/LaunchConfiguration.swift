@@ -23,6 +23,7 @@ enum LaunchConfiguration {
     private static let forceAIDisabledArgument = "-force-ai-disabled"
     private static let seedUnfinishedWorkoutArgument = "-seed-unfinished-workout"
     private static let seedSavedRemindersArgument = "-seed-saved-reminders"
+    private static let watchDemoPayloadArgument = "-watch-demo-payload"
     private static let forceGoalSaveFailureArgument = "-force-goal-save-failure"
     private static let useProductionGlassArgument = "-use-production-glass"
     private static let uiTestingEnvironmentKey = "UI_TESTING"
@@ -149,6 +150,21 @@ enum LaunchConfiguration {
             allowsOverrides: allowsOverrides
         ) else { return false }
         return arguments.contains(seedSavedRemindersArgument)
+    }
+
+    /// Starts the watch app with a fixed demo payload, for App Store screenshots: on its own the watch
+    /// only shows what the paired iPhone sends, and a simulator phone counts no steps.
+    static func shouldUseWatchDemoPayload(
+        arguments: [String] = processArguments,
+        environment: [String: String] = processEnvironment,
+        allowsOverrides: Bool = isOverridable
+    ) -> Bool {
+        guard isUITesting(
+            arguments: arguments,
+            environment: environment,
+            allowsOverrides: allowsOverrides
+        ) else { return false }
+        return arguments.contains(watchDemoPayloadArgument)
     }
 
     static func shouldForceGoalSaveFailure(
