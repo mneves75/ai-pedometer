@@ -1,0 +1,10 @@
+# Keep only what re-renders the brag videos; stills, segments, raw renders, WAVs and
+# contact sheets are reproducible intermediates.
+*
+!.gitignore
+!index.html
+!index-v.html
+!audio.mjs
+!render.mjs
+!assets/
+!assets/**

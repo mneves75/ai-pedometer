@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI Pedometer — brag</title>
+<style>
+  :root {
+    --bg: #07110c;
+    --ink: #f5f7f6;
+    --muted: rgba(245, 247, 246, 0.62);
+    --accent: #34c759;
+    --mint: #00c8b3;
+    --cyan: #00c0e8;
+    --font: -apple-system, "SF Pro Display", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+  body { font-family: var(--font); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; overflow: hidden; }
+  #glow { position: absolute; inset: -20%; pointer-events: none; }
+  canvas#ring { position: absolute; inset: 0; }
+
+  .phone {
+    position: absolute; background: #0d0f0e; will-change: transform, opacity;
+    box-shadow: 0 0 0 2px #2a2e2c, 0 0 0 3px #545a57, 0 40px 90px rgba(0,0,0,.55), 0 0 120px rgba(52,199,89,.10);
+  }
+  .screen { position: absolute; overflow: hidden; background: #f2f2f7; }
+  .screen img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .tap { position: absolute; border-radius: 50%; border: 3px solid rgba(52,199,89,.9); background: rgba(52,199,89,.18); transform: translate(-50%,-50%); opacity: 0; }
+
+  .t { position: absolute; will-change: transform, opacity; }
+  .h1 { font-weight: 800; letter-spacing: -0.035em; line-height: 1.02; }
+  .h2 { font-weight: 700; letter-spacing: -0.025em; line-height: 1.08; }
+  .body { font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; color: var(--muted); }
+  .acc { color: var(--accent); }
+
+  #hookTitle { left: 0; width: 1920px; top: 820px; text-align: center; font-size: 76px; }
+
+  #s2 { left: 930px; top: 300px; width: 900px; }
+  #s2 .icon { width: 132px; height: 132px; border-radius: 30px; display: block; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  #s2 .name { font-size: 118px; margin-top: 34px; }
+  #s2 .tag { font-size: 44px; margin-top: 22px; max-width: 820px; }
+
+  #s3a { left: 1010px; top: 300px; width: 820px; font-size: 92px; }
+  #s3b { left: 1010px; top: 540px; width: 820px; font-size: 58px; }
+  #s3note { left: 1010px; top: 930px; width: 820px; font-size: 26px; }
+
+  #s4title { left: 0; width: 1920px; top: 86px; text-align: center; font-size: 78px; }
+
+  #s5 { left: 170px; top: 250px; width: 900px; }
+  .line { display: flex; align-items: center; gap: 34px; font-size: 104px; height: 170px; }
+  .check { width: 84px; height: 84px; border-radius: 50%; background: var(--accent); flex: none; display: grid; place-items: center; box-shadow: 0 0 40px rgba(52,199,89,.35); }
+  .check svg { width: 50px; height: 50px; }
+
+  #s6 { left: 0; width: 1920px; top: 190px; text-align: center; }
+  #s6 .icon { width: 190px; height: 190px; border-radius: 43px; display: inline-block; box-shadow: 0 24px 70px rgba(0,0,0,.5), 0 0 90px rgba(52,199,89,.25); }
+  #s6 .name { font-size: 132px; margin-top: 40px; }
+  #s6 .tag { font-size: 54px; margin-top: 22px; color: var(--ink); }
+  #s6 .meta { font-size: 34px; margin-top: 44px; }
+  #s6 .url { font-size: 30px; margin-top: 14px; color: var(--accent); font-weight: 600; letter-spacing: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="glow"></div>
+  <canvas id="ring" width="1920" height="1080"></canvas>
+
+  <div class="t h1" id="hookTitle">Your steps just got a coach.</div>
+
+  <div class="phone" id="pA"><div class="screen">
+    <img id="a-dash" src="assets/02-dashboard.png">
+    <img id="a-typed" src="assets/04-coach-typed.png">
+    <img id="a-think" src="assets/05-coach-thinking.png">
+    <img id="a-blank" src="assets/05b-coach-blank.png">
+    <img id="a-answer" src="assets/06-coach-answer.png">
+    <div class="tap" id="tap"></div>
+  </div></div>
+
+  <div class="t" id="s2">
+    <img class="icon" src="assets/icon.png">
+    <div class="h1 name">AI Pedometer</div>
+    <div class="body tag">Steps, workouts and an AI coach that runs on your device.</div>
+  </div>
+
+  <div class="t h1" id="s3a">Ask about your&nbsp;week.</div>
+  <div class="t h2" id="s3b">Answered on your iPhone.<br><span class="acc">Not in a cloud.</span></div>
+  <div class="t body" id="s3note">AI features need a device with Apple Intelligence.</div>
+
+  <div class="t h1" id="s4title">A weekly trend. A plan for&nbsp;today.</div>
+  <div class="phone" id="pH"><div class="screen"><img src="assets/07-history.png"></div></div>
+  <div class="phone" id="pW"><div class="screen"><img src="assets/08-workouts.png"></div></div>
+
+  <div class="t" id="s5">
+    <div class="line h1" id="l1"><span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>No account.</div>
+    <div class="line h1" id="l2"><span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>No ads.</div>
+    <div class="line h1" id="l3"><span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="acc">No subscription.</span></div>
+  </div>
+  <div class="phone" id="pO"><div class="screen"><img src="assets/01-welcome.png"></div></div>
+
+  <div class="t" id="s6">
+    <img class="icon" src="assets/icon.png">
+    <div class="h1 name">AI Pedometer</div>
+    <div class="h2 tag">Pay once. Every feature included.</div>
+    <div class="body meta">iPhone · Apple Watch · Widgets</div>
+    <div class="url">mneves75.github.io/ai-pedometer</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const easeIn = (p) => p * p * p;
+const expoOut = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const backOut = (p) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+
+// Screenshot geometry (1206 × 2622), measured from the capture.
+const SR = 2622 / 1206;
+const RING = { cx: 0.4996, cy: 0.6203, r: 0.2852, lw: 48 / 1206 };
+const BEZEL = 0.032;
+
+function placePhone(el, cx, cy, w, { rot = 0, op = 1, fadeFrom = null, fadeTo = null, scale = 1 } = {}) {
+  const h = w * SR, b = w * BEZEL;
+  el.style.width = `${w + 2 * b}px`;
+  el.style.height = `${h + 2 * b}px`;
+  el.style.left = `${cx - w / 2 - b}px`;
+  el.style.top = `${cy - h / 2 - b}px`;
+  el.style.borderRadius = `${w * 0.137 + b}px`;
+  const scr = el.firstElementChild;
+  scr.style.left = scr.style.top = `${b}px`;
+  scr.style.width = `${w}px`; scr.style.height = `${h}px`;
+  scr.style.borderRadius = `${w * 0.137}px`;
+  el.style.transform = `rotate(${rot}deg) scale(${scale})`;
+  el.style.opacity = op;
+  el.style.visibility = op <= 0.001 ? "hidden" : "visible";
+  if (fadeFrom != null) {
+    const m = `linear-gradient(to bottom, #000 0%, #000 ${fadeFrom * 100}%, transparent ${fadeTo * 100}%)`;
+    el.style.webkitMaskImage = el.style.maskImage = m;
+  } else el.style.webkitMaskImage = el.style.maskImage = "none";
+}
+function show(el, op, dx = 0, dy = 0, s = 1) {
+  el.style.opacity = op;
+  el.style.visibility = op <= 0.001 ? "hidden" : "visible";
+  el.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+}
+// Text in: rises and fades; out: lifts away. Returns opacity/dy for a [in, out] window.
+function inOut(t, tin, tout, { d = 0.45, rise = 36, outD = 0.3 } = {}) {
+  const pi = easeOut(seg(t, tin, tin + d));
+  const po = tout == null ? 0 : easeIn(seg(t, tout - outD, tout));
+  return { op: pi * (1 - po), dy: (1 - pi) * rise - po * rise * 0.6 };
+}
+
+const cvs = $("ring"), ctx = cvs.getContext("2d");
+function drawRing(cx, cy, r, lw, progress, alpha, count, textAlpha, trackAlpha) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.lineCap = "round";
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = `rgba(255,255,255,${0.14 * trackAlpha})`;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  if (progress > 0.001) {
+    // Same angular gradient as DashboardView: mint → cyan → accent → mint, starting at 9 o'clock.
+    const g = ctx.createConicGradient(Math.PI, cx, cy);
+    g.addColorStop(0, "#00c8b3"); g.addColorStop(1 / 3, "#00c0e8"); g.addColorStop(2 / 3, "#34c759"); g.addColorStop(1, "#00c8b3");
+    ctx.shadowColor = "rgba(52,199,89,0.55)"; ctx.shadowBlur = lw * 1.2;
+    ctx.strokeStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    const a = -Math.PI / 2 + progress * Math.PI * 2, tx = cx + r * Math.cos(a), ty = cy + r * Math.sin(a);
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(tx, ty, lw * 0.35, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#34c759"; ctx.beginPath(); ctx.arc(tx, ty, lw * 0.17, 0, Math.PI * 2); ctx.fill();
+  }
+  if (textAlpha > 0) {
+    const outerD = 2 * r + lw;
+    ctx.globalAlpha = alpha * textAlpha;
+    ctx.fillStyle = "#f5f7f6"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const label = Math.round(count).toLocaleString("en-US");
+    let fs = 100; ctx.font = `700 ${fs}px -apple-system, "SF Pro Display", system-ui`;
+    fs *= (0.556 * outerD) / ctx.measureText("7,500").width;
+    ctx.font = `700 ${fs}px -apple-system, "SF Pro Display", system-ui`;
+    ctx.fillText(label, cx, cy - 0.033 * outerD);
+    let fs2 = 40; ctx.font = `400 ${fs2}px -apple-system, "SF Pro Text", system-ui`;
+    fs2 *= (0.407 * outerD) / ctx.measureText("of 10,000 steps").width;
+    ctx.font = `400 ${fs2}px -apple-system, "SF Pro Text", system-ui`;
+    ctx.fillStyle = "rgba(245,247,246,0.62)";
+    ctx.fillText("of 10,000 steps", cx, cy + 0.117 * outerD);
+  }
+  ctx.restore();
+}
+
+// Scene windows (s): 1 hook 0–3, 2 reveal 3–6.5, 3 coach 6.5–12, 4 insights 12–15, 5 privacy 15–18, 6 outro 18–21.
+const DUR = 21;
+const HOOK_R = 250, HOOK_C = { x: 960, y: 455 };
+const P2 = { cx: 610, cy: 545, w: 405 };      // reveal phone
+const P3 = { cx: 560, cy: 760, w: 610 };      // coach phone (pushed in, bottom faded)
+
+function render(t) {
+  ctx.clearRect(0, 0, 1920, 1080);
+  // Ambient glow drifts slowly; brighter in hook and outro.
+  const gx = 50 + 8 * Math.sin(t * 0.35), gy = 45 + 6 * Math.cos(t * 0.28);
+  const gAmt = 0.16 + 0.06 * (1 - seg(t, 3, 4)) + 0.08 * seg(t, 18, 19);
+  $("glow").style.background = `radial-gradient(900px 620px at ${gx}% ${gy}%, rgba(52,199,89,${gAmt}), transparent 70%), radial-gradient(700px 500px at ${100 - gx}% ${100 - gy}%, rgba(0,192,232,${gAmt * 0.45}), transparent 70%)`;
+
+  // ---------- 1. Hook ----------
+  const fill = easeInOut(seg(t, 0.15, 1.75));
+  const ttl = inOut(t, 1.0, 2.8, { d: 0.5, rise: 40, outD: 0.25 });
+  show($("hookTitle"), ttl.op, 0, ttl.dy);
+
+  // ---------- 2. Match cut: ring zooms out into the dashboard phone ----------
+  const mz = easeInOut(seg(t, 2.72, 3.55));
+  // Phone width grows from "ring-sized" to its reveal size; the ring stays locked to the screenshot's ring.
+  const wHook = HOOK_R / RING.r;
+  let pw = lerp(wHook, P2.w, mz);
+  // Ring center in hook sits at HOOK_C; in the phone it sits at the screenshot ring position.
+  const rcx = lerp(HOOK_C.x, P2.cx + (RING.cx - 0.5) * P2.w, mz);
+  const rcy = lerp(HOOK_C.y, P2.cy + (RING.cy - 0.5) * P2.w * SR, mz);
+  let pcx = rcx - (RING.cx - 0.5) * pw, pcy = rcy - (RING.cy - 0.5) * pw * SR;
+  const screenIn = easeInOut(seg(t, 2.9, 3.14));
+  const ringAlpha = 1 - easeIn(seg(t, 3.15, 3.45));
+  drawRing(rcx, rcy, RING.r * pw, RING.lw * pw, 0.75 * fill, ringAlpha, 7500 * fill, 1 - seg(t, 2.8, 3.05), 1 - screenIn);
+
+  // Phone A carries the dashboard, then becomes the coach phone.
+  const pA = $("pA");
+  const toCoach = easeInOut(seg(t, 6.2, 6.95));
+  const outCoach = easeIn(seg(t, 11.7, 12.15));
+  if (t < 6.1) {
+    placePhone(pA, pcx, pcy, pw, { op: screenIn });
+  } else {
+    const w = lerp(P2.w, P3.w, toCoach), cx = lerp(P2.cx, P3.cx, toCoach), cy = lerp(P2.cy, P3.cy, toCoach);
+    const fm = easeInOut(seg(t, 6.12, 6.38));
+    const ff = lerp(1.0, 0.585, fm), ft = lerp(1.0001, 0.615, fm);
+    placePhone(pA, cx - outCoach * 900, cy, w, { op: 1 - outCoach, fadeFrom: ff, fadeTo: ft, rot: -outCoach * 4 });
+  }
+  // Screens inside phone A.
+  const sw = seg(t, 6.36, 6.5);
+  $("a-dash").style.opacity = 1 - sw;
+  $("a-typed").style.opacity = sw;
+  const thinkIn = seg(t, 7.72, 7.86);
+  $("a-think").style.opacity = thinkIn;
+  $("a-blank").style.opacity = t >= 8.9 ? 1 : 0;
+  // Answer bubble streams in line by line (5 lines, ~68 px apart in the capture).
+  const ansStart = 8.9, lineDur = 0.2;
+  const k = clamp((t - ansStart) / lineDur, 0, 5.6);
+  const kk = Math.floor(k) + easeOut(clamp((k % 1) * 3.5));        // each line lands whole, then holds
+  const revealY = (644 + 58 + kk * 68) / 2622;                     // bottom edge of the revealed text
+  const full = seg(t, ansStart + 5 * lineDur, ansStart + 5 * lineDur + 0.25);
+  const ans = $("a-answer");
+  ans.style.opacity = t < ansStart ? 0 : 1;
+  ans.style.clipPath = full >= 1 ? "none" : `polygon(0 0, 100% 0, 100% ${revealY * 100}%, 0 ${revealY * 100}%)`;
+  // Send-button tap pulse (send button at 0.905, 0.581 of the screen).
+  const tp = seg(t, 7.5, 7.95);
+  const tap = $("tap");
+  const tapW = 26 + 90 * easeOut(tp);
+  tap.style.left = "90.5%"; tap.style.top = "58.1%";
+  tap.style.width = tap.style.height = `${tapW}px`;
+  tap.style.opacity = tp > 0 && tp < 1 ? Math.sin(Math.PI * tp) : 0;
+
+  const s2 = inOut(t, 3.25, 6.35, { d: 0.55, rise: 44, outD: 0.3 });
+  show($("s2"), s2.op, 0, s2.dy);
+  // stagger inside s2
+  const s2kids = $("s2").children;
+  [3.25, 3.4, 3.62].forEach((a, i) => { const p = easeOut(seg(t, a, a + 0.5)); s2kids[i].style.opacity = p; s2kids[i].style.transform = `translateY(${(1 - p) * 30}px) scale(${i === 0 ? lerp(0.8, 1, backOut(seg(t, a, a + 0.5))) : 1})`; });
+
+  // ---------- 3. Coach text ----------
+  const a3 = inOut(t, 6.75, 11.85, { rise: 40 });
+  show($("s3a"), a3.op, 0, a3.dy);
+  const b3 = inOut(t, 9.35, 11.85, { rise: 36 });
+  show($("s3b"), b3.op, 0, b3.dy);
+  const n3 = inOut(t, 9.7, 11.85, { rise: 10 });
+  show($("s3note"), n3.op * 0.9, 0, n3.dy);
+
+  // ---------- 4. Insights ----------
+  const s4 = inOut(t, 12.1, 14.85, { rise: 40 });
+  show($("s4title"), s4.op, 0, s4.dy);
+  const hIn = expoOut(seg(t, 12.0, 12.8)), wIn = expoOut(seg(t, 12.18, 12.98));
+  const out4 = easeIn(seg(t, 14.7, 15.1));
+  placePhone($("pH"), lerp(-300, 700, hIn) - out4 * 180, 660 + out4 * 30, 400, { rot: lerp(-14, -4, hIn), op: clamp(hIn * 1.4) * (1 - out4), fadeFrom: 0.8, fadeTo: 0.9 });
+  placePhone($("pW"), lerp(2220, 1220, wIn) + out4 * 180, 660 + out4 * 30, 400, { rot: lerp(14, 4, wIn), op: clamp(wIn * 1.4) * (1 - out4), fadeFrom: 0.8, fadeTo: 0.9 });
+  // gentle drift while held
+  if (t > 12.8 && t < 14.7) { /* phones settle; drift handled by rot lerp end */ }
+
+  // ---------- 5. Privacy ----------
+  const lines = [$("l1"), $("l2"), $("l3")];
+  [15.1, 15.6, 16.1].forEach((a, i) => {
+    const p = backOut(seg(t, a, a + 0.42)), op = seg(t, a, a + 0.18) * (1 - easeIn(seg(t, 17.72, 18.02)));
+    lines[i].style.opacity = op;
+    lines[i].style.transform = `translateX(${(1 - p) * -60}px)`;
+    const chk = lines[i].firstElementChild; chk.style.transform = `scale(${lerp(0.2, 1, backOut(seg(t, a + 0.05, a + 0.4)))})`;
+  });
+  show($("s5"), 1);
+  const oIn = expoOut(seg(t, 15.05, 15.85)), oOut = easeIn(seg(t, 17.7, 18.05));
+  placePhone($("pO"), lerp(1900, 1420, oIn), 600 + oOut * 40, 410, { rot: lerp(8, 3, oIn), op: clamp(oIn * 1.3) * (1 - oOut), fadeFrom: 0.9, fadeTo: 0.97 });
+
+  // ---------- 6. Outro ----------
+  const kids6 = $("s6").children;
+  [18.1, 18.3, 18.62, 19.0, 19.12].forEach((a, i) => {
+    const p = easeOut(seg(t, a, a + 0.5));
+    kids6[i].style.opacity = p;
+    kids6[i].style.transform = i === 0 ? `scale(${lerp(0.6, 1, backOut(seg(t, a, a + 0.55)))})` : `translateY(${(1 - p) * 28}px)`;
+  });
+  show($("s6"), t >= 18.05 ? 1 : 0);
+  // Final fade to black over the last 0.35 s.
+  $("stage").style.opacity = 1 - seg(t, DUR - 0.35, DUR);
+}
+
+window.__seek = (t) => render(t);
+Promise.all([document.fonts.ready, ...[...document.images].map((im) => im.decode().catch(() => { throw new Error("img " + im.src); }))])
+  .then(() => { render(0); window.__ready = true; });
+</script>
+</body>
+</html>

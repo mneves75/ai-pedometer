@@ -1,0 +1,1 @@
+AI Pedometer counts your steps and lets you ask about them. The AI coach runs on your iPhone with Apple Intelligence, not a cloud AI service, and the app never sends your health data to us or to third parties. No account, no ads, no subscription: pay once, every feature included.
