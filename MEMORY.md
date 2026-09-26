@@ -23,8 +23,9 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 - **App Store submission 1.0.8 (2026-09-25)**: Tip Jar IAP `6816210322` (R$ 9,90, owner's price) is
   `READY_TO_SUBMIT` and added to review submission `98a5302a`; age rating, content rights, review contact
   and notes are filled (owner + peer session); Premium subscriptions deleted; iPhone/iPad and Apple Watch
-  screenshots uploaded. Adding the version to the submission is refused only for the owner's regulated
-  medical device declaration (App Information, web 2FA). Production tag `v1.0.8` goes on `725530e` when
+  screenshots uploaded; IAP descriptions within Apple's 45-character limit (edit requires removing the IAP
+  version from the draft submission first). Adding the version to the submission is refused only for the
+  owner's regulated medical device declaration (App Information, web 2FA). Production tag `v1.0.8` goes on `725530e` when
   Apple approves and the version is released, not at submission.
 
 - **1.0.8 (66) is in TestFlight** (2026-09-24): build `d318f6fd` `VALID`, Internal Testers, tag
