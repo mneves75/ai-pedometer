@@ -106,8 +106,11 @@ stay for longer periods. Two rules came out of measuring it with the real model
 (`Scripts/coach-grounding-eval.swift`): anything the model can
 quote back, headings included, must be localized, or English leaks into pt-BR answers; and the app states
 totals and averages, because the model miscalculates them. Measure prompt changes with that eval, not by
-reading one reply. Also note: an App Store Connect product must exist for the Tip Jar to load outside ⌘R;
-as of 2026-09-24 there is none.
+reading one reply. Also note: the Tip Jar loads outside ⌘R only from App Store Connect (IAP `6816210322`,
+created 2026-09-25). After any edit to it, the sandbox that TestFlight uses can take up to an hour to return
+the product (TN3186), and a simulator run is no evidence either way: Apple documents sandbox purchases on
+devices. "Product not available" in TestFlight right after an edit is that delay, not a code bug; check the
+Paid Apps Agreement, banking and tax next.
 
 A notification permission read never writes a reminder preference. `.notDetermined` (a fresh install or a
 restore to a new device) and `.denied` both leave the saved choice as is; Settings explains why nothing is
