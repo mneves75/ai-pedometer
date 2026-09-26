@@ -35,29 +35,37 @@ struct FormattersTests {
     @Test
     func imperialRegionsUseMilesFeetAndInches() {
         let britain = Locale(identifier: "en_GB")
-        #expect(normalized(Formatters.distanceString(meters: 5_000, locale: britain)) == "3.11mi")
-        #expect(normalized(Formatters.elevationString(meters: 30, locale: britain)) == "98′")
-        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: britain)) == "29.5″")
+        #expect(normalized(Formatters.distanceString(meters: 5_000, locale: britain)) == "3.11 mi")
+        #expect(normalized(Formatters.elevationString(meters: 30, locale: britain)) == "98 ft")
+        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: britain)) == "29.5 in")
 
         let unitedStates = Locale(identifier: "en_US")
-        #expect(Formatters.distanceString(meters: 5_000, locale: unitedStates).hasSuffix("mi"))
-        #expect(Formatters.elevationString(meters: 30, locale: unitedStates).hasSuffix("′"))
-        #expect(Formatters.stepLengthString(meters: 0.75, locale: unitedStates).hasSuffix("″"))
+        #expect(normalized(Formatters.distanceString(meters: 5_000, locale: unitedStates)).hasSuffix(" mi"))
+        #expect(normalized(Formatters.elevationString(meters: 30, locale: unitedStates)).hasSuffix(" ft"))
+        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: unitedStates)).hasSuffix(" in"))
     }
 
     @Test
     func metricMeasurementSystemWinsOverAUnitedStatesRegion() {
         let locale = Locale(identifier: "en_US@measure=metric")
-        #expect(normalized(Formatters.distanceString(meters: 5_000, locale: locale)) == "5km")
-        #expect(normalized(Formatters.elevationString(meters: 30, locale: locale)) == "30m")
-        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: locale)) == "75cm")
+        #expect(normalized(Formatters.distanceString(meters: 5_000, locale: locale)) == "5 km")
+        #expect(normalized(Formatters.elevationString(meters: 30, locale: locale)) == "30 m")
+        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: locale)) == "75 cm")
     }
 
     @Test
     func unitFollowsTheUsageNotOneSystemWideChoice() {
         let canada = Locale(identifier: "en_CA")
         #expect(Formatters.distanceString(meters: 5_000, locale: canada).hasSuffix("km"))
-        #expect(Formatters.stepLengthString(meters: 0.75, locale: canada).hasSuffix("″"))
+        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: canada)).hasSuffix(" in"))
+    }
+
+    @Test
+    func brazilianPortugueseLengthsKeepTheirForm() {
+        let brazil = Locale(identifier: "pt_BR")
+        #expect(normalized(Formatters.distanceString(meters: 5_980, locale: brazil)) == "5,98 km")
+        #expect(normalized(Formatters.elevationString(meters: 30, locale: brazil)) == "30 m")
+        #expect(normalized(Formatters.stepLengthString(meters: 0.75, locale: brazil)) == "75 cm")
     }
 
     private func normalized(_ string: String) -> String {

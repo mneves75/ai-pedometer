@@ -77,7 +77,9 @@ enum Formatters {
     ) -> String {
         let formatter = MeasurementFormatter()
         formatter.locale = locale
-        formatter.unitStyle = .short
+        // `.medium` keeps a space before the unit in English ("5.98 km", "98 ft"); `.short` glued it on
+        // ("5.98km") and used primes for feet and inches.
+        formatter.unitStyle = .medium
         formatter.unitOptions = .providedUnit
         formatter.numberFormatter.maximumFractionDigits = maximumFractionDigits
         return formatter.string(from: measurement)

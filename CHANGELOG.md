@@ -56,6 +56,14 @@ LUME and CaptureVault). Everything Premium used to unlock is included.
   Access" button (a second button that did the same thing, with "Allow"-like wording) and the status
   rows are gone; Skip stays on the first two screens only. Notifications are still asked for in context.
 
+### Fixed (build 68)
+
+- Distances, elevation and step length keep a space before the unit in English ("5.98 km", "3.11 mi",
+  "98 ft", "29.5 in"), on the iPhone, the Apple Watch and the widgets. The short unit style glued the unit on
+  ("5.98km") and wrote feet and inches as primes. Brazilian Portuguese keeps "5,98 km". Regions whose standard
+  medium form differs follow it: Spanish and Japanese regions also gain the space, Arabic writes the unit as a
+  word, Portuguese with US units abbreviates ("mi", "pol."), and Korean keeps its standard "km" without a space.
+
 ### Fixed (build 67)
 
 - AI Coach: asked to look at Apple Health, the coach answered that it could not access HealthKit and asked
