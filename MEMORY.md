@@ -20,6 +20,8 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   `Scripts/coach-grounding-eval.swift`: before 14/20 replies asked for data, after 0/20, 20/20 quote it.
   mneves-verify (GPT-6 Astra, two fresh rounds) ended FAIL on residuals fixed afterwards without a third
   independent round (journal). Final tree: unit 653/653, UI 31/31 (iOS 27.0), watch arm64_32, analyze.
+- **1.0.8 (67) is in App Review** (submitted 2026-09-26 00:16 UTC, submission `98a5302a`, app and Tip Jar
+  `WAITING_FOR_REVIEW`). Tag `v1.0.8` → `725530e` only when Apple approves and the version is released.
 - **App Store submission 1.0.8 (2026-09-25)**: Tip Jar IAP `6816210322` (R$ 9,90, owner's price) is
   `READY_TO_SUBMIT` and added to review submission `98a5302a`; age rating, content rights, review contact
   and notes are filled (owner + peer session); Premium subscriptions deleted; iPhone/iPad and Apple Watch
