@@ -10,7 +10,7 @@ review notes.
 |---|---|
 | `app-info/<locale>.json` | name, subtitle, privacy policy URL |
 | `version/<version>/<locale>.json` | description, keywords, promotional text, marketing and support URLs |
-| `pricing.json` | base territory and price point (BRA, R$ 1,99 → proceeds R$ 1,48) |
+| `pricing.json` | base territory and price point (BRA, R$ 1,99 → proceeds R$ 1,63) |
 | `tip-jar.json` | the Tip Jar consumable in App Store Connect (`6816210322`, R$ 9,90 → proceeds R$ 7,35) |
 | `review.json` | App Review notes; the contact lives only in App Store Connect |
 | `privacy.json` | App Privacy answers (`asc web privacy` format) |
