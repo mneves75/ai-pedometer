@@ -185,6 +185,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Current source**: 1.0.9 (69), a release candidate with fixes for workout termination, AI request replacement, wheelchair streaks and watch synchronization. The app remains a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, price, availability and "Data Not Collected" label are applied in App Store Connect. On 2026-09-30, App Store Connect reported the previous version 1.0.8 as `READY_FOR_DISTRIBUTION` and the Tip Jar consumable as `APPROVED`. Physical-device acceptance of HealthKit, motion, notifications, upgrade preservation and the Tip Jar remains an explicit gap.
 
+**Beta delivery (2026-09-30)**: `v1.0.9-beta1` identifies commit `c78a421`, uploaded as 1.0.9 (69). App Store Connect reports processing `VALID`, `APP_STORE_ELIGIBLE`, explicit assignment to the existing Internal Testers group and `READY_FOR_BETA_TESTING`. This confirms internal TestFlight availability. Physical installation and acceptance are pending; 1.0.9 has not been submitted or released to the App Store. TestFlight review validation also reports missing contact first name, last name, email and phone.
+
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
