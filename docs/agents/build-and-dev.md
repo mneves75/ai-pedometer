@@ -45,7 +45,7 @@
 - `asc doctor`: verify local ASC CLI/keychain/auth health before remote App Store Connect work.
 - `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`: confirm generated Xcode metadata matches `project.yml`.
 - `asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table`: remote App Store readiness once ASC credentials and app ID are configured.
-- `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`: remote TestFlight readiness once a processed build exists.
+- `asc validate testflight --app "<APP_ID_ASC>" --build-id "<BUILD_ID>" --output table`: remote TestFlight readiness once a processed build exists.
 - Full simulator E2E: select available dedicated iPhone/watch IDs with Argent, then
   run `E2E_IOS_UDID="<selected-iphone-id>" E2E_WATCH_UDID="<selected-watch-id>" bash Scripts/e2e-simulator.sh`.
   For an explicit iPhone-only run, use `E2E_IOS_UDID="<selected-iphone-id>" E2E_ENABLE_WATCH=0 bash Scripts/e2e-simulator.sh`.

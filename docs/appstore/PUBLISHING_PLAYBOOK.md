@@ -104,7 +104,7 @@ Validação remota recomendada quando app/version/build já existem no ASC:
 
 ```bash
 asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table
-asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
+asc validate testflight --app "<APP_ID_ASC>" --build-id "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
 

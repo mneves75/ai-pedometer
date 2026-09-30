@@ -120,7 +120,7 @@ App Store Connect readiness, when ASC credentials and IDs are configured:
 
 ```bash
 asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table
-asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table
+asc validate testflight --app "<APP_ID_ASC>" --build-id "<BUILD_ID>" --output table
 asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table
 ```
 
@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.9 (69), a release candidate with fixes for workout termination, AI request replacement, wheelchair streaks and watch synchronization. The app remains a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, price, availability and "Data Not Collected" label are applied in App Store Connect. The previous 1.0.8 (67) and Tip Jar submission was recorded on 2026-09-26; its current review status has not been checked. Physical-device acceptance of HealthKit, motion, notifications, upgrade preservation and the Tip Jar remains an explicit gap.
+**Current source**: 1.0.9 (69), a release candidate with fixes for workout termination, AI request replacement, wheelchair streaks and watch synchronization. The app remains a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, price, availability and "Data Not Collected" label are applied in App Store Connect. On 2026-09-30, App Store Connect reported the previous version 1.0.8 as `READY_FOR_DISTRIBUTION` and the Tip Jar consumable as `APPROVED`. Physical-device acceptance of HealthKit, motion, notifications, upgrade preservation and the Tip Jar remains an explicit gap.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

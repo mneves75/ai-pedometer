@@ -95,7 +95,7 @@ Use Instruments/Argent profiling for SwiftUI updates, CPU and hangs; retain trac
 - Remote ASC validation requires stored credentials or `ASC_KEY_ID`, `ASC_ISSUER_ID`, and private key configuration.
 - ASC auth health: `asc auth doctor`; never print tokens or private-key contents. Use an explicitly verified app record rather than the global default app ID.
 - Version readiness: `asc validate --app "<APP_ID_ASC>" --version "<VERSION>" --platform IOS --output table`.
-- TestFlight readiness: `asc validate testflight --app "<APP_ID_ASC>" --build "<BUILD_ID>" --output table`.
+- TestFlight readiness: `asc validate testflight --app "<APP_ID_ASC>" --build-id "<BUILD_ID>" --output table`.
 - Release dashboard: `asc status --app "<APP_ID_ASC>" --include app,builds,testflight,appstore,submission --output table`.
 
 Keep a release evidence entry in the existing daily journal: commit, version/build,
