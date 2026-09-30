@@ -711,8 +711,8 @@ private extension TrainingPlanService {
     }
 
     func roundedStepTarget(_ value: Int) -> Int {
-        let rounded = Int((Double(value) / 250.0).rounded()) * 250
-        return max(1_500, rounded)
+        let bounded = min(max(value, 1_500), 50_000)
+        return Int((Double(bounded) / 250.0).rounded()) * 250
     }
 
     func localizedFocusTip(for index: Int) -> String {

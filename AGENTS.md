@@ -35,8 +35,8 @@ this repository, and holds without them:
 - Skills live in `~/dev/Skills/XCODE_AGENT_SKILLS`: `swiftui-specialist`,
   `swiftui-whats-new-27`, `audit-xcode-security-settings`, `modernize-tests`,
   `device-interaction`. Load one when its subject matches the change; do not preload them.
-- Deployment target is iOS/watchOS 26 while the build toolchain may be 26.x or 27.x (CI runs
-  26.3), so an API introduced in 27 needs `#available` for the runtime and `#if compiler(>=6.3)`
+- Deployment target is iOS/watchOS 26 while the build toolchain may be 26.x or 27.x (CI selects
+  the newest installed stable supported toolchain), so an API introduced in 27 needs `#available` for the runtime and `#if compiler(>=6.3)`
   for the 26 SDK, where the symbol does not exist. Confirm the target in `project.yml` before
   adopting anything new.
 

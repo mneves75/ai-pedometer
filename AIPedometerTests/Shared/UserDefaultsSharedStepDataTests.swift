@@ -183,10 +183,10 @@ struct UserDefaultsSharedStepDataTests {
 
     @Test("Shared step data is stale after calendar-day rollover even within one hour")
     func sharedStepDataIsStaleAfterDayRollover() {
-        let calendar = Calendar(identifier: .gregorian)
-        let lastUpdated = Date(timeIntervalSince1970: 1_735_430_400) // 2024-12-31 23:00:00 UTC
-        let referenceDate = lastUpdated.addingTimeInterval(30 * 60)
-        let nextDayReference = calendar.date(byAdding: .day, value: 1, to: referenceDate) ?? referenceDate
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let lastUpdated = calendar.date(from: DateComponents(year: 2024, month: 12, day: 31, hour: 23, minute: 45))!
+        let nextDayReference = calendar.date(from: DateComponents(year: 2025, month: 1, day: 1, hour: 0, minute: 15))!
         let data = SharedStepData(
             todaySteps: 9000,
             goalSteps: 10000,
@@ -196,6 +196,8 @@ struct UserDefaultsSharedStepDataTests {
             weeklySteps: [8000, 9000]
         )
 
+        #expect(nextDayReference.timeIntervalSince(lastUpdated) == 30 * 60)
+        #expect(nextDayReference.timeIntervalSince(lastUpdated) < 60 * 60)
         #expect(data.isStale(referenceDate: nextDayReference, calendar: calendar))
     }
 }

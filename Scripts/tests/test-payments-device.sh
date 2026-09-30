@@ -168,6 +168,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -n "${export_path}" ]]; then
+  if [[ "${PATH}" != /usr/bin:/bin:/usr/sbin:/sbin ]]; then
+    echo "Export must isolate PATH from Homebrew rsync." >&2
+    exit 65
+  fi
   printf 'export-control %s %s\n' "${ASC_PRIVATE_KEY_PATH}" "${TESTFLIGHT_TESTER_EMAILS}"
   if [[ "${MOCK_PAYMENT_FAILURE:-}" == export ]]; then exit 32; fi
   mkdir -p "${export_path}"

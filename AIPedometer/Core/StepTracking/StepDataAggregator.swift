@@ -6,14 +6,15 @@ import HealthKit
 /// and so the daily-window query can be swapped for a fake that counts calls (guarding the
 /// "one bucketed query, not one query per day" performance contract).
 protocol StepHistoryProviding: Sendable {
-    func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int
+    func fetchSteps(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode) async throws -> Int
     /// Daily step totals bucketed by start-of-day, fetched in a single
     /// `HKStatisticsCollectionQuery` instead of one `HKStatisticsQuery` per day.
     /// Keys are start-of-day dates; days with no samples are omitted (callers treat them as 0).
-    func fetchDailySteps(from startDate: Date, to endDate: Date) async throws -> [Date: Int]
+    func fetchDailySteps(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode) async throws -> [Date: Int]
 }
 
 struct StepStatisticsQueryDescriptor: Sendable {
+    let quantityIdentifier: HKQuantityTypeIdentifier
     let startDate: Date
     let endDate: Date
     let predicateOptions: HKQueryOptions
@@ -49,7 +50,7 @@ private actor HealthKitStepStatisticsQueryExecutor: StepStatisticsQueryExecuting
         let predicate = samplePredicate(for: descriptor)
         return try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsQuery(
-                quantityType: HKQuantityType(.stepCount),
+                quantityType: HKQuantityType(descriptor.quantityIdentifier),
                 quantitySamplePredicate: predicate,
                 options: descriptor.statisticsOptions
             ) { _, statistics, error in
@@ -72,7 +73,7 @@ private actor HealthKitStepStatisticsQueryExecutor: StepStatisticsQueryExecuting
         }
         let queryDescriptor = HKStatisticsCollectionQueryDescriptor(
             predicate: .quantitySample(
-                type: HKQuantityType(.stepCount),
+                type: HKQuantityType(descriptor.quantityIdentifier),
                 predicate: samplePredicate(for: descriptor)
             ),
             options: descriptor.statisticsOptions,
@@ -96,7 +97,7 @@ private actor HealthKitStepStatisticsQueryExecutor: StepStatisticsQueryExecuting
         let predicate = samplePredicate(for: descriptor)
         return try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsQuery(
-                quantityType: HKQuantityType(.stepCount),
+                quantityType: HKQuantityType(descriptor.quantityIdentifier),
                 quantitySamplePredicate: predicate,
                 options: descriptor.statisticsOptions
             ) { _, statistics, error in
@@ -140,11 +141,12 @@ actor StepDataAggregator: StepHistoryProviding {
         self.calendar = calendar
     }
 
-    func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int {
+    func fetchSteps(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode = .steps) async throws -> Int {
         let descriptor = descriptor(
             from: startDate,
             to: endDate,
-            statisticsOptions: [.cumulativeSum]
+            statisticsOptions: [.cumulativeSum],
+            quantityIdentifier: activityMode == .steps ? .stepCount : .pushCount
         )
         do {
             let steps = try await executor.cumulativeSteps(for: descriptor) ?? 0
@@ -155,7 +157,7 @@ actor StepDataAggregator: StepHistoryProviding {
         }
     }
 
-    func fetchDailySteps(from startDate: Date, to endDate: Date) async throws -> [Date: Int] {
+    func fetchDailySteps(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode = .steps) async throws -> [Date: Int] {
         guard startDate < endDate else { return [:] }
 
         let anchorDate = calendar.startOfDay(for: startDate)
@@ -163,6 +165,7 @@ actor StepDataAggregator: StepHistoryProviding {
             from: startDate,
             to: endDate,
             statisticsOptions: [.cumulativeSum],
+            quantityIdentifier: activityMode == .steps ? .stepCount : .pushCount,
             anchorDate: anchorDate,
             intervalComponents: DateComponents(day: 1)
         )
@@ -206,10 +209,12 @@ actor StepDataAggregator: StepHistoryProviding {
         from startDate: Date,
         to endDate: Date,
         statisticsOptions: HKStatisticsOptions,
+        quantityIdentifier: HKQuantityTypeIdentifier = .stepCount,
         anchorDate: Date? = nil,
         intervalComponents: DateComponents? = nil
     ) -> StepStatisticsQueryDescriptor {
         StepStatisticsQueryDescriptor(
+            quantityIdentifier: quantityIdentifier,
             startDate: startDate,
             endDate: endDate,
             predicateOptions: .strictStartDate,

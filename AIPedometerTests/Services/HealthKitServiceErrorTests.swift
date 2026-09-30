@@ -67,6 +67,18 @@ struct HealthKitServiceErrorTests {
 
 @Suite("StepDataAggregator query construction and mapping")
 struct StepDataAggregatorTests {
+    @Test("Streak activity queries select HealthKit steps or wheelchair pushes", arguments: [ActivityTrackingMode.steps, .wheelchairPushes])
+    func activityQueryUsesSelectedQuantity(mode: ActivityTrackingMode) async throws {
+        let executor = StepStatisticsExecutorProbe()
+        let aggregator = StepDataAggregator(executor: executor)
+        let start = Date(timeIntervalSince1970: 100)
+        let end = Date(timeIntervalSince1970: 200)
+        _ = try await aggregator.fetchSteps(from: start, to: end, activityMode: mode)
+        _ = try await aggregator.fetchDailySteps(from: start, to: end, activityMode: mode)
+        let quantity = mode == .steps ? HKQuantityTypeIdentifier.stepCount : .pushCount
+        #expect(await executor.cumulativeDescriptors.last?.quantityIdentifier == quantity)
+        #expect(await executor.dailyDescriptors.last?.quantityIdentifier == quantity)
+    }
     @Test("Daily query uses strict-start predicate semantics and the injected calendar anchor")
     func dailyDescriptorUsesStrictStartAndCalendarAnchor() async throws {
         var calendar = Calendar(identifier: .gregorian)

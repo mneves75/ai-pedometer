@@ -69,10 +69,6 @@ if [[ ! -d "${IPAD_SRC}" ]]; then
   exit 1
 fi
 
-mkdir -p "${OUT_DIR}/screenshots/iphone_69" "${OUT_DIR}/screenshots/iphone_65" "${OUT_DIR}/screenshots/ipad_13"
-
-rm -f "${OUT_DIR}/screenshots/iphone_69"/*.png "${OUT_DIR}/screenshots/iphone_65"/*.png "${OUT_DIR}/screenshots/ipad_13"/*.png
-
 iphone_prefixes=(
   "Dashboard"
   "AI Coach"
@@ -106,6 +102,44 @@ find_one_by_prefix() {
   return 0
 }
 
+# Resolve aliases before touching the output: an input can otherwise be erased by the cleanup below.
+python3 - "${IPHONE_SRC}" "${IPAD_SRC}" "${OUT_DIR}" <<'PY'
+from pathlib import Path
+import sys
+
+try:
+    sources = [Path(raw).resolve() for raw in sys.argv[1:3]]
+    output = Path(sys.argv[3]).resolve()
+    destinations = [(output / "screenshots" / name).resolve() for name in ("iphone_69", "iphone_65", "ipad_13")]
+    for destination in destinations:
+        destination.relative_to(output)
+        if any(source == destination or source in destination.parents or destination in source.parents for source in sources):
+            raise ValueError("input/output overlap")
+    for index, destination in enumerate(destinations):
+        if any(destination == other or destination in other.parents or other in destination.parents for other in destinations[index + 1:]):
+            raise ValueError("output overlap")
+except (OSError, RuntimeError, ValueError):
+    sys.exit("ERRO: caminhos de screenshots sobrepostos ou fora do diretorio de saida.")
+PY
+
+for prefix in "${iphone_prefixes[@]}"; do
+  if ! find_one_by_prefix "${IPHONE_SRC}" "${prefix}" >/dev/null; then
+    echo "Screenshot não encontrada para prefixo: ${prefix}" >&2
+    exit 1
+  fi
+done
+for prefix in "${ipad_prefixes[@]}"; do
+  if ! find_one_by_prefix "${IPAD_SRC}" "${prefix}" >/dev/null; then
+    echo "Screenshot não encontrada para prefixo: ${prefix}" >&2
+    exit 1
+  fi
+done
+
+mkdir -p "${OUT_DIR}"
+STAGING_DIR="$(mktemp -d "${OUT_DIR}/.prepare.XXXXXX")"
+trap 'rm -rf "${STAGING_DIR}"' EXIT
+mkdir -p "${STAGING_DIR}/iphone_69" "${STAGING_DIR}/iphone_65" "${STAGING_DIR}/ipad_13"
+
 copy_ordered_set() {
   local src_dir="$1"
   local dest_dir="$2"
@@ -128,14 +162,21 @@ copy_ordered_set() {
   done
 }
 
-copy_ordered_set "${IPHONE_SRC}" "${OUT_DIR}/screenshots/iphone_69" "${iphone_prefixes[@]}"
-copy_ordered_set "${IPAD_SRC}" "${OUT_DIR}/screenshots/ipad_13" "${ipad_prefixes[@]}"
+copy_ordered_set "${IPHONE_SRC}" "${STAGING_DIR}/iphone_69" "${iphone_prefixes[@]}"
+copy_ordered_set "${IPAD_SRC}" "${STAGING_DIR}/ipad_13" "${ipad_prefixes[@]}"
 
-for file in "${OUT_DIR}"/screenshots/iphone_69/*.png; do
+for file in "${STAGING_DIR}"/iphone_69/*.png; do
   base="$(basename "${file}")"
-  cp "${file}" "${OUT_DIR}/screenshots/iphone_65/${base}"
+  cp "${file}" "${STAGING_DIR}/iphone_65/${base}"
   # sips -z recebe altura largura
-  sips -z 2778 1284 "${OUT_DIR}/screenshots/iphone_65/${base}" >/dev/null
+  sips -z 2778 1284 "${STAGING_DIR}/iphone_65/${base}" >/dev/null
+done
+
+# Keep the previous package until every source copy and image conversion succeeds.
+mkdir -p "${OUT_DIR}/screenshots/iphone_69" "${OUT_DIR}/screenshots/iphone_65" "${OUT_DIR}/screenshots/ipad_13"
+rm -f "${OUT_DIR}/screenshots/iphone_69"/*.png "${OUT_DIR}/screenshots/iphone_65"/*.png "${OUT_DIR}/screenshots/ipad_13"/*.png
+for set_name in iphone_69 iphone_65 ipad_13; do
+  cp "${STAGING_DIR}/${set_name}"/*.png "${OUT_DIR}/screenshots/${set_name}/"
 done
 
 {

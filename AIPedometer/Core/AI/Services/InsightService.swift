@@ -45,6 +45,8 @@ final class InsightService {
     private(set) var isGeneratingDailyInsight = false
     private(set) var isGeneratingWeeklyAnalysis = false
     private var isGeneratingWorkoutRecommendation = false
+    private var dailyInsightWaiters: [CheckedContinuation<Void, Never>] = []
+    private var workoutRecommendationWaiters: [CheckedContinuation<Void, Never>] = []
     private(set) var lastError: AIServiceError?
     
     init(
@@ -64,6 +66,17 @@ final class InsightService {
     }
     
     func generateDailyInsight(forceRefresh: Bool = false) async throws(AIServiceError) -> DailyInsight {
+        while isGeneratingDailyInsight {
+            await withCheckedContinuation { dailyInsightWaiters.append($0) }
+        }
+        try throwIfCancelled(.generationFailed(underlying: "Cancelled"))
+        isGeneratingDailyInsight = true
+        defer {
+            isGeneratingDailyInsight = false
+            let waiters = dailyInsightWaiters
+            dailyInsightWaiters.removeAll()
+            for waiter in waiters { waiter.resume() }
+        }
         checkDayRolloverAndClearCache()
         let today = Calendar.current.startOfDay(for: now())
         let activityMode = ActivitySettings.current(userDefaults: userDefaults).activityMode
@@ -78,18 +91,7 @@ final class InsightService {
             }
         }
 
-        if isGeneratingDailyInsight {
-            if let cached = cachedDailyInsight,
-               Calendar.current.isDate(cached.date, inSameDayAs: today),
-               cached.activityMode == activityMode {
-                return cached.insight
-            }
-            throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
-        }
-        
-        isGeneratingDailyInsight = true
         lastError = nil
-        defer { isGeneratingDailyInsight = false }
         
         let prompt = buildDailyInsightPrompt(data: todayData)
 
@@ -101,7 +103,7 @@ final class InsightService {
                 to: prompt,
                 as: DailyInsight.self
             )
-
+            try throwIfCancelled(.generationFailed(underlying: "Cancelled"))
             cachedDailyInsight = (today, todayData.steps, todayData.goal, activityMode, insight)
             Loggers.ai.info("ai.daily_insight_generated")
             return insight
@@ -260,6 +262,17 @@ final class InsightService {
     }
     
     func generateWorkoutRecommendation(forceRefresh: Bool = false) async throws(AIServiceError) -> AIWorkoutRecommendation {
+        while isGeneratingWorkoutRecommendation {
+            await withCheckedContinuation { workoutRecommendationWaiters.append($0) }
+        }
+        try throwIfCancelled(.generationFailed(underlying: "Cancelled"))
+        isGeneratingWorkoutRecommendation = true
+        defer {
+            isGeneratingWorkoutRecommendation = false
+            let waiters = workoutRecommendationWaiters
+            workoutRecommendationWaiters.removeAll()
+            for waiter in waiters { waiter.resume() }
+        }
         lastError = nil
 
         checkDayRolloverAndClearCache()
@@ -277,18 +290,6 @@ final class InsightService {
                 return cached.recommendation
             }
         }
-
-        if isGeneratingWorkoutRecommendation {
-            if let cached = cachedWorkoutRecommendation,
-               calendar.isDate(cached.date, inSameDayAs: today),
-               cached.activityMode == activityMode {
-                return cached.recommendation
-            }
-            throw AIServiceError.generationFailed(underlying: "Please try again in a moment")
-        }
-
-        isGeneratingWorkoutRecommendation = true
-        defer { isGeneratingWorkoutRecommendation = false }
 
         let signpostState = Signposts.ai.begin("WorkoutRecommendation")
         defer { Signposts.ai.end("WorkoutRecommendation", signpostState) }
@@ -338,7 +339,8 @@ final class InsightService {
                 to: prompt,
                 as: AIWorkoutRecommendation.self
             )
-
+            try throwIfCancelled(.generationFailed(underlying: "Cancelled"))
+            try validateWorkoutRecommendation(recommendation)
             cachedWorkoutRecommendation = (today, todayData.steps, currentGoal, activityMode, recommendation)
             Loggers.ai.info("ai.workout_recommendation_generated", metadata: [
                 "intent": recommendation.intent.rawValue,
@@ -367,6 +369,15 @@ final class InsightService {
         guard Task.isCancelled else { return }
         Loggers.ai.info("ai.generation_cancelled")
         throw error
+    }
+
+    private func validateWorkoutRecommendation(_ recommendation: AIWorkoutRecommendation) throws(AIServiceError) {
+        guard (1...5).contains(recommendation.difficulty),
+              (1_000...30_000).contains(recommendation.targetSteps),
+              (10...180).contains(recommendation.estimatedMinutes),
+              !recommendation.rationale.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw .invalidResponse
+        }
     }
 
     func clearCache() {
@@ -977,7 +988,8 @@ private extension InsightService {
             max(3_500, min(max(remaining, weeklyAverage / 2), currentGoal))
         }
 
-        let roundedTarget = max(Int((Double(suggestedTarget) / 250).rounded()) * 250, 1_500)
+        let boundedTarget = min(max(suggestedTarget, 1_500), 30_000)
+        let roundedTarget = Int((Double(boundedTarget) / 250).rounded()) * 250
         let estimatedMinutes = min(max(Int(Double(roundedTarget) / 110), 15), 80)
 
         return AIWorkoutRecommendation(

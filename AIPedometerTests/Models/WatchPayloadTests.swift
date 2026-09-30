@@ -343,15 +343,75 @@ struct WatchPayloadTests {
 @Suite("WatchSyncService throttle")
 @MainActor
 struct WatchSyncServiceThrottleTests {
+    @Test("Goal, streak, week and day changes release the watch throttle", arguments: ["goal", "streak", "week", "day"], [0, 3])
+    func metadataChangesReleaseThrottle(field: String, stepDelta: Int) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let midnight = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_006_400))
+        let last = midnight.addingTimeInterval(-1)
+        let previous = snapshot(steps: 1_000, lastUpdated: last)
+        let next = snapshot(
+            steps: 1_000 + stepDelta,
+            goal: field == "goal" ? 12_000 : 10_000,
+            streak: field == "streak" ? 4 : 3,
+            week: field == "week" ? [900, 1_000] : [800, 1_000],
+            lastUpdated: field == "day" ? midnight : last
+        )
+
+        #expect(shouldSendSnapshot(previous: previous, next: next, lastSentAt: last, now: midnight, calendar: calendar))
+    }
+
+    @Test("Unchanged snapshots and ordinary subthreshold ticks stay throttled", arguments: [0, 1, 3])
+    func ordinarySnapshotUpdatesStayThrottled(stepDelta: Int) {
+        let last = Date(timeIntervalSince1970: 100)
+        let previous = snapshot(steps: 1_000, lastUpdated: last)
+        let next = snapshot(steps: 1_000 + stepDelta, lastUpdated: last.addingTimeInterval(1))
+
+        #expect(!shouldSendSnapshot(previous: previous, next: next, lastSentAt: last, now: last.addingTimeInterval(1)))
+    }
+
+    private func snapshot(
+        steps: Int,
+        goal: Int = 10_000,
+        streak: Int = 3,
+        week: [Int] = [800, 1_000],
+        lastUpdated: Date,
+        activityMode: ActivityTrackingMode = .steps
+    ) -> SharedStepData {
+        SharedStepData(
+            todaySteps: steps,
+            goalSteps: goal,
+            goalProgress: Double(steps) / Double(goal),
+            currentStreak: streak,
+            lastUpdated: lastUpdated,
+            weeklySteps: week,
+            activityMode: activityMode
+        )
+    }
+
+    private func shouldSendSnapshot(
+        previous: SharedStepData,
+        next: SharedStepData,
+        lastSentAt: Date,
+        now: Date,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> Bool {
+        WatchSyncService.shouldSendReachableMessage(
+            lastSentAt: lastSentAt,
+            lastSentData: previous,
+            newData: next,
+            now: now,
+            calendar: calendar
+        )
+    }
+
     @Test("Watch send throttle releases immediately when the activity mode changes")
     func watchThrottleReleasesOnActivityModeChange() {
         let now = Date(timeIntervalSince1970: 2_000)
         let shouldSend = WatchSyncService.shouldSendReachableMessage(
             lastSentAt: now.addingTimeInterval(-1),
-            lastSentSteps: 500,
-            newSteps: 500,
-            lastSentMode: .steps,
-            newMode: .wheelchairPushes,
+            lastSentData: snapshot(steps: 500, lastUpdated: now),
+            newData: snapshot(steps: 500, lastUpdated: now, activityMode: .wheelchairPushes),
             now: now
         )
         #expect(shouldSend)
@@ -361,8 +421,8 @@ struct WatchSyncServiceThrottleTests {
     func firstReachableMessageIsAlwaysSent() {
         let shouldSend = WatchSyncService.shouldSendReachableMessage(
             lastSentAt: nil,
-            lastSentSteps: nil,
-            newSteps: 100,
+            lastSentData: nil,
+            newData: snapshot(steps: 100, lastUpdated: Date(timeIntervalSince1970: 0)),
             now: Date(timeIntervalSince1970: 0)
         )
         #expect(shouldSend == true)
@@ -374,8 +434,8 @@ struct WatchSyncServiceThrottleTests {
         let now = last.addingTimeInterval(1)
         let shouldSend = WatchSyncService.shouldSendReachableMessage(
             lastSentAt: last,
-            lastSentSteps: 1000,
-            newSteps: 1003,
+            lastSentData: snapshot(steps: 1000, lastUpdated: last),
+            newData: snapshot(steps: 1003, lastUpdated: now),
             now: now
         )
         #expect(shouldSend == false)
@@ -387,8 +447,8 @@ struct WatchSyncServiceThrottleTests {
         let now = last.addingTimeInterval(1)
         let shouldSend = WatchSyncService.shouldSendReachableMessage(
             lastSentAt: last,
-            lastSentSteps: 1000,
-            newSteps: 1020,
+            lastSentData: snapshot(steps: 1000, lastUpdated: last),
+            newData: snapshot(steps: 1020, lastUpdated: now),
             now: now
         )
         #expect(shouldSend == true)
@@ -400,8 +460,8 @@ struct WatchSyncServiceThrottleTests {
         let now = last.addingTimeInterval(6)
         let shouldSend = WatchSyncService.shouldSendReachableMessage(
             lastSentAt: last,
-            lastSentSteps: 1000,
-            newSteps: 1001,
+            lastSentData: snapshot(steps: 1000, lastUpdated: last),
+            newData: snapshot(steps: 1001, lastUpdated: now),
             now: now
         )
         #expect(shouldSend == true)

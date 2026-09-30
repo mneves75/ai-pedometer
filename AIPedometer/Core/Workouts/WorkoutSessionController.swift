@@ -204,6 +204,7 @@ final class WorkoutSessionController {
     }
 
     func pauseWorkout() {
+        guard !isTerminatingSession else { return }
         guard case .active = state else { return }
         pauseStartedAt = now()
         if let metrics {
@@ -217,6 +218,7 @@ final class WorkoutSessionController {
     }
 
     func resumeWorkout() {
+        guard !isTerminatingSession else { return }
         guard case .paused = state else { return }
         let resumedAt = now()
 
@@ -407,6 +409,7 @@ final class WorkoutSessionController {
     }
 
     func refreshMetrics() async {
+        guard !isTerminatingSession else { return }
         guard case .active = state else { return }
         do {
             let snapshot = try await metricsSource.snapshot()
@@ -509,6 +512,7 @@ private extension WorkoutSessionController {
     }
 
     func updateMetrics(from snapshot: PedometerSnapshot) async {
+        guard !isTerminatingSession, case .active = state else { return }
         guard let session = activeSession, var metrics else { return }
 
         let totalSteps = accumulatedSteps + snapshot.steps
@@ -627,6 +631,7 @@ private extension WorkoutSessionController {
     }
 
     func isCurrentPreparingSession(_ session: WorkoutSession) -> Bool {
+        guard !isTerminatingSession else { return false }
         guard activeSession === session else { return false }
         guard case .preparing = state else { return false }
         return true

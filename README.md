@@ -183,7 +183,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.8 (68), a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, R$ 1,99 price, availability and "Data Not Collected" label are applied in App Store Connect, and the AIPedometer privacy page on conhecendotudo.com.br describes the paid app. 1.0.8 (67) and the Tip Jar in-app purchase (R$ 9,90) were submitted to App Review on 2026-09-26; physical-device acceptance of HealthKit, motion, notifications and the Tip Jar remains an explicit gap.
+**Current source**: 1.0.9 (69), a release candidate with fixes for workout termination, AI request replacement, wheelchair streaks and watch synchronization. The app remains a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, price, availability and "Data Not Collected" label are applied in App Store Connect. The previous 1.0.8 (67) and Tip Jar submission was recorded on 2026-09-26; its current review status has not been checked. Physical-device acceptance of HealthKit, motion, notifications, upgrade preservation and the Tip Jar remains an explicit gap.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

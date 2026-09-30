@@ -29,6 +29,7 @@ struct WorkoutsView: View {
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
     @State private var hasLoadedRecommendation = false
+    @State private var recommendationRequestID = UUID()
     // Loaded in `.task` rather than as a `@State` default. A `@State` default expression runs on
     // every `View` initialization — SwiftUI discards the value after the first, but the expression
     // still executes — and `MainTabView.iPhoneLayout` rebuilds all five `Tab` values on every
@@ -181,6 +182,10 @@ struct WorkoutsView: View {
         )) {
             guard !LaunchConfiguration.isUITesting() else { return }
 
+            recommendationRequestID = UUID()
+            isLoadingRecommendation = false
+            workoutRecommendation = nil
+
             if activePlan != nil {
                 hasLoadedRecommendation = true
                 recommendationError = nil
@@ -208,7 +213,7 @@ struct WorkoutsView: View {
 
     @ViewBuilder
     private var aiWorkoutSection: some View {
-        if let displayedRecommendation {
+        if displayedRecommendation != nil || aiService.availability.isAvailable {
             AIWorkoutCard(
                 recommendation: displayedRecommendation,
                 summary: displayedRecommendationSummary,
@@ -234,18 +239,30 @@ struct WorkoutsView: View {
 
     private func loadWorkoutRecommendation(forceRefresh: Bool = false) async {
         guard aiService.availability.isAvailable else { return }
-        guard !isLoadingRecommendation else { return }
+        let requestID = UUID()
+        recommendationRequestID = requestID
+        let requestedMode = activityMode
 
         isLoadingRecommendation = true
         recommendationError = nil
         defer {
-            isLoadingRecommendation = false
-            hasLoadedRecommendation = true
+            if recommendationRequestID == requestID {
+                isLoadingRecommendation = false
+                hasLoadedRecommendation = true
+            }
         }
 
         do {
-            workoutRecommendation = try await insightService.generateWorkoutRecommendation(forceRefresh: forceRefresh)
+            let recommendation = try await insightService.generateWorkoutRecommendation(forceRefresh: forceRefresh)
+            guard !Task.isCancelled, recommendationRequestID == requestID,
+                  activityMode == requestedMode, activePlan == nil,
+                  aiService.availability.isAvailable else { return }
+            workoutRecommendation = recommendation
+            recommendationError = nil
         } catch {
+            guard !Task.isCancelled, recommendationRequestID == requestID,
+                  activityMode == requestedMode, activePlan == nil,
+                  aiService.availability.isAvailable else { return }
             recommendationError = error
         }
     }

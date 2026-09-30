@@ -22,6 +22,76 @@ struct SyncStateKeyTests {
 @Suite("HealthKitSyncService Tests")
 @MainActor
 struct HealthKitSyncServiceTests {
+    @Test("Outstanding daily reads preserve history, pending exports and sync markers when disabled",
+          arguments: ["cold", "incremental", "refresh"], [false, true])
+    func outstandingDailyReadRespectsSyncPreference(operation: String, disableWhileReading: Bool) async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let goalService = GoalService(persistence: persistence)
+        let suiteName = "HealthKitSyncServiceTests-transition-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        let priorSyncDate = Date(timeIntervalSince1970: 1_000)
+        defaults.set(priorSyncDate.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
+        defaults.set(priorSyncDate.timeIntervalSince1970, forKey: SyncStateKey.lastColdStartDate.rawValue)
+        defaults.set(2, forKey: SyncStateKey.syncVersion.rawValue)
+        let today = Calendar.autoupdatingCurrent.startOfDay(for: .now)
+        let history = DailyStepRecord(
+            date: today, steps: 123, distance: 10, floorsAscended: 0,
+            floorsDescended: 0, activeCalories: 5, goalSteps: 10_000, source: .combined
+        )
+        let workout = WorkoutSession(
+            type: .outdoorWalk, startTime: .now.addingTimeInterval(-600),
+            endTime: .now, healthKitExportState: .pending
+        )
+        let snapshot = AIContextSnapshot(last7DaysSteps: [123], currentStreak: 7)
+        snapshot.lastUpdated = priorSyncDate
+        context.insert(history)
+        context.insert(workout)
+        context.insert(snapshot)
+        try context.save()
+        let gate = HealthKitReadGate()
+        let healthKit = SuspendedSummaryHealthKitService(gate: gate, date: today)
+        let service = HealthKitSyncService(
+            healthKitService: healthKit, modelContext: context,
+            goalService: goalService, userDefaults: defaults
+        )
+
+        let sync = Task {
+            switch operation {
+            case "cold": try await service.performColdStartSync()
+            case "incremental": try await service.performIncrementalSync()
+            default: try await service.performPullToRefresh()
+            }
+        }
+        await gate.waitUntilSuspended()
+        if disableWhileReading {
+            defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        }
+        gate.release()
+        try await sync.value
+
+        let records = try context.fetch(FetchDescriptor<DailyStepRecord>())
+        #expect(records.count == 1)
+        #expect(history.deletedAt == nil)
+        #expect(history.steps == (disableWhileReading ? 123 : 9_999))
+        #expect(workout.deletedAt == nil)
+        #expect(workout.healthKitExportState == (disableWhileReading ? .pending : .exported))
+        #expect(healthKit.saveWorkoutCallCount == (disableWhileReading ? 0 : 1))
+        #expect(defaults.integer(forKey: SyncStateKey.syncVersion.rawValue) == 2)
+        if disableWhileReading {
+            #expect(snapshot.last7DaysSteps == [123])
+            #expect(snapshot.lastUpdated == priorSyncDate)
+            #expect(workout.healthKitWorkoutID == nil)
+            #expect(defaults.double(forKey: SyncStateKey.lastSyncDate.rawValue) == priorSyncDate.timeIntervalSince1970)
+            #expect(defaults.double(forKey: SyncStateKey.lastColdStartDate.rawValue) == priorSyncDate.timeIntervalSince1970)
+        } else {
+            #expect(workout.healthKitWorkoutID != nil)
+            #expect(defaults.double(forKey: SyncStateKey.lastSyncDate.rawValue) > priorSyncDate.timeIntervalSince1970)
+        }
+    }
+
     @Test("Pending workout export descriptor is bounded and excludes ineligible rows")
     func pendingWorkoutExportDescriptorIsBoundedAndSelective() throws {
         let persistence = PersistenceController(inMemory: true)
@@ -919,6 +989,42 @@ struct HealthKitSyncServiceTests {
 }
 
 // MARK: - AIContextSnapshot Prompt Tests
+
+@MainActor
+private final class SuspendedSummaryHealthKitService: HealthKitServiceProtocol {
+    private let gate: HealthKitReadGate
+    private let date: Date
+    private(set) var saveWorkoutCallCount = 0
+
+    init(gate: HealthKitReadGate, date: Date) {
+        self.gate = gate
+        self.date = date
+    }
+
+    func requestAuthorization() async throws {}
+    func fetchTodaySteps() async throws -> Int { 0 }
+    func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchWheelchairPushes(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
+    func fetchWheelchairDistance(from startDate: Date, to endDate: Date) async throws -> Double { 0 }
+    func fetchFloors(from startDate: Date, to endDate: Date) async throws -> Int { 0 }
+    func fetchLatestHeartRateSample(from startDate: Date, to endDate: Date) async throws -> HeartRateSample? { nil }
+    func fetchDailySummaries(
+        days: Int, activityMode: ActivityTrackingMode, distanceMode: DistanceEstimationMode,
+        manualStepLength: Double, dailyGoal: Int
+    ) async throws -> [DailyStepSummary] { [] }
+    func fetchDailySummaries(
+        from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode,
+        distanceMode: DistanceEstimationMode, manualStepLength: Double, dailyGoal: Int
+    ) async throws -> [DailyStepSummary] {
+        await gate.suspend()
+        return [DailyStepSummary(date: date, steps: 9_999, distance: 100, floors: 1, calories: 20, goal: dailyGoal)]
+    }
+    func saveWorkout(_ session: WorkoutSession) async throws -> HealthKitWorkoutSaveOutcome {
+        saveWorkoutCallCount += 1
+        return .exported(UUID())
+    }
+}
 
 @Suite("AIContextSnapshot AI Prompt Tests")
 struct AIContextSnapshotPromptTests {

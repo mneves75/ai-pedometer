@@ -11,6 +11,22 @@ import Testing
 struct StreakCalculatorTests {
     private let calendar = Calendar.autoupdatingCurrent
 
+    @Test("Streaks follow the selected activity mode for today and history")
+    func wheelchairStreakUsesPushHistory() async throws {
+        let mode = ActivityModeFixture()
+        let history = FakeStepHistory(todaySteps: 0, daily: [:], todayPushes: 2_500, dailyPushes: [day(-1): 2_500, day(-2): 2_500])
+        let calculator = StreakCalculator(
+            calendar: calendar, stepAggregator: history,
+            goalService: FakeGoalService(currentGoal: 2_000, goalForDate: { _ in nil }), activityMode: { mode.value }
+        )
+        #expect(try await calculator.calculateCurrentStreak().count == 0)
+        mode.value = .wheelchairPushes
+        let result = try await calculator.calculateCurrentStreak()
+        #expect(result.count == 3)
+        #expect(result.todayIncluded)
+        #expect(await history.requestedModes == [.steps, .steps, .wheelchairPushes, .wheelchairPushes])
+    }
+
     /// Start-of-day for `offset` days relative to today, matching how `StreakCalculator`
     /// keys its prefetched daily-step dictionary.
     private func day(_ offset: Int) -> Date {
@@ -29,7 +45,8 @@ struct StreakCalculatorTests {
         let calculator = StreakCalculator(
             calendar: calendar,
             stepAggregator: history,
-            goalService: goals
+            goalService: goals,
+            activityMode: { .steps }
         )
         return (calculator, history)
     }
@@ -170,25 +187,37 @@ struct StreakCalculatorTests {
 
 // MARK: - Test doubles
 
+@MainActor
+private final class ActivityModeFixture {
+    var value = ActivityTrackingMode.steps
+}
+
 private actor FakeStepHistory: StepHistoryProviding {
     private let todayStepsValue: Int
     private let daily: [Date: Int]
+    private let todayPushes: Int
+    private let dailyPushes: [Date: Int]
+    private(set) var requestedModes: [ActivityTrackingMode] = []
     private(set) var fetchStepsCallCount = 0
     private(set) var fetchDailyStepsCallCount = 0
 
-    init(todaySteps: Int, daily: [Date: Int]) {
+    init(todaySteps: Int, daily: [Date: Int], todayPushes: Int = 0, dailyPushes: [Date: Int] = [:]) {
         self.todayStepsValue = todaySteps
         self.daily = daily
+        self.todayPushes = todayPushes
+        self.dailyPushes = dailyPushes
     }
 
-    func fetchSteps(from startDate: Date, to endDate: Date) async throws -> Int {
+    func fetchSteps(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode) async throws -> Int {
         fetchStepsCallCount += 1
-        return todayStepsValue
+        requestedModes.append(activityMode)
+        return activityMode == .steps ? todayStepsValue : todayPushes
     }
 
-    func fetchDailySteps(from startDate: Date, to endDate: Date) async throws -> [Date: Int] {
+    func fetchDailySteps(from startDate: Date, to endDate: Date, activityMode: ActivityTrackingMode) async throws -> [Date: Int] {
         fetchDailyStepsCallCount += 1
-        return daily
+        requestedModes.append(activityMode)
+        return activityMode == .steps ? daily : dailyPushes
     }
 }
 

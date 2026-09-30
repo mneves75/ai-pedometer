@@ -159,6 +159,13 @@ final class AIPedometerUITests: XCTestCase {
             [d.app.buttons[A11yID.Onboarding.nextButton]],
             timeout: navigationTimeout
         )
+        let goalNote = d.app.staticTexts[A11yID.Onboarding.goalNote]
+        XCTAssertTrue(goalNote.waitForExistence(timeout: navigationTimeout))
+        XCTAssertFalse(goalNote.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        let goalHierarchy = XCTAttachment(string: d.app.debugDescription)
+        goalHierarchy.name = "Onboarding goal accessibility hierarchy"
+        goalHierarchy.lifetime = .keepAlways
+        add(goalHierarchy)
         try performAccessibilityAudit(on: d.app)
         UITestWait.tapFirstExisting(
             [d.app.buttons[A11yID.Onboarding.nextButton]],
@@ -598,6 +605,10 @@ final class AIPedometerUITests: XCTestCase {
     func testGoalEditorUpdatesDashboardMarkers() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true)
+        d.assertDashboardLoaded()
+        XCTAssertTrue(d.app.descendants(matching: .any)
+            .matching(identifier: "dashboard_goal_10000").firstMatch
+            .waitForExistence(timeout: navigationTimeout))
 
         d.openSettings(timeout: navigationTimeout)
         d.assertSettingsLoaded()
@@ -608,14 +619,26 @@ final class AIPedometerUITests: XCTestCase {
         let slider = d.app.sliders[A11yID.GoalEditor.slider]
         XCTAssertTrue(slider.waitForExistence(timeout: navigationTimeout))
 
-        // Nudge the slider and save.
-        slider.adjust(toNormalizedSliderPosition: 0.65)
+        // The minimum is an exact, changed goal of 1,000.
+        slider.adjust(toNormalizedSliderPosition: 0)
         UITestWait.tapFirstExisting([d.app.buttons[A11yID.GoalEditor.saveButton]], timeout: navigationTimeout)
 
         d.openTab(.dashboard)
         d.assertDashboardLoaded()
 
-        _ = d.waitForMarker(prefix: "dashboard_goal_", timeout: navigationTimeout)
+        XCTAssertTrue(d.app.descendants(matching: .any)
+            .matching(identifier: "dashboard_goal_1000").firstMatch
+            .waitForExistence(timeout: navigationTimeout))
+
+        d.app.terminate()
+        d.app.launchArguments.removeAll { $0 == "-reset-state" }
+        d.app.launch()
+        XCTAssertTrue(d.app.wait(for: .runningForeground, timeout: navigationTimeout))
+        d.openTab(.dashboard)
+        d.assertDashboardLoaded()
+        XCTAssertTrue(d.app.descendants(matching: .any)
+            .matching(identifier: "dashboard_goal_1000").firstMatch
+            .waitForExistence(timeout: navigationTimeout))
     }
 
     func testGoalEditorAccessibilityFollowsNumberFormatPreference() throws {

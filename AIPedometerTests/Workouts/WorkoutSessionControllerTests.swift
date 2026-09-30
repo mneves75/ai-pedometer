@@ -541,12 +541,17 @@ struct WorkoutSessionControllerTests {
         await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
         let firstFinish = Task { await controller.finishWorkout() }
         await liveActivity.waitUntilEndRequested()
-        let secondFinish = Task { await controller.finishWorkout() }
-        await Task.yield()
+        let timeout = Task {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            Issue.record("A duplicate finish did not return while the first finish was suspended")
+            liveActivity.unblockEnd()
+        }
+        await controller.finishWorkout()
+        timeout.cancel()
 
         liveActivity.unblockEnd()
         await firstFinish.value
-        await secondFinish.value
 
         let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
         #expect(sessions.count == 1)
@@ -555,6 +560,99 @@ struct WorkoutSessionControllerTests {
         #expect(healthKit.saveCount == 1)
         #expect(liveActivity.endCount == 1)
         #expect(saveCalls == 3)
+    }
+
+    @Test("Terminal workout actions freeze pause, resume and metrics until completion", arguments: [false, true], [false, true])
+    func terminalActionsFreezeWorkout(discarded: Bool, initiallyPaused: Bool) async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let metricsSource = MockMetricsSource()
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 100, distance: 80, floorsAscended: 0)
+        let liveActivity = BlockingLiveActivityManager()
+        let controller = WorkoutSessionController(
+            modelContext: context,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        if initiallyPaused {
+            controller.pauseWorkout()
+        }
+        let terminalAction = Task {
+            if discarded {
+                await controller.discardWorkout()
+            } else {
+                await controller.finishWorkout()
+            }
+        }
+        await liveActivity.waitUntilEndRequested()
+        let frozenState = controller.state
+        let snapshotCount = metricsSource.snapshotCount
+        let updateCount = liveActivity.updateCount
+
+        metricsSource.snapshotToReturn = PedometerSnapshot(steps: 150, distance: 120, floorsAscended: 0)
+        controller.pauseWorkout()
+        controller.resumeWorkout()
+        await controller.refreshMetrics()
+
+        #expect(controller.state == frozenState)
+        #expect(metricsSource.startCount == 1)
+        #expect(metricsSource.snapshotCount == snapshotCount)
+        #expect(liveActivity.updateCount == updateCount)
+        #expect(controller.metrics?.steps == 100)
+
+        liveActivity.unblockEnd()
+        await terminalAction.value
+
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.steps == 100)
+        #expect((sessions.first?.deletedAt != nil) == discarded)
+        #expect(!controller.isActive)
+        #expect(!controller.isPresenting)
+    }
+
+    @Test("Authorization completing during termination cannot start metrics or a Live Activity", arguments: [false, true])
+    func preparingWorkoutCannotStartDuringTermination(discarded: Bool) async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let metricsSource = MockMetricsSource()
+        let liveActivity = BlockingLiveActivityManager()
+        let healthKit = BlockingWorkoutSessionHealthKitStub()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: metricsSource,
+            liveActivityManager: liveActivity
+        )
+
+        let start = Task { await controller.startWorkout(type: .outdoorWalk, targetSteps: nil) }
+        await healthKit.waitUntilAuthorizationRequested()
+        let terminalAction = Task {
+            if discarded {
+                await controller.discardWorkout()
+            } else {
+                await controller.finishWorkout()
+            }
+        }
+        await liveActivity.waitUntilEndRequested()
+
+        healthKit.unblockAuthorization()
+        await start.value
+
+        #expect(metricsSource.startCount == 0)
+        #expect(liveActivity.startCount == 0)
+        #expect(controller.state == .preparing)
+
+        liveActivity.unblockEnd()
+        await terminalAction.value
+
+        let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
+        #expect(sessions.count == 1)
+        #expect((sessions.first?.deletedAt != nil) == discarded)
+        #expect(!controller.isActive)
+        #expect(!controller.isPresenting)
     }
 
     @Test
@@ -579,12 +677,17 @@ struct WorkoutSessionControllerTests {
         await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
         let finish = Task { await controller.finishWorkout() }
         await liveActivity.waitUntilEndRequested()
-        let discard = Task { await controller.discardWorkout() }
-        await Task.yield()
+        let timeout = Task {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            Issue.record("Discard did not return while finish was suspended")
+            liveActivity.unblockEnd()
+        }
+        await controller.discardWorkout()
+        timeout.cancel()
 
         liveActivity.unblockEnd()
         await finish.value
-        await discard.value
 
         let sessions = try persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>())
         #expect(sessions.count == 1)
@@ -836,6 +939,7 @@ struct WorkoutSessionControllerTests {
 final class MockMetricsSource: WorkoutLiveMetricsSource {
     var startCount = 0
     var stopCount = 0
+    private(set) var snapshotCount = 0
     var snapshotToReturn = PedometerSnapshot(steps: 0, distance: 0, floorsAscended: 0)
     var startErrorToThrow: (any Error)?
     var snapshotErrorToThrow: (any Error)?
@@ -852,6 +956,7 @@ final class MockMetricsSource: WorkoutLiveMetricsSource {
     }
 
     func snapshot() async throws -> PedometerSnapshot {
+        snapshotCount += 1
         if let snapshotErrorToThrow { throw snapshotErrorToThrow }
         return snapshotToReturn
     }
@@ -931,14 +1036,20 @@ final class OrderedLiveActivityManager: LiveActivityManaging {
 
 @MainActor
 final class BlockingLiveActivityManager: LiveActivityManaging {
+    private(set) var startCount = 0
+    private(set) var updateCount = 0
     private(set) var endCount = 0
     private var endRequestedContinuation: CheckedContinuation<Void, Never>?
     private var endWaiters: [CheckedContinuation<Void, Never>] = []
     private var isEndUnblocked = false
 
-    func start(type _: WorkoutType) {}
+    func start(type _: WorkoutType) {
+        startCount += 1
+    }
 
-    func update(steps _: Int, distance _: Double, calories _: Double) async {}
+    func update(steps _: Int, distance _: Double, calories _: Double) async {
+        updateCount += 1
+    }
 
     func waitUntilEndRequested() async {
         if endCount > 0 { return }

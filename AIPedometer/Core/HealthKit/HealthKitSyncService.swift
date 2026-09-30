@@ -86,6 +86,7 @@ final class HealthKitSyncService {
             return
         }
         try await ensureAuthorization()
+        guard isSyncEnabled else { return }
         Loggers.sync.info("sync.cold_start_begin")
         
         let now = now()
@@ -93,12 +94,15 @@ final class HealthKitSyncService {
         
         // Sync daily step records
         try await syncDailyRecords(from: startDate, to: now)
+        guard isSyncEnabled else { return }
         
         // Sync workout sessions
         try await syncWorkouts(from: startDate, to: now)
+        guard isSyncEnabled else { return }
         
         // Update AI context snapshot
         try await updateAIContextSnapshot()
+        guard isSyncEnabled else { return }
         
         // Mark cold start complete
         userDefaults.set(now.timeIntervalSince1970, forKey: SyncStateKey.lastColdStartDate.rawValue)
@@ -118,6 +122,7 @@ final class HealthKitSyncService {
             return
         }
         try await ensureAuthorization()
+        guard isSyncEnabled else { return }
         let now = now()
         let lastSync = lastSyncDate ?? now.addingTimeInterval(-SyncPolicy.coldStartWindow)
         let startDate = lastSync.addingTimeInterval(-SyncPolicy.incrementalOverlap)
@@ -128,8 +133,11 @@ final class HealthKitSyncService {
         ])
         
         try await syncDailyRecords(from: startDate, to: now)
+        guard isSyncEnabled else { return }
         try await syncWorkouts(from: startDate, to: now)
+        guard isSyncEnabled else { return }
         try await updateAIContextSnapshot()
+        guard isSyncEnabled else { return }
         
         userDefaults.set(now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
         
@@ -145,14 +153,18 @@ final class HealthKitSyncService {
             return
         }
         try await ensureAuthorization()
+        guard isSyncEnabled else { return }
         let now = now()
         let startDate = startDate(endingAt: now, dayCount: SyncPolicy.pullToRefreshDayCount)
         
         Loggers.sync.info("sync.pull_to_refresh_begin")
         
         try await syncDailyRecords(from: startDate, to: now)
+        guard isSyncEnabled else { return }
         try await syncWorkouts(from: startDate, to: now)
+        guard isSyncEnabled else { return }
         try await updateAIContextSnapshot()
+        guard isSyncEnabled else { return }
         
         userDefaults.set(now.timeIntervalSince1970, forKey: SyncStateKey.lastSyncDate.rawValue)
         
@@ -170,6 +182,7 @@ final class HealthKitSyncService {
             return
         }
         try await ensureAuthorization()
+        guard isSyncEnabled else { return }
         try await syncWorkouts(from: .distantPast, to: .now)
     }
 
@@ -326,6 +339,7 @@ final class HealthKitSyncService {
     }
     
     private func syncDailyRecords(from startDate: Date, to endDate: Date) async throws {
+        guard isSyncEnabled else { return }
         let currentGoal = goalService.currentGoal
         let settings = ActivitySettings.current(userDefaults: userDefaults)
 
@@ -337,6 +351,7 @@ final class HealthKitSyncService {
             manualStepLength: settings.manualStepLength,
             dailyGoal: currentGoal
         )
+        guard isSyncEnabled else { return }
 
         let normalizedStart = calendar.startOfDay(for: startDate)
         let normalizedEnd = calendar.startOfDay(for: endDate)
@@ -404,6 +419,7 @@ final class HealthKitSyncService {
     }
     
     private func syncWorkouts(from startDate: Date, to endDate: Date) async throws {
+        guard isSyncEnabled else { return }
         let descriptor = Self.pendingWorkoutExportBatchDescriptor()
         let pending: [WorkoutSession] = try modelContext.fetch(descriptor)
         var exportedCount = 0
@@ -413,6 +429,7 @@ final class HealthKitSyncService {
 
         for session in pending {
             try Task.checkCancellation()
+            guard isSyncEnabled else { return }
             session.healthKitExportState = HealthKitWorkoutExportState.pending
             _ = session.stableHealthKitExportIdentifier
             try modelContext.save()

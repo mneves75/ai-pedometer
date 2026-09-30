@@ -14,28 +14,32 @@ final class StreakCalculator {
     private let calendar: Calendar
     private let stepAggregator: any StepHistoryProviding
     private let goalService: any GoalServiceProtocol
+    private let activityMode: @MainActor () -> ActivityTrackingMode
 
     init(
         calendar: Calendar = .autoupdatingCurrent,
         stepAggregator: any StepHistoryProviding,
-        goalService: any GoalServiceProtocol
+        goalService: any GoalServiceProtocol,
+        activityMode: @escaping @MainActor () -> ActivityTrackingMode = { ActivitySettings.current().activityMode }
     ) {
         self.calendar = calendar
         self.stepAggregator = stepAggregator
         self.goalService = goalService
+        self.activityMode = activityMode
     }
 
     func calculateCurrentStreak() async throws -> StreakResult {
         let today = calendar.startOfDay(for: .now)
         let goal = goalService.currentGoal
-        let todaySteps = try await stepAggregator.fetchSteps(from: today, to: .now)
+        let mode = activityMode()
+        let todaySteps = try await stepAggregator.fetchSteps(from: today, to: .now, activityMode: mode)
         let todayGoalMet = todaySteps >= goal
 
         // Prefetch the entire historical window in ONE bucketed query instead of issuing one
         // HKStatisticsQuery per day (previously up to `maxLookbackDays` serial round-trips, which
         // got slower the longer a user's streak grew). The per-day comparison below is unchanged.
         let windowStart = calendar.date(byAdding: .day, value: -Self.maxLookbackDays, to: today) ?? today
-        let dailySteps = try await stepAggregator.fetchDailySteps(from: windowStart, to: today)
+        let dailySteps = try await stepAggregator.fetchDailySteps(from: windowStart, to: today, activityMode: mode)
 
         var streakCount = 0
         var currentDate = calendar.date(byAdding: .day, value: -1, to: today) ?? today

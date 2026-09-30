@@ -4,6 +4,12 @@ import Testing
 
 @Suite("ProgressClamp Tests")
 struct ProgressClampTests {
+    @Test("Finite progress percentages stay representable on all supported architectures")
+    func finitePercentagesStayRepresentable() {
+        #expect(ProgressClamp.percent(100_000_000) == Int(HealthCount.maximum))
+        #expect(ProgressClamp.percent(.greatestFiniteMagnitude) == Int(HealthCount.maximum))
+    }
+
     @Test("Clamps values into unit interval")
     func clampsValuesIntoUnitInterval() {
         #expect(ProgressClamp.unitInterval(-0.1) == 0)

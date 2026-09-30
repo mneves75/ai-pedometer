@@ -36,6 +36,21 @@ ENABLE_SCREENSHOTS="${E2E_ENABLE_SCREENSHOTS:-1}"
 ERASE_IOS_SIM="${E2E_ERASE_IOS_SIM:-0}"
 ERASE_WATCH_SIM="${E2E_ERASE_WATCH_SIM:-0}"
 SET_STATUS_BAR="${E2E_SET_STATUS_BAR:-0}"
+UNIT_RESTART_MAX="${E2E_UNIT_RESTART_MAX:-3}"
+UI_RESTART_MAX="${E2E_UI_RESTART_MAX:-3}"
+UI_TEST_ITERATIONS="${E2E_UI_TEST_ITERATIONS:-1}"
+
+for knob in E2E_UNIT_RESTART_MAX E2E_UI_RESTART_MAX E2E_UI_TEST_ITERATIONS; do
+  case "${knob}" in
+    E2E_UNIT_RESTART_MAX) knob_value="${UNIT_RESTART_MAX}" ;;
+    E2E_UI_RESTART_MAX) knob_value="${UI_RESTART_MAX}" ;;
+    E2E_UI_TEST_ITERATIONS) knob_value="${UI_TEST_ITERATIONS}" ;;
+  esac
+  if [[ ! "${knob_value}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERRO: ${knob} deve ser um inteiro positivo." >&2
+    exit 2
+  fi
+done
 
 if [[ "${E2E_IOS_DEST+x}" == "x" || "${E2E_WATCH_DEST+x}" == "x" ]]; then
   echo "ERRO: E2E_IOS_DEST e E2E_WATCH_DEST nao sao mais aceitos; use E2E_IOS_UDID e E2E_WATCH_UDID." >&2
@@ -211,7 +226,6 @@ if [[ "${ENABLE_WIDGETS}" == "1" ]]; then
 fi
 
 echo "Testes (unitários) (iOS)..."
-UNIT_RESTART_MAX="${E2E_UNIT_RESTART_MAX:-3}"
 
 run_unit_tests_once() {
   local attempt="$1"
@@ -273,11 +287,9 @@ if [[ "${unit_status}" -ne 0 ]]; then
   exit "${unit_status}"
 fi
 
-UI_TEST_ITERATIONS="${E2E_UI_TEST_ITERATIONS:-1}"
 
 echo "Testes (UI/E2E) (iOS)... (iterações: ${UI_TEST_ITERATIONS})"
 
-UI_RESTART_MAX="${E2E_UI_RESTART_MAX:-3}"
 
 run_ui_tests_once() {
   local attempt="$1"

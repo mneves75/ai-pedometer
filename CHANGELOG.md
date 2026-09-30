@@ -25,6 +25,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `owner-iPhone` instead of its personal name. Git history keeps earlier text (published history is
   not rewritten). No change to the app binary, so no version bump.
 
+## [1.0.9] - 2026-09-30
+
+Release candidate; installation, TestFlight and App Store availability require separate verification.
+
+### Fixed
+
+- Pause, resume, refresh and delayed authorization cannot mutate a workout after finish or discard has started.
+- HealthKit reads completing while synchronization is disabled no longer admit new results, advance sync markers or begin later exports; saved history and pending exports remain intact.
+- Replacement AI requests wait for an older request to finish; cancelled or superseded screens cannot publish its result. Initial workout recommendation errors remain visible for retry.
+- Wheelchair streaks query push counts instead of steps, and watch snapshots promptly deliver goal, streak, weekly history and day changes even when the activity count barely changes.
+- AI workout output is checked against its declared ranges. Deterministic fallback workout and training targets remain bounded when recorded health totals are extreme; progress percentages remain representable on 32-bit watch architectures.
+- Settings accessibility and HealthKit debug counts follow the device's number-format preference.
+- Simulator verification rejects zero or malformed retry/iteration counts. Screenshot packaging rejects overlapping or escaping paths and stages required captures and conversions before replacing derived output. Archive export uses the system tool PATH required by Xcode.
+
+### Security and verification
+
+- Updated the development-only Wrangler toolchain to 4.144.0, resolving the reported vulnerable transitive dependency versions.
+- Added tests-first regressions for terminal workout interleavings, HealthKit sync transitions, AI request replacement, watch metadata, wheelchair history, numeric bounds and release-script failure paths.
+
 ## [1.0.8] - 2026-09-23
 
 AIPedometer becomes a one-time R$ 1,99 purchase with no subscription (owner decision, following

@@ -5,6 +5,94 @@ import Testing
 
 @MainActor
 struct InsightServiceTests {
+    @Test("Workout fallback caps targets derived from extreme HealthKit totals")
+    func fallbackWorkoutCapsExtremeHistory() async throws {
+        let defaults = TestUserDefaults()
+        defer { defaults.reset() }
+        let model = MockFoundationModelsService()
+        model.respondResult = .failure(.guardrailViolation)
+        let service = InsightService(
+            foundationModelsService: model,
+            healthKitService: StubHealthKitService(dailySummaries: [DailyStepSummary(date: .now, steps: Int(HealthCount.maximum), distance: 0, floors: 0, calories: 0, goal: 10_000)]),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: defaults.defaults), userDefaults: defaults.defaults
+        )
+        let recommendation = try await service.generateWorkoutRecommendation()
+        #expect((1_000...30_000).contains(recommendation.targetSteps))
+    }
+
+    @Test("A mode change waits for an older AI request instead of dropping its replacement", arguments: [false, true])
+    func modeChangeKeepsReplacementRequest(workout: Bool) async throws {
+        let defaults = TestUserDefaults()
+        defer { defaults.reset() }
+        let model = MockFoundationModelsService()
+        let started = AsyncTestLatch()
+        let release = AsyncTestLatch()
+        model.respondResult = workout
+            ? .success(AIWorkoutRecommendation(intent: .maintain, difficulty: 2, rationale: "Keep moving", targetSteps: 3_000, estimatedMinutes: 30, suggestedTimeOfDay: .anytime))
+            : .success(DailyInsight(greeting: "Hello", highlight: "Keep moving", suggestion: "Try a short outing", encouragement: "You can do it"))
+        model.beforeRespond = {
+            if model.respondCallCount == 1 {
+                started.signal()
+                await release.wait()
+            }
+        }
+        let health = StubHealthKitService(dailySummaries: [])
+        let service = InsightService(
+            foundationModelsService: model,
+            healthKitService: health,
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: defaults.defaults),
+            userDefaults: defaults.defaults
+        )
+        let first = Task { @MainActor in
+            if workout { _ = try await service.generateWorkoutRecommendation() }
+            else { _ = try await service.generateDailyInsight() }
+        }
+        await started.wait()
+        defaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
+        // This queued main-actor task cannot release the first request until the
+        // directly awaited replacement suspends; the HealthKit stub does not suspend.
+        let unblock = Task { @MainActor in release.signal() }
+        let replacementResult: Result<Void, any Error>
+        do {
+            if workout { _ = try await service.generateWorkoutRecommendation() }
+            else { _ = try await service.generateDailyInsight() }
+            replacementResult = .success(())
+        } catch {
+            replacementResult = .failure(error)
+        }
+        await unblock.value
+        _ = await first.result
+        try replacementResult.get()
+        #expect(model.respondCallCount == 2)
+        #expect(model.lastPrompt?.contains(ActivityTrackingMode.wheelchairPushes.unitName) == true)
+    }
+
+    @Test("Invalid generated workout targets use the bounded fallback", arguments: [-1, 0, 30_001, Int.max])
+    func invalidWorkoutTargetsUseFallback(target: Int) async throws {
+        let defaults = TestUserDefaults()
+        defer { defaults.reset() }
+        let model = MockFoundationModelsService()
+        model.respondResult = .success(AIWorkoutRecommendation(
+            intent: .build, difficulty: 3, rationale: "Model output", targetSteps: target,
+            estimatedMinutes: 30, suggestedTimeOfDay: .anytime
+        ))
+        let service = InsightService(
+            foundationModelsService: model,
+            healthKitService: StubHealthKitService(dailySummaries: []),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            dataStore: SharedDataStore(userDefaults: defaults.defaults),
+            userDefaults: defaults.defaults
+        )
+        let recommendation = try await service.generateWorkoutRecommendation()
+        #expect((1_000...30_000).contains(recommendation.targetSteps))
+        guard case .invalidResponse? = service.lastError else {
+            Issue.record("Expected invalid model output to be rejected")
+            return
+        }
+    }
+
     @Test("Daily insight uses live steps when higher than HealthKit summary")
     func dailyInsightUsesLiveSteps() async throws {
         let testDefaults = TestUserDefaults()

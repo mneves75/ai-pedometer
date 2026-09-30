@@ -5,6 +5,74 @@ import Testing
 
 @MainActor
 struct HealthKitServiceFallbackTests {
+    @Test("Outstanding HealthKit reads respect the sync preference at completion", arguments: [false, true])
+    func outstandingReadsRespectSyncPreference(disableWhileReading: Bool) async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
+        defer { cleanup() }
+        defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        let primary = MockHealthKitService()
+        let gate = HealthKitReadGate()
+        primary.fetchStepsHandler = { _, _ in
+            await gate.suspend()
+            return 9_999
+        }
+        let service = HealthKitServiceFallback(
+            primary: primary,
+            demoModeStore: store,
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        let read = Task { try await service.fetchSteps(from: .distantPast, to: .now) }
+        await gate.waitUntilSuspended()
+        if disableWhileReading {
+            defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        }
+        gate.release()
+        let steps = try await read.value
+
+        #expect(primary.fetchStepsCallCount == 1)
+        #expect(steps == (disableWhileReading ? 0 : 9_999))
+    }
+
+    @Test("Outstanding summary reads respect the sync preference at completion", arguments: [false, true])
+    func outstandingSummaryReadsRespectSyncPreference(disableWhileReading: Bool) async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
+        defer { cleanup() }
+        defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        let primary = MockHealthKitService()
+        let gate = HealthKitReadGate()
+        primary.fetchDailySummariesHandler = { _ in
+            await gate.suspend()
+            return [DailyStepSummary(date: .now, steps: 9_999, distance: 100, floors: 1, calories: 20, goal: 10_000)]
+        }
+        let service = HealthKitServiceFallback(
+            primary: primary,
+            demoModeStore: store,
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        let read = Task {
+            try await service.fetchDailySummaries(
+                days: 7,
+                activityMode: .steps,
+                distanceMode: .automatic,
+                manualStepLength: AppConstants.Defaults.manualStepLengthMeters,
+                dailyGoal: 10_000
+            )
+        }
+        await gate.waitUntilSuspended()
+        if disableWhileReading {
+            defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        }
+        gate.release()
+        let summaries = try await read.value
+
+        #expect(primary.fetchDailySummariesCallCount == 1)
+        #expect(summaries.count == (disableWhileReading ? 0 : 1))
+    }
+
     @Test("Uses fake data when useFakeData is enabled")
     func usesFakeDataWhenEnabled() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: true)
@@ -318,6 +386,30 @@ struct HealthKitServiceFallbackTests {
         )
 
         #expect(outcome == .notRequired)
+    }
+}
+
+@MainActor
+final class HealthKitReadGate {
+    private var readContinuation: CheckedContinuation<Void, Never>?
+    private var enteredContinuation: CheckedContinuation<Void, Never>?
+
+    func suspend() async {
+        await withCheckedContinuation { continuation in
+            readContinuation = continuation
+            enteredContinuation?.resume()
+            enteredContinuation = nil
+        }
+    }
+
+    func waitUntilSuspended() async {
+        if readContinuation != nil { return }
+        await withCheckedContinuation { enteredContinuation = $0 }
+    }
+
+    func release() {
+        readContinuation?.resume()
+        readContinuation = nil
     }
 }
 

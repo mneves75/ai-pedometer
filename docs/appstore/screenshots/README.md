@@ -12,6 +12,10 @@ bash Scripts/appstore-materials-prepare.sh
 bash Scripts/appstore-screenshots-validate.sh
 ```
 
+As fontes e os diretórios de saída devem ser separados, inclusive quando usam links
+simbólicos. A preparação verifica os arquivos obrigatórios e converte as imagens em
+staging antes de substituir o pacote anterior; falhas nessas etapas preservam o pacote.
+
 Ou fluxo único:
 
 ```bash

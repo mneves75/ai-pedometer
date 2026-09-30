@@ -2080,16 +2080,14 @@ struct ResultTypeTests {
     @Test("Widget throttle resets at midnight even when delta is small (2026-05-19 regression)")
     @MainActor
     func widgetThrottleResetsAtMidnight() {
-        // Repro for finding-widget-throttle-midnight: at the start of a new day,
-        // todaySteps drops to 0 from yesterday's final count. The old throttle saw
-        // `abs(0 - 12_345) >= 200 but only after 5 minutes`, so the home-screen widget
-        // stayed on yesterday's count for up to 5 minutes after midnight.
+        // Neither a step delta nor five elapsed minutes permits this reload;
+        // only the calendar-day change can release the throttle.
         let calendar = Calendar(identifier: .gregorian)
         let yesterdayLate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 19, hour: 23, minute: 58))!
         let todayMidnight = calendar.date(from: DateComponents(year: 2026, month: 5, day: 20, hour: 0, minute: 0, second: 30))!
         let shouldReload = StepTrackingService.shouldReloadWidgets(
             lastReloadAt: yesterdayLate,
-            lastReloadSteps: 12_345,
+            lastReloadSteps: 0,
             newSteps: 0, // fresh day
             now: todayMidnight,
             calendar: calendar
@@ -2175,9 +2173,11 @@ struct ResultTypeTests {
         // still runs for the wheelchair-mode + sync-disabled combination.
         let mockHealthKit = MockHealthKitService()
         let mockMotion = MockMotionService()
+        mockHealthKit.wheelchairPushesToReturn = 5000
+        mockHealthKit.heartRateToReturn = 64
         let testDefaults = TestUserDefaults()
         defer { testDefaults.reset() }
-        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        testDefaults.defaults.set(true, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
         testDefaults.defaults.set(ActivityTrackingMode.wheelchairPushes.rawValue, forKey: AppConstants.UserDefaultsKeys.activityTrackingMode)
 
         let (service, _) = makeService(
@@ -2186,7 +2186,10 @@ struct ResultTypeTests {
             userDefaults: testDefaults.defaults
         )
 
-        // Seed a value so we can prove the clear actually fires.
+        await service.refreshTodayData()
+        #expect(service.todayHeartRateBPM == 64)
+
+        testDefaults.defaults.set(false, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
         await service.refreshTodayData()
         #expect(service.todayHeartRateBPM == nil)
     }

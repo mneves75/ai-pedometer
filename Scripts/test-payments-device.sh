@@ -178,6 +178,7 @@ fi
 
 require_cmd asc
 require_cmd xcodebuild
+XCODEBUILD_BIN="$(command -v xcodebuild)"
 require_cmd python3
 require_cmd rg
 aipedometer_select_xcode
@@ -285,7 +286,7 @@ xcodebuild \
 python3 "${ROOT_DIR}/Scripts/validate-release-artifact.py" \
   --archive "${ARCHIVE_PATH}" --bundle-id "${APP_BUNDLE_ID}"
 
-xcodebuild \
+env PATH=/usr/bin:/bin:/usr/sbin:/sbin "${XCODEBUILD_BIN}" \
   -archivePath "${ARCHIVE_PATH}" \
   -exportArchive \
   -exportOptionsPlist "${EXPORT_OPTIONS_PLIST}" \

@@ -193,14 +193,16 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             return emptyValue
         }
         if shouldServeFakeData() {
-            return try await fakeData()
+            let result = try await fakeData()
+            return isSyncEnabled ? result : emptyValue
         }
         if let unavailableError {
             throw unavailableError
         }
 
         do {
-            return try await primary()
+            let result = try await primary()
+            return isSyncEnabled ? result : emptyValue
         } catch let error as HealthKitError {
             return try handleHealthKitError(error, emptyValue: emptyValue)
         } catch is CancellationError {
@@ -209,7 +211,8 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             throw CancellationError()
         } catch {
             if enableFakeDataFallback(reason: "query_failed", error: error) {
-                return try await fakeData()
+                let result = try await fakeData()
+                return isSyncEnabled ? result : emptyValue
             }
             Loggers.health.warning("healthkit.query_failed_graceful", metadata: [
                 "error": error.localizedDescription,

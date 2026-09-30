@@ -59,6 +59,7 @@ struct DashboardView: View {
     @State private var revealStats = false
     @State private var dailyInsight: DailyInsight?
     @State private var insightError: AIServiceError?
+    @State private var insightRequestID = UUID()
     @State private var showHealthHelp = false
     @ScaledMetric(relativeTo: .largeTitle) private var progressValueFontSize = DesignTokens.FontSize.md
 
@@ -249,12 +250,21 @@ struct DashboardView: View {
     }
 
     private func loadDailyInsight(forceRefresh: Bool = false) async {
+        let requestID = UUID()
+        insightRequestID = requestID
+        let requestedMode = activityMode
         guard aiService.availability.isAvailable else { return }
 
         insightError = nil
         do {
-            dailyInsight = try await insightService.generateDailyInsight(forceRefresh: forceRefresh)
+            let insight = try await insightService.generateDailyInsight(forceRefresh: forceRefresh)
+            guard !Task.isCancelled, insightRequestID == requestID,
+                  activityMode == requestedMode, aiService.availability.isAvailable else { return }
+            dailyInsight = insight
+            insightError = nil
         } catch {
+            guard !Task.isCancelled, insightRequestID == requestID,
+                  activityMode == requestedMode, aiService.availability.isAvailable else { return }
             insightError = error
         }
     }

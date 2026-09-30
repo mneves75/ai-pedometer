@@ -8,6 +8,7 @@ enum ProgressClamp {
 
     static func percent(_ value: Double) -> Int {
         guard value.isFinite else { return 0 }
-        return max(Int((max(value, 0) * 100).rounded(.down)), 0)
+        let percentage = (max(value, 0) * 100).rounded(.down)
+        return Int(min(percentage, Double(HealthCount.maximum)))
     }
 }

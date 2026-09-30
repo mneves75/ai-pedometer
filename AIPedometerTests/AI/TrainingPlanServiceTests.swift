@@ -6,6 +6,21 @@ import Testing
 
 @MainActor
 struct TrainingPlanServiceTests {
+    @Test("Fallback plans keep extreme recorded totals within the plan target bounds")
+    func fallbackPlanCapsExtremeHistory() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let health = MockHealthKitService()
+        health.dailySummariesToReturn = [DailyStepSummary(date: .now, steps: Int(HealthCount.maximum), distance: 0, floors: 0, calories: 0, goal: 10_000)]
+        let model = MockFoundationModelsService()
+        model.respondResult = .failure(.guardrailViolation)
+        let service = TrainingPlanService(
+            foundationModelsService: model, healthKitService: health,
+            goalService: GoalService(persistence: persistence), modelContext: persistence.container.mainContext
+        )
+        let plan = try await service.generatePlan(goal: .improveConsistency, level: .advanced, daysPerWeek: 5)
+        #expect(plan.weeklyTargets.allSatisfy { (1_000...50_000).contains($0.dailyStepTarget) })
+    }
+
     @Test("generatePlan persists record and returns expected fields")
     func generatePlanPersistsRecord() async throws {
         let persistence = PersistenceController(inMemory: true)

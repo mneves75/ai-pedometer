@@ -147,6 +147,13 @@ assert_preflight_failure watch-missing E2E_WATCH_UDID E2E_IOS_UDID="${IOS_ID}" E
 assert_preflight_failure legacy-ios E2E_IOS_DEST E2E_IOS_DEST=legacy E2E_ENABLE_WATCH=0
 assert_preflight_failure legacy-watch E2E_WATCH_DEST E2E_WATCH_DEST=legacy E2E_ENABLE_WATCH=0
 
+for knob in E2E_UNIT_RESTART_MAX E2E_UI_RESTART_MAX E2E_UI_TEST_ITERATIONS; do
+  for value in 0 -1 invalid; do
+    assert_preflight_failure "${knob}-${value}" "${knob} deve ser um inteiro positivo" \
+      E2E_IOS_UDID="${IOS_ID}" E2E_ENABLE_WATCH=0 "${knob}=${value}"
+  done
+done
+
 assert_success explicit-ios E2E_IOS_UDID="${IOS_ID}" E2E_ENABLE_WATCH=0
 grep -F -- "-destination platform=iOS Simulator,id=${IOS_ID}" "${XCODEBUILD_LOG}" >/dev/null
 

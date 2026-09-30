@@ -15,11 +15,9 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
     private let senderID: UUID
     private var lastQueuedTransferAt: Date?
     private var lastReachableSendAt: Date?
-    private var lastReachableSentSteps: Int?
+    private var lastReachableSentData: SharedStepData?
     private var lastContextUpdateAt: Date?
-    private var lastContextSentSteps: Int?
-    private var lastContextSentMode: ActivityTrackingMode?
-    private var lastReachableSentMode: ActivityTrackingMode?
+    private var lastContextSentData: SharedStepData?
     private var lastQueuedTransferMode: ActivityTrackingMode?
     /// The latest snapshot offered before `WCSession` finished activating. `isPaired` and
     /// `isWatchAppInstalled` are undefined until then, so it is held and sent on `.activated`.
@@ -64,10 +62,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
             // hop to the WatchConnectivity daemon.
             let shouldUpdateContext = Self.shouldSendReachableMessage(
                 lastSentAt: lastContextUpdateAt,
-                lastSentSteps: lastContextSentSteps,
-                newSteps: stepData.todaySteps,
-                lastSentMode: lastContextSentMode,
-                newMode: stepData.activityMode,
+                lastSentData: lastContextSentData,
+                newData: stepData,
                 now: now
             )
 
@@ -76,10 +72,8 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
             // updates per second. See implementation-notes.html#finding-watch-connectivity-throttle.
             let shouldSendMessage = session.isReachable && Self.shouldSendReachableMessage(
                 lastSentAt: lastReachableSendAt,
-                lastSentSteps: lastReachableSentSteps,
-                newSteps: stepData.todaySteps,
-                lastSentMode: lastReachableSentMode,
-                newMode: stepData.activityMode,
+                lastSentData: lastReachableSentData,
+                newData: stepData,
                 now: now
             )
 
@@ -110,8 +104,7 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                 do {
                     try session.updateApplicationContext([WatchPayload.transferKey: encoded])
                     lastContextUpdateAt = now
-                    lastContextSentSteps = stepData.todaySteps
-                    lastContextSentMode = stepData.activityMode
+                    lastContextSentData = stepData
                     Signposts.sync.event("WatchContextUpdated")
                 } catch {
                     Loggers.sync.warning("watch.update_application_context_failed", metadata: [
@@ -133,8 +126,7 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
                     errorHandler: Self.makeSendMessageErrorHandler()
                 )
                 lastReachableSendAt = now
-                lastReachableSentSteps = stepData.todaySteps
-                lastReachableSentMode = stepData.activityMode
+                lastReachableSentData = stepData
                 Signposts.sync.event("WatchMessageSent")
             }
 
@@ -158,25 +150,26 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
         return next
     }
 
-    /// Pure throttle decision for `WCSession.sendMessage`. Push immediately on first send;
-    /// otherwise require either ≥`minInterval` elapsed or ≥`minDeltaSteps` step change.
-    /// Extracted for testability — WatchConnectivity has no usable test seam.
+    /// Metadata and day changes must reach a stationary user's watch without a later pedometer tick.
+    /// Ordinary ticks retain the time/count throttle shared with application-context updates.
     static func shouldSendReachableMessage(
         lastSentAt: Date?,
-        lastSentSteps: Int?,
-        newSteps: Int,
-        lastSentMode: ActivityTrackingMode? = nil,
-        newMode: ActivityTrackingMode? = nil,
+        lastSentData: SharedStepData?,
+        newData: SharedStepData,
         now: Date,
         minInterval: TimeInterval = 5,
-        minDeltaSteps: Int = 10
+        minDeltaSteps: Int = 10,
+        calendar: Calendar = .autoupdatingCurrent
     ) -> Bool {
-        // A mode switch changes what the watch shows (steps vs pushes), so it is always due.
-        if let lastSentMode, let newMode, lastSentMode != newMode { return true }
-        guard let lastSentAt else { return true }
-        if now.timeIntervalSince(lastSentAt) >= minInterval { return true }
-        if let lastSentSteps, abs(newSteps - lastSentSteps) >= minDeltaSteps { return true }
-        return false
+        SharedStepDataWritePolicy.shouldPersistImmediately(
+            previous: lastSentData,
+            next: newData,
+            lastPersistedAt: lastSentAt,
+            now: now,
+            maximumStaleness: minInterval,
+            milestoneDelta: minDeltaSteps,
+            calendar: calendar
+        )
     }
 
     /// Builds the `WCSession.sendMessage` errorHandler as a `@Sendable` (nonisolated) closure.
@@ -193,11 +186,9 @@ final class WatchSyncService: NSObject, WCSessionDelegate {
 
     private func resetReachableThrottle() {
         lastReachableSendAt = nil
-        lastReachableSentSteps = nil
-        lastReachableSentMode = nil
+        lastReachableSentData = nil
         lastContextUpdateAt = nil
-        lastContextSentSteps = nil
-        lastContextSentMode = nil
+        lastContextSentData = nil
     }
 
     private func flushPendingStepData() {

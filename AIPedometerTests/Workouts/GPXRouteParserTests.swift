@@ -117,13 +117,15 @@ struct GPXRouteParserTests {
 
     @Test("disables external entity resolution to defend against XXE")
     func disablesExternalEntities() throws {
-        // The parser may still report well-formed-document errors, but the assertion we care
-        // about is that no external entity is resolved into the route name. With external
-        // entity resolution off, the most likely outcome is `invalidDocument` (or, on lenient
-        // parsers, an empty name). The route name must never echo the file contents.
+        let canary = "AIPedometerExternalEntityCanary-\(UUID().uuidString)"
+        let canaryURL = try writeTemporaryGPX(filename: "external-entity-canary.txt", contents: canary)
+        defer { try? FileManager.default.removeItem(at: canaryURL.deletingLastPathComponent()) }
+        #expect(try String(contentsOf: canaryURL, encoding: .utf8) == canary)
+
+        // Rejection or safe ignoring is acceptable; resolving the readable file's contents is not.
         let data = Data("""
         <?xml version="1.0"?>
-        <!DOCTYPE foo [ <!ENTITY xxe SYSTEM "file:///etc/hostname"> ]>
+        <!DOCTYPE foo [ <!ENTITY xxe SYSTEM "\(canaryURL.absoluteString)"> ]>
         <gpx version="1.1">
           <metadata><name>&xxe;</name></metadata>
           <trk><trkseg>
@@ -135,8 +137,7 @@ struct GPXRouteParserTests {
 
         do {
             let route = try GPXRouteParser.parse(data: data, sourceFilename: "xxe.gpx")
-            #expect(route.name != "/etc/hostname")
-            #expect(route.name.contains("hostname") == false)
+            #expect(!route.name.contains(canary))
         } catch GPXRouteParserError.invalidDocument {
             // Acceptable: parser rejected the document outright once entity resolution is off.
         }

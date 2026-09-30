@@ -752,9 +752,9 @@ struct GoalEditorSheet: View {
                     .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for step goal slider"))
                     .accessibilityValue(
                         Localization.format(
-                            "%lld %@",
+                            "%@ %@",
                             comment: "Accessibility value showing current goal and unit",
-                            Int64(tempGoal),
+                            Int(tempGoal).formattedSteps,
                             unitName
                         )
                     )
