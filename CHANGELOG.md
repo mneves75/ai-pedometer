@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.9] - 2026-09-30
 
-Internal TestFlight beta `v1.0.9-beta1` is processed and assigned to the existing Internal Testers group. Physical installation/acceptance and App Store production delivery remain pending.
+Internal TestFlight beta `v1.0.9-beta1` is processed and assigned to the existing Internal Testers group. Physical installation awaits tester-account access on the owner's iPhone; acceptance and App Store production delivery remain pending.
 
 ### Fixed
 
