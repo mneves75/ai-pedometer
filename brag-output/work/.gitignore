@@ -6,5 +6,7 @@
 !index-v.html
 !audio.mjs
 !render.mjs
+!static-handler.mjs
+!static-handler.test.mjs
 !assets/
 !assets/**

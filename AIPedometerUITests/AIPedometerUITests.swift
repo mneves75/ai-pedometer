@@ -698,6 +698,52 @@ final class AIPedometerUITests: XCTestCase {
         XCTAssertFalse(d.app.descendants(matching: .any)[A11yID.Workouts.recentWorkoutsEmptyState].exists)
     }
 
+    func testSwipeDismissedCelebrationAllowsBadgeDetails() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, extraLaunchArguments: [
+            "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-seed-badge-celebration",
+        ])
+        d.openBadges(timeout: navigationTimeout)
+        let celebration = d.app.staticTexts["UI test celebration"]
+        XCTAssertTrue(celebration.waitForExistence(timeout: navigationTimeout))
+        d.captureScreen(named: "Badges - Celebration before swipe")
+        let window = d.app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
+        start.press(forDuration: 0.1, thenDragTo: end)
+        XCTAssertTrue(celebration.waitForNonExistence(timeout: navigationTimeout))
+
+        let badge = d.app.buttons["5K Steps"].firstMatch
+        XCTAssertTrue(badge.waitForExistence(timeout: navigationTimeout))
+        badge.tap()
+        XCTAssertTrue(d.app.staticTexts["Badge Details"].waitForExistence(timeout: navigationTimeout))
+        d.captureScreen(named: "Badges - Details after celebration swipe")
+    }
+
+    func testActiveWorkoutCanBeDiscardedWithoutSavingHistory() throws {
+        let d = AppDriver(test: self)
+        d.launch(skipOnboarding: true, extraLaunchArguments: ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        d.openTab(.workouts)
+        d.assertWorkoutsLoaded()
+        d.tap(id: A11yID.Workouts.startWorkoutButton, timeout: navigationTimeout)
+
+        XCTAssertTrue(d.app.buttons[A11yID.ActiveWorkout.endButton].waitForExistence(timeout: navigationTimeout))
+        let discard = d.app.navigationBars.buttons["Discard Workout"]
+        XCTAssertTrue(discard.waitForExistence(timeout: navigationTimeout), "The active workout must expose its discard toolbar action")
+        XCTAssertTrue(discard.isHittable)
+        d.captureScreen(named: "Active Workout - Discard toolbar")
+        discard.tap()
+        let confirmation = d.app.sheets.buttons["Discard Workout"].firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: navigationTimeout))
+        confirmation.tap()
+
+        XCTAssertTrue(d.app.buttons[A11yID.ActiveWorkout.endButton].waitForNonExistence(timeout: navigationTimeout))
+        d.assertWorkoutsLoaded()
+        XCTAssertTrue(d.app.descendants(matching: .any)[A11yID.Workouts.recentWorkoutsEmptyState].exists)
+        XCTAssertFalse(d.app.descendants(matching: .any)[A11yID.Workouts.recentWorkoutsCarousel].exists)
+        d.captureScreen(named: "Workouts - Discarded without history")
+    }
+
     func testRecoveredWorkoutCanBeFinished() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: true, seedUnfinishedWorkout: true)

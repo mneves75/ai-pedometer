@@ -6,16 +6,12 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { createStaticHandler } from "./static-handler.mjs";
 import { chromium } from "/Users/mneves/dev/PROJETOS/whatsimovel/node_modules/.pnpm/playwright@1.56.1/node_modules/playwright/index.mjs";
 
-const ROOT = path.dirname(new URL(import.meta.url).pathname);
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".woff2": "font/woff2", ".ttf": "font/ttf" };
-const server = http.createServer((req, res) => {
-  const p = path.join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname));
-  if (!p.startsWith(ROOT) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404).end(); return; }
-  res.writeHead(200, { "content-type": TYPES[path.extname(p)] ?? "application/octet-stream" });
-  fs.createReadStream(p).pipe(res);
-});
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const server = http.createServer(createStaticHandler(ROOT));
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 // PAGE=index-v.html VW=1080 VH=1920 STILLS=stills-v for the vertical cut.
 const PAGE = process.env.PAGE ?? "index.html";

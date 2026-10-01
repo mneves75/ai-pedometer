@@ -496,6 +496,67 @@ struct WorkoutSessionControllerTests {
         await controller.discardWorkout()
     }
 
+    @Test("Pausing captures motion readings delivered since the last refresh", arguments: [false, true])
+    func pauseCapturesLatestMotionSnapshot(expeditionMode: Bool) async {
+        let persistence = PersistenceController(inMemory: true)
+        let motion = MockMotionService()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: MotionLiveMetricsSource(motionService: motion),
+            liveActivityManager: MockLiveActivityManager(),
+            isExpeditionModeEnabled: { expeditionMode }
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 100, distance: 80, floorsAscended: 0))
+        await controller.refreshMetrics()
+        #expect(controller.metrics?.steps == 100)
+
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 110, distance: 88, floorsAscended: 0))
+        controller.pauseWorkout()
+        #expect(controller.metrics?.steps == 110)
+        #expect(controller.metrics?.distance == 88)
+
+        controller.resumeWorkout()
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 20, distance: 16, floorsAscended: 0))
+        await controller.refreshMetrics()
+
+        #expect(controller.metrics?.steps == 130)
+        #expect(controller.metrics?.distance == 104)
+        await controller.discardWorkout()
+    }
+
+    @Test("Finishing saves motion readings delivered since the last refresh", arguments: [false, true])
+    func finishCapturesLatestMotionSnapshot(expeditionMode: Bool) async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let motion = MockMotionService()
+        let liveActivity = MockLiveActivityManager()
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: WorkoutSessionHealthKitStub(),
+            metricsSource: MotionLiveMetricsSource(motionService: motion),
+            liveActivityManager: liveActivity,
+            isExpeditionModeEnabled: { expeditionMode }
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 100, distance: 80, floorsAscended: 0))
+        await controller.refreshMetrics()
+        #expect(controller.metrics?.steps == 100)
+
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 110, distance: 88, floorsAscended: 0))
+        await controller.finishWorkout()
+
+        let session = try #require(persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>()).first)
+        #expect(session.endTime != nil)
+        #expect(session.steps == 110)
+        #expect(session.distance == 88)
+        #expect(session.activeCalories == 110 * AppConstants.Metrics.caloriesPerStep)
+        #expect(liveActivity.lastUpdate?.steps == 110)
+        #expect(liveActivity.lastUpdate?.distance == 0.088)
+    }
+
     @Test
     func finishWorkoutEndsSessionAndPersists() async throws {
         let persistence = PersistenceController(inMemory: true)
@@ -517,6 +578,51 @@ struct WorkoutSessionControllerTests {
         #expect(healthKit.saveCount == 1)
         #expect(liveActivity.endCount == 1)
         #expect(!controller.isPresenting)
+    }
+
+    @Test("A failed finish retains the latest reading and retry does not count it twice")
+    func failedFinishRetriesLatestMotionSnapshotOnce() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let motion = MockMotionService()
+        let healthKit = WorkoutSessionHealthKitStub()
+        let liveActivity = MockLiveActivityManager()
+        var failNextSave = false
+        let controller = WorkoutSessionController(
+            modelContext: persistence.container.mainContext,
+            healthKitService: healthKit,
+            metricsSource: MotionLiveMetricsSource(motionService: motion),
+            liveActivityManager: liveActivity,
+            saveModelContext: { context in
+                if failNextSave {
+                    failNextSave = false
+                    throw CocoaError(.fileWriteUnknown)
+                }
+                try context.save()
+            }
+        )
+
+        await controller.startWorkout(type: .outdoorWalk, targetSteps: nil)
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 100, distance: 80, floorsAscended: 0))
+        await controller.refreshMetrics()
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 110, distance: 88, floorsAscended: 0))
+        failNextSave = true
+        await controller.finishWorkout()
+
+        let session = try #require(persistence.container.mainContext.fetch(FetchDescriptor<WorkoutSession>()).first)
+        #expect(session.endTime == nil)
+        #expect(controller.state == .active)
+        #expect(controller.metrics?.steps == 110)
+        #expect(liveActivity.endCount == 0)
+        #expect(healthKit.saveCount == 0)
+
+        motion.simulateLiveUpdate(PedometerSnapshot(steps: 120, distance: 96, floorsAscended: 0))
+        await controller.finishWorkout()
+
+        #expect(session.steps == 120)
+        #expect(session.distance == 96)
+        #expect(session.endTime != nil)
+        #expect(liveActivity.endCount == 1)
+        #expect(healthKit.saveCount == 1)
     }
 
     @Test
@@ -953,6 +1059,10 @@ final class MockMetricsSource: WorkoutLiveMetricsSource {
 
     func stop() {
         stopCount += 1
+    }
+
+    func currentSnapshot() -> PedometerSnapshot? {
+        snapshotErrorToThrow == nil ? snapshotToReturn : nil
     }
 
     func snapshot() async throws -> PedometerSnapshot {

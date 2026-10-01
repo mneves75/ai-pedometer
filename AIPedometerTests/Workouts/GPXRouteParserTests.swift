@@ -4,6 +4,54 @@ import Testing
 @testable import AIPedometer
 
 struct GPXRouteParserTests {
+    @Test("Disconnected GPX spans do not contribute connecting distance or elevation")
+    func disconnectedSpansExcludeGaps() throws {
+        for containers in [
+            ("<trk><trkseg>", "</trkseg><trkseg>", "</trkseg></trk>"),
+            ("<trk><trkseg>", "</trkseg></trk><trk><trkseg>", "</trkseg></trk>"),
+            ("<rte>", "</rte><rte>", "</rte>")
+        ] {
+            let pointTag = containers.0 == "<rte>" ? "rtept" : "trkpt"
+            let route = try GPXRouteParser.parse(data: Data("""
+            <gpx version="1.1">\(containers.0)
+            <\(pointTag) lat="0" lon="0"><ele>0</ele></\(pointTag)>
+            <\(pointTag) lat="0" lon="0.001"><ele>10</ele></\(pointTag)>
+            \(containers.1)
+            <\(pointTag) lat="0" lon="1"><ele>1000</ele></\(pointTag)>
+            <\(pointTag) lat="0" lon="1.001"><ele>1005</ele></\(pointTag)>
+            \(containers.2)</gpx>
+            """.utf8), sourceFilename: "disconnected.gpx")
+            #expect(abs(route.distanceMeters - 222.389853) < 0.001)
+            #expect(route.elevationGainMeters == 15)
+            #expect(route.elevationLossMeters == 0)
+            #expect(route.estimatedDuration < 310)
+            let stored = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(route)) as? [String: Any])
+            #expect(stored["previewSegmentLengths"] as? [Int] == [2, 2])
+        }
+    }
+
+    @Test("Sampling many disconnected spans keeps the preview point budget and boundaries")
+    func disconnectedPreviewRemainsBounded() throws {
+        let segments = (0..<200).map { index in
+            "<trkseg><trkpt lat=\"0\" lon=\"\(Double(index) / 1_000)\" /><trkpt lat=\"0\" lon=\"\(Double(index) / 1_000 + 0.00001)\" /></trkseg>"
+        }.joined()
+        let route = try GPXRouteParser.parse(
+            data: Data("<gpx version=\"1.1\"><trk>\(segments)</trk></gpx>".utf8),
+            sourceFilename: "many-spans.gpx"
+        )
+        #expect(route.previewPoints.count <= 160)
+        let stored = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(route)) as? [String: Any])
+        let lengths = try #require(stored["previewSegmentLengths"] as? [Int])
+        #expect(lengths.reduce(0, +) == route.previewPoints.count)
+        #expect(lengths.allSatisfy { $0 <= 2 })
+
+        var legacy = stored
+        legacy.removeValue(forKey: "previewSegmentLengths")
+        let decoded = try JSONDecoder().decode(ImportedRoute.self, from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(decoded.previewPoints == route.previewPoints)
+        #expect(decoded.id == route.id)
+    }
+
     @Test
     func parsesTrackPointsWaypointsAndElevation() throws {
         let data = Data("""

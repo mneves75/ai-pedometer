@@ -51,6 +51,9 @@ if [[ "${1:-}" == "-version" ]]; then
   exit 0
 fi
 while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "-derivedDataPath" ]]; then
+    mkdir -p "$2/Build/Products/Debug-watchsimulator/AIPedometerWatch.app"
+  fi
   if [[ "$1" == "-resultBundlePath" ]]; then
     mkdir -p "$2"
     break
@@ -64,6 +67,22 @@ cat > "${MOCK_BIN}/xcrun" <<'EOF'
 set -euo pipefail
 printf '%s\n' "$*" >> "${XCRUN_LOG}"
 case "$*" in
+  'simctl install '*)
+    [[ "${MOCK_FAIL:-}" != install ]] || exit 42
+    ;;
+  'simctl launch '*)
+    [[ "${MOCK_FAIL:-}" != launch ]] || exit 42
+    if [[ "${MOCK_FAIL:-}" == watch-launch && "${*: -1}" == com.mneves.aipedometer.watch ]]; then exit 42; fi
+    ;;
+  'simctl io '*' screenshot '*)
+    [[ "${MOCK_FAIL:-}" != screenshot ]] || exit 42
+    if [[ "${MOCK_FAIL:-}" == watch-screenshot && "${*: -1}" == */watch.png ]]; then exit 42; fi
+    if [[ "${MOCK_FAIL:-}" != missing-artifact ]]; then
+      if [[ "${MOCK_FAIL:-}" != missing-watch-artifact || "${*: -1}" != */watch.png ]]; then
+        printf 'synthetic screenshot\n' > "${@: -1}"
+      fi
+    fi
+    ;;
   'simctl list devices --json')
     /bin/cat "${DEVICE_JSON}"
     ;;
@@ -160,6 +179,44 @@ grep -F -- "-destination platform=iOS Simulator,id=${IOS_ID}" "${XCODEBUILD_LOG}
 assert_success explicit-watch E2E_IOS_UDID="${IOS_ID}" E2E_WATCH_UDID="${WATCH_ID}" E2E_ENABLE_WATCH=1
 grep -F -- "-destination platform=iOS Simulator,id=${IOS_ID}" "${XCODEBUILD_LOG}" >/dev/null
 grep -F -- "-destination platform=watchOS Simulator,id=${WATCH_ID}" "${XCODEBUILD_LOG}" >/dev/null
+
+failures=0
+for failure in launch screenshot missing-artifact install watch-launch watch-screenshot missing-watch-artifact; do
+  mkdir -p "${TMP_DIR}/output-failure-${failure}/screens"
+  printf 'stale artifact\n' > "${TMP_DIR}/output-failure-${failure}/screens/ios.png"
+  printf 'stale artifact\n' > "${TMP_DIR}/output-failure-${failure}/screens/watch.png"
+  if run_e2e "failure-${failure}" E2E_IOS_UDID="${IOS_ID}" E2E_WATCH_UDID="${WATCH_ID}" \
+    E2E_ENABLE_WATCH=1 E2E_ENABLE_SCREENSHOTS=1 "MOCK_FAIL=${failure}" \
+    > "${TMP_DIR}/failure-${failure}.log" 2>&1; then
+    echo "FAIL: ${failure} incorrectly accepted as success." >&2
+    failures=$((failures + 1))
+  else
+    failure_exit=$?
+    expected_exit=42
+    case "${failure}" in missing-artifact|missing-watch-artifact) expected_exit=1 ;; esac
+    if [[ "${failure_exit}" != "${expected_exit}" ]] || grep -Fqx OK "${TMP_DIR}/failure-${failure}.log"; then
+      echo "FAIL: ${failure} returned ${failure_exit}; expected ${expected_exit} without OK." >&2
+      failures=$((failures + 1))
+    fi
+  fi
+done
+assert_success watch-screenshot E2E_IOS_UDID="${IOS_ID}" E2E_WATCH_UDID="${WATCH_ID}" \
+  E2E_ENABLE_WATCH=1 E2E_ENABLE_SCREENSHOTS=1
+if ! python3 - "${XCRUN_LOG}" "${WATCH_ID}" "${TMP_DIR}/derived-watch-screenshot/watchOS" <<'PY'
+import pathlib
+import sys
+lines = pathlib.Path(sys.argv[1]).read_text().splitlines()
+install = f"simctl install {sys.argv[2]} {sys.argv[3]}/Build/Products/Debug-watchsimulator/AIPedometerWatch.app"
+launch = f"simctl launch {sys.argv[2]} com.mneves.aipedometer.watch"
+assert install in lines, "Selected watch was never installed"
+assert lines.index(install) < lines.index(launch), "Watch launched before install"
+PY
+then
+  failures=$((failures + 1))
+fi
+test -s "${TMP_DIR}/output-watch-screenshot/screens/ios.png"
+test -s "${TMP_DIR}/output-watch-screenshot/screens/watch.png"
+[[ "${failures}" == 0 ]] || exit 1
 
 assert_success hosted-auto GITHUB_ACTIONS=true RUNNER_ENVIRONMENT=github-hosted E2E_ENABLE_WATCH=0
 grep -F -- "-destination platform=iOS Simulator,id=${IOS_ID}" "${XCODEBUILD_LOG}" >/dev/null

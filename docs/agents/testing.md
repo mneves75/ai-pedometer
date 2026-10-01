@@ -22,6 +22,7 @@ List devices with Argent and select an available simulator whose runtime the pro
 - Script regressions: `bash -c 'set -euo pipefail; for test_script in Scripts/tests/*.sh; do bash "$test_script"; done'`.
 - Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh Scripts/lib/*.sh .githooks/pre-commit` and `actionlint`.
 - Development dependency audit: `pnpm audit --audit-level moderate`. Include dev dependencies; `--prod` omits the Wrangler toolchain and cannot verify it.
+- Renderer request boundary: `node --test brag-output/work/static-handler.test.mjs`. The real localhost handler must serve valid files, reject traversal and escaping symlinks, and remain available after malformed URL requests.
 - Project invariants: `bash Scripts/verify-entitlements.sh`, `bash Scripts/verify-swift-build-settings.sh`, `bash Scripts/check-agents-sync.sh` and `bash Scripts/verify-device-identifiers.sh`. All of these run together via `bash Scripts/preflight.sh`.
 - Staged candidate: `bash .githooks/pre-commit` after explicit staging.
 - Shared 32-bit code: use CI's direct `-project AIPedometer.xcodeproj -target AIPedometerWatch -configuration Debug -sdk watchos` build with `ARCHS=arm64_32`, `ONLY_ACTIVE_ARCH=YES`, `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO` and task-specific `SYMROOT`, `OBJROOT`, `SHARED_PRECOMPS_DIR`. The watch scheme can also pull in iPhone dependencies that cannot build for this architecture. An iOS or watch simulator build is insufficient.
@@ -29,6 +30,11 @@ List devices with Argent and select an available simulator whose runtime the pro
 - Project metadata: `asc xcode version view --project AIPedometer.xcodeproj --target AIPedometer`.
 
 Validate every xcresult with `python3 Scripts/xcresult-summary.py <result.xcresult> --validate`. Zero, failed, skipped, negative or inconsistent test counts fail validation. Swift Testing function selectors need trailing `()`; prefer suite selectors when possible. Never weaken assertions or count an empty test selection as proof.
+
+When `Scripts/e2e-simulator.sh` screenshots are enabled, install/launch/capture
+failures and missing or empty captures fail the run. The selected watch receives
+the freshly built Debug app before capture; old screenshots cannot satisfy a
+new run. These fixture checks do not prove a real watch launch or render.
 
 ## Debug and UI verification
 
@@ -38,7 +44,7 @@ an earlier reading cannot reserve capacity on this shared host. Use Argent to
 discover a destination and reserve its use in the session's plan. A booted simulator
 named for another repository is not an available test destination.
 
-`AIPedometerUITests/Support/AppDriver.swift` owns deterministic launch/reset and fixture flags. Use its synthetic data instead of personal HealthKit data. Debug overrides are disabled in Release. Keep stable accessibility identifiers as the primary selectors and retain xcresult screenshots when a UI check fails.
+`AIPedometerUITests/Support/AppDriver.swift` owns deterministic launch/reset and fixture flags. Use its synthetic data instead of personal HealthKit data. Debug overrides are disabled in Release. The `-seed-badge-celebration` fixture also requires UI-testing mode and seeds only synthetic badges for the dismissal regression. Keep stable accessibility identifiers as the primary selectors and retain xcresult screenshots when a UI check fails.
 
 Run relevant onboarding, five-tab navigation, AI unavailable, workout start/end/recovery and settings flows on iPhone; include iPad for layout/navigation changes. Use Argent for manual app interaction and accessibility discovery. Real motion, HealthKit permissions/export, notification delivery, paired watch UI and StoreKit sandbox transactions need an explicitly selected device and remain unverified until exercised there.
 

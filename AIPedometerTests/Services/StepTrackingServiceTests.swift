@@ -833,6 +833,37 @@ struct StepTrackingServiceTests {
         #expect(service.todayCalories == Double(1234) * AppConstants.Metrics.caloriesPerStep)
     }
 
+    @Test("Live updates preserve manual stride distance", arguments: [false, true])
+    @MainActor
+    func liveUpdatesPreserveManualStrideDistance(healthKitSyncEnabled: Bool) async {
+        let mockHealthKit = MockHealthKitService()
+        let mockMotion = MockMotionService()
+        let testDefaults = TestUserDefaults()
+        defer { testDefaults.reset() }
+        testDefaults.defaults.set(healthKitSyncEnabled, forKey: AppConstants.UserDefaultsKeys.healthKitSyncEnabled)
+        testDefaults.defaults.set(DistanceEstimationMode.manual.rawValue, forKey: AppConstants.UserDefaultsKeys.distanceEstimationMode)
+        testDefaults.defaults.set(0.9, forKey: AppConstants.UserDefaultsKeys.manualStepLengthMeters)
+        mockHealthKit.stepsToReturn = 1000
+        mockHealthKit.distanceToReturn = 650
+        mockMotion.snapshotToReturn = PedometerSnapshot(steps: 1000, distance: 650, floorsAscended: 0)
+        let (service, _) = makeService(
+            healthKit: mockHealthKit,
+            motion: mockMotion,
+            userDefaults: testDefaults.defaults
+        )
+
+        await service.start()
+        #expect(service.todaySteps == 1000)
+        #expect(service.todayDistance == 900)
+
+        mockMotion.simulateLiveUpdate(PedometerSnapshot(steps: 1000, distance: 650, floorsAscended: 0))
+        #expect(service.todayDistance == 900)
+        mockMotion.simulateLiveUpdate(PedometerSnapshot(steps: 1001, distance: 650.65, floorsAscended: 0))
+
+        #expect(service.todaySteps == 1001)
+        #expect(abs(service.todayDistance - 900.9) < 0.000_001)
+    }
+
     @Test("Live updates keep HealthKit totals when HealthKit exceeds pedometer")
     @MainActor
     func liveUpdatesUseHealthKitWhenHigher() async {

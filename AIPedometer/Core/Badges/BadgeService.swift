@@ -32,6 +32,30 @@ final class BadgeService {
 
     func configure(with aiService: any FoundationModelsServiceProtocol) {
         self.foundationModelsService = aiService
+        #if DEBUG
+        if LaunchConfiguration.isUITesting(),
+           ProcessInfo.processInfo.arguments.contains("-seed-badge-celebration") {
+            // Seed all types so the deterministic tracking refresh cannot replace this celebration.
+            let badges = BadgeType.allCases.map { EarnedBadge(badgeType: $0) }
+            for badge in badges {
+                persistence.container.mainContext.insert(badge)
+            }
+            do {
+                try saveModelContext(persistence.container.mainContext)
+                refreshEarnedBadges()
+                celebratingBadge = .steps5K
+                pendingCelebration = AchievementCelebration(
+                    congratulation: "UI test celebration",
+                    significance: "A deterministic achievement.",
+                    nextChallenge: "Keep walking."
+                )
+            } catch {
+                for badge in badges {
+                    persistence.container.mainContext.delete(badge)
+                }
+            }
+        }
+        #endif
     }
 
     @discardableResult

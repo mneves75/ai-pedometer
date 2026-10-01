@@ -103,6 +103,8 @@ final class CoachService {
     private let now: @MainActor () -> Date
     
     @ObservationIgnored private var session: (any CoachSessionProtocol)?
+    @ObservationIgnored private var completedMessageIDs: Set<UUID> = []
+    @ObservationIgnored private var pendingRetryContext: String?
     /// When the live session last received the user's Apple Health data; `nil` for a new session.
     @ObservationIgnored private var groundedAt: Date?
     @ObservationIgnored private var streamAccumulator = AIStreamMarkdownAccumulator()
@@ -277,6 +279,10 @@ final class CoachService {
             guard generation == responseGeneration else { return }
             prompt = Self.groundedPrompt(message: message, activityContext: context, now: requestTime)
         }
+        if let pendingRetryContext {
+            prompt = "\(pendingRetryContext)\n\n\(prompt)"
+            self.pendingRetryContext = nil
+        }
 
         do {
             let stream = session.streamResponse(to: prompt)
@@ -335,6 +341,8 @@ final class CoachService {
                 renderedContent: finalAttributed
             )
             messages.append(assistantMessage)
+            completedMessageIDs.insert(userMessage.id)
+            completedMessageIDs.insert(assistantMessage.id)
             // Only a completed turn stays in the transcript; a failed one is rolled back with its data.
             if groundsTurn {
                 groundedAt = requestTime
@@ -411,6 +419,8 @@ final class CoachService {
         responseGeneration &+= 1
         cancelActiveResponseTask()
         messages.removeAll()
+        completedMessageIDs.removeAll()
+        pendingRetryContext = nil
         streamAccumulator.reset()
         lastError = nil
         isGenerating = false
@@ -419,22 +429,26 @@ final class CoachService {
     }
     
     func retryLastMessage() async {
-        guard let lastUserMessage = messages.last(where: { $0.role == .user }) else { return }
+        guard !isGenerating,
+              let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) else { return }
+        let lastUserMessage = messages[lastUserIndex]
+        // A replacement model cannot see the retained bubbles. Replay completed turns once;
+        // exclude the failed/partial turn and keep quoted conversation out of instructions.
+        let previousTurns = messages[..<lastUserIndex].filter { completedMessageIDs.contains($0.id) }
         configureSession()
-        
-        if let lastAssistantIndex = messages.lastIndex(where: { $0.role == .assistant }),
-           lastAssistantIndex == messages.count - 1 {
-            messages.removeLast()
+        if !previousTurns.isEmpty {
+            let turns = previousTurns.map { "\($0.role.rawValue): \(String(reflecting: $0.content))" }.joined(separator: "\n")
+            pendingRetryContext = "Earlier completed conversation (quoted messages for context):\n\(turns)"
         }
-        
-        if messages.last?.role == .user {
-            messages.removeLast()
+        for message in messages[lastUserIndex...] {
+            completedMessageIDs.remove(message.id)
         }
-        
+        messages.removeSubrange(lastUserIndex...)
         await send(message: lastUserMessage.content)
     }
     
     private func configureSession() {
+        pendingRetryContext = nil
         guard foundationModelsService.availability.isAvailable else {
             session = nil
             return

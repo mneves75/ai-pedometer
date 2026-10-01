@@ -108,8 +108,17 @@ enum GPXRouteParser {
             throw GPXRouteParserError.noRoutePoints
         }
 
-        let distanceMeters = routeDistance(points)
-        let elevation = elevationChange(points)
+        let segmentEnds = Array(delegate.segmentStarts.dropFirst()) + [points.count]
+        let segments = zip(delegate.segmentStarts, segmentEnds).map { start, end in
+            Array(points[start..<end])
+        }
+        let distanceMeters = segments.reduce(0) { $0 + routeDistance($1) }
+        let elevation = segments.reduce(into: (gain: 0.0, loss: 0.0)) { totals, segment in
+            let change = elevationChange(segment)
+            totals.gain += change.gain
+            totals.loss += change.loss
+        }
+        let preview = previewPoints(from: points, segmentStarts: delegate.segmentStarts)
         let fallbackName = boundedRouteName(
             sourceFilename.replacingOccurrences(of: ".gpx", with: "", options: .caseInsensitive)
         )
@@ -124,7 +133,8 @@ enum GPXRouteParser {
             elevationGainMeters: elevation.gain,
             elevationLossMeters: elevation.loss,
             estimatedDuration: estimatedDuration(distanceMeters: distanceMeters, elevationGainMeters: elevation.gain),
-            previewPoints: previewPoints(from: points)
+            previewPoints: preview.points,
+            previewSegmentLengths: preview.segmentLengths
         )
     }
 
@@ -152,12 +162,35 @@ enum GPXRouteParser {
         return walkingSeconds + climbingPenaltySeconds
     }
 
-    private static func previewPoints(from points: [RouteCoordinate], limit: Int = 160) -> [RouteCoordinate] {
-        guard points.count > limit else { return points }
-        let stride = Double(points.count - 1) / Double(limit - 1)
-        return (0..<limit).map { index in
-            points[min(Int((Double(index) * stride).rounded()), points.count - 1)]
+    private static func previewPoints(
+        from points: [RouteCoordinate],
+        segmentStarts: [Int],
+        limit: Int = 160
+    ) -> (points: [RouteCoordinate], segmentLengths: [Int]) {
+        let indices: [Int]
+        if points.count <= limit {
+            indices = Array(points.indices)
+        } else {
+            let stride = Double(points.count - 1) / Double(limit - 1)
+            indices = (0..<limit).map { min(Int((Double($0) * stride).rounded()), points.count - 1) }
         }
+        var sampledPoints: [RouteCoordinate] = []
+        var lengths: [Int] = []
+        var segment = 0
+        var previousSegment: Int?
+        for index in indices {
+            while segment + 1 < segmentStarts.count, index >= segmentStarts[segment + 1] {
+                segment += 1
+            }
+            sampledPoints.append(points[index])
+            if previousSegment == segment {
+                lengths[lengths.count - 1] += 1
+            } else {
+                lengths.append(1)
+            }
+            previousSegment = segment
+        }
+        return (sampledPoints, lengths)
     }
 
     private static func distanceMeters(from start: RouteCoordinate, to end: RouteCoordinate) -> Double {
@@ -191,9 +224,11 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
     private var textBufferCount = 0
     private var currentPoint: MutablePoint?
     private var waypointDepth = 0
+    private var startsNewSegment = true
 
     private(set) var routeName: String?
     private(set) var points: [RouteCoordinate] = []
+    private(set) var segmentStarts: [Int] = []
     private(set) var waypointCount = 0
     private(set) var aborted = false
 
@@ -215,6 +250,8 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         if aborted { return }
 
         switch elementName {
+        case "trk", "trkseg", "rte":
+            startsNewSegment = true
         case "trkpt", "rtept":
             guard let latitude = Self.parseCoordinate(attributeDict["lat"], range: -90...90),
                   let longitude = Self.parseCoordinate(attributeDict["lon"], range: -180...180) else {
@@ -275,6 +312,10 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
                     textBufferCount = 0
                     return
                 }
+                if startsNewSegment {
+                    segmentStarts.append(points.count)
+                    startsNewSegment = false
+                }
                 points.append(RouteCoordinate(
                     latitude: currentPoint.latitude,
                     longitude: currentPoint.longitude,
@@ -284,6 +325,8 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
             currentPoint = nil
         case "wpt":
             waypointDepth = max(waypointDepth - 1, 0)
+        case "trk", "trkseg", "rte":
+            startsNewSegment = true
         default:
             break
         }

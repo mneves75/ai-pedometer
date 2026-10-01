@@ -23,6 +23,12 @@ AIPedometer is a modern step tracking application featuring **on-device AI coach
 - **Accessibility** — Wheelchair mode for push tracking, VoiceOver support
 - **Tip Jar** — Optional one-time “Buy me a coffee” support (USD $4.99 in the US)
 
+GPX imports retain separate track segments, tracks and routes: gaps do not add
+distance, climbing or connecting lines to the preview. Existing saved imports
+remain readable; reimport the original GPX to recover boundaries discarded by
+older builds. The simplified map preview remains limited to 160 points, so it
+may omit detail from files containing many disconnected segments.
+
 ## Requirements
 
 | Dependency | Version |
@@ -183,7 +189,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Version
 
-**Current source**: 1.0.9 (69), a release candidate with fixes for workout termination, AI request replacement, wheelchair streaks and watch synchronization. The app remains a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, price, availability and "Data Not Collected" label are applied in App Store Connect. On 2026-09-30, App Store Connect reported the previous version 1.0.8 as `READY_FOR_DISTRIBUTION` and the Tip Jar consumable as `APPROVED`. Physical-device acceptance of HealthKit, motion, notifications, upgrade preservation and the Tip Jar remains an explicit gap.
+**Current source**: 1.0.10 (70), a release candidate correcting workout metric boundaries, manual stride updates, Coach retry context, segmented GPX import and sheet/navigation behavior. TestFlight upload and processing of this candidate have not yet been verified. The app remains a one-time R$ 1,99 purchase with no subscription (`store/app-store/`). Source version does not indicate TestFlight or App Store availability. The App Store listing, price, availability and "Data Not Collected" label are applied in App Store Connect. On 2026-09-30, App Store Connect reported the previous version 1.0.8 as `READY_FOR_DISTRIBUTION` and the Tip Jar consumable as `APPROVED`. Physical-device acceptance of HealthKit, motion, notifications, upgrade preservation and the Tip Jar remains an explicit gap.
 
 **Beta delivery (2026-09-30)**: `v1.0.9-beta1` identifies commit `c78a421`, uploaded as 1.0.9 (69). App Store Connect reports processing `VALID`, `APP_STORE_ELIGIBLE`, explicit assignment to the existing Internal Testers group and `READY_FOR_BETA_TESTING`. This confirms internal TestFlight availability. A separate local installation of the verified, development-signed Release archive on the owner's USB-connected iPhone reports `installed=true`; no uninstall occurred. The installer exited 1 at post-install verification. One Argent launch reported success without an app accessibility tree, and subsequent launch attempts report that the phone is locked. Installed-version, foreground UI and upgrade-preservation observations await an unlocked phone with the app in the foreground. This local installation does not establish access through the phone's current TestFlight account. Version 1.0.9 has not been submitted or released to the App Store. TestFlight review validation also reports missing contact first name, last name, email and phone.
 

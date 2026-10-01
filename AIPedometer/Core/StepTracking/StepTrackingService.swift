@@ -446,7 +446,9 @@ final class StepTrackingService: StepTrackingServiceProtocol {
         seedPendingBaselineIfNeeded(using: snapshot, currentDate: currentDate)
         let baseline = currentBaseline(currentDate: currentDate)
         let steps = snapshot.steps + (baseline?.stepsOffset ?? 0)
-        let distance = snapshot.distance + (baseline?.distanceOffset ?? 0)
+        let distance = activitySettings.distanceMode == .manual
+            ? Double(steps) * activitySettings.manualStepLength
+            : snapshot.distance + (baseline?.distanceOffset ?? 0)
         let floors = snapshot.floorsAscended + (baseline?.floorsOffset ?? 0)
         todaySteps = steps
         todayDistance = distance

@@ -427,6 +427,7 @@ if [[ "${ENABLE_WATCH}" == "1" ]]; then
   echo "Build (watchOS)..."
   aipedometer_run_logged "${OUT_DIR}/xcodebuild-watch-build.log" xcodebuild \
     -scheme AIPedometerWatch \
+    -configuration Debug \
     -destination "${WATCH_DEST}" \
     -derivedDataPath "${WATCH_DERIVED_DATA}" \
     -parallel-testing-enabled NO \
@@ -447,12 +448,28 @@ if [[ "${ENABLE_SCREENSHOTS}" == "1" ]]; then
       --batteryLevel 100 >/dev/null 2>&1 || true
   fi
 
-  xcrun simctl launch "${IOS_UDID}" "${IOS_BUNDLE_ID}" >/dev/null 2>&1 || true
-  xcrun simctl io "${IOS_UDID}" screenshot "${OUT_DIR}/screens/ios.png" >/dev/null 2>&1 || true
+  aipedometer_run_logged "${OUT_DIR}/ios-launch.log" xcrun simctl launch "${IOS_UDID}" "${IOS_BUNDLE_ID}"
+  rm -f "${OUT_DIR}/screens/ios.png"
+  aipedometer_run_logged "${OUT_DIR}/ios-screenshot.log" xcrun simctl io "${IOS_UDID}" screenshot "${OUT_DIR}/screens/ios.png"
+  if [[ ! -s "${OUT_DIR}/screens/ios.png" ]]; then
+    echo "ERRO: screenshot iOS ausente ou vazio." >&2
+    exit 1
+  fi
 
   if [[ "${ENABLE_WATCH}" == "1" ]]; then
-    xcrun simctl launch "${WATCH_UDID}" "${WATCH_BUNDLE_ID}" >/dev/null 2>&1 || true
-    xcrun simctl io "${WATCH_UDID}" screenshot "${OUT_DIR}/screens/watch.png" >/dev/null 2>&1 || true
+    WATCH_APP="${WATCH_DERIVED_DATA}/Build/Products/Debug-watchsimulator/AIPedometerWatch.app"
+    if [[ ! -d "${WATCH_APP}" ]]; then
+      echo "ERRO: app watchOS ausente: ${WATCH_APP}" >&2
+      exit 1
+    fi
+    aipedometer_run_logged "${OUT_DIR}/watch-install.log" xcrun simctl install "${WATCH_UDID}" "${WATCH_APP}"
+    aipedometer_run_logged "${OUT_DIR}/watch-launch.log" xcrun simctl launch "${WATCH_UDID}" "${WATCH_BUNDLE_ID}"
+    rm -f "${OUT_DIR}/screens/watch.png"
+    aipedometer_run_logged "${OUT_DIR}/watch-screenshot.log" xcrun simctl io "${WATCH_UDID}" screenshot "${OUT_DIR}/screens/watch.png"
+    if [[ ! -s "${OUT_DIR}/screens/watch.png" ]]; then
+      echo "ERRO: screenshot watchOS ausente ou vazio." >&2
+      exit 1
+    fi
   fi
 
   if [[ "${SET_STATUS_BAR}" == "1" ]]; then

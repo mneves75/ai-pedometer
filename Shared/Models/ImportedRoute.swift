@@ -18,4 +18,22 @@ struct ImportedRoute: Codable, Equatable, Identifiable, Sendable {
     let elevationLossMeters: Double
     let estimatedDuration: TimeInterval
     let previewPoints: [RouteCoordinate]
+    /// Optional for routes persisted before segment boundaries were retained.
+    private(set) var previewSegmentLengths: [Int]? = nil
+
+    var previewSegments: [[RouteCoordinate]] {
+        guard let lengths = previewSegmentLengths else {
+            return previewPoints.isEmpty ? [] : [previewPoints]
+        }
+        var offset = 0
+        var segments: [[RouteCoordinate]] = []
+        for length in lengths {
+            guard length > 0, length <= previewPoints.count - offset else {
+                return previewPoints.isEmpty ? [] : [previewPoints]
+            }
+            segments.append(Array(previewPoints[offset..<(offset + length)]))
+            offset += length
+        }
+        return offset == previewPoints.count ? segments : [previewPoints]
+    }
 }

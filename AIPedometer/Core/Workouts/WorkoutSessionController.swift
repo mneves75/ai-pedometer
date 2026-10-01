@@ -206,6 +206,7 @@ final class WorkoutSessionController {
     func pauseWorkout() {
         guard !isTerminatingSession else { return }
         guard case .active = state else { return }
+        captureLatestMetrics()
         pauseStartedAt = now()
         if let metrics {
             accumulatedSteps = metrics.steps
@@ -255,6 +256,7 @@ final class WorkoutSessionController {
         let previousSteps = session.steps
         let previousDistance = session.distance
         let previousActiveCalories = session.activeCalories
+        captureLatestMetrics()
         session.endTime = endTime
         session.updatedAt = endTime
 
@@ -513,7 +515,38 @@ private extension WorkoutSessionController {
 
     func updateMetrics(from snapshot: PedometerSnapshot) async {
         guard !isTerminatingSession, case .active = state else { return }
-        guard let session = activeSession, var metrics else { return }
+        guard let metrics = applyMetrics(from: snapshot) else { return }
+        let updateDate = metrics.lastUpdated
+
+        if shouldPersistMetrics() {
+            do {
+                try saveModelContext(modelContext)
+                lastPersistedAt = updateDate
+            } catch {
+                Loggers.workouts.error("workout.metrics_save_failed", metadata: ["error": error.localizedDescription])
+            }
+        }
+
+        if shouldUpdateLiveActivity(steps: metrics.steps, at: updateDate) {
+            let distanceKilometers = metrics.distance / 1000
+            await liveActivityManager.update(
+                steps: metrics.steps,
+                distance: distanceKilometers,
+                calories: metrics.calories
+            )
+            lastLiveActivityUpdateAt = updateDate
+            lastLiveActivityUpdateSteps = metrics.steps
+        }
+    }
+
+    func captureLatestMetrics() {
+        guard case .active = state, let snapshot = metricsSource.currentSnapshot() else { return }
+        // Capture the source's latest callback before a segment ends, without suspending the transition.
+        _ = applyMetrics(from: snapshot)
+    }
+
+    func applyMetrics(from snapshot: PedometerSnapshot) -> WorkoutMetrics? {
+        guard let session = activeSession, var metrics else { return nil }
 
         let totalSteps = accumulatedSteps + snapshot.steps
         let totalDistance = accumulatedDistance + snapshot.distance
@@ -530,26 +563,7 @@ private extension WorkoutSessionController {
         session.distance = totalDistance
         session.activeCalories = calories
         session.updatedAt = updateDate
-
-        if shouldPersistMetrics() {
-            do {
-                try saveModelContext(modelContext)
-                lastPersistedAt = updateDate
-            } catch {
-                Loggers.workouts.error("workout.metrics_save_failed", metadata: ["error": error.localizedDescription])
-            }
-        }
-
-        if shouldUpdateLiveActivity(steps: totalSteps, at: updateDate) {
-            let distanceKilometers = totalDistance / 1000
-            await liveActivityManager.update(
-                steps: totalSteps,
-                distance: distanceKilometers,
-                calories: calories
-            )
-            lastLiveActivityUpdateAt = updateDate
-            lastLiveActivityUpdateSteps = totalSteps
-        }
+        return metrics
     }
 
     func shouldPersistMetrics() -> Bool {

@@ -5,6 +5,7 @@ struct BadgesView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isPresented) private var isPresented
     @State private var activeSheet: BadgeSheet?
+    @State private var presentedCelebrationBadge: BadgeType?
     
     private let columns = [
         GridItem(.adaptive(minimum: 150), spacing: DesignTokens.Spacing.md)
@@ -71,14 +72,13 @@ struct BadgesView: View {
                 }
                 updateCelebrationSheet()
             }
-            .sheet(item: $activeSheet) { sheet in
+            .sheet(item: $activeSheet, onDismiss: celebrationSheetDidDismiss) { sheet in
                 switch sheet {
                 case .celebration(let badgeType, let celebration):
                     BadgeCelebrationSheet(
                         badgeType: badgeType,
                         celebration: celebration,
                         onDismiss: {
-                            badgeService.dismissCelebration()
                             activeSheet = nil
                         }
                     )
@@ -193,9 +193,20 @@ struct BadgesView: View {
     }
 
     private func updateCelebrationSheet() {
-        guard let badgeType = badgeService.celebratingBadge,
+        guard activeSheet == nil, presentedCelebrationBadge == nil,
+              let badgeType = badgeService.celebratingBadge,
               let celebration = badgeService.pendingCelebration else { return }
+        presentedCelebrationBadge = badgeType
         activeSheet = .celebration(badgeType, celebration)
+    }
+
+    private func celebrationSheetDidDismiss() {
+        if let presentedCelebrationBadge,
+           badgeService.celebratingBadge == presentedCelebrationBadge {
+            badgeService.dismissCelebration()
+        }
+        presentedCelebrationBadge = nil
+        updateCelebrationSheet()
     }
 }
 

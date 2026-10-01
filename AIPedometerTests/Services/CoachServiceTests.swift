@@ -53,6 +53,38 @@ struct CoachServiceTests {
         #expect(builderCalls == 2)
     }
 
+    @Test("Retry gives the replacement session the conversation visible before the failed turn")
+    @MainActor
+    func retryPreservesPriorConversation() async {
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.availability = .available
+        let firstSession = SucceedThenFailSession()
+        let replacementSession = RetrySession(chunks: ["The second option is now easier."])
+        var builderCalls = 0
+        let service = CoachService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            sessionBuilder: { _, _ in
+                defer { builderCalls += 1 }
+                return builderCalls == 0 ? firstSession : replacementSession
+            }
+        )
+        await service.send(message: "Give me two walking options")
+        await service.send(message: "Make the second option easier")
+        #expect(service.lastError != nil)
+        await service.retryLastMessage()
+
+        let retryPrompt = replacementSession.prompts.first ?? ""
+        #expect(retryPrompt.contains("Give me two walking options"))
+        #expect(retryPrompt.contains("Option one: a flat park. Option two: a steep hill."))
+        #expect(retryPrompt.hasSuffix("Make the second option easier"))
+        #expect(service.messages.count == 4)
+        #expect(service.lastError == nil)
+        await service.send(message: "What about option one?")
+        #expect(replacementSession.prompts.last == "What about option one?")
+    }
+
     @Test("Foreground refresh keeps the live session so a follow-up turn keeps its context")
     @MainActor
     func refreshSessionReusesExistingSession() async {
@@ -290,6 +322,24 @@ private final class RetrySession: CoachSessionProtocol {
                 for chunk in chunks {
                     continuation.yield(chunk)
                 }
+                continuation.finish()
+            }
+        }
+    }
+}
+
+@MainActor
+private final class SucceedThenFailSession: CoachSessionProtocol {
+    private var calls = 0
+
+    func streamResponse(to _: String) -> AsyncThrowingStream<String, any Error> {
+        calls += 1
+        let shouldFail = calls > 1
+        return AsyncThrowingStream { continuation in
+            if shouldFail {
+                continuation.finish(throwing: AIServiceError.generationFailed(underlying: "test failure"))
+            } else {
+                continuation.yield("Option one: a flat park. Option two: a steep hill.")
                 continuation.finish()
             }
         }

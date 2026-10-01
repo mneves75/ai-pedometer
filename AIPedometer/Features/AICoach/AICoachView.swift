@@ -499,11 +499,11 @@ struct FlowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = layout(proposal: proposal, subviews: subviews)
         for (index, position) in result.positions.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
+            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: result.childProposal)
         }
     }
 
-    private func layout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
+    private func layout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint], childProposal: ProposedViewSize) {
         let maxWidth = proposal.width ?? .infinity
         let childProposal = maxWidth.isFinite ? ProposedViewSize(width: maxWidth, height: nil) : .unspecified
         var positions: [CGPoint] = []
@@ -527,7 +527,7 @@ struct FlowLayout: Layout {
             maxX = max(maxX, currentX - spacing)
         }
 
-        return (CGSize(width: maxX, height: currentY + lineHeight), positions)
+        return (CGSize(width: maxX, height: currentY + lineHeight), positions, childProposal)
     }
 }
 

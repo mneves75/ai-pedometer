@@ -25,6 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `owner-iPhone` instead of its personal name. Git history keeps earlier text (published history is
   not rewritten). No change to the app binary, so no version bump.
 
+## [1.0.10] - 2026-10-01
+
+Candidate build 70. TestFlight processing and group availability have not yet been verified.
+
+### Fixed
+
+- Workout pause and finish capture the latest motion totals, including retries after a failed save. Live distance updates respect a manually selected stride length.
+- AI Coach retries retain completed conversation turns. Suggested questions use the same width when measured and placed.
+- Imported GPX tracks, track segments and routes keep their boundaries: gaps no longer add distance, elevation gain or connecting map lines. Replacing a route updates its preview camera. Previously imported files need reimporting to recover boundaries.
+- Swiping away a badge celebration releases its presentation state. Active workouts provide navigation for the Discard action.
+- Simulator evidence fails when launch or screenshot capture fails and installs the selected watch app before capture.
+
+### Security and verification
+
+- The local screenshot renderer confines requests to its document root, including symlinks, and rejects malformed URL encoding without terminating the server.
+- Added regressions for workout and distance boundaries, coach retry context, segmented GPX persistence, badge dismissal, workout discard and simulator/HTTP failure controls.
+
 ## [1.0.9] - 2026-09-30
 
 Internal TestFlight beta `v1.0.9-beta1` is processed and assigned to the existing Internal Testers group. A separate local installation of the development-signed Release archive reports `installed=true` without uninstalling; installed-version, foreground UI and upgrade-preservation observations remain blocked on access to the unlocked owner-iPhone. Physical acceptance and App Store production delivery remain pending.

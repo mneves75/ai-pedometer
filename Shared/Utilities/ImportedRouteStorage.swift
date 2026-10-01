@@ -21,7 +21,8 @@ enum ImportedRouteStorage {
             elevationGainMeters: route.elevationGainMeters,
             elevationLossMeters: route.elevationLossMeters,
             estimatedDuration: route.estimatedDuration,
-            previewPoints: route.previewPoints
+            previewPoints: route.previewPoints,
+            previewSegmentLengths: route.previewSegmentLengths
         )
     }
 

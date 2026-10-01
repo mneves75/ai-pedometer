@@ -128,8 +128,10 @@ struct WorkoutsView: View {
         .toolbarVisibility(.hidden, for: .navigationBar)
         .background(DesignTokens.Colors.surfaceGrouped)
         .sheet(isPresented: $workoutController.isPresenting) {
-            ActiveWorkoutView()
-                .presentationDetents([.large])
+            NavigationStack {
+                ActiveWorkoutView()
+            }
+            .presentationDetents([.large])
         }
         .fileImporter(
             isPresented: $isImportingRoute,
@@ -701,7 +703,7 @@ private struct ImportedRouteSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            RoutePreview(points: route.previewPoints)
+            RoutePreview(segments: route.previewSegments)
                 .frame(height: DesignTokens.Sizing.routePreviewHeight)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
@@ -764,12 +766,18 @@ private struct ImportedRouteSummary: View {
 }
 
 struct RoutePreview: View {
-    let points: [RouteCoordinate]
+    let segments: [[RouteCoordinate]]
+
+    private var coordinateSegments: [[CLLocationCoordinate2D]] {
+        segments.map { segment in
+            segment.map { point in
+                CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
+            }
+        }
+    }
 
     private var coordinates: [CLLocationCoordinate2D] {
-        points.map { point in
-            CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
-        }
+        coordinateSegments.flatMap { $0 }
     }
 
     private var startCoordinate: CLLocationCoordinate2D? {
@@ -798,9 +806,10 @@ struct RoutePreview: View {
     }
 
     var body: some View {
-        Map(initialPosition: cameraPosition) {
-            if coordinates.count >= 2 {
-                MapPolyline(coordinates: coordinates)
+        let lineSegments = coordinateSegments.filter { $0.count >= 2 }
+        Map(position: .constant(cameraPosition)) {
+            ForEach(lineSegments.indices, id: \.self) { index in
+                MapPolyline(coordinates: lineSegments[index])
                     .stroke(DesignTokens.Colors.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
             }
 

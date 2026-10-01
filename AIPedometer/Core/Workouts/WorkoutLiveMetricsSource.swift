@@ -4,6 +4,7 @@ import Foundation
 protocol WorkoutLiveMetricsSource: Sendable {
     func start(from startDate: Date) throws
     func stop()
+    func currentSnapshot() -> PedometerSnapshot?
     func snapshot() async throws -> PedometerSnapshot
 }
 
@@ -46,5 +47,9 @@ final class MotionLiveMetricsSource: WorkoutLiveMetricsSource {
             return latestSnapshot
         }
         throw MotionError.noData
+    }
+
+    func currentSnapshot() -> PedometerSnapshot? {
+        latestSnapshot
     }
 }
