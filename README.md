@@ -197,6 +197,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 The subsequent pre-commit autoreview found unbounded Coach context replay and restoration of exhausted replay after further failures. Their correction passes all 682 unit tests, including large-history, repeated-overflow and exhausted-budget regressions. Retry sends bounded recent excerpts; older visible messages remain in the app but may be omitted from model context. The existing build 70 archive, iOS simulator video and owner-device installation predate this correction and do not verify the updated source. Real Foundation Models recovery remains a physical-device verification gap.
 
+**Stable verification (2026-10-02)**: Xcode 27.0/iOS 27.0 passes all 682 unit tests and 33 of 34 UI tests. The save-error alert accessibility audit still fails, so TestFlight remains held. Existing large-iPad audit filters limit contrast coverage; passing audits do not disprove earlier beta-runtime failures. A new 11m47s recording captures the native iOS screen, with a short gap between capture parts; it documents this failed full suite. The [daily journal](memory/2026-10-02.md) records raw results, video hashes and the task-local workaround for the upstream actionlint deadlock.
+
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License

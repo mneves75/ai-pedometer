@@ -92,7 +92,16 @@ final class AIPedometerUITests: XCTestCase {
 
         d.app.buttons[A11yID.Onboarding.skipButton].tap()
 
-        XCTAssertTrue(d.app.alerts.firstMatch.waitForExistence(timeout: navigationTimeout))
+        let alert = d.app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: navigationTimeout))
+        let errorTitles = try localizedStringCatalogValues(for: "Unable to save goal. Please try again.")
+        let errorText = alert.staticTexts.matching(NSPredicate(format: "label IN %@", errorTitles)).firstMatch
+        XCTAssertTrue(errorText.waitForExistence(timeout: navigationTimeout), "Save-error title must be exposed to accessibility")
+        let hierarchy = XCTAttachment(string: d.app.debugDescription)
+        hierarchy.name = "Save-error alert accessibility hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        d.captureScreen(named: "Onboarding - Save-error alert")
         try performSystemAlertAccessibilityAudit(on: d.app)
         XCTAssertTrue(d.waitForOnboardingShell(timeout: navigationTimeout))
         XCTAssertFalse(d.waitForMainShell(timeout: 1))
@@ -359,6 +368,10 @@ final class AIPedometerUITests: XCTestCase {
                 return true
             }
 
+            let diagnostic = XCTAttachment(string: "Audit type: \(issue.auditType)\nElement: \(String(describing: issue.element))\n\(app.debugDescription)")
+            diagnostic.name = "Unhandled accessibility audit issue"
+            diagnostic.lifetime = .keepAlways
+            self.add(diagnostic)
             return false
         }
     }
