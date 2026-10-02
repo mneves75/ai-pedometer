@@ -43,6 +43,7 @@ Candidate build 70. TestFlight processing and group availability have not yet be
 - The local screenshot renderer confines requests to its document root, including symlinks, and rejects malformed URL encoding without terminating the server.
 - Added regressions for workout and distance boundaries, coach retry context, segmented GPX persistence, badge dismissal, workout discard and simulator/HTTP failure controls.
 - UI-test launches clear previous fixture arguments and explicitly reset onboarding completion, so repeated launches can return to the welcome flow.
+- The onboarding skip E2E waits for hit-test readiness and saves screen/hierarchy evidence on timeout. Swift build-setting validation consumes its full definition list, avoiding false unknown-setting failures from `SIGPIPE` under `pipefail`.
 
 ## [1.0.9] - 2026-09-30
 

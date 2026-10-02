@@ -55,7 +55,16 @@ final class AIPedometerUITests: XCTestCase {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: false)
 
-        XCTAssertTrue(d.app.buttons[A11yID.Onboarding.skipButton].isHittable)
+        let skipButton = d.app.buttons[A11yID.Onboarding.skipButton]
+        let skipIsHittable = skipButton.wait(for: \.isHittable, toEqual: true, timeout: navigationTimeout)
+        if !skipIsHittable {
+            d.captureScreen(named: "Onboarding - Skip not hittable")
+            let hierarchy = XCTAttachment(string: d.app.debugDescription)
+            hierarchy.name = "Onboarding skip readiness accessibility hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertTrue(skipIsHittable)
         UITestWait.tapFirstExisting(
             [d.app.buttons[A11yID.Onboarding.skipButton]],
             timeout: navigationTimeout

@@ -64,7 +64,9 @@ declared="$(rg -o '^\s*(SWIFT_[A-Z0-9_]+)\s*:' --replace '$1' "${PROJECT_FILE}" 
 unknown=()
 while IFS= read -r setting; do
   [[ -n "${setting}" ]] || continue
-  if ! printf '%s\n' "${known}" | grep -qx "${setting}"; then
+  # Consume the full list: grep -q exits early and can SIGPIPE printf under
+  # pipefail, falsely rejecting a defined setting when the list fills the pipe.
+  if ! printf '%s\n' "${known}" | grep -x "${setting}" >/dev/null; then
     unknown+=("${setting}")
   fi
 done <<<"${declared}"
