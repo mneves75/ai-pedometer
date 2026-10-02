@@ -193,6 +193,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Beta delivery (2026-09-30)**: `v1.0.9-beta1` identifies commit `c78a421`, uploaded as 1.0.9 (69). App Store Connect reports processing `VALID`, `APP_STORE_ELIGIBLE`, explicit assignment to the existing Internal Testers group and `READY_FOR_BETA_TESTING`. This confirms internal TestFlight availability. A separate local installation of the verified, development-signed Release archive on the owner's USB-connected iPhone reports `installed=true`; no uninstall occurred. The installer exited 1 at post-install verification. One Argent launch reported success without an app accessibility tree, and subsequent launch attempts report that the phone is locked. Installed-version, foreground UI and upgrade-preservation observations await an unlocked phone with the app in the foreground. This local installation does not establish access through the phone's current TestFlight account. Version 1.0.9 has not been submitted or released to the App Store. TestFlight review validation also reports missing contact first name, last name, email and phone.
 
+**Verification of 1.0.10 (2026-10-01)**: TestFlight delivery is held. All 679 unit tests and two focused onboarding UI regressions pass, but the final independent full iPad UI suite passed 31/34 tests, with three unresolved native accessibility audits. The complete E2E video is saved privately under ignored `.argent/recordings/`; the [daily journal](memory/2026-10-01.md) records its path, hash and capture gap.
+
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
