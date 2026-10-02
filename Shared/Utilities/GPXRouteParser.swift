@@ -89,7 +89,7 @@ enum GPXRouteParser {
         // Defense in depth: disable XML external entity resolution and DTD lookup so that a
         // hostile GPX cannot trigger network requests or local file reads via XXE.
         parser.shouldResolveExternalEntities = false
-        parser.shouldProcessNamespaces = false
+        parser.shouldProcessNamespaces = true
         parser.shouldReportNamespacePrefixes = false
 
         guard parser.parse() else {
@@ -224,6 +224,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
     private var textBufferCount = 0
     private var currentPoint: MutablePoint?
     private var waypointDepth = 0
+    private var extensionsDepth = 0
     private var startsNewSegment = true
 
     private(set) var routeName: String?
@@ -248,6 +249,13 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         textBuffer = ""
         textBufferCount = 0
         if aborted { return }
+
+        // GPX extensions may reuse core element names in a foreign namespace.
+        // Their contents must not replace points or create segment boundaries.
+        if extensionsDepth > 0 || elementName == "extensions" {
+            extensionsDepth += 1
+            return
+        }
 
         switch elementName {
         case "trk", "trkseg", "rte":
@@ -293,6 +301,12 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         qualifiedName _: String?
     ) {
         if aborted { return }
+        if extensionsDepth > 0 {
+            extensionsDepth -= 1
+            textBuffer = ""
+            textBufferCount = 0
+            return
+        }
         let value = textBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch elementName {

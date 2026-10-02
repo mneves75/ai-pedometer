@@ -4,6 +4,28 @@ import Testing
 @testable import AIPedometer
 
 struct GPXRouteParserTests {
+    @Test("Foreign GPX extensions cannot change core route geometry", arguments: ["trk", "trkseg", "rte"], [false, true])
+    func foreignExtensionsPreserveGeometry(boundaryName: String, prefixedExtensions: Bool) throws {
+        let extensionsName = prefixedExtensions ? "g:extensions" : "extensions"
+        let route = try GPXRouteParser.parse(data: Data("""
+        <gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="AIPedometerTests">
+        <metadata><name>Continuous route</name></metadata>
+        <trk><trkseg>
+        <trkpt lat="0" lon="0"><ele>10</ele></trkpt>
+        <trkpt lat="0" lon="0.001"><ele>15</ele>
+          <\(extensionsName) xmlns:g="http://www.topografix.com/GPX/1/1"><\(boundaryName) xmlns="urn:synthetic-gpx-extension">
+            <name>Extension name</name><ele>1000</ele>
+          </\(boundaryName)></\(extensionsName)>
+        </trkpt>
+        </trkseg></trk></gpx>
+        """.utf8), sourceFilename: "extended.gpx")
+        #expect(route.name == "Continuous route")
+        #expect(route.pointCount == 2)
+        #expect(abs(route.distanceMeters - 111.194927) < 0.001)
+        #expect(route.elevationGainMeters == 5)
+        #expect(route.previewSegments.count == 1)
+    }
+
     @Test("Disconnected GPX spans do not contribute connecting distance or elevation")
     func disconnectedSpansExcludeGaps() throws {
         for containers in [

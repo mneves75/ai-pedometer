@@ -34,6 +34,7 @@ Candidate build 70. TestFlight processing and group availability have not yet be
 - Workout pause and finish capture the latest motion totals, including retries after a failed save. Live distance updates respect a manually selected stride length.
 - AI Coach retries retain completed conversation turns. Suggested questions use the same width when measured and placed.
 - Imported GPX tracks, track segments and routes keep their boundaries: gaps no longer add distance, elevation gain or connecting map lines. Replacing a route updates its preview camera. Previously imported files need reimporting to recover boundaries.
+- GPX extensions, including namespace-prefixed containers, cannot replace core route points or introduce false segment boundaries.
 - Swiping away a badge celebration releases its presentation state. Active workouts provide navigation for the Discard action.
 - Simulator evidence fails when launch or screenshot capture fails and installs the selected watch app before capture.
 
@@ -41,6 +42,7 @@ Candidate build 70. TestFlight processing and group availability have not yet be
 
 - The local screenshot renderer confines requests to its document root, including symlinks, and rejects malformed URL encoding without terminating the server.
 - Added regressions for workout and distance boundaries, coach retry context, segmented GPX persistence, badge dismissal, workout discard and simulator/HTTP failure controls.
+- UI-test launches clear previous fixture arguments and explicitly reset onboarding completion, so repeated launches can return to the welcome flow.
 
 ## [1.0.9] - 2026-09-30
 

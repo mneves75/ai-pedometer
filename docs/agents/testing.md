@@ -46,6 +46,14 @@ named for another repository is not an available test destination.
 
 `AIPedometerUITests/Support/AppDriver.swift` owns deterministic launch/reset and fixture flags. Use its synthetic data instead of personal HealthKit data. Debug overrides are disabled in Release. The `-seed-badge-celebration` fixture also requires UI-testing mode and seeds only synthetic badges for the dismissal regression. Keep stable accessibility identifiers as the primary selectors and retain xcresult screenshots when a UI check fails.
 
+Each `AppDriver.launch` starts with fresh fixture arguments; persistence checks
+relaunch the existing app directly after removing `-reset-state`. The test reset
+explicitly clears onboarding completion as well as its persisted domains. Keep
+the launch-transition regression so skip/AI flags cannot leak into a later flow.
+Argent review videos live locally under ignored `.argent/recordings/`; verify
+decoding and retain the matching xcresult. A video of a failed run is evidence of
+that failure, not a passing release gate.
+
 Run relevant onboarding, five-tab navigation, AI unavailable, workout start/end/recovery and settings flows on iPhone; include iPad for layout/navigation changes. Use Argent for manual app interaction and accessibility discovery. Real motion, HealthKit permissions/export, notification delivery, paired watch UI and StoreKit sandbox transactions need an explicitly selected device and remain unverified until exercised there.
 
 Do not add another E2E runner merely to duplicate XCUITest. Add a saved Argent flow when a repeated manual path lacks coverage; record before walking the path and require stable replay evidence.

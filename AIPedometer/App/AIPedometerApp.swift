@@ -264,6 +264,7 @@ struct AIPedometerApp: App {
         if let suiteDefaults = UserDefaults(suiteName: AppConstants.appGroupID) {
             suiteDefaults.removePersistentDomain(forName: AppConstants.appGroupID)
         }
+        UserDefaults.standard.set(false, forKey: AppConstants.UserDefaultsKeys.onboardingCompleted)
         PersistenceController.resetStore()
     }
 

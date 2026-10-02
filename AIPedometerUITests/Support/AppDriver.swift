@@ -45,10 +45,10 @@ final class AppDriver {
         useProductionGlass: Bool = false,
         extraLaunchArguments: [String] = []
     ) {
-        app.launchArguments.append(contentsOf: [
+        app.launchArguments = [
             "-ui-testing",
             "-reset-state",
-        ])
+        ]
         if skipOnboarding {
             app.launchArguments.append("-skip-onboarding")
         }

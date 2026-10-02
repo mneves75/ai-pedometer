@@ -15,6 +15,20 @@ final class AIPedometerUITests: XCTestCase {
         d.assertDashboardLoaded()
     }
 
+    func testLaunchOverridesDoNotLeakAcrossDriverSessions() throws {
+        let app = XCUIApplication()
+        let first = AppDriver(test: self, app: app)
+        first.launch(skipOnboarding: true, forceAIUnavailable: true)
+        first.assertDashboardLoaded()
+
+        let next = AppDriver(test: self, app: app)
+        next.launch(skipOnboarding: false)
+        XCTAssertTrue(next.waitForOnboardingShell(timeout: navigationTimeout))
+        XCTAssertFalse(app.launchArguments.contains("-skip-onboarding"))
+        XCTAssertFalse(app.launchArguments.contains("-force-ai-unavailable"))
+        next.captureScreen(named: "Fresh driver - Onboarding")
+    }
+
     func testOnboardingFlowReachesMainTabs() throws {
         let d = AppDriver(test: self)
         d.launch(skipOnboarding: false)
