@@ -195,6 +195,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Verification of 1.0.10 (2026-10-01)**: TestFlight delivery is held. All 679 unit tests and two focused onboarding UI regressions pass, but the final independent full iPad UI suite passed 31/34 tests, with three unresolved native accessibility audits. The complete E2E video is saved privately under ignored `.argent/recordings/`; the [daily journal](memory/2026-10-01.md) records its path, hash and capture gap.
 
+The subsequent pre-commit autoreview found unbounded Coach context replay and restoration of exhausted replay after further failures. Their correction passes all 682 unit tests, including large-history, repeated-overflow and exhausted-budget regressions. Retry sends bounded recent excerpts; older visible messages remain in the app but may be omitted from model context. The existing build 70 archive, iOS simulator video and owner-device installation predate this correction and do not verify the updated source. Real Foundation Models recovery remains a physical-device verification gap.
+
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License

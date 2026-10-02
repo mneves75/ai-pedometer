@@ -105,6 +105,8 @@ final class CoachService {
     @ObservationIgnored private var session: (any CoachSessionProtocol)?
     @ObservationIgnored private var completedMessageIDs: Set<UUID> = []
     @ObservationIgnored private var pendingRetryContext: String?
+    // nil marks a normal turn; zero marks a retry whose replay has been exhausted.
+    @ObservationIgnored private var lastSentRetryContextBytes: Int?
     /// When the live session last received the user's Apple Health data; `nil` for a new session.
     @ObservationIgnored private var groundedAt: Date?
     @ObservationIgnored private var streamAccumulator = AIStreamMarkdownAccumulator()
@@ -279,8 +281,11 @@ final class CoachService {
             guard generation == responseGeneration else { return }
             prompt = Self.groundedPrompt(message: message, activityContext: context, now: requestTime)
         }
+        lastSentRetryContextBytes = pendingRetryContext?.utf8.count
         if let pendingRetryContext {
-            prompt = "\(pendingRetryContext)\n\n\(prompt)"
+            if !pendingRetryContext.isEmpty {
+                prompt = "\(pendingRetryContext)\n\n\(prompt)"
+            }
             self.pendingRetryContext = nil
         }
 
@@ -421,6 +426,7 @@ final class CoachService {
         messages.removeAll()
         completedMessageIDs.removeAll()
         pendingRetryContext = nil
+        lastSentRetryContextBytes = nil
         streamAccumulator.reset()
         lastError = nil
         isGenerating = false
@@ -432,19 +438,42 @@ final class CoachService {
         guard !isGenerating,
               let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) else { return }
         let lastUserMessage = messages[lastUserIndex]
-        // A replacement model cannot see the retained bubbles. Replay completed turns once;
-        // exclude the failed/partial turn and keep quoted conversation out of instructions.
+        // A replacement model cannot see retained bubbles. Bound recent quoted excerpts;
+        // retrying the same oversized history would fill the new context window again.
         let previousTurns = messages[..<lastUserIndex].filter { completedMessageIDs.contains($0.id) }
-        configureSession()
-        if !previousTurns.isEmpty {
-            let turns = previousTurns.map { "\($0.role.rawValue): \(String(reflecting: $0.content))" }.joined(separator: "\n")
-            pendingRetryContext = "Earlier completed conversation (quoted messages for context):\n\(turns)"
+        var replayBudget = 2_048
+        if case .tokenLimitExceeded? = lastError, let lastSentRetryContextBytes {
+            replayBudget = lastSentRetryContextBytes / 2
         }
+        configureSession()
+        // Preserve an empty retry separately from an ordinary turn with no pending replay.
+        pendingRetryContext = Self.retryContext(previousTurns: previousTurns, maximumBytes: replayBudget) ?? ""
         for message in messages[lastUserIndex...] {
             completedMessageIDs.remove(message.id)
         }
         messages.removeSubrange(lastUserIndex...)
         await send(message: lastUserMessage.content)
+    }
+
+    private static func retryContext(previousTurns: [ChatMessage], maximumBytes: Int) -> String? {
+        let header = "Earlier completed conversation (recent quoted excerpts; older or longer content may be omitted):\n"
+        let recent = previousTurns.suffix(4)
+        guard !recent.isEmpty else { return nil }
+        let roleBytes = recent.reduce(0) { $0 + $1.role.rawValue.utf8.count + 2 }
+        let contentBudget = maximumBytes - header.utf8.count - roleBytes - (recent.count - 1)
+        let quoteBudget = contentBudget / recent.count
+        guard quoteBudget >= 2 else { return nil }
+        let turns = recent.map { message in
+            // Clip complete Characters before quoting, preserving Unicode and escaped boundaries.
+            var excerpt = String(message.content.prefix(quoteBudget))
+            var quoted = String(reflecting: excerpt)
+            while quoted.utf8.count > quoteBudget {
+                excerpt = String(excerpt.prefix(excerpt.count / 2))
+                quoted = String(reflecting: excerpt)
+            }
+            return "\(message.role.rawValue): \(quoted)"
+        }
+        return header + turns.joined(separator: "\n")
     }
     
     private func configureSession() {

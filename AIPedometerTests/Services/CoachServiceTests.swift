@@ -85,6 +85,97 @@ struct CoachServiceTests {
         #expect(replacementSession.prompts.last == "What about option one?")
     }
 
+    @Test("Retry limits large completed history while retaining recent quoted context", arguments: ["walking ", "ação 👩🏽‍💻 \"\n"])
+    @MainActor
+    func retryBoundsLargeCompletedConversation(repeatedText: String) async {
+        let original = ContextWindowSession(successfulCalls: 3, response: "RECENT OPTION: " + String(repeating: repeatedText, count: 2_000))
+        let replacement = ContextWindowSession(successfulCalls: .max, maximumReplayBytes: 2_048, response: "Recovered")
+        var builds = 0
+        let service = CoachService(
+            foundationModelsService: MockFoundationModelsService(),
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            sessionBuilder: { _, _ in
+                defer { builds += 1 }
+                return builds == 0 ? original : replacement
+            }
+        )
+        for index in 1...3 { await service.send(message: "Question \(index)") }
+        await service.send(message: "Make the recent option easier")
+        #expect(service.lastError != nil)
+        await service.retryLastMessage()
+        #expect(service.lastError == nil)
+        #expect(service.messages.count == 8)
+        #expect(service.messages.first?.content == "Question 1")
+        let prompt = replacement.prompts.first ?? ""
+        #expect(ContextWindowSession.replayBytes(in: prompt) <= 2_048)
+        #expect(prompt.contains("RECENT OPTION:"))
+        #expect(prompt.contains(Self.messageHeading))
+        #expect(prompt.hasSuffix("Make the recent option easier"))
+    }
+
+    @Test("Repeated context-limit retries shrink replay until the replacement request fits")
+    @MainActor
+    func retryReducesReplayAfterRepeatedContextOverflow() async {
+        let original = ContextWindowSession(successfulCalls: 1, response: "RECENT OPTION: " + String(repeating: "walk ", count: 2_000))
+        let replacement = ContextWindowSession(successfulCalls: .max, maximumReplayBytes: 96, response: "Recovered")
+        var builds = 0
+        let service = CoachService(
+            foundationModelsService: MockFoundationModelsService(),
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            sessionBuilder: { _, _ in
+                defer { builds += 1 }
+                return builds == 0 ? original : replacement
+            }
+        )
+        await service.send(message: "Suggest a walking option")
+        await service.send(message: "Make it easier")
+        for _ in 0..<8 {
+            guard service.lastError != nil else { break }
+            await service.retryLastMessage()
+        }
+        #expect(service.lastError == nil)
+        #expect(service.messages.count == 4)
+        let sizes = replacement.prompts.map { ContextWindowSession.replayBytes(in: $0) }
+        #expect(sizes.count > 1)
+        #expect(zip(sizes, sizes.dropFirst()).allSatisfy { $0.0 > $0.1 })
+        #expect(replacement.prompts.allSatisfy { $0.hasSuffix("Make it easier") })
+        #expect(replacement.prompts.allSatisfy { $0.contains(Self.messageHeading) })
+    }
+
+    @Test("An exhausted replay stays empty across failures until a new question starts")
+    @MainActor
+    func retryDoesNotRestoreExhaustedContext() async {
+        let original = ContextWindowSession(successfulCalls: 1, response: String(repeating: "Recent walking context ", count: 200))
+        let replacement = ContextWindowSession(successfulCalls: 0, response: "Unused")
+        var builds = 0
+        let service = CoachService(
+            foundationModelsService: MockFoundationModelsService(),
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: PersistenceController(inMemory: true)),
+            sessionBuilder: { _, _ in
+                defer { builds += 1 }
+                return builds == 0 ? original : replacement
+            }
+        )
+        await service.send(message: "Suggest a walking option")
+        await service.send(message: "Make it easier")
+        for _ in 0..<12 { await service.retryLastMessage() }
+        let sizes = replacement.prompts.map { ContextWindowSession.replayBytes(in: $0) }
+        guard let exhausted = sizes.firstIndex(of: 0) else {
+            Issue.record("Replay was never exhausted")
+            return
+        }
+        #expect(sizes[exhausted...].allSatisfy { $0 == 0 })
+        #expect(service.lastError != nil)
+        #expect(service.messages.first?.content == "Suggest a walking option")
+        await service.send(message: "Start a different question")
+        await service.retryLastMessage()
+        #expect(ContextWindowSession.replayBytes(in: replacement.prompts.last ?? "") > 0)
+        #expect(replacement.prompts.last?.hasSuffix("Start a different question") == true)
+    }
+
     @Test("Foreground refresh keeps the live session so a follow-up turn keeps its context")
     @MainActor
     func refreshSessionReusesExistingSession() async {
@@ -301,6 +392,39 @@ struct CoachServiceTests {
             #expect(reason == .appleIntelligenceNotEnabled)
         } else {
             Issue.record("Expected modelUnavailable error")
+        }
+    }
+}
+
+@MainActor
+private final class ContextWindowSession: CoachSessionProtocol {
+    private let successfulCalls: Int
+    private let maximumReplayBytes: Int
+    private let response: String
+    private(set) var prompts: [String] = []
+
+    init(successfulCalls: Int, maximumReplayBytes: Int = .max, response: String) {
+        self.successfulCalls = successfulCalls
+        self.maximumReplayBytes = maximumReplayBytes
+        self.response = response
+    }
+
+    static func replayBytes(in prompt: String) -> Int {
+        guard prompt.hasPrefix("Earlier completed conversation"),
+              let boundary = prompt.range(of: "\n\n") else { return 0 }
+        return prompt[..<boundary.lowerBound].utf8.count
+    }
+
+    func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
+        prompts.append(prompt)
+        let shouldFail = prompts.count > successfulCalls || Self.replayBytes(in: prompt) > maximumReplayBytes
+        return AsyncThrowingStream { continuation in
+            if shouldFail {
+                continuation.finish(throwing: AIServiceError.tokenLimitExceeded)
+            } else {
+                continuation.yield(response)
+                continuation.finish()
+            }
         }
     }
 }

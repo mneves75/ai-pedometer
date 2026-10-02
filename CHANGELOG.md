@@ -32,7 +32,7 @@ Candidate build 70. TestFlight processing and group availability have not yet be
 ### Fixed
 
 - Workout pause and finish capture the latest motion totals, including retries after a failed save. Live distance updates respect a manually selected stride length.
-- AI Coach retries retain completed conversation turns. Suggested questions use the same width when measured and placed.
+- AI Coach retries retain recent completed conversation excerpts within a bounded replay budget. Repeated context-window failures reduce replay while preserving visible messages. Suggested questions use the same width when measured and placed.
 - Imported GPX tracks, track segments and routes keep their boundaries: gaps no longer add distance, elevation gain or connecting map lines. Replacing a route updates its preview camera. Previously imported files need reimporting to recover boundaries.
 - GPX extensions, including namespace-prefixed containers, cannot replace core route points or introduce false segment boundaries.
 - Swiping away a badge celebration releases its presentation state. Active workouts provide navigation for the Discard action.
