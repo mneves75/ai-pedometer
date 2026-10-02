@@ -199,6 +199,8 @@ The subsequent pre-commit autoreview found unbounded Coach context replay and re
 
 **Stable verification (2026-10-02)**: Xcode 27.0/iOS 27.0 passes all 682 unit tests and 33 of 34 UI tests. The save-error alert accessibility audit still fails, so TestFlight remains held. Existing large-iPad audit filters limit contrast coverage; passing audits do not disprove earlier beta-runtime failures. A new 11m47s recording captures the native iOS screen, with a short gap between capture parts; it documents this failed full suite. The [daily journal](memory/2026-10-02.md) records raw results, video hashes and the task-local workaround for the upstream actionlint deadlock.
 
+The [matching source CI](https://github.com/mneves75/ai-pedometer/actions/runs/36965755223) passes 681 unit and all 34 UI tests on Xcode 26.3/iOS 26.2, with both downloaded result bundles strictly validated. This does not clear the reproduced iOS 27 audit failure. [CodeQL](https://github.com/mneves75/ai-pedometer/actions/runs/36965755185) reports zero results across 27 rules, with 123 of 197 Swift files scanned.
+
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
