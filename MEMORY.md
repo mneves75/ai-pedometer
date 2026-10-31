@@ -5,7 +5,16 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-09-24)
+## Current state (2026-10-31)
+
+- **1.0.11 (71) source** (2026-10-31, branch `chore/swift-modernization-review`): the never-uploaded 1.0.10 (70)
+  fixes plus a review of every Swift source against the Xcode 27.2 SDK (CHANGELOG [1.0.11]). App Store
+  Connect on 2026-10-31: 1.0.8 `READY_FOR_DISTRIBUTION` (live, but no `v1.0.8` tag existed), latest uploaded
+  build 1.0.9 (69). Candidate `8e11e60`: unit 682/682 on iOS 27.2 and 26.5, UI 34/34 on iOS 27.2; on iOS 26.5
+  the dashboard/workout accessibility audit flags contrast on "Planos de Treino IA" (18.5:1 measured),
+  identically on master `945ccfa` — pre-existing and runtime-specific ([journal](memory/2026-10-31.md)). Cross-model review (Sol, P3) found the alert
+  migration dropped newer items; reverted. `Config/Local.xcconfig` was missing and was recreated
+  (team `Q96FUTC5G8`).
 
 - **1.0.8 (67) is in TestFlight** (2026-09-24): build `fb000a65` `VALID` (encryption exempt), Internal
   Testers, attached to the App Store version 1.0.8 in place of 66; archive from a clean `git archive` of

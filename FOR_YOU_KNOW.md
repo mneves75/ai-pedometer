@@ -336,3 +336,20 @@ until 1.0.6 even though the formatter's comment warned about it.
   hardening, not findings: excluding the SwiftData store from backups (users would lose history on
   restore), pinning `resolvedActiveEntitlement` to one id (the alias fallback is the tested dashboard
   naming contract), and digest-binding the IPA to the archive (only the maintainer's host promotes).
+- Keep `alert(item:)` with the legacy `Alert` type in `AboutView` and `ActiveWorkoutView` until Xcode 27 is
+  the minimum toolchain. `alert(_:isPresented:presenting:)` ignores data changes after presentation, so a
+  Tip Jar purchase settling while its "pending" alert is open (or a second workout error) would be dropped
+  on dismissal; `alert(item:)` replaces the visible alert. The replacement with the same semantics,
+  `alert(_:item:)`, exists only in the Xcode 27 SDK (2026-10-31 cross-model review).
+- Declined in the 2026-10-31 SDK review, with reasons: the `HKWorkoutBuilder`/`HKSampleQuery`
+  callback-to-async rewrite (the real export path runs only on a device; tests use injected executors),
+  UIKit haptic generators → `sensoryFeedback` (27 imperative call sites tied to async outcomes), fixed SF
+  Symbol hero sizes and widget `.caption2` (a visual change that needs Dynamic Type screenshot review), and
+  splitting views into one type per file (churn without a defect).
+- On the iOS 26.5 simulator runtime, `testDashboardAndWorkoutRecoveryPassAccessibilityAudit` reports
+  contrast on "Planos de Treino IA" just above the glass tab bar although the element's own pixels measure
+  18.5:1; master fails identically (2026-10-31 journal). Before blaming a change for an audit failure,
+  build master in a task worktree and run the same test on the same simulator as a control.
+- `xcodebuild` cannot use the iPhone Duo simulator's special runtime (`iOS-27-2-iPhone19-4`, build
+  `24B91016s`): it fails with `invalidDigitCount` and "runtime is not available". Test on a regular
+  iPhone created on the standard iOS 27.2 runtime.
