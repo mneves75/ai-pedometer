@@ -61,7 +61,7 @@ final class TrainingPlanRecord {
         }
         
         let totalDuration = endDate.timeIntervalSince(startDate)
-        let elapsed = Date().timeIntervalSince(startDate)
+        let elapsed = Date.now.timeIntervalSince(startDate)
         
         guard totalDuration > 0 else { return 0 }
         return min(max(elapsed / totalDuration, 0), 1)

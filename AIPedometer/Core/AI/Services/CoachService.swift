@@ -59,7 +59,7 @@ struct ChatMessage: Identifiable, Sendable {
         id: UUID = UUID(),
         role: Role,
         content: String,
-        timestamp: Date = Date(),
+        timestamp: Date = .now,
         renderedContent: AttributedString? = nil,
         terminalError: AIServiceError? = nil
     ) {
@@ -168,7 +168,7 @@ final class CoachService {
         goalService: GoalService,
         sessionBuilder: SessionBuilder? = nil,
         liveMarkdownRenderer: LiveMarkdownRenderer? = nil,
-        now: @escaping @MainActor () -> Date = { Date() }
+        now: @escaping @MainActor () -> Date = { .now }
     ) {
         self.now = now
         self.foundationModelsService = foundationModelsService

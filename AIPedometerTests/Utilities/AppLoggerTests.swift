@@ -22,7 +22,7 @@ struct AppLoggerTests {
         #expect(parsed["level"] == "info")
         #expect(parsed["path"] == "[private]")
         #expect(parsed["steps"] == "[private]")
-        #expect(parsed["timestamp"]?.contains("1970") == true)
+        #expect(parsed["timestamp"] == "1970-01-01T00:00:00.000Z")
         #expect(parsed["code"] == nil)
     }
 

@@ -139,7 +139,7 @@ struct HealthKitDataTool: Tool, Sendable {
                 unitName,
                 Formatters.stepCountString(total / summaries.count),
                 unitName,
-                Formatters.stepCountString(summaries.filter { $0.steps >= $0.goal }.count)
+                Formatters.stepCountString(summaries.count { $0.steps >= $0.goal })
             )
         }
 

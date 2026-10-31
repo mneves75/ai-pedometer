@@ -378,11 +378,11 @@ struct DashboardView: View {
         return Circle()
             .fill(DesignTokens.Colors.inverseText)
             .frame(width: progressRingLineWidth * 0.7, height: progressRingLineWidth * 0.7)
-            .overlay(
+            .overlay {
                 Circle()
                     .fill(DesignTokens.Colors.accent)
                     .frame(width: progressRingLineWidth * 0.34, height: progressRingLineWidth * 0.34)
-            )
+            }
             .shadow(color: DesignTokens.Colors.accent.opacity(0.6), radius: DesignTokens.Spacing.sm)
             .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
             .opacity(progress > 0 ? 1 : 0)
@@ -480,7 +480,7 @@ struct DashboardView: View {
                 : [GridItem(.flexible()), GridItem(.flexible())],
             spacing: DesignTokens.Spacing.md
         ) {
-            ForEach(Array(statItems.enumerated()), id: \.element.id) { index, item in
+            ForEach(statItems.enumerated(), id: \.element.id) { index, item in
                 statCard(for: item)
                 .staggeredReveal(index: index, isRevealed: revealStats)
                 .scrollFadeIn()

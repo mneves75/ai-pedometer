@@ -591,7 +591,7 @@ struct WorkoutsView: View {
 
     @ViewBuilder
     private var recentWorkoutsCarousel: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             if LaunchConfiguration.isUITesting() {
                 workoutCardsRow
                     .padding(.horizontal, DesignTokens.Spacing.md)
@@ -649,20 +649,22 @@ struct WorkoutsView: View {
             return
         }
 
-        // Parse off the main actor. A GPX file can be up to GPXRouteParser.maxFileSizeBytes
-        // (5 MiB) and XML parsing plus coordinate decoding is CPU-bound; doing it inline in the
-        // fileImporter callback hitched the dismissal animation on large routes. `ImportedRoute`
-        // is Sendable, so the parsed value crosses back to the main actor safely.
         Task {
             do {
-                let route = try await Task.detached(priority: .userInitiated) {
-                    try GPXRouteImporter.importRoute(from: url)
-                }.value
-                importedRoute = route
+                importedRoute = try await Self.importRouteOffMainActor(from: url)
             } catch {
                 routeImportError = RouteImportError(message: error.localizedDescription)
             }
         }
+    }
+
+    /// Parses off the main actor. A GPX file can be up to GPXRouteParser.maxFileSizeBytes
+    /// (5 MiB) and XML parsing plus coordinate decoding is CPU-bound; doing it inline in the
+    /// fileImporter callback hitched the dismissal animation on large routes. `ImportedRoute`
+    /// is Sendable, so the parsed value crosses back to the main actor safely.
+    @concurrent
+    private nonisolated static func importRouteOffMainActor(from url: URL) async throws -> ImportedRoute {
+        try GPXRouteImporter.importRoute(from: url)
     }
 
     private var activePlan: TrainingPlanRecord? {

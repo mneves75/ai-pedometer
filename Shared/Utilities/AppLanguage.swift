@@ -33,7 +33,7 @@ enum AppLanguage {
     }
 
     static func supportedLanguageCode(for languageCode: String) -> String {
-        let normalized = languageCode.replacingOccurrences(of: "_", with: "-")
+        let normalized = languageCode.replacing("_", with: "-")
         let locale = Locale(identifier: normalized)
         let language = locale.language.languageCode?.identifier.lowercased()
         let region = locale.language.region?.identifier.uppercased()

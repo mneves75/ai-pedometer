@@ -299,7 +299,7 @@ final class TrainingPlanService {
             failureEvent: "ai.training_plan_pause_failed"
         ) {
             plan.status = TrainingPlanRecord.PlanStatus.paused.rawValue
-            plan.updatedAt = Date()
+            plan.updatedAt = .now
         }
     }
     
@@ -310,7 +310,7 @@ final class TrainingPlanService {
             failureEvent: "ai.training_plan_resume_failed"
         ) {
             plan.status = TrainingPlanRecord.PlanStatus.active.rawValue
-            plan.updatedAt = Date()
+            plan.updatedAt = .now
         }
     }
     
@@ -321,8 +321,8 @@ final class TrainingPlanService {
             failureEvent: "ai.training_plan_complete_failed"
         ) {
             plan.status = TrainingPlanRecord.PlanStatus.completed.rawValue
-            plan.endDate = Date()
-            plan.updatedAt = Date()
+            plan.endDate = .now
+            plan.updatedAt = .now
         }
     }
     
@@ -332,8 +332,8 @@ final class TrainingPlanService {
             successEvent: "ai.training_plan_delete",
             failureEvent: "ai.training_plan_delete_failed"
         ) {
-            plan.deletedAt = Date()
-            plan.updatedAt = Date()
+            plan.deletedAt = .now
+            plan.updatedAt = .now
         }
     }
 
@@ -406,7 +406,7 @@ private extension TrainingPlanService {
         let unitLabel = ActivitySettings.current(userDefaults: userDefaults).activityMode.unitName
         let languageInstruction = AppLanguage.promptInstruction()
         let averageSteps = recentData.isEmpty ? 0 : recentData.reduce(0) { $0 + $1.steps } / recentData.count
-        let goalMetDays = recentData.filter { $0.steps >= $0.goal }.count
+        let goalMetDays = recentData.count { $0.steps >= $0.goal }
         let dataReliabilityNote = recentData.isEmpty
             ? """
 
@@ -450,7 +450,7 @@ private extension TrainingPlanService {
         let languageInstruction = AppLanguage.promptInstruction()
         let averageSteps = recentData.isEmpty ? 0 : recentData.reduce(0) { $0 + $1.steps } / recentData.count
         let maxSteps = recentData.max(by: { $0.steps < $1.steps })?.steps ?? 0
-        let goalMetDays = recentData.filter { $0.steps >= $0.goal }.count
+        let goalMetDays = recentData.count { $0.steps >= $0.goal }
         let dataReliabilityNote = recentData.isEmpty
             ? """
 
@@ -491,7 +491,7 @@ private extension TrainingPlanService {
         record.name = aiPlan.name
         record.planDescription = aiPlan.planDescription
         record.primaryGoal = goal.rawValue
-        record.startDate = Date()
+        record.startDate = .now
         
         do {
             record.weeklyTargetsJSON = try JSONEncoder().encode(aiPlan.weeklyTargets)
@@ -649,7 +649,7 @@ private extension TrainingPlanService {
         let baseline = recentData.isEmpty
             ? goalService.currentGoal / 2
             : recentData.reduce(0) { $0 + $1.steps } / max(recentData.count, 1)
-        let goalMetDays = recentData.filter { $0.steps >= $0.goal }.count
+        let goalMetDays = recentData.count { $0.steps >= $0.goal }
         let intent: WorkoutIntent = if goalMetDays <= 2 {
             .build
         } else if goalMetDays >= 5 {

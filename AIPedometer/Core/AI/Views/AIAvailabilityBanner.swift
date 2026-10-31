@@ -45,10 +45,10 @@ struct AIAvailabilityBanner: View {
         }
         .padding(DesignTokens.Spacing.md)
         .background(backgroundColor, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
-        .overlay(
+        .overlay {
             RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                 .strokeBorder(borderColor, lineWidth: 1)
-        )
+        }
     }
     
     private var iconName: String {

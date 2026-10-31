@@ -612,7 +612,7 @@ private extension InsightService {
         
         let totalSteps = summaries.reduce(0) { $0 + $1.steps }
         let averageSteps = summaries.isEmpty ? 0 : totalSteps / summaries.count
-        let goalMetDays = summaries.filter { $0.steps >= $0.goal }.count
+        let goalMetDays = summaries.count { $0.steps >= $0.goal }
         let bestDay = summaries.max(by: { $0.steps < $1.steps })
         let worstDay = summaries.min(by: { $0.steps < $1.steps })
         

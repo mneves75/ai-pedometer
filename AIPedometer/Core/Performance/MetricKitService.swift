@@ -20,10 +20,10 @@ final class MetricKitService: NSObject {
         logger.info("MetricKit service initialized")
     }
 
-    deinit {
-        MainActor.assumeIsolated {
-            MXMetricManager.shared.remove(self)
-        }
+    // `isolated deinit` hops to the main actor if the last reference drops elsewhere;
+    // `MainActor.assumeIsolated` would trap in that case.
+    isolated deinit {
+        MXMetricManager.shared.remove(self)
     }
 }
 

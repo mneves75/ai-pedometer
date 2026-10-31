@@ -107,14 +107,6 @@ final class HealthKitAuthorization {
         let typesToRead = Self.requestedReadTypes
         let typesToWrite = Self.requestedWriteTypes
 
-        return try await withCheckedThrowingContinuation { continuation in
-            healthStore.getRequestStatusForAuthorization(toShare: typesToWrite, read: typesToRead) { status, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                continuation.resume(returning: status)
-            }
-        }
+        return try await healthStore.statusForAuthorizationRequest(toShare: typesToWrite, read: typesToRead)
     }
 }

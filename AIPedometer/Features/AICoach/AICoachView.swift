@@ -360,7 +360,7 @@ struct AICoachView: View {
     }
 
     private func scrollToBottomThrottled(proxy: ScrollViewProxy) {
-        let now = Date()
+        let now = Date.now
         guard now.timeIntervalSince(lastAutoScrollTime) >= autoScrollMinInterval else { return }
         lastAutoScrollTime = now
         scrollToBottom(proxy: proxy, animated: false)

@@ -119,7 +119,7 @@ final class GoalService: GoalServiceProtocol, Sendable {
             ])
             return false
         }
-        let now = Date()
+        let now = Date.now
         let previousActiveGoalState = activeGoals.map { goal in
             (goal: goal, endDate: goal.endDate, updatedAt: goal.updatedAt)
         }

@@ -225,7 +225,7 @@ struct PlanDetailView: View {
             }
 
             Section(L10n.localized("Weekly Targets", comment: "Training plan weekly targets section header")) {
-                ForEach(Array(plan.weeklyTargets.enumerated()), id: \.offset) { index, target in
+                ForEach(plan.weeklyTargets.enumerated(), id: \.offset) { index, target in
                     WeeklyTargetRow(
                         week: index + 1,
                         target: target,

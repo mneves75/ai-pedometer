@@ -6,7 +6,6 @@ struct ActiveWorkoutView: View {
     @State private var showDiscardConfirmation = false
 
     var body: some View {
-        @Bindable var workoutController = workoutController
         ScrollView {
             VStack(spacing: DesignTokens.Spacing.lg) {
                 statusHeader
@@ -62,13 +61,26 @@ struct ActiveWorkoutView: View {
         } message: {
             Text(L10n.localized("This will remove the workout and discard progress.", comment: "Message explaining that discarding removes progress"))
         }
-        .alert(item: $workoutController.lastError) { error in
-            Alert(
-                title: Text(L10n.localized("Workout Error", comment: "Workout error alert title")),
-                message: Text(error.localizedDescription),
-                dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
-            )
+        .alert(
+            L10n.localized("Workout Error", comment: "Workout error alert title"),
+            isPresented: isPresentingError,
+            presenting: workoutController.lastError
+        ) { _ in
+            Button(L10n.localized("OK", comment: "Dismiss alert button")) {}
+        } message: { error in
+            Text(error.localizedDescription)
         }
+    }
+
+    private var isPresentingError: Binding<Bool> {
+        Binding(
+            get: { workoutController.lastError != nil },
+            set: { isPresented in
+                if !isPresented {
+                    workoutController.lastError = nil
+                }
+            }
+        )
     }
 
     private var statusHeader: some View {

@@ -37,7 +37,7 @@ final class TipJarStore {
     private let driver: any TipJarDriver
     private var transactionTask: Task<Void, Never>?
     private let maxRetryAttempts: Int
-    private let initialRetryDelayNs: UInt64
+    private let initialRetryDelay: Duration
     private let pendingPurchaseDefaults: UserDefaults
     private let onTransactionEventHandled: @MainActor @Sendable (TipJarTransactionEvent) -> Void
     private var hasPersistedPendingPurchase: Bool
@@ -59,13 +59,13 @@ final class TipJarStore {
             logger: Loggers.app
         ),
         maxRetryAttempts: Int = 3,
-        initialRetryDelayNs: UInt64 = 500_000_000, // 0.5s
+        initialRetryDelay: Duration = .milliseconds(500),
         pendingPurchaseDefaults: UserDefaults = .standard,
         onTransactionEventHandled: @escaping @MainActor @Sendable (TipJarTransactionEvent) -> Void = { _ in }
     ) {
         self.driver = driver
         self.maxRetryAttempts = maxRetryAttempts
-        self.initialRetryDelayNs = initialRetryDelayNs
+        self.initialRetryDelay = initialRetryDelay
         self.pendingPurchaseDefaults = pendingPurchaseDefaults
         self.onTransactionEventHandled = onTransactionEventHandled
         if pendingPurchaseDefaults.string(forKey: Self.verifiedSettlementKey) != nil {
@@ -85,10 +85,10 @@ final class TipJarStore {
         startTransactionListener()
     }
 
-    deinit {
-        MainActor.assumeIsolated {
-            transactionTask?.cancel()
-        }
+    // `isolated deinit` hops to the main actor if the last reference drops elsewhere;
+    // `MainActor.assumeIsolated` would trap in that case.
+    isolated deinit {
+        transactionTask?.cancel()
     }
 
     var product: TipJarProduct? {
@@ -198,7 +198,7 @@ final class TipJarStore {
     /// Loads product with exponential backoff retry (0.5s → 1s → 2s).
     /// Returns nil if all attempts return empty products.
     private func loadProductWithRetry() async throws -> TipJarProduct? {
-        var delay = initialRetryDelayNs
+        var delay = initialRetryDelay
 
         for attempt in 1...maxRetryAttempts {
             let product = try await driver.loadProduct()
@@ -215,10 +215,10 @@ final class TipJarStore {
 
             Loggers.app.info("tip_jar.retry", metadata: [
                 "attempt": "\(attempt)",
-                "next_delay_ms": "\(delay / 1_000_000)"
+                "next_delay_ms": "\(Int(delay / .milliseconds(1)))"
             ])
 
-            try await Task.sleep(nanoseconds: delay)
+            try await Task.sleep(for: delay)
             delay *= 2
         }
 

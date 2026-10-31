@@ -82,7 +82,7 @@ struct WeeklyChartContent: View {
             }
 
             HStack(alignment: .bottom, spacing: DesignTokens.Spacing.xsPlus) {
-                ForEach(Array(data.weeklySteps.enumerated()), id: \.offset) { index, value in
+                ForEach(data.weeklySteps.enumerated(), id: \.offset) { index, value in
                     Capsule()
                         .fill(index == data.weeklySteps.count - 1 ? DesignTokens.Colors.mint : DesignTokens.Colors.mint.opacity(0.4))
                         .frame(width: 10, height: max(8, CGFloat(value) / CGFloat(maxSteps) * 70))

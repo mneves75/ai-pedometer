@@ -130,7 +130,7 @@ struct TipJarStoreTests {
         let store = TipJarStore(
             driver: driver,
             maxRetryAttempts: 1,
-            initialRetryDelayNs: 1,
+            initialRetryDelay: .nanoseconds(1),
             pendingPurchaseDefaults: makeIsolatedTipJarDefaults()
         )
 
@@ -147,7 +147,7 @@ struct TipJarStoreTests {
         let store = TipJarStore(
             driver: driver,
             maxRetryAttempts: 1,
-            initialRetryDelayNs: 1,
+            initialRetryDelay: .nanoseconds(1),
             pendingPurchaseDefaults: makeIsolatedTipJarDefaults()
         )
 
@@ -397,7 +397,7 @@ struct TipJarStoreTests {
         let store = TipJarStore(
             driver: driver,
             maxRetryAttempts: 1,
-            initialRetryDelayNs: 1,
+            initialRetryDelay: .nanoseconds(1),
             pendingPurchaseDefaults: makeIsolatedTipJarDefaults()
         )
 
@@ -594,7 +594,7 @@ private func makeLoadedTipJarStore(
     let store = TipJarStore(
         driver: driver,
         maxRetryAttempts: 1,
-        initialRetryDelayNs: 1,
+        initialRetryDelay: .nanoseconds(1),
         pendingPurchaseDefaults: resolvedDefaults,
         onTransactionEventHandled: onTransactionEventHandled
     )

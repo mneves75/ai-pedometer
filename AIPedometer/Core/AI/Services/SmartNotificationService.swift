@@ -192,7 +192,7 @@ final class SmartNotificationService {
     }
 
     private func recordNotificationSent() {
-        lastNotificationDate = Date()
+        lastNotificationDate = .now
         notificationCountToday += 1
         persistNotificationState()
     }
@@ -332,7 +332,7 @@ final class SmartNotificationService {
     }
 
     private func currentTimeOfDay() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
+        let hour = Calendar.current.component(.hour, from: .now)
         switch hour {
         case 5..<12:
             return L10n.localized("Morning", comment: "Time of day")

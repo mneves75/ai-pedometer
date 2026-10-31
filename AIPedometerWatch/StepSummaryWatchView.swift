@@ -35,7 +35,7 @@ struct StepSummaryWatchView: View {
                     VStack(spacing: DesignTokens.Spacing.xxs) {
                         Text(steps.formattedSteps)
                             .font(DesignTokens.Typography.title2Rounded)
-                            .fontWeight(.bold)
+                            .bold()
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
