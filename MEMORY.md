@@ -12,7 +12,10 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   `v1.0.11-beta1` → `af8081a`. Security gate: TestFlight PASS; App Store production BLOCKED (11 controls plus
   independent acceptance, record `.scratch/security-gate/2026-10-31-1.0.11-af8081a.md`), and the seven
   physical-device checks in the testing guide are not run. Xcode 26 compilation is unproved (only 27.2 on the
-  host); every adopted language feature is Swift 6.2. Production is the owner's decision.
+  host); every adopted language feature is Swift 6.2. On 2026-10-31 the owner waived those production
+  blockers by name for build 71 only; 1.0.11 is `WAITING_FOR_REVIEW` (version `c30c19eb`, submission
+  `eed58a0f`), release type MANUAL. After approval: `asc versions release --version-id
+  c30c19eb-4b4e-4f39-8e42-44b94275a2e6 --confirm`, then tag `v1.0.11` on `af8081a`.
 - **1.0.11 (71) source** (2026-10-31, branch `chore/swift-modernization-review`): the never-uploaded 1.0.10 (70)
   fixes plus a review of every Swift source against the Xcode 27.2 SDK (CHANGELOG [1.0.11]). App Store
   Connect on 2026-10-31: 1.0.8 `READY_FOR_DISTRIBUTION` (live, but no `v1.0.8` tag existed), latest uploaded
