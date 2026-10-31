@@ -605,6 +605,7 @@ struct WorkoutsView: View {
                     .padding(.horizontal, DesignTokens.Spacing.md)
             }
         }
+        .scrollIndicators(.hidden)
     }
 
     private var workoutCardsRow: some View {
