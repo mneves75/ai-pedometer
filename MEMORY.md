@@ -7,6 +7,12 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 
 ## Current state (2026-10-31)
 
+- **1.0.11 (71) is in TestFlight** (2026-10-31): ASC build `04bdc934` `VALID`, internal
+  `READY_FOR_BETA_TESTING`; archived from `af8081a` with Xcode 27.2, IPA SHA-256 `9d752368…3c32b8`, tag
+  `v1.0.11-beta1` → `af8081a`. Security gate: TestFlight PASS; App Store production BLOCKED (11 controls plus
+  independent acceptance, record `.scratch/security-gate/2026-10-31-1.0.11-af8081a.md`), and the seven
+  physical-device checks in the testing guide are not run. Xcode 26 compilation is unproved (only 27.2 on the
+  host); every adopted language feature is Swift 6.2. Production is the owner's decision.
 - **1.0.11 (71) source** (2026-10-31, branch `chore/swift-modernization-review`): the never-uploaded 1.0.10 (70)
   fixes plus a review of every Swift source against the Xcode 27.2 SDK (CHANGELOG [1.0.11]). App Store
   Connect on 2026-10-31: 1.0.8 `READY_FOR_DISTRIBUTION` (live, but no `v1.0.8` tag existed), latest uploaded
