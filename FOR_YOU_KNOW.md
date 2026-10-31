@@ -218,7 +218,11 @@ until 1.0.6 even though the formatter's comment warned about it.
   archive and TestFlight upload"). A `VALID` build still waits on export compliance before
   internal testers can install it; `ITSAppUsesNonExemptEncryption` answers that from 1.0.5 on.
 - Zero tests, skipped tests and inconsistent xcresult counts do not prove completion.
-  A negative gate needs a violation inside its actual path/selector scope and a
+  `xcodebuild test` refuses an existing `-resultBundlePath` (exit 64, `Existing file at
+  -resultBundlePath`) without running a test, and a summary of that path then reports the
+  previous candidate's results as if fresh. On 2026-10-31 a gate script reused its bundle
+  names and printed green counts from runs hours older than the candidate. Give every run a
+  new bundle path and read the test step's exit code before its summary. A negative gate needs a violation inside its actual path/selector scope and a
   clean control. Empty redaction output is not a useful test.
 - Identifier-scanner exemptions must name existing self/fixture paths. Obsolete
   allowlist entries can silently exempt new files from the privacy gate.
@@ -336,11 +340,13 @@ until 1.0.6 even though the formatter's comment warned about it.
   hardening, not findings: excluding the SwiftData store from backups (users would lose history on
   restore), pinning `resolvedActiveEntitlement` to one id (the alias fallback is the tested dashboard
   naming contract), and digest-binding the IPA to the archive (only the maintainer's host promotes).
-- Keep `alert(item:)` with the legacy `Alert` type in `AboutView` and `ActiveWorkoutView` until Xcode 27 is
-  the minimum toolchain. `alert(_:isPresented:presenting:)` ignores data changes after presentation, so a
-  Tip Jar purchase settling while its "pending" alert is open (or a second workout error) would be dropped
-  on dismissal; `alert(item:)` replaces the visible alert. The replacement with the same semantics,
-  `alert(_:item:)`, exists only in the Xcode 27 SDK (2026-10-31 cross-model review).
+- Keep `alert(item:)` with the legacy `Alert` type in `AboutView` and `ActiveWorkoutView`. It replaces a
+  visible alert when the item changes. `alert(_:isPresented:presenting:)` ignores data changes after
+  presentation, so a Tip Jar purchase settling while its "pending" alert is open (or a second workout
+  error) would be dropped on dismissal. The Xcode 27 SDK's `alert(_:item:)` is no way out: its inlined body
+  forwards to `alert(_:isPresented:presenting:)`, with the same loss. A migration needs its own design that
+  re-presents on a new item, plus a test proving the newer item survives (2026-10-31 cross-model review and
+  verification).
 - Declined in the 2026-10-31 SDK review, with reasons: the `HKWorkoutBuilder`/`HKSampleQuery`
   callback-to-async rewrite (the real export path runs only on a device; tests use injected executors),
   UIKit haptic generators → `sensoryFeedback` (27 imperative call sites tied to async outcomes), fixed SF
