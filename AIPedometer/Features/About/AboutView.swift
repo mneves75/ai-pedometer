@@ -43,28 +43,30 @@ struct AboutView: View {
                 break
             }
         }
-        .alert(
-            tipJarAlert?.title ?? "",
-            isPresented: isPresentingTipJarAlert,
-            presenting: tipJarAlert
-        ) { _ in
-            Button(L10n.localized("OK", comment: "Dismiss alert button")) {}
-        } message: { alert in
-            Text(alert.message)
+        .alert(item: $tipJarAlert) { alert in
+            switch alert {
+            case .success:
+                return Alert(
+                    title: Text(L10n.localized("Thanks for the coffee!", comment: "Tip jar success alert title")),
+                    message: Text(L10n.localized("Your support keeps AI Pedometer improving.", comment: "Tip jar success alert message")),
+                    dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
+                )
+            case .pending:
+                return Alert(
+                    title: Text(L10n.localized("Purchase pending", comment: "Tip jar pending alert title")),
+                    message: Text(L10n.localized("Your payment is pending approval.", comment: "Tip jar pending alert message")),
+                    dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
+                )
+            case .failed(let message):
+                return Alert(
+                    title: Text(L10n.localized("Purchase failed", comment: "Tip jar error alert title")),
+                    message: Text(message),
+                    dismissButton: .default(Text(L10n.localized("OK", comment: "Dismiss alert button")))
+                )
+            }
         }
     }
-
-    private var isPresentingTipJarAlert: Binding<Bool> {
-        Binding(
-            get: { tipJarAlert != nil },
-            set: { isPresented in
-                if !isPresented {
-                    tipJarAlert = nil
-                }
-            }
-        )
-    }
-
+    
     // MARK: - Hero
     
     private var heroSection: some View {
@@ -329,30 +331,19 @@ struct AboutView: View {
     }
 }
 
-private enum TipJarAlert {
+private enum TipJarAlert: Identifiable {
     case success
     case pending
     case failed(String)
 
-    var title: String {
+    var id: String {
         switch self {
         case .success:
-            L10n.localized("Thanks for the coffee!", comment: "Tip jar success alert title")
+            return "success"
         case .pending:
-            L10n.localized("Purchase pending", comment: "Tip jar pending alert title")
-        case .failed:
-            L10n.localized("Purchase failed", comment: "Tip jar error alert title")
-        }
-    }
-
-    var message: String {
-        switch self {
-        case .success:
-            L10n.localized("Your support keeps AI Pedometer improving.", comment: "Tip jar success alert message")
-        case .pending:
-            L10n.localized("Your payment is pending approval.", comment: "Tip jar pending alert message")
+            return "pending"
         case .failed(let message):
-            message
+            return "failed-\(message)"
         }
     }
 }

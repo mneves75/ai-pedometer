@@ -16,8 +16,6 @@ SwiftUI sources against the Xcode 27.2 SDK (soft-deprecated APIs, Swift 6.2 conc
 
 - History's empty, error, sync-off and Health-access screens use the system `ContentUnavailableView`, so
   they follow the user's text size and the platform layout. UI-test markers are unchanged.
-- The Tip Jar and workout error alerts use the current `alert(_:isPresented:presenting:)` API instead of the
-  soft-deprecated `Alert` type; titles, messages and the OK button are unchanged.
 
 ### Fixed
 
