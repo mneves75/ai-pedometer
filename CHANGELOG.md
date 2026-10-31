@@ -7,8 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-10-31
+
+Build 71. Ships the never-uploaded 1.0.10 (70) fixes below together with a review of the Swift and
+SwiftUI sources against the Xcode 27.2 SDK (soft-deprecated APIs, Swift 6.2 concurrency, accessibility).
+
+### Changed
+
+- History's empty, error, sync-off and Health-access screens use the system `ContentUnavailableView`, so
+  they follow the user's text size and the platform layout. UI-test markers are unchanged.
+- The Tip Jar and workout error alerts use the current `alert(_:isPresented:presenting:)` API instead of the
+  soft-deprecated `Alert` type; titles, messages and the OK button are unchanged.
+
+### Fixed
+
+- `TipJarStore` and `MetricKitService` release on the main actor through `isolated deinit`. The previous
+  `MainActor.assumeIsolated` in `deinit` would trap if the last reference were dropped off the main actor.
+- The log timestamp formatter is the Sendable `Date.ISO8601FormatStyle` instead of a shared
+  `ISO8601DateFormatter` marked `nonisolated(unsafe)`. The rendered format is unchanged (a test pins
+  `1970-01-01T00:00:00.000Z`); sub-millisecond values now truncate instead of rounding.
+- GPX parsing runs in a `@concurrent` function instead of `Task.detached`; HealthKit's authorization request
+  status uses the SDK's async API instead of a hand-written continuation; the Tip Jar retry backoff is a
+  `Duration` (`Task.sleep(for:)`).
+- Smaller modernizations: builder-closure `overlay`, `scrollIndicators`, `ForEach` over `enumerated()`
+  without an `Array` copy (iOS 26), `count(where:)`, `replacing(_:with:)`, `Date.now`, `bold()` on watchOS.
+
 ### Store
 
+- Listing folder renamed to `store/app-store/version/1.0.11/` with What's New text in en-US and pt-BR.
 - App Store Connect for 1.0.8: the Tip Jar consumable `com.mneves.aipedometer.coffee` exists at R$ 9,90
   (en-US and pt-BR names matching the app's button, review screenshot), the never-submitted Premium
   subscriptions are deleted, age rating, content rights and App Review notes are filled, and Apple Watch
@@ -27,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.10] - 2026-10-01
 
-Candidate build 70. TestFlight processing and group availability have not yet been verified.
+Candidate build 70 was never uploaded; these changes ship in 1.0.11 (71).
 
 ### Fixed
 

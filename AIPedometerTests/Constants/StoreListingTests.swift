@@ -17,6 +17,8 @@ struct StoreListingTests {
         let keywords: String
         let promotionalText: String
         let supportUrl: String
+        /// Required for every update after the first release (App Store Connect "What's New").
+        let whatsNew: String
     }
 
     private struct Pricing: Decodable {
@@ -99,6 +101,7 @@ struct StoreListingTests {
         #expect((1...100).contains(versionInfo.keywords.count))
         #expect((1...170).contains(versionInfo.promotionalText.count))
         #expect((1...4000).contains(versionInfo.description.count))
+        #expect((1...4000).contains(versionInfo.whatsNew.count))
         for field in [appInfo.name, appInfo.subtitle, versionInfo.keywords] {
             #expect(!field.contains("$") && !field.contains("1,99") && !field.contains("1.99"))
         }

@@ -3,5 +3,6 @@
   "keywords": "pedômetro,saúde,treino,caminhada,healthkit,apple watch,metas,atividade,rotas,gpx",
   "marketingUrl": "https://mneves75.github.io/ai-pedometer/",
   "promotionalText": "Acompanhe passos, metas e treinos com IA no próprio aparelho. Compra única, sem assinatura. O app nunca envia seus dados de saúde a nós nem a terceiros.",
-  "supportUrl": "https://www.conhecendotudo.com.br/pt/apps/suporte/aipedometer/"
+  "supportUrl": "https://www.conhecendotudo.com.br/pt/apps/suporte/aipedometer/",
+  "whatsNew": "• Treinos: pausar e finalizar agora mantêm seus totais mais recentes, e a distância ao vivo respeita a passada manual.\n• Coach de IA: novas tentativas mantêm o contexto recente da conversa.\n• Rotas GPX importadas preservam as interrupções do trajeto, sem somar distância nas lacunas.\n• Histórico: telas de vazio e de erro mais claras, que acompanham o tamanho do texto.\n• Melhorias de confiabilidade e acessibilidade."
 }

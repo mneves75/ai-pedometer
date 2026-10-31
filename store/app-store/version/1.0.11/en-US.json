@@ -3,5 +3,6 @@
   "keywords": "fitness,workout,walking,healthkit,watch,goals,activity,tracker,streaks,routes,gpx",
   "marketingUrl": "https://mneves75.github.io/ai-pedometer/",
   "promotionalText": "Track steps, goals and workouts with on-device AI coaching. One-time purchase, no subscription. The app never sends your health data to us or to third parties.",
-  "supportUrl": "https://www.conhecendotudo.com.br/en/apps/support/aipedometer/"
+  "supportUrl": "https://www.conhecendotudo.com.br/en/apps/support/aipedometer/",
+  "whatsNew": "• Workouts: pausing and finishing now keep your latest totals, and live distance respects a manual stride length.\n• AI Coach: retries keep recent conversation context.\n• Imported GPX routes keep their track breaks, so gaps no longer add distance.\n• History: clearer empty and error screens that follow your text size.\n• Reliability and accessibility improvements."
 }
