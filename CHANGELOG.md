@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Agent instructions checked against the maintainer's machine (instruction audit, 2026-11-09):
+  `AGENTS.md` no longer cites a workspace `AGENTS.md` that does not exist, and the Swift skills
+  live in `~/dev/Skills`; the Argent rule copies in `.claude/rules/` and `.cursor/rules/` match
+  the current upstream wording.
+
 ## [1.0.11] - 2026-10-31
 
 Build 71. Ships the never-uploaded 1.0.10 (70) fixes below together with a review of the Swift and

@@ -23,16 +23,15 @@ green while the toolchain is unusable.
 ## Apple platform references
 
 The maintainer's global contract owns the general Apple documentation rule (bundled Xcode docs,
-developer.apple.com pages fetched as Markdown) and `/Users/mneves/dev/AGENTS.md` adds workspace
-procedure; neither is repeated here, and neither loads in CI or a fresh clone. What is specific to
-this repository, and holds without them:
+developer.apple.com pages fetched as Markdown); it is not repeated here and does not load in CI
+or a fresh clone. What is specific to this repository, and holds without it:
 
 - Check API behavior against the docs bundled with the Xcode `preflight.sh` actually
   resolved, never an assumed one. Append
   `../PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources/AdditionalDocumentation`
   to that resolved Developer directory. `xcode-select -p` can differ from an explicit
   pin; see [toolchain selection](docs/agents/build-and-dev.md#xcode).
-- Skills live in `~/dev/Skills/XCODE_AGENT_SKILLS`: `swiftui-specialist`,
+- Skills live in `~/dev/Skills`: `swiftui-specialist`,
   `swiftui-whats-new-27`, `audit-xcode-security-settings`, `modernize-tests`,
   `device-interaction`. Load one when its subject matches the change; do not preload them.
 - Deployment target is iOS/watchOS 26 while the build toolchain may be 26.x or 27.x (CI selects
