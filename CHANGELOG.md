@@ -7,11 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-24
+
+Build 72. Complete iOS 26+ Liquid Glass UI/UX redesign across all screens alongside repository-wide reliability, AI safety, HealthKit, watch/widget state, and supply-chain hardening.
+
 ### Changed
+
+- Redesigned Today (Dashboard), Workouts, History, AI Coach, Settings, About, Training Plans, GPX Import, and Onboarding with iOS 26+ Liquid Glass hierarchy, calmer visual density, clearer focal points, and high-contrast Light and Dark Mode support.
+- Unified user-visible distance, step, push, and goal formatting through `Formatters` and localized strings via `L10n` across iPhone, watchOS, and widgets.
+- Added automated `ast-grep` static rules for raw `String(localized:)` and numeric `.formatted()` calls, widened AI view `openURL` guards, hardened local tooling scripts, and removed the unused `wrangler` developer dependency (resolving 9 transitive npm advisories).
+
+### Fixed
+
+- Preserved HealthKit DST-safe calendar day boundaries, single-flight workout startup/termination metrics ordering, and watch payload weekly step rendering across state normalizations.
+- Hardened AI context snapshot formatting under Swift 6.2 strict concurrency (`Sendable` background task completion gate) and fixed Light Mode Liquid Glass contrast and `BarChartColumn` frame sizing.
 - Agent instructions checked against the maintainer's machine (instruction audit, 2026-11-09):
   `AGENTS.md` no longer cites a workspace `AGENTS.md` that does not exist, and the Swift skills
   live in `~/dev/Skills`; the Argent rule copies in `.claude/rules/` and `.cursor/rules/` match
   the current upstream wording.
+
+### Store
+
+- Listing folder renamed to `store/app-store/version/1.1.0/` with updated What's New text in en-US and pt-BR.
 
 ## [1.0.11] - 2026-10-31
 

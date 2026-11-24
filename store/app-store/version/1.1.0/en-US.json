@@ -4,5 +4,5 @@
   "marketingUrl": "https://mneves75.github.io/ai-pedometer/",
   "promotionalText": "Track steps, goals and workouts with on-device AI coaching. One-time purchase, no subscription. The app never sends your health data to us or to third parties.",
   "supportUrl": "https://www.conhecendotudo.com.br/en/apps/support/aipedometer/",
-  "whatsNew": "• Workouts: pausing and finishing now keep your latest totals, and live distance respects a manual stride length.\n• AI Coach: retries keep recent conversation context.\n• Imported GPX routes keep their track breaks, so gaps no longer add distance.\n• History: clearer empty and error screens that follow your text size.\n• Reliability and accessibility improvements."
+  "whatsNew": "• Complete iOS 26 Liquid Glass redesign across Today, Workouts, History, AI Coach, and Settings for calmer spacing and clearer focus.\n• Improved Light and Dark Mode readability and accessibility contrast throughout the app.\n• More reliable HealthKit day boundaries, active workout tracking, and Apple Watch weekly step sync.\n• Under-the-hood stability, localization, and safety improvements."
 }
