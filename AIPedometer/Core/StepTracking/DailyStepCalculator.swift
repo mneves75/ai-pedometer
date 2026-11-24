@@ -12,7 +12,10 @@ struct DailyStepCalculator {
     }
 
     func endOfDay(for date: Date) -> Date {
-        calendar.date(byAdding: .day, value: 1, to: startOfDay(for: date)) ?? date
+        guard let nextDay = calendar.date(byAdding: .day, value: 1, to: startOfDay(for: date)) else {
+            return date
+        }
+        return calendar.startOfDay(for: nextDay)
     }
 
     func dailyRanges(days: Int, endingOn endDate: Date = .now) -> [(start: Date, end: Date)] {

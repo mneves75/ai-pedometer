@@ -47,8 +47,8 @@ final class TipJarStore {
     private static let verifiedSettlementKey = "TipJarStore.verifiedSettlement"
 
     private static var verificationFailureMessage: String {
-        String(
-            localized: "Purchase verification failed. Please try again.",
+        L10n.localized(
+            "Purchase verification failed. Please try again.",
             comment: "Error when StoreKit verification fails"
         )
     }
@@ -137,8 +137,8 @@ final class TipJarStore {
 
         guard driver.canMakePayments else {
             loadState = .failed(
-                String(
-                    localized: "In-app purchases are not allowed on this device.",
+                L10n.localized(
+                    "In-app purchases are not allowed on this device.",
                     comment: "Tip jar message when in-app purchases are restricted"
                 )
             )
@@ -155,13 +155,13 @@ final class TipJarStore {
             guard let product else {
                 let message: String
                 #if DEBUG
-                message = String(
-                    localized: "Product unavailable. Launch from Xcode (⌘R) to activate StoreKit test configuration.",
+                message = L10n.localized(
+                    "Product unavailable. Launch from Xcode (⌘R) to activate StoreKit test configuration.",
                     comment: "Debug tip jar message explaining StoreKit configuration activation requirement"
                 )
                 #else
-                message = String(
-                    localized: "Product not available. Please try again later.",
+                message = L10n.localized(
+                    "Product not available. Please try again later.",
                     comment: "Tip jar product unavailable"
                 )
                 #endif
@@ -176,8 +176,8 @@ final class TipJarStore {
         } catch is CancellationError {
             loadState = .idle
         } catch {
-            let message = String(
-                localized: "Unable to load price. Please try again.",
+            let message = L10n.localized(
+                "Unable to load price. Please try again.",
                 comment: "Tip jar product load failure message"
             )
             loadState = .failed(message)
@@ -265,8 +265,8 @@ final class TipJarStore {
             Loggers.app.error("tip_jar.purchase_failed", metadata: ["error": error.localizedDescription])
         } catch {
             setPendingPurchase(false)
-            let message = String(
-                localized: "Unable to complete purchase. Please try again.",
+            let message = L10n.localized(
+                "Unable to complete purchase. Please try again.",
                 comment: "Tip jar purchase failed message"
             )
             purchaseState = .failed(message)
@@ -388,13 +388,13 @@ enum TipJarDriverError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .failedVerification:
-            return String(
-                localized: "Purchase verification failed. Please try again.",
+            return L10n.localized(
+                "Purchase verification failed. Please try again.",
                 comment: "Error when StoreKit verification fails"
             )
         case .productUnavailable:
-            return String(
-                localized: "Product not available. Please try again later.",
+            return L10n.localized(
+                "Product not available. Please try again later.",
                 comment: "Error when product is not found"
             )
         }
@@ -402,7 +402,9 @@ enum TipJarDriverError: LocalizedError {
 }
 
 actor StoreKitTipJarDriver: TipJarDriver {
-    nonisolated let canMakePayments: Bool = AppStore.canMakePayments
+    nonisolated var canMakePayments: Bool {
+        AppStore.canMakePayments
+    }
 
     private let productID: String
     private let logger: AppLogger
@@ -477,15 +479,19 @@ actor StoreKitTipJarDriver: TipJarDriver {
         guard !listenerStarted else { return }
         listenerStarted = true
 
-        Task { [weak self] in
-            guard let self else { return }
+        let listenerTask = Task { [weak self] in
             // Drain unfinished transactions first to avoid leaving tips un-finished.
             for await result in Transaction.unfinished {
+                guard !Task.isCancelled, let self else { return }
                 await self.handleTransactionResult(result, continuation: continuation)
             }
             for await result in Transaction.updates {
+                guard !Task.isCancelled, let self else { return }
                 await self.handleTransactionResult(result, continuation: continuation)
             }
+        }
+        continuation.onTermination = { _ in
+            listenerTask.cancel()
         }
     }
 

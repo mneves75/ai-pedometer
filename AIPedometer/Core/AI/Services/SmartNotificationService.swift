@@ -355,8 +355,8 @@ final class SmartNotificationService {
         Generate a personalized notification for a fitness app user:
 
         Current Progress:
-        - \(unitLabelCapitalized) today: \(progress.steps.formatted())
-        - Daily goal: \(progress.goal.formatted()) \(unitLabel)
+        - \(unitLabelCapitalized) today: \(progress.steps.formattedSteps)
+        - Daily goal: \(progress.goal.formattedSteps) \(unitLabel)
         - Progress: \(progress.progressPercentage)%
         \(distanceLine)- Time of day: \(progress.timeOfDay)
 

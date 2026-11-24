@@ -38,7 +38,7 @@ struct WorkoutLiveActivityWidget: Widget {
 
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: DesignTokens.Spacing.lg) {
-                        LiveStatView(value: "\(Int(context.state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
+                        LiveStatView(value: context.state.caloriesText, label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
                         LiveStatView(value: context.state.distanceText, label: LiveActivityUnits.distance, icon: "figure.walk", tint: DesignTokens.Colors.mint)
                     }
                     .padding(.top, DesignTokens.Spacing.sm)
@@ -90,7 +90,7 @@ struct LockScreenWorkoutView: View {
 
             VStack(alignment: .trailing, spacing: DesignTokens.Spacing.sm) {
                 LiveStatView(value: state.distanceText, label: LiveActivityUnits.distance, icon: "map.fill", tint: DesignTokens.Colors.mint)
-                LiveStatView(value: "\(Int(state.calories))", label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
+                LiveStatView(value: state.caloriesText, label: LiveActivityUnits.calories, icon: "flame.fill", tint: DesignTokens.Colors.orange)
             }
         }
         .padding(DesignTokens.Spacing.lg)
@@ -149,6 +149,10 @@ private extension WorkoutActivityAttributes.ContentState {
     /// The activity state carries kilometers.
     @MainActor var distanceText: String {
         Formatters.distanceString(meters: distance * 1_000)
+    }
+
+    @MainActor var caloriesText: String {
+        Formatters.caloriesString(Double(HealthCount.clamped(calories.rounded())))
     }
 }
 #endif

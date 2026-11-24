@@ -77,22 +77,23 @@ final class AIContextSnapshot {
     var aiPromptContext: String {
         var lines: [String] = []
         
+        let numberStyle = IntegerFormatStyle<Int>.number.locale(Locale(identifier: "en_US"))
         lines.append("User Activity Summary:")
-        lines.append("- Current daily goal: \(currentDailyGoal.formatted()) activity units")
+        lines.append("- Current daily goal: \(currentDailyGoal.formatted(numberStyle)) activity units")
         lines.append("- Current streak: \(currentStreak) days")
         lines.append("- Longest streak: \(longestStreak) days")
         lines.append("- Total badges earned: \(totalBadgesEarned)")
         
         if !last7DaysSteps.isEmpty {
             lines.append("\nLast 7 Days:")
-            lines.append("- Daily activity counts: \(last7DaysSteps.map { $0.formatted() }.joined(separator: ", "))")
-            lines.append("- Average: \(last7DaysAverage.formatted()) units/day")
+            lines.append("- Daily activity counts: \(last7DaysSteps.map { $0.formatted(numberStyle) }.joined(separator: ", "))")
+            lines.append("- Average: \(last7DaysAverage.formatted(numberStyle)) units/day")
             lines.append("- Days goal met: \(last7DaysGoalHitCount) of 7")
         }
         
         if !last4WeeksAverages.isEmpty {
             lines.append("\nWeekly Trend:")
-            lines.append("- Weekly averages: \(last4WeeksAverages.map { $0.formatted() }.joined(separator: ", "))")
+            lines.append("- Weekly averages: \(last4WeeksAverages.map { $0.formatted(numberStyle) }.joined(separator: ", "))")
             lines.append("- Trend: \(weekOverWeekTrend)")
         }
         

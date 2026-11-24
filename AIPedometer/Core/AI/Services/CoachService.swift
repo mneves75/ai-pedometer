@@ -42,7 +42,7 @@ private final class LanguageModelCoachSession: CoachSessionProtocol {
     }
 }
 
-struct ChatMessage: Identifiable, Sendable {
+struct ChatMessage: Identifiable, Equatable, Sendable {
     let id: UUID
     let role: Role
     let content: String
@@ -260,8 +260,8 @@ final class CoachService {
             lastError = .sessionNotConfigured
             messages.append(ChatMessage(
                 role: .assistant,
-                content: String(
-                    localized: "I'm sorry, I'm not available right now. Please try again later.",
+                content: L10n.localized(
+                    "I'm sorry, I'm not available right now. Please try again later.",
                     comment: "AI Coach fallback response when the model session is unavailable"
                 )
             ))

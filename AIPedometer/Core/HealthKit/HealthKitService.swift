@@ -320,7 +320,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             )
 
             guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
-            current = next
+            current = calendar.startOfDay(for: next)
         }
 
         return summaries
@@ -336,16 +336,19 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         builder.endCollection(withEnd: end) { _, endError in
             if let endError {
                 Loggers.health.error("healthkit.workout_end_failed", metadata: ["error": String(describing: endError)])
+                builder.discardWorkout()
                 continuation.resume(throwing: endError)
                 return
             }
             builder.finishWorkout { workout, finishError in
                 if let finishError {
                     Loggers.health.error("healthkit.workout_finish_failed", metadata: ["error": String(describing: finishError)])
+                    builder.discardWorkout()
                     continuation.resume(throwing: finishError)
                     return
                 }
                 guard let workout else {
+                    builder.discardWorkout()
                     continuation.resume(throwing: HealthKitError.queryFailed)
                     return
                 }
@@ -369,10 +372,12 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                 Loggers.health.error("healthkit.workout_samples_add_failed", metadata: [
                     "error": String(describing: error)
                 ])
+                builder.discardWorkout()
                 continuation.resume(throwing: error)
                 return
             }
             guard success else {
+                builder.discardWorkout()
                 continuation.resume(throwing: HealthKitError.queryFailed)
                 return
             }
@@ -442,7 +447,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
         let config = Self.makeWorkoutConfiguration(for: session.type)
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
         let start = session.startTime
-        let end = session.endTime ?? .now
+        let end = max(session.endTime ?? .now, start)
         let samples = Self.makeWorkoutSamples(for: session, start: start, end: end)
         let workoutID = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UUID, any Error>) in
             builder.beginCollection(withStart: start) { success, error in
@@ -461,10 +466,12 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                         Loggers.health.error("healthkit.workout_metadata_add_failed", metadata: [
                             "error": String(describing: metadataError)
                         ])
+                        builder.discardWorkout()
                         continuation.resume(throwing: metadataError)
                         return
                     }
                     guard metadataSuccess else {
+                        builder.discardWorkout()
                         continuation.resume(throwing: HealthKitError.queryFailed)
                         return
                     }
@@ -510,7 +517,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             samples.append(sample)
         }
 
-        if session.distance > 0 {
+        if session.distance.isFinite && session.distance > 0 {
             let quantity = HKQuantity(unit: .meter(), doubleValue: session.distance)
             let sample = HKQuantitySample(
                 type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
@@ -521,7 +528,7 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             samples.append(sample)
         }
 
-        if session.activeCalories > 0 {
+        if session.activeCalories.isFinite && session.activeCalories > 0 {
             let quantity = HKQuantity(unit: .kilocalorie(), doubleValue: session.activeCalories)
             let sample = HKQuantitySample(
                 type: .quantityType(forIdentifier: .activeEnergyBurned)!,
@@ -608,7 +615,8 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
                 return
             }
 
-            let value = statistics?.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
+            let raw = statistics?.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
+            let value = raw.isFinite && raw >= 0 ? raw : 0
             bridge.resume(with: .success(value))
         }
         let healthStore = self.healthStore
@@ -645,12 +653,20 @@ final class HealthKitService: HealthKitServiceProtocol, Sendable {
             anchorDate: anchorDate,
             intervalComponents: interval
         )
-        let collection = try await descriptor.result(for: healthStore)
+        let collection: HKStatisticsCollection
+        do {
+            collection = try await descriptor.result(for: healthStore)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw Self.mapQueryError(error)
+        }
 
         var totals: [Date: Double] = [:]
         collection.enumerateStatistics(from: startDate, to: endDate) { statistics, _ in
             let day = self.calendar.startOfDay(for: statistics.startDate)
-            totals[day] = statistics.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
+            let raw = statistics.sumQuantity()?.doubleValue(for: spec.unit) ?? 0
+            totals[day] = raw.isFinite && raw >= 0 ? raw : 0
         }
         return totals
     }

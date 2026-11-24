@@ -3,7 +3,7 @@ import Foundation
 import FoundationModels
 
 /// Errors that can occur when using AI services
-enum AIServiceError: Error, Sendable {
+enum AIServiceError: Error, Equatable, Sendable {
     case sessionNotConfigured
     case modelUnavailable(AIUnavailabilityReason)
     case generationFailed(underlying: String)
@@ -139,13 +139,13 @@ extension AIServiceError {
     var partialResponseNotice: String {
         switch self {
         case .generationFailed:
-            return String(
-                localized: "The response was interrupted and may be incomplete. Try again to continue.",
+            return L10n.localized(
+                "The response was interrupted and may be incomplete. Try again to continue.",
                 comment: "Inline warning for partial AI response interrupted by generation failure"
             )
         case .tokenLimitExceeded:
-            return String(
-                localized: "The response hit the conversation limit and may be incomplete. Start a new conversation to continue.",
+            return L10n.localized(
+                "The response hit the conversation limit and may be incomplete. Start a new conversation to continue.",
                 comment: "Inline warning for partial AI response interrupted by token/context limit"
             )
         default:

@@ -203,7 +203,8 @@ enum GPXRouteParser {
         let a = sin(deltaLatitude / 2) * sin(deltaLatitude / 2)
             + cos(startLatitude) * cos(endLatitude)
             * sin(deltaLongitude / 2) * sin(deltaLongitude / 2)
-        let c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        let clampedA = min(max(a, 0), 1)
+        let c = 2 * atan2(sqrt(clampedA), sqrt(1 - clampedA))
         return earthRadiusMeters * c
     }
 }
@@ -310,7 +311,7 @@ private final class GPXParserDelegate: NSObject, XMLParserDelegate {
         let value = textBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch elementName {
-        case "name" where routeName == nil && waypointDepth == 0:
+        case "name" where routeName == nil && waypointDepth == 0 && !value.isEmpty:
             routeName = GPXRouteParser.boundedRouteName(value)
         case "ele":
             if let elevation = Double(value), GPXRouteParser.plausibleElevationMeters.contains(elevation) {

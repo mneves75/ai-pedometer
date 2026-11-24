@@ -102,6 +102,7 @@ final class GoalService: GoalServiceProtocol, Sendable {
 
     @discardableResult
     func setGoal(_ value: Int) -> Bool {
+        guard value > 0 else { return false }
         let context = persistence.container.mainContext
         let descriptor = FetchDescriptor<StepGoal>(
             predicate: #Predicate { $0.deletedAt == nil && $0.endDate == nil },

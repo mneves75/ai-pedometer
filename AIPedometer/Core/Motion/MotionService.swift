@@ -33,19 +33,13 @@ final class MotionService: MotionServiceProtocol {
         guard CMPedometer.isStepCountingAvailable() else {
             throw MotionError.notAvailable
         }
-        let queryPedometer = CMPedometer()
         return try await withCheckedThrowingContinuation { continuation in
-            // Use the purpose-built one-shot query API. Unlike `startUpdates`, this fires the
-            // handler exactly once with the historical totals between `startDate` and `endDate`
-            // and tears itself down automatically — no manual `stopUpdates`/dedupe lock required.
+            // Use the purpose-built one-shot query API on the retained `pedometer` instance so ARC
+            // cannot deallocate the CMPedometer proxy before CoreMotion delivers the XPC reply.
             //
-            // The handler MUST be built through the `nonisolated` helper below. `query` satisfies
-            // a `@MainActor` protocol requirement, so an inline closure here would inherit MainActor
-            // isolation. `CMPedometerHandler` is a plain ObjC block (NOT `@Sendable`), and CoreMotion
-            // invokes it on its own background queue — a MainActor-isolated closure then trips
-            // `swift_task_isCurrentExecutor` (EXC_BREAKPOINT) the moment it runs off-main. This was the
-            // 0.88 launch crash. Mirror the `startLiveUpdates`/`makePedometerCallback` pattern.
-            queryPedometer.queryPedometerData(
+            // The handler MUST be built through the `nonisolated` helper below (`CMPedometerHandler`
+            // is a plain ObjC block invoked on CoreMotion's background queue).
+            pedometer.queryPedometerData(
                 from: startDate,
                 to: endDate,
                 withHandler: Self.makeQueryCallback(continuation: continuation)
