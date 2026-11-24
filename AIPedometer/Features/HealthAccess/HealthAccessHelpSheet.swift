@@ -12,8 +12,8 @@ struct HealthAccessHelpSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                     Text(
-                        String(
-                            localized: "To show history and Apple Watch data, AI Pedometer needs Health read access.",
+                        L10n.localized(
+                            "To show history and Apple Watch data, AI Pedometer needs Health read access.",
                             comment: "Health access help intro"
                         )
                     )
@@ -21,8 +21,12 @@ struct HealthAccessHelpSheet: View {
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
 
                     if healthAuthorization.status == .shouldRequest {
-                        Button(L10n.localized("Grant Access", comment: "Button to request Health access")) {
+                        Button {
                             Task { await requestAccess() }
+                        } label: {
+                            Text(L10n.localized("Grant Access", comment: "Button to request Health access"))
+                                .font(DesignTokens.Typography.headline)
+                                .frame(maxWidth: .infinity)
                         }
                         .glassButton()
                         .disabled(isRequesting)
@@ -35,61 +39,62 @@ struct HealthAccessHelpSheet: View {
 
                         instructionRow(
                             number: 1,
-                            text: String(
-                                localized: "Open the Health app.",
+                            text: L10n.localized(
+                                "Open the Health app.",
                                 comment: "Health access help step 1"
                             )
                         )
                         instructionRow(
                             number: 2,
-                            text: String(
-                                localized: "Go to Sharing, then Apps.",
+                            text: L10n.localized(
+                                "Go to Sharing, then Apps.",
                                 comment: "Health access help step 2"
                             )
                         )
                         instructionRow(
                             number: 3,
-                            text: String(
-                                localized: "Select AI Pedometer and allow access to Steps and Activity.",
+                            text: L10n.localized(
+                                "Select AI Pedometer and allow access to Steps and Activity.",
                                 comment: "Health access help step 3"
                             )
                         )
                         instructionRow(
                             number: 4,
-                            text: String(
-                                localized: "Return to AI Pedometer and refresh the Dashboard/History.",
+                            text: L10n.localized(
+                                "Return to AI Pedometer and refresh the Dashboard/History.",
                                 comment: "Health access help step 4"
                             )
                         )
 
                         Text(
-                            String(
-                                localized: "If you prefer: Settings > Health > Data Access & Devices > AI Pedometer.",
+                            L10n.localized(
+                                "If you prefer: Settings > Health > Data Access & Devices > AI Pedometer.",
                                 comment: "Health access help alternative path"
                             )
                         )
-                        .font(DesignTokens.Typography.subheadline)
+                        .font(DesignTokens.Typography.footnote)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
-                        .padding(.top, DesignTokens.Spacing.sm)
+                        .padding(.top, DesignTokens.Spacing.xs)
                     }
-                    .glassCard(cornerRadius: DesignTokens.CornerRadius.xl, interactive: false)
+                    .padding(DesignTokens.Spacing.mdPlus)
+                    .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                         Text(
-                            String(
-                                localized: "Data sources (priority)",
+                            L10n.localized(
+                                "Data sources (priority)",
                                 comment: "Health access help section title about Health data sources ordering"
                             )
                         )
-                            .font(DesignTokens.Typography.headline)
+                        .font(DesignTokens.Typography.headline)
 
                         Text(
-                            String(
-                                localized: "Health can have multiple step sources (Apple Watch, iPhone, and third-party apps/devices). Their order affects what you see as the primary value.",
+                            L10n.localized(
+                                "Health can have multiple step sources (Apple Watch, iPhone, and third-party apps/devices). Their order affects what you see as the primary value.",
                                 comment: "Health access help section description about multi-source step data"
                             )
                         )
-                        .font(DesignTokens.Typography.subheadline)
+                        .font(DesignTokens.Typography.footnote)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
 
                         instructionRow(number: 1, text: L10n.localized("Open the Health app.", comment: "Health data sources help step 1"))
@@ -98,19 +103,22 @@ struct HealthAccessHelpSheet: View {
                         instructionRow(number: 4, text: L10n.localized("Keep the source you want to prioritize at the top (e.g., Apple Watch).", comment: "Health data sources help step 4"))
 
                         Text(
-                            String(
-                                localized: "Tip: if AI Pedometer History is empty or lower than expected, verify steps are being saved to Health and your primary source isn't a third-party app without permission.",
+                            L10n.localized(
+                                "Tip: if AI Pedometer History is empty or lower than expected, verify steps are being saved to Health and your primary source isn't a third-party app without permission.",
                                 comment: "Health data sources help tip"
                             )
                         )
-                        .font(DesignTokens.Typography.subheadline)
+                        .font(DesignTokens.Typography.footnote)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
-                        .padding(.top, DesignTokens.Spacing.sm)
+                        .padding(.top, DesignTokens.Spacing.xs)
                     }
-                    .glassCard(cornerRadius: DesignTokens.CornerRadius.xl, interactive: false)
+                    .padding(DesignTokens.Spacing.mdPlus)
+                    .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
                 }
-                .padding(DesignTokens.Spacing.lg)
+                .padding(DesignTokens.Spacing.mdPlus)
             }
+            .scrollIndicators(.hidden)
+            .background(AmbientZenithBackground())
             .accessibilityIdentifier(A11yID.HealthAccessHelp.view)
             .navigationTitle(L10n.localized("Health Access", comment: "Title for health access help sheet"))
             .navigationBarTitleDisplayMode(.inline)
@@ -131,15 +139,18 @@ struct HealthAccessHelpSheet: View {
     }
 
     private func instructionRow(number: Int, text: String) -> some View {
-        HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-            Text("\(number).")
-                .font(DesignTokens.Typography.subheadline.weight(.semibold))
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-                .frame(width: DesignTokens.IconSize.xs, alignment: .leading)
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
+            Text("\(number)")
+                .font(DesignTokens.Typography.caption.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(DesignTokens.Colors.accent)
+                .frame(width: 24, height: 24)
+                .background(DesignTokens.Colors.accent.opacity(0.14), in: Circle())
             Text(text)
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
         }
         .accessibilityElement(children: .combine)
     }

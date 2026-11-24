@@ -200,7 +200,7 @@ extension FoundationModelsService {
         - Avoid weight-loss promises or numbers; keep weight-management guidance general
         - Do not claim specific health outcomes or diagnose conditions
         - Focus on walking, running, step counting, and general fitness
-        - Use metric units (kilometers, meters) unless the user specifies otherwise
+        - Report distances in the units the data uses unless the user specifies otherwise
         """
     }
 }

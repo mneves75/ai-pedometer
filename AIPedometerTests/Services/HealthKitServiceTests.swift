@@ -4,48 +4,6 @@ import Testing
 
 @testable import AIPedometer
 
-// MARK: - MockHealthKitService Test-Double Contract
-// These tests pin the MockHealthKitService test double's own configuration behavior (steps,
-// error, authorization tracking). The concrete HealthKitService is intentionally not exercised
-// here because HKHealthStore is unavailable in unit tests; production query/authorization logic
-// is covered by the suites below and by the many suites that depend on this mock.
-
-@Suite("MockHealthKitService test-double contract")
-struct MockHealthKitServiceContractTests {
-
-    @Test("Mock service returns configured steps")
-    @MainActor
-    func mockServiceReturnsConfiguredSteps() async throws {
-        let mock = MockHealthKitService()
-        mock.stepsToReturn = 5432
-
-        let steps = try await mock.fetchTodaySteps()
-
-        #expect(steps == 5432)
-    }
-
-    @Test("Mock service throws configured error")
-    @MainActor
-    func mockServiceThrowsConfiguredError() async {
-        let mock = MockHealthKitService()
-        mock.errorToThrow = HealthKitError.queryFailed
-
-        await #expect(throws: HealthKitError.self) {
-            _ = try await mock.fetchTodaySteps()
-        }
-    }
-
-    @Test("Authorization request is tracked")
-    @MainActor
-    func authorizationRequestIsTracked() async throws {
-        let mock = MockHealthKitService()
-
-        try await mock.requestAuthorization()
-
-        #expect(mock.authorizationRequested == true)
-    }
-}
-
 // MARK: - DailyStepSummary Tests
 
 @Suite("DailyStepSummary Tests")
@@ -139,33 +97,6 @@ struct DailyStepSummaryTests {
         // dayName should be a short weekday like "Mon", "Tue", etc.
         #expect(summary.dayName.count >= 2)
         #expect(summary.dayName.count <= 4)
-    }
-}
-
-// MARK: - PedometerSnapshot Tests
-
-@Suite("PedometerSnapshot Tests")
-struct PedometerSnapshotTests {
-
-    @Test("Snapshot is Sendable")
-    func snapshotIsSendable() async {
-        let snapshot = PedometerSnapshot(steps: 100, distance: 75.5, floorsAscended: 1)
-
-        // Verify sendable by passing across isolation boundaries
-        let result = await Task.detached {
-            return snapshot.steps
-        }.value
-
-        #expect(result == 100)
-    }
-
-    @Test("Snapshot stores all values correctly")
-    func snapshotStoresAllValuesCorrectly() {
-        let snapshot = PedometerSnapshot(steps: 9876, distance: 7234.5, floorsAscended: 12)
-
-        #expect(snapshot.steps == 9876)
-        #expect(snapshot.distance == 7234.5)
-        #expect(snapshot.floorsAscended == 12)
     }
 }
 

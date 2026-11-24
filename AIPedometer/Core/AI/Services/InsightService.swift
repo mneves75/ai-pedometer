@@ -653,17 +653,17 @@ private extension InsightService {
 
     func fallbackWeeklyAnalysis(reason: WeeklyFallbackReason) -> WeeklyTrendAnalysis {
         WeeklyTrendAnalysis(
-            summary: String(
-                localized: "No Activity Data",
+            summary: L10n.localized(
+                "No Activity Data",
                 comment: "Weekly trend summary when no data is available"
             ),
             trend: .stable,
-            observation: String(
-                localized: "Start walking to see your activity history here. Make sure Health access is enabled in Settings.",
+            observation: L10n.localized(
+                "Start walking to see your activity history here. Make sure Health access is enabled in Settings.",
                 comment: "Weekly trend observation when no data is available"
             ),
-            recommendation: String(
-                localized: "Enable HealthKit Sync in Settings to see your activity history.",
+            recommendation: L10n.localized(
+                "Enable HealthKit Sync in Settings to see your activity history.",
                 comment: "Weekly trend recommendation when no data is available"
             )
         )
@@ -708,13 +708,13 @@ private extension InsightService {
         let observationPrefix: String
         switch reason {
         case .guardrail:
-            observationPrefix = String(
-                localized: "I used a safe summary based on your recorded history this week.",
+            observationPrefix = L10n.localized(
+                "I used a safe summary based on your recorded history this week.",
                 comment: "Weekly fallback prefix when AI content is blocked by guardrails"
             )
         case .generationFailure, .fetchError, .noData:
-            observationPrefix = String(
-                localized: "Here is a summary based on your latest recorded history.",
+            observationPrefix = L10n.localized(
+                "Here is a summary based on your latest recorded history.",
                 comment: "Weekly fallback prefix when AI generation is unavailable"
             )
         }
@@ -725,12 +725,12 @@ private extension InsightService {
                 "Your strongest day was %@ with %@ %@.",
                 comment: "Weekly fallback best day summary",
                 bestDay.date.formatted(date: .abbreviated, time: .omitted),
-                bestDay.steps.formatted(),
+                bestDay.steps.formattedSteps,
                 unitLabel
             )
         } else {
-            bestDaySummary = String(
-                localized: "Your strongest day this week was above your average.",
+            bestDaySummary = L10n.localized(
+                "Your strongest day this week was above your average.",
                 comment: "Weekly fallback best day summary when exact day is unavailable"
             )
         }
@@ -738,18 +738,18 @@ private extension InsightService {
         let recommendation: String
         switch data.trend {
         case .increasing:
-            recommendation = String(
-                localized: "Keep this pace and repeat your best-day routine on one lower-activity day next week.",
+            recommendation = L10n.localized(
+                "Keep this pace and repeat your best-day routine on one lower-activity day next week.",
                 comment: "Weekly fallback recommendation for increasing trend"
             )
         case .decreasing:
-            recommendation = String(
-                localized: "Pick two days next week to match your average and recover consistency gradually.",
+            recommendation = L10n.localized(
+                "Pick two days next week to match your average and recover consistency gradually.",
                 comment: "Weekly fallback recommendation for decreasing trend"
             )
         case .stable:
-            recommendation = String(
-                localized: "Choose one day next week to target about 10% above your current average.",
+            recommendation = L10n.localized(
+                "Choose one day next week to target about 10% above your current average.",
                 comment: "Weekly fallback recommendation for stable trend"
             )
         }
@@ -826,7 +826,7 @@ private extension InsightService {
         - \(languageInstruction)
 
         Today's Activity:
-        - \(unitLabelCapitalized): \(data.steps.formatted()) (Goal: \(data.goal.formatted()))
+        - \(unitLabelCapitalized): \(data.steps.formattedSteps) (Goal: \(data.goal.formattedSteps))
         - Progress: \(data.percentOfGoal)% of daily goal
         - Progress Tier: \(progressTier)
         - Goal Status: \(data.goalMet ? "ACHIEVED" : "NOT ACHIEVED")
@@ -853,7 +853,7 @@ private extension InsightService {
         } else {
             dailyBreakdown = data.summaries.map { summary in
                 let status = summary.steps >= summary.goal ? "Goal Met" : "Below Goal"
-                return "\(summary.date.formatted(date: .abbreviated, time: .omitted)): \(summary.steps.formatted()) \(unitLabel) (\(status))"
+                return "\(summary.date.formatted(date: .abbreviated, time: .omitted)): \(summary.steps.formattedSteps) \(unitLabel) (\(status))"
             }.joined(separator: "\n")
         }
 
@@ -877,16 +877,16 @@ private extension InsightService {
         - \(languageInstruction)
         
         Weekly Summary:
-        - Total \(unitLabel): \(data.totalSteps.formatted())
-        - Daily average: \(data.averageSteps.formatted()) \(unitLabel)
-        - Goals achieved: \(data.goalMetDays)/7 days
+        - Total \(unitLabel): \(data.totalSteps.formattedSteps)
+        - Daily average: \(data.averageSteps.formattedSteps) \(unitLabel)
+        - Goals achieved: \(data.goalMetDays)/\(max(data.summaries.count, 1)) days
         - Current trend: \(data.trend.rawValue)
         
         Daily Breakdown:
         \(dailyBreakdown)
         
-        \(data.bestDay.map { "Best day: \($0.date.formatted(date: .abbreviated, time: .omitted)) with \($0.steps.formatted()) \(unitLabel)" } ?? "")
-        \(data.worstDay.map { "Lowest day: \($0.date.formatted(date: .abbreviated, time: .omitted)) with \($0.steps.formatted()) \(unitLabel)" } ?? "")
+        \(data.bestDay.map { "Best day: \($0.date.formatted(date: .abbreviated, time: .omitted)) with \($0.steps.formattedSteps) \(unitLabel)" } ?? "")
+        \(data.worstDay.map { "Lowest day: \($0.date.formatted(date: .abbreviated, time: .omitted)) with \($0.steps.formattedSteps) \(unitLabel)" } ?? "")
         \(dataReliabilityNote)
 
         NON-MEDICAL SAFETY RULES:
@@ -935,14 +935,14 @@ private extension InsightService {
         - \(languageInstruction)
         
         Today's Progress:
-        - \(unitLabel.capitalized) so far: \(todayData.steps.formatted())
-        - Goal: \(currentGoal.formatted()) \(unitLabel)
+        - \(unitLabel.capitalized) so far: \(todayData.steps.formattedSteps)
+        - Goal: \(currentGoal.formattedSteps) \(unitLabel)
         - Progress: \(todayData.percentOfGoal)% complete
         - Distance: \(Formatters.distanceString(meters: todayData.distance))
         
         This Week's Context:
-        - Weekly average: \(weekData.averageSteps.formatted()) \(unitLabel)/day
-        - Goals achieved: \(weekData.goalMetDays)/7 days this week
+        - Weekly average: \(weekData.averageSteps.formattedSteps) \(unitLabel)/day
+        - Goals achieved: \(weekData.goalMetDays)/\(max(weekData.summaries.count, 1)) days this week
         - Trend: \(weekData.trend.rawValue)
         
         Current Time Context:

@@ -6,14 +6,12 @@ import UniformTypeIdentifiers
 struct WorkoutsView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @AppStorage(AppConstants.UserDefaultsKeys.expeditionModeEnabled) private var expeditionModeEnabled = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(TrainingPlanService.self) private var trainingPlanService
     @Environment(WorkoutSessionController.self) private var workoutController
 
-    // Bounded fetch: the carousel shows at most 6 completed sessions, but an unbounded
-    // query would fetch and observe every workout ever recorded (soft-deleted rows are
-    // never pruned), growing without limit for long-term users.
     @Query(WorkoutsView.recentCompletedWorkoutsDescriptor()) private var recentWorkouts: [WorkoutSession]
 
     private static func recentCompletedWorkoutsDescriptor(limit: Int = 6) -> FetchDescriptor<WorkoutSession> {
@@ -25,18 +23,12 @@ struct WorkoutsView: View {
         return descriptor
     }
 
+    @State private var selectedWorkoutType: WorkoutType = .outdoorWalk
     @State private var workoutRecommendation: AIWorkoutRecommendation?
     @State private var recommendationError: AIServiceError?
     @State private var isLoadingRecommendation = false
     @State private var hasLoadedRecommendation = false
     @State private var recommendationRequestID = UUID()
-    // Loaded in `.task` rather than as a `@State` default. A `@State` default expression runs on
-    // every `View` initialization — SwiftUI discards the value after the first, but the expression
-    // still executes — and `MainTabView.iPhoneLayout` rebuilds all five `Tab` values on every
-    // `MainTabView.body` pass, including when the Workouts tab is off screen. So every tab switch
-    // paid a `UserDefaults` read plus a JSON decode. The read is still synchronous and still on the
-    // MainActor; what changed is that it happens when this view actually appears, not on every
-    // rebuild of the tab container.
     @State private var importedRoute: ImportedRoute?
     @State private var isImportingRoute = false
     @State private var routeImportError: RouteImportError?
@@ -50,8 +42,6 @@ struct WorkoutsView: View {
     private struct RecommendationTrigger: Hashable {
         let aiAvailable: Bool
         let activePlanID: UUID?
-        // Recommendations are generated for the current activity mode, so switching steps and wheelchair
-        // pushes must reload rather than keep showing the other mode's recommendation.
         let activityMode: ActivityTrackingMode
     }
 
@@ -68,7 +58,8 @@ struct WorkoutsView: View {
             )
         }
 
-        if let error = workoutController.lastError {
+        // ActiveWorkoutView owns workoutController.lastError while presented so the two views never race alerts.
+        if !workoutController.isPresenting, let error = workoutController.lastError {
             return PresentedError(
                 title: L10n.localized("Workout Error", comment: "Workout error alert title"),
                 message: error.localizedDescription
@@ -91,29 +82,29 @@ struct WorkoutsView: View {
 
     private func clearPresentedError() {
         routeImportError = nil
-        workoutController.lastError = nil
+        if !workoutController.isPresenting {
+            workoutController.lastError = nil
+        }
     }
 
     var body: some View {
         @Bindable var workoutController = workoutController
         ScrollView {
             VStack(spacing: DesignTokens.Spacing.lg) {
-                headerSection
                 if workoutController.isActive {
                     activeWorkoutBanner
                 }
                 if workoutController.requiresWorkoutRecovery {
                     recoveryWorkoutSection
+                } else {
+                    startWorkoutHero
                 }
+
                 aiWorkoutSection
-                expeditionModeSection
-                routeImportSection
-                if !workoutController.requiresWorkoutRecovery {
-                    startWorkoutSection
-                }
-                trainingPlansSection
+                toolsSection
                 recentWorkoutsSection
             }
+            .padding(.top, DesignTokens.Spacing.sm)
         }
         .tabBarAwareScrollContentBottomInset()
         .accessibilityIdentifier(A11yID.Workouts.scroll)
@@ -125,8 +116,11 @@ struct WorkoutsView: View {
             A11yID.Workouts.recentWorkoutsCarousel,
             when: !recentWorkouts.isEmpty
         )
-        .toolbarVisibility(.hidden, for: .navigationBar)
-        .background(DesignTokens.Colors.surfaceGrouped)
+        .navigationTitle(L10n.localized("Workouts", comment: "Workouts screen title"))
+        .navigationBarTitleDisplayMode(.large)
+        .background {
+            AmbientZenithBackground()
+        }
         .sheet(isPresented: $workoutController.isPresenting) {
             NavigationStack {
                 ActiveWorkoutView()
@@ -171,8 +165,6 @@ struct WorkoutsView: View {
             ))
         }
         .task {
-            // `.task` runs on every appearance, not on every `WorkoutsView` initialization; once a route is
-            // loaded the nil guard makes later appearances a no-op.
             if importedRoute == nil {
                 importedRoute = GPXRouteImporter.loadImportedRoute()
             }
@@ -213,6 +205,185 @@ struct WorkoutsView: View {
         L10n.localized("\(Int64(count)) waypoints", locale: locale, comment: "Route waypoint count")
     }
 
+    // MARK: - Primary Hero Action (Above the Fold)
+
+    private var startWorkoutHero: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.mdPlus) {
+            ScrollView(.horizontal) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    ForEach(WorkoutType.allCases, id: \.self) { type in
+                        let isSelected = selectedWorkoutType == type
+                        Button {
+                            HapticService.shared.selection()
+                            withAnimation(reduceMotion ? nil : DesignTokens.Animation.snappy) {
+                                selectedWorkoutType = type
+                            }
+                        } label: {
+                            HStack(spacing: DesignTokens.Spacing.xsPlus) {
+                                Image(systemName: type.icon)
+                                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                                    .accessibilityHidden(true)
+                                Text(type.displayName)
+                                    .font(DesignTokens.Typography.subheadline.weight(isSelected ? .semibold : .medium))
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(isSelected ? DesignTokens.Colors.accent : DesignTokens.Colors.textSecondary)
+                            .padding(.horizontal, DesignTokens.Spacing.md)
+                            .padding(.vertical, DesignTokens.Spacing.sm)
+                            .frame(minHeight: DesignTokens.TouchTarget.minimum)
+                            .glassCapsuleSurface(interactive: true, tinted: isSelected)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    }
+                }
+                .glassContainer(spacing: DesignTokens.Spacing.sm)
+                .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+                .padding(.vertical, DesignTokens.Spacing.xxs)
+            }
+            .scrollIndicators(.hidden)
+
+            Button {
+                HapticService.shared.confirm()
+                startWorkout(type: selectedWorkoutType, targetSteps: nil)
+            } label: {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    Image(systemName: "play.fill")
+                        .font(DesignTokens.Typography.headline)
+                        .accessibilityHidden(true)
+                    Text(L10n.localized("Start Workout", comment: "Button to begin a workout"))
+                        .font(DesignTokens.Typography.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DesignTokens.Spacing.xs)
+            }
+            .glassButton()
+            .controlSize(.large)
+            .accessibilityIdentifier(A11yID.Workouts.startWorkoutButton)
+            .accessibleButton(
+                label: L10n.localized("Start Workout", comment: "Button to begin a workout"),
+                hint: L10n.localized("Begins a new workout session", comment: "Accessibility hint for start workout button")
+            )
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+        }
+    }
+
+    // MARK: - Active & Recovery Banners
+
+    private var activeWorkoutBanner: some View {
+        Button {
+            HapticService.shared.tap()
+            workoutController.isPresenting = true
+        } label: {
+            HStack(spacing: DesignTokens.Spacing.md) {
+                Image(systemName: "figure.walk.motion")
+                    .font(DesignTokens.Typography.title3.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.success)
+                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                    .background(DesignTokens.Colors.success.opacity(0.15), in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    Text(L10n.localized("Active Workout", comment: "Banner title for an active workout"))
+                        .font(DesignTokens.Typography.headline)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    Text(L10n.localized("Tap to resume", comment: "Banner subtitle for resuming an active workout"))
+                        .font(DesignTokens.Typography.subheadline)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.up")
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(DesignTokens.Spacing.md)
+            .glassCard(interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(A11yID.Workouts.activeWorkoutBanner)
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+        .accessibleCard(
+            label: L10n.localized("Active Workout", comment: "Accessibility label for active workout banner"),
+            hint: L10n.localized("Resumes your current workout session", comment: "Accessibility hint for active workout banner")
+        )
+    }
+
+    private var recoveryWorkoutSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                Image(systemName: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
+                    .font(DesignTokens.Typography.title3.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.warning)
+                    .accessibilityHidden(true)
+
+                Text(L10n.localized("Unfinished Workout", comment: "Title for a workout recovered after app interruption"))
+                    .font(DesignTokens.Typography.headline)
+            }
+
+            Text(L10n.localized(
+                "A previous workout ended unexpectedly. Finish it using the last saved checkpoint, or discard it before starting another workout.",
+                comment: "Explanation for recovering an unfinished workout"
+            ))
+            .font(DesignTokens.Typography.subheadline)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
+            .accessibilityIdentifier(A11yID.Workouts.recoveryMessage)
+
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                Button {
+                    handleRecovery(discard: false)
+                } label: {
+                    Text(L10n.localized(
+                        "Finish Saved Workout",
+                        comment: "Action that finishes an interrupted workout at its last saved checkpoint"
+                    ))
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
+                .accessibilityIdentifier(A11yID.Workouts.finishRecoveredWorkoutButton)
+
+                Button(role: .destructive) {
+                    isConfirmingRecoveryDiscard = true
+                } label: {
+                    Text(L10n.localized("Discard Workout", comment: "Discard recovered workout action"))
+                        .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(DesignTokens.Colors.red)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
+                .accessibilityIdentifier(A11yID.Workouts.discardRecoveredWorkoutButton)
+            }
+            .controlSize(.large)
+            .disabled(isHandlingRecovery)
+
+            if isHandlingRecovery {
+                ProgressView(
+                    L10n.localized(
+                        "Updating workout...",
+                        comment: "Progress status while resolving an unfinished workout"
+                    )
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(DesignTokens.Spacing.mdPlus)
+        .calmCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(A11yID.Workouts.recoveryCard)
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+    }
+
+    // MARK: - AI Recommendation
+
     @ViewBuilder
     private var aiWorkoutSection: some View {
         if displayedRecommendation != nil || aiService.availability.isAvailable {
@@ -227,15 +398,13 @@ struct WorkoutsView: View {
                 onRefresh: { Task { await loadWorkoutRecommendation(forceRefresh: true) } },
                 unitName: activityMode.unitName,
                 onStartWorkout: { recommendation in
-                    startWorkout(targetSteps: recommendation.targetSteps)
+                    startWorkout(type: selectedWorkoutType, targetSteps: recommendation.targetSteps)
                 }
             )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else {
-            if case .unavailable(let reason) = aiService.availability {
-                AIAvailabilityBanner(reason: reason)
-                    .padding(.horizontal, DesignTokens.Spacing.md)
-            }
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+        } else if case .unavailable(let reason) = aiService.availability {
+            AIAvailabilityBanner(reason: reason)
+                .padding(.horizontal, DesignTokens.Spacing.mdPlus)
         }
     }
 
@@ -269,296 +438,152 @@ struct WorkoutsView: View {
         }
     }
 
-    private var expeditionModeSection: some View {
-        Toggle(isOn: $expeditionModeEnabled) {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-                Image(systemName: "battery.100.bolt")
-                    .font(DesignTokens.Typography.title2)
-                    .foregroundStyle(DesignTokens.Colors.green)
-                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
-                    .background(DesignTokens.Colors.green.opacity(0.14), in: Circle())
+    // MARK: - Streamlined Tools (Training Plans, Routes & GPX, Expedition Mode)
+
+    private var toolsSection: some View {
+        VStack(spacing: DesignTokens.Spacing.smPlus) {
+            trainingPlansCard
+            routeImportCard
+            expeditionModeRow
+        }
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+    }
+
+    private var trainingPlansCard: some View {
+        NavigationLink {
+            TrainingPlansView()
+        } label: {
+            HStack(spacing: DesignTokens.Spacing.md) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(DesignTokens.Typography.callout.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.accent)
+                    .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
+                    .background(DesignTokens.Colors.accentSoft, in: Circle())
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Text(L10n.localized("Expedition Mode", comment: "Expedition Mode card title"))
+                    Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
                         .font(DesignTokens.Typography.headline)
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
 
-                    Text(
-                        L10n.localized(
-                            "Use fewer live metric updates during long hikes and walks to reduce battery impact.",
-                            comment: "Expedition Mode explanatory copy"
-                        )
-                    )
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    if let activePlan {
+                        Text(activePlan.name)
+                            .font(DesignTokens.Typography.footnote)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
+                            .lineLimit(1)
+                    }
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(DesignTokens.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .accessibilityHidden(true)
             }
+            .padding(DesignTokens.Spacing.md)
+            .calmCard()
         }
-        .toggleStyle(.switch)
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
-        .accessibilityIdentifier(A11yID.Workouts.expeditionModeToggle)
-        .padding(.horizontal, DesignTokens.Spacing.md)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
+        .accessibleCard(
+            label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
+            hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
+        )
     }
 
-    private var routeImportSection: some View {
+    private var routeImportCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+            HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
                 Image(systemName: "map.fill")
-                    .font(DesignTokens.Typography.title2)
+                    .font(DesignTokens.Typography.callout.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.mint)
-                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                    .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
                     .background(DesignTokens.Colors.mint.opacity(0.14), in: Circle())
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(L10n.localized("Routes & GPX", comment: "Routes GPX card title"))
                         .font(DesignTokens.Typography.headline)
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    Text(
-                        L10n.localized(
-                            "Import a GPX route before a walk or hike to keep distance, elevation, and waypoints close at hand.",
-                            comment: "Routes GPX explanatory copy"
-                        )
-                    )
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    .accessibilityIdentifier(A11yID.Workouts.routeImportDescription)
+                    if importedRoute == nil {
+                        Text(L10n.localized("No route imported", comment: "Empty state for route import card"))
+                            .font(DesignTokens.Typography.footnote)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier(A11yID.Workouts.routeImportDescription)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(A11yID.Workouts.routeImportCard)
+
+                Button {
+                    isImportingRoute = true
+                } label: {
+                    Label(
+                        L10n.localized("Import GPX", comment: "Button to import a GPX route"),
+                        systemImage: "square.and.arrow.down"
+                    )
+                    .font(DesignTokens.Typography.footnote.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .accessibilityIdentifier(A11yID.Workouts.routeImportButtonLabel)
+                }
+                .glassSecondaryButton()
+                .controlSize(.small)
+                .layoutPriority(1)
+                .accessibilityIdentifier(A11yID.Workouts.routeImportButton)
             }
-            // A container keeps the card identifier on the group; without it SwiftUI stamped the
-            // card identifier onto the child texts and hid their own.
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier(A11yID.Workouts.routeImportCard)
 
             if let importedRoute {
                 ImportedRouteSummary(route: importedRoute) {
                     GPXRouteImporter.clearImportedRoute()
                     self.importedRoute = nil
                 }
-            } else {
-                Text(L10n.localized("No route imported", comment: "Empty state for route import card"))
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Button {
-                isImportingRoute = true
-            } label: {
-                Label(
-                    L10n.localized("Import GPX", comment: "Button to import a GPX route"),
-                    systemImage: "square.and.arrow.down"
-                )
-                .frame(maxWidth: .infinity)
-                .accessibilityIdentifier(A11yID.Workouts.routeImportButtonLabel)
-            }
-            .glassButton()
-            .accessibilityIdentifier(A11yID.Workouts.routeImportButton)
         }
         .padding(DesignTokens.Spacing.md)
-        .glassCard()
-        .padding(.horizontal, DesignTokens.Spacing.md)
+        .calmCard()
     }
 
-    private var headerSection: some View {
-        HStack {
-            Text(L10n.localized("Workouts", comment: "Workouts screen title"))
-                .font(DesignTokens.Typography.largeTitle.bold())
-            Spacer()
-        }
-        .padding(.horizontal, DesignTokens.Spacing.md)
-        .padding(.vertical, DesignTokens.Spacing.sm)
-    }
-
-    private var activeWorkoutBanner: some View {
-        Button {
-            HapticService.shared.tap()
-            workoutController.isPresenting = true
-        } label: {
+    private var expeditionModeRow: some View {
+        Toggle(isOn: $expeditionModeEnabled) {
             HStack(spacing: DesignTokens.Spacing.md) {
-                Image(systemName: "figure.walk.motion")
-                    .font(DesignTokens.Typography.title2)
-                    .foregroundStyle(DesignTokens.Colors.success)
-                    .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
-                    .background(DesignTokens.Colors.success.opacity(0.15), in: Circle())
+                Image(systemName: "battery.100.bolt")
+                    .font(DesignTokens.Typography.callout.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.green)
+                    .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
+                    .background(DesignTokens.Colors.green.opacity(0.14), in: Circle())
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Text(L10n.localized("Active Workout", comment: "Banner title for an active workout"))
+                    Text(L10n.localized("Expedition Mode", comment: "Expedition Mode card title"))
                         .font(DesignTokens.Typography.headline)
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
-                    Text(L10n.localized("Tap to resume", comment: "Banner subtitle for resuming an active workout"))
-                        .font(DesignTokens.Typography.subheadline)
+
+                    Text(L10n.localized("Battery saver", comment: "Short subtitle for Expedition Mode battery savings"))
+                        .font(DesignTokens.Typography.footnote)
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.up")
-                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
-                    .foregroundStyle(DesignTokens.Colors.textTertiary)
-            }
-            .padding(DesignTokens.Spacing.md)
-            .glassCard(interactive: true)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(A11yID.Workouts.activeWorkoutBanner)
-        .padding(.horizontal, DesignTokens.Spacing.md)
-        .accessibleCard(
-            label: L10n.localized("Active Workout", comment: "Accessibility label for active workout banner"),
-            hint: L10n.localized("Resumes your current workout session", comment: "Accessibility hint for active workout banner")
-        )
-    }
-
-    private var startWorkoutSection: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            Image(systemName: "figure.run.circle.fill")
-                .font(.system(size: DesignTokens.FontSize.xxl))
-                .foregroundStyle(DesignTokens.Colors.accent.gradient)
-                .applyIfMotionEnabled { view in
-                    view.symbolEffect(.breathe.pulse.byLayer)
-                }
-
-            Text(L10n.localized("Ready to start?", comment: "Workouts view prompt"))
-                .font(DesignTokens.Typography.title2.bold())
-
-            Button {
-                HapticService.shared.confirm()
-                startWorkout(targetSteps: nil)
-            } label: {
-                Text(L10n.localized("Start Workout", comment: "Button to begin a workout"))
-                    .font(DesignTokens.Typography.title3.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(DesignTokens.Spacing.md)
-            }
-            .glassButton()
-            .accessibilityIdentifier(A11yID.Workouts.startWorkoutButton)
-            .padding(.horizontal, DesignTokens.Spacing.xl)
-            .accessibleButton(
-                label: L10n.localized("Start Workout", comment: "Button to begin a workout"),
-                hint: L10n.localized("Begins a new workout session", comment: "Accessibility hint for start workout button")
-            )
-        }
-        .padding(.vertical, DesignTokens.Spacing.lg)
-    }
-
-    private var recoveryWorkoutSection: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            Label {
-                Text(L10n.localized("Unfinished Workout", comment: "Title for a workout recovered after app interruption"))
-                    .font(DesignTokens.Typography.headline)
-            } icon: {
-                Image(systemName: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
-                    .foregroundStyle(DesignTokens.Colors.accent)
-            }
-
-            Text(L10n.localized(
-                "A previous workout ended unexpectedly. Finish it using the last saved checkpoint, or discard it before starting another workout.",
-                comment: "Explanation for recovering an unfinished workout"
-            ))
-            .font(DesignTokens.Typography.subheadline)
-            .foregroundStyle(DesignTokens.Colors.textPrimary)
-            .accessibilityIdentifier(A11yID.Workouts.recoveryMessage)
-
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                recoveryActionButtons
-            }
-            .disabled(isHandlingRecovery)
-
-            if isHandlingRecovery {
-                ProgressView(
-                    L10n.localized(
-                        "Updating workout...",
-                        comment: "Progress status while resolving an unfinished workout"
-                    )
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .toggleStyle(.switch)
+        .tint(DesignTokens.Colors.accent)
         .padding(DesignTokens.Spacing.md)
-        .glassCard()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(A11yID.Workouts.recoveryCard)
-        .padding(.horizontal, DesignTokens.Spacing.md)
+        .calmCard()
+        .accessibilityIdentifier(A11yID.Workouts.expeditionModeToggle)
     }
 
-    @ViewBuilder
-    private var recoveryActionButtons: some View {
-        Button {
-            handleRecovery(discard: false)
-        } label: {
-            Text(L10n.localized(
-                "Finish Saved Workout",
-                comment: "Action that finishes an interrupted workout at its last saved checkpoint"
-            ))
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderedProminent)
-        .foregroundStyle(DesignTokens.Colors.onAccent)
-        .accessibilityIdentifier(A11yID.Workouts.finishRecoveredWorkoutButton)
-
-        Button(role: .destructive) {
-            isConfirmingRecoveryDiscard = true
-        } label: {
-            Text(L10n.localized("Discard Workout", comment: "Discard recovered workout action"))
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(DesignTokens.Colors.red)
-        .foregroundStyle(DesignTokens.Colors.onAccent)
-        .accessibilityIdentifier(A11yID.Workouts.discardRecoveredWorkoutButton)
-    }
-
-    private var trainingPlansSection: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(L10n.localized("Training Plans", comment: "Section header for training plans"))
-                .font(DesignTokens.Typography.headline)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-
-            NavigationLink {
-                TrainingPlansView()
-            } label: {
-                HStack(spacing: DesignTokens.Spacing.md) {
-                    Image(systemName: "calendar.badge.plus")
-                        .font(DesignTokens.Typography.title2)
-                        .foregroundStyle(DesignTokens.Colors.accent)
-                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
-                        .background(DesignTokens.Colors.accentSoft, in: Circle())
-
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        Text(L10n.localized("AI Training Plans", comment: "Training plans card title"))
-                            .font(DesignTokens.Typography.headline)
-                            .foregroundStyle(DesignTokens.Colors.textPrimary)
-
-                        Text(trainingPlansSubtitle)
-                            .font(DesignTokens.Typography.subheadline)
-                            .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(DesignTokens.Typography.subheadline.weight(.semibold))
-                        .foregroundStyle(DesignTokens.Colors.textTertiary)
-                }
-                .padding(DesignTokens.Spacing.md)
-                .glassCard(interactive: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(A11yID.Workouts.trainingPlansCard)
-            .accessibleCard(
-                label: L10n.localized("AI Training Plans", comment: "Training plans card title"),
-                hint: L10n.localized("Opens AI-powered training plan creation", comment: "Accessibility hint")
-            )
-        }
-        .padding(.horizontal, DesignTokens.Spacing.md)
-    }
+    // MARK: - Recent Workouts
 
     private var recentWorkoutsSection: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             Text(L10n.localized("Recent Workouts", comment: "Workouts view section header"))
                 .font(DesignTokens.Typography.headline)
-                .padding(.horizontal, DesignTokens.Spacing.md)
+                .padding(.horizontal, DesignTokens.Spacing.mdPlus)
 
             if recentWorkouts.isEmpty {
                 emptyWorkoutsView
@@ -569,61 +594,51 @@ struct WorkoutsView: View {
     }
 
     private var emptyWorkoutsView: some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             Image(systemName: "figure.walk")
-                .font(.system(size: DesignTokens.FontSize.xs))
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-
-            Text(L10n.localized("No workouts yet", comment: "Empty state title"))
-                .font(DesignTokens.Typography.subheadline)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-
-            Text(L10n.localized("Start your first workout to see it here", comment: "Empty state description"))
-                .font(DesignTokens.Typography.caption)
+                .font(DesignTokens.Typography.title3)
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
-                .multilineTextAlignment(.center)
+                .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
+                .background(DesignTokens.Colors.surfaceQuaternary, in: Circle())
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(L10n.localized("No workouts yet", comment: "Empty state title"))
+                    .font(DesignTokens.Typography.subheadline.weight(.medium))
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                Text(L10n.localized("Start your first workout to see it here", comment: "Empty state description"))
+                    .font(DesignTokens.Typography.footnote)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding(DesignTokens.Spacing.xl)
-        .glassCard()
-        .padding(.horizontal, DesignTokens.Spacing.md)
+        .padding(DesignTokens.Spacing.md)
+        .calmCard()
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
     }
 
-    @ViewBuilder
     private var recentWorkoutsCarousel: some View {
         ScrollView(.horizontal) {
-            if LaunchConfiguration.isUITesting() {
-                workoutCardsRow
-                    .padding(.horizontal, DesignTokens.Spacing.md)
-            } else if #available(iOS 26, *) {
-                GlassEffectContainer(spacing: DesignTokens.Spacing.md) {
-                    workoutCardsRow
+            HStack(spacing: DesignTokens.Spacing.smPlus) {
+                ForEach(recentWorkouts) { workout in
+                    WorkoutCard(workout: workout)
                 }
-                .padding(.horizontal, DesignTokens.Spacing.md)
-            } else {
-                workoutCardsRow
-                    .padding(.horizontal, DesignTokens.Spacing.md)
             }
+            .glassContainer(spacing: DesignTokens.Spacing.smPlus)
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
         }
         .scrollIndicators(.hidden)
     }
 
-    private var workoutCardsRow: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            ForEach(recentWorkouts) { workout in
-                WorkoutCard(workout: workout)
-            }
-        }
-    }
-
-    private func startWorkout(targetSteps: Int? = nil) {
+    private func startWorkout(type: WorkoutType = .outdoorWalk, targetSteps: Int? = nil) {
         if workoutController.isActive {
             workoutController.isPresenting = true
             return
         }
 
         Task {
-            await workoutController.startWorkout(type: .outdoorWalk, targetSteps: targetSteps)
+            await workoutController.startWorkout(type: type, targetSteps: targetSteps)
         }
     }
 
@@ -659,10 +674,6 @@ struct WorkoutsView: View {
         }
     }
 
-    /// Parses off the main actor. A GPX file can be up to GPXRouteParser.maxFileSizeBytes
-    /// (5 MiB) and XML parsing plus coordinate decoding is CPU-bound; doing it inline in the
-    /// fileImporter callback hitched the dismissal animation on large routes. `ImportedRoute`
-    /// is Sendable, so the parsed value crosses back to the main actor safely.
     @concurrent
     private nonisolated static func importRouteOffMainActor(from url: URL) async throws -> ImportedRoute {
         try GPXRouteImporter.importRoute(from: url)
@@ -685,14 +696,6 @@ struct WorkoutsView: View {
         }
         return workoutRecommendation.map { $0.intent.localizedDescription }
     }
-
-    private var trainingPlansSubtitle: String {
-        if let activePlan {
-            return activePlan.planDescription
-        }
-        return L10n.localized("Get personalized plans powered by AI", comment: "Training plans card subtitle")
-    }
-
 }
 
 private struct RouteImportError: Identifiable {
@@ -705,17 +708,17 @@ private struct ImportedRouteSummary: View {
     let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             RoutePreview(segments: route.previewSegments)
                 .frame(height: DesignTokens.Sizing.routePreviewHeight)
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md, style: .continuous))
 
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+            HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(route.name)
-                        .font(DesignTokens.Typography.headline)
+                        .font(DesignTokens.Typography.subheadline.weight(.semibold))
                         .foregroundStyle(DesignTokens.Colors.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(1)
 
                     Text(route.sourceFilename)
                         .font(DesignTokens.Typography.caption)
@@ -751,10 +754,11 @@ private struct ImportedRouteSummary: View {
             Image(systemName: icon)
                 .foregroundStyle(DesignTokens.Colors.accent)
                 .frame(width: DesignTokens.IconSize.sm)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(value)
-                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold).monospacedDigit())
                     .foregroundStyle(DesignTokens.Colors.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -765,6 +769,7 @@ private struct ImportedRouteSummary: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibleStatistic(title: label, value: value)
     }
 }
 
@@ -836,58 +841,51 @@ struct WorkoutCard: View {
     let workout: WorkoutSession
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            iconBadge
-            workoutInfo
-            statsRow
-        }
-        .padding(DesignTokens.Spacing.md)
-        .frame(width: DesignTokens.Sizing.workoutCardWidth)
-        .glassCard()
-        .accessibleCard(label: "\(workout.type.displayName), \(formattedDate), \(formattedDuration)")
-    }
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
+            HStack {
+                Image(systemName: workout.type.icon)
+                    .font(DesignTokens.Typography.callout.weight(.semibold))
+                    .foregroundStyle(workout.type.color)
+                    .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
+                    .background(workout.type.color.opacity(0.15), in: Circle())
+                    .accessibilityHidden(true)
 
-    private var iconBadge: some View {
-        HStack {
-            Image(systemName: workout.type.icon)
-                .font(DesignTokens.Typography.title2)
-                .foregroundStyle(DesignTokens.Colors.inverseText)
-                .padding(DesignTokens.Spacing.sm)
-                .background(workout.type.color.gradient, in: Circle())
-            Spacer()
-        }
-    }
+                Spacer()
 
-    private var workoutInfo: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(formattedDate)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .lineLimit(1)
+            }
+
             Text(workout.type.displayName)
                 .font(DesignTokens.Typography.headline)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(formattedDate)
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-    }
+                .minimumScaleFactor(0.85)
 
-    private var statsRow: some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            statValue(icon: "figure.walk", value: workout.steps.formattedSteps)
-            statValue(icon: "clock", value: formattedDuration)
-            statValue(icon: "location", value: workout.distance.formattedDistance())
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                statValue(icon: "figure.walk", value: workout.steps.formattedSteps)
+                statValue(icon: "clock", value: formattedDuration)
+                statValue(icon: "location", value: workout.distance.formattedDistance())
+            }
+            .font(DesignTokens.Typography.caption.weight(.medium).monospacedDigit())
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
         }
-        .font(DesignTokens.Typography.caption.weight(.medium))
-        .foregroundStyle(DesignTokens.Colors.textSecondary)
+        .padding(DesignTokens.Spacing.md)
+        .frame(width: DesignTokens.Sizing.workoutCardWidth)
+        .calmCard()
+        .accessibleCard(
+            label: "\(workout.type.displayName), \(formattedDate), \(formattedDuration), \(workout.steps.formattedSteps) \(L10n.localized("Steps", comment: "Workout metric title")), \(workout.distance.formattedDistance())"
+        )
     }
 
     private func statValue(icon: String, value: String) -> some View {
         HStack(spacing: DesignTokens.Spacing.xxs) {
             Image(systemName: icon)
+                .accessibilityHidden(true)
             Text(value)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.75)
         }
     }
 
@@ -914,9 +912,9 @@ struct WorkoutCard: View {
 extension WorkoutType {
     var color: Color {
         switch self {
-        case .outdoorWalk, .indoorWalk: return DesignTokens.Colors.accent
-        case .outdoorRun, .indoorRun: return DesignTokens.Colors.orange
-        case .hike: return DesignTokens.Colors.green
+        case .outdoorWalk, .indoorWalk: DesignTokens.Colors.accent
+        case .outdoorRun, .indoorRun: DesignTokens.Colors.orange
+        case .hike: DesignTokens.Colors.green
         }
     }
 }
@@ -947,11 +945,13 @@ extension WorkoutType {
         metricsSource: MotionLiveMetricsSource(motionService: MotionService()),
         liveActivityManager: NoopLiveActivityManager()
     )
-    WorkoutsView()
-        .modelContainer(persistence.container)
-        .environment(demoModeStore)
-        .environment(foundationModelsService)
-        .environment(insightService)
-        .environment(trainingPlanService)
-        .environment(workoutController)
+    NavigationStack {
+        WorkoutsView()
+    }
+    .modelContainer(persistence.container)
+    .environment(demoModeStore)
+    .environment(foundationModelsService)
+    .environment(insightService)
+    .environment(trainingPlanService)
+    .environment(workoutController)
 }

@@ -8,7 +8,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createStaticHandler } from "./static-handler.mjs";
-import { chromium } from "/Users/mneves/dev/PROJETOS/whatsimovel/node_modules/.pnpm/playwright@1.56.1/node_modules/playwright/index.mjs";
+
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? "playwright");
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const server = http.createServer(createStaticHandler(ROOT));
@@ -18,7 +19,13 @@ const PAGE = process.env.PAGE ?? "index.html";
 const VW = Number(process.env.VW ?? 1920), VH = Number(process.env.VH ?? 1080);
 const URL0 = `http://127.0.0.1:${server.address().port}/${PAGE}`;
 
-const browser = await chromium.launch({ executablePath: process.env.HOME + "/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell", args: ["--force-color-profile=srgb", "--disable-lcd-text", "--font-render-hinting=none"] });
+const launchOptions = {
+  args: ["--force-color-profile=srgb", "--disable-lcd-text", "--font-render-hinting=none"],
+};
+if (process.env.PLAYWRIGHT_EXECUTABLE_PATH) {
+  launchOptions.executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
+}
+const browser = await chromium.launch(launchOptions);
 async function openPage() {
   const page = await browser.newPage({ viewport: { width: VW, height: VH }, deviceScaleFactor: 1 });
   page.on("pageerror", (e) => { console.error("PAGEERROR", e.message); process.exitCode = 2; });

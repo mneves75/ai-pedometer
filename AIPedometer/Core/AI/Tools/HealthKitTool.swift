@@ -36,12 +36,12 @@ struct HealthKitDataTool: Tool, Sendable {
                 "reason": "sync_disabled",
                 "scope": "ai_tool"
             ])
-            let title = String(
-                localized: "HealthKit Sync is Off",
+            let title = L10n.localized(
+                "HealthKit Sync is Off",
                 comment: "AI tool response title when HealthKit sync is disabled"
             )
-            let detail = String(
-                localized: "Enable HealthKit Sync in Settings to see your activity history.",
+            let detail = L10n.localized(
+                "Enable HealthKit Sync in Settings to see your activity history.",
                 comment: "AI tool response detail when HealthKit sync is disabled"
             )
             return "\(title). \(detail)"
@@ -75,8 +75,8 @@ struct HealthKitDataTool: Tool, Sendable {
     
     private func formatSummaries(_ summaries: [DailyStepSummary], unitName: String) async -> String {
         guard !summaries.isEmpty else {
-            return String(
-                localized: "No activity data available for the requested period.",
+            return L10n.localized(
+                "No activity data available for the requested period.",
                 comment: "AI tool response when no activity data is available"
             )
         }
@@ -191,12 +191,12 @@ struct StreakDataTool: Tool {
     func call(arguments: Arguments) async throws -> String {
         let userDefaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .sharedAppGroup
         let currentStreak = await MainActor.run {
-            userDefaults?.sharedStepData?.currentStreak ?? 0
+            userDefaults?.sharedStepData?.normalizedForRendering(at: .now).currentStreak ?? 0
         }
         return Localization.format(
-            "Current streak: %lld days",
+            "Current streak: %@",
             comment: "AI tool response for current streak",
-            Int64(currentStreak)
+            Localization.streakDays(currentStreak)
         )
     }
 }

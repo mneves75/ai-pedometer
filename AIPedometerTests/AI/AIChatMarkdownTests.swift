@@ -5,10 +5,23 @@ import Testing
 
 @Suite("AIChatMarkdown Tests")
 struct AIChatMarkdownTests {
-    @Test("Disables raw HTML parsing")
-    func disablesRawHTML() {
-        #expect(AIChatMarkdown.parseOptions.contains(.noHTMLBlocks))
-        #expect(AIChatMarkdown.parseOptions.contains(.noHTMLSpans))
+    @Test("Strips raw HTML tags without mangling angle-bracket comparisons in coaching prose")
+    func disablesRawHTMLWithoutManglingComparisons() throws {
+        let htmlDoc = try AIChatMarkdown.parseDocument(
+            from: #"Hello <script>alert(1)</script> world <a href="https://evil.test">tap</a><!-- secret -->"#
+        )
+        let htmlRendered = String(AIChatMarkdown.renderAttributedString(from: htmlDoc).characters)
+        #expect(!htmlRendered.contains("<script>"))
+        #expect(!htmlRendered.contains("</script>"))
+        #expect(!htmlRendered.contains("<a "))
+        #expect(!htmlRendered.contains("<!--"))
+        #expect(htmlRendered.contains("Hello"))
+        #expect(htmlRendered.contains("world"))
+
+        let prose = "If steps < 5,000 and > 2,000, add a short walk."
+        let proseDoc = try AIChatMarkdown.parseDocument(from: prose)
+        let proseRendered = String(AIChatMarkdown.renderAttributedString(from: proseDoc).characters)
+        #expect(proseRendered.contains("< 5,000 and > 2,000"))
     }
 
     @Test("Incremental streaming render matches full render (plain text + links)")

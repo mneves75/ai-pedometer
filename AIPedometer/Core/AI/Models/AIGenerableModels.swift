@@ -133,7 +133,7 @@ struct AITrainingPlan: Sendable {
 }
 
 @Generable
-struct WeeklyTarget: Sendable, Codable {
+struct WeeklyTarget: Sendable, Codable, Equatable {
     @Guide(description: "Week number", .range(1...12))
     let weekNumber: Int
     

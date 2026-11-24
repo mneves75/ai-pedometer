@@ -1,0 +1,12 @@
+id: swift-no-numeric-formatted
+language: Swift
+severity: error
+message: Avoid zero-argument .formatted() in production code; use Formatters or .formattedSteps so the device's Number Format and Measurement System preferences are respected.
+note: Bare .formatted() drops the device Number Format preference (see AGENTS.md and FOR_YOU_KNOW.md). Date formatting calls with explicit arguments such as .formatted(date:time:) are unaffected.
+rule:
+  pattern: $VALUE.formatted()
+files:
+  - "AIPedometer/**/*.swift"
+  - "Shared/**/*.swift"
+  - "AIPedometerWatch/**/*.swift"
+  - "AIPedometerWidgets/**/*.swift"

@@ -23,6 +23,7 @@ enum AIChatLinkPolicy {
     private static func isLocalHost(_ host: String) -> Bool {
         let normalized = normalizeHost(host)
         return normalized == "localhost"
+            || normalized.hasSuffix(".localhost")
             || normalized == "127.0.0.1"
             || normalized == "::1"
             || normalized.hasSuffix(".local")
@@ -39,12 +40,16 @@ enum AIChatLinkPolicy {
             return true
         }
 
+        // Catch legacy and mixed-radix IPv4 literals (e.g. 127.0.0.0x1, 127.0x1, 10.0x1, 0177.0.0.1, 2130706433).
+        var addr4 = in_addr()
+        if normalized.withCString({ inet_aton($0, &addr4) }) != 0 {
+            return true
+        }
+
         let allowed = CharacterSet(charactersIn: "0123456789.")
         let isNumericLike = normalized.unicodeScalars.allSatisfy { allowed.contains($0) }
         guard isNumericLike else { return false }
 
-        // Numeric-like host that is not strict dotted-decimal is parser-dependent
-        // (e.g. 2130706433, 127.1, 0x7f000001) and can resolve to loopback.
         return parseIPv4Octets(normalized) == nil
     }
 

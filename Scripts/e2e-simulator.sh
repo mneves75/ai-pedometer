@@ -135,15 +135,22 @@ def validate_udid(udid, family, label):
         raise SystemExit(f"ERRO: simulador {label} indisponivel.")
     return udid
 
+def is_standard_runtime(runtime):
+    leaf = runtime.rsplit(".", 1)[-1]
+    parts = leaf.split("-")[1:]
+    return bool(parts) and all(part.isdigit() for part in parts)
+
 def pick_udid(family, name_prefixes):
     candidates = [
         (runtime, device)
         for runtime, device in iter_devices()
         if runtime_family(runtime) == family and is_available(device)
     ]
-    candidates.sort(key=lambda x: runtime_sort_key(x[0]), reverse=True)
+    standard_candidates = [(runtime, device) for runtime, device in candidates if is_standard_runtime(runtime)]
+    pool = standard_candidates or candidates
+    pool.sort(key=lambda x: runtime_sort_key(x[0]), reverse=True)
     for prefix in name_prefixes:
-        for _, device in candidates:
+        for _, device in pool:
             name = device.get("name")
             udid = device.get("udid")
             if isinstance(name, str) and name.startswith(prefix) and isinstance(udid, str) and udid:

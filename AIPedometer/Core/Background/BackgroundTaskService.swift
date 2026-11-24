@@ -1,6 +1,7 @@
 #if os(iOS)
 import BackgroundTasks
 import Foundation
+import os
 
 protocol BackgroundTaskScheduling: AnyObject {
     func register(
@@ -25,25 +26,22 @@ final class BGTaskSchedulerAdapter: BackgroundTaskScheduling {
     }
 }
 
-protocol BackgroundTaskProtocol: AnyObject {
+protocol BackgroundTaskProtocol: AnyObject, Sendable {
     var expirationHandler: (() -> Void)? { get set }
     func setTaskCompleted(success: Bool)
 }
 
 protocol AppRefreshTaskProtocol: BackgroundTaskProtocol {}
 
-private final class TaskCompletionGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var didComplete = false
+private final class TaskCompletionGate: Sendable {
+    private let didComplete = OSAllocatedUnfairLock(initialState: false)
 
     func complete(_ task: any BackgroundTaskProtocol, success: Bool) {
-        lock.lock()
-        let shouldComplete = !didComplete
-        if shouldComplete {
-            didComplete = true
+        let shouldComplete = didComplete.withLock { completed in
+            guard !completed else { return false }
+            completed = true
+            return true
         }
-        lock.unlock()
-
         guard shouldComplete else { return }
         task.setTaskCompleted(success: success)
     }
@@ -105,7 +103,19 @@ final class BackgroundTaskService {
             guard !Task.isCancelled else { return }
             completionGate.complete(task, success: true)
         }
-        task.expirationHandler = {
+        task.expirationHandler = Self.makeExpirationHandler(
+            operation: operation,
+            completionGate: completionGate,
+            task: task
+        )
+    }
+
+    nonisolated private static func makeExpirationHandler(
+        operation: Task<Void, Never>,
+        completionGate: TaskCompletionGate,
+        task: any AppRefreshTaskProtocol
+    ) -> @Sendable () -> Void {
+        {
             operation.cancel()
             completionGate.complete(task, success: false)
         }

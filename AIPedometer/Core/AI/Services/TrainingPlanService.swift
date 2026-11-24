@@ -155,6 +155,9 @@ final class TrainingPlanService {
                 try validate(aiPlan: aiPlan, expectedGoal: goal, daysPerWeek: daysPerWeek)
                 resolvedPlan = localizedPlan(aiPlan, goal: goal)
             } catch let error {
+                if Task.isCancelled {
+                    throw AIServiceError.generationFailed(underlying: "Cancelled")
+                }
                 guard shouldUseFallback(for: error) else {
                     throw error
                 }
@@ -164,6 +167,10 @@ final class TrainingPlanService {
                     "level": level.rawValue,
                     "reason": error.logDescription
                 ])
+            }
+
+            if Task.isCancelled {
+                throw AIServiceError.generationFailed(underlying: "Cancelled")
             }
 
             let record = try createPlanRecord(from: resolvedPlan, goal: goal)
@@ -426,7 +433,7 @@ private extension TrainingPlanService {
         Available Days: \(daysPerWeek) days per week
         
         User's Current Status (last 14 days):
-        - Average daily \(unitLabel): \(averageSteps.formatted())
+        - Average daily \(unitLabel): \(averageSteps.formattedSteps)
         - Goal achievement rate: \(recentData.isEmpty ? 0 : (goalMetDays * 100) / recentData.count)%
         \(dataReliabilityNote)
 
@@ -466,8 +473,8 @@ private extension TrainingPlanService {
         - \(languageInstruction)
         
         Recent Activity (last 14 days):
-        - Average daily \(unitLabel): \(averageSteps.formatted())
-        - Best day: \(maxSteps.formatted()) \(unitLabel)
+        - Average daily \(unitLabel): \(averageSteps.formattedSteps)
+        - Best day: \(maxSteps.formattedSteps) \(unitLabel)
         - Goal achievement: \(recentData.isEmpty ? 0 : (goalMetDays * 100) / recentData.count)%
         \(dataReliabilityNote)
         

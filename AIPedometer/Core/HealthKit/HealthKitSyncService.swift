@@ -556,7 +556,7 @@ final class HealthKitSyncService {
             while dayCursor <= normalizedEnd {
                 total += recordsByDate[dayCursor]?.steps ?? 0
                 guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayCursor) else { break }
-                dayCursor = nextDay
+                dayCursor = calendar.startOfDay(for: nextDay)
             }
 
             weeklyAverages.append(total / 7)

@@ -122,10 +122,7 @@ struct MainTabView: View {
             }
         }
         .tint(DesignTokens.Colors.accent)
-        #if os(iOS)
-        .toolbarBackground(.ultraThickMaterial, for: .tabBar)
-        .toolbarBackgroundVisibility(.visible, for: .tabBar)
-        #endif
+        .applyTabBarMinimizeOnScrollIfAvailable()
         .accessibilityIdentifier(A11yID.mainTabBar)
     }
 
@@ -188,6 +185,21 @@ struct MainTabView: View {
         case .more:
             MoreView()
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func applyTabBarMinimizeOnScrollIfAvailable() -> some View {
+        #if os(iOS)
+        if !LaunchConfiguration.isUITesting(), #available(iOS 26, *) {
+            self.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
     }
 }
 

@@ -79,7 +79,7 @@ struct WatchPayload: Codable, Sendable {
             senderID: senderID, revision: revision,
             todaySteps: rendered.todaySteps, goalSteps: rendered.goalSteps,
             goalProgress: rendered.goalProgress, currentStreak: rendered.currentStreak,
-            lastUpdated: lastUpdated, weeklySteps: weeklySteps, sentAt: sentAt,
+            lastUpdated: lastUpdated, weeklySteps: rendered.weeklySteps, sentAt: sentAt,
             activityMode: activityMode
         )
     }

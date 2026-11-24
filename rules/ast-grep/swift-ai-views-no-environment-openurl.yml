@@ -7,3 +7,4 @@ rule:
   pattern: openURL($URL)
 files:
   - "AIPedometer/Core/AI/Views/**/*.swift"
+  - "AIPedometer/Features/AICoach/**/*.swift"

@@ -13,9 +13,9 @@ struct HistoryView: View {
     @State private var loadError: String?
     @State private var weeklyAnalysis: WeeklyTrendAnalysis?
     @State private var isLoadingAnalysis = false
-    // Latest-invocation-wins ownership of the load state; see `HistoryAnalysisGate.load`.
     @State private var loadGeneration = 0
     @State private var showHealthHelp = false
+    @State private var selectedSummaryID: Date?
 
     private struct LoadTrigger: Hashable {
         let syncEnabled: Bool
@@ -28,33 +28,33 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            headerSection
-            mainContent
-        }
-        .sheet(isPresented: $showHealthHelp) {
-            HealthAccessHelpSheet()
-        }
-        .uiTestMarker(A11yID.History.marker)
-        .uiTestMarker(A11yID.History.todaySteps(trackingService.todaySteps))
-        .uiTestMarker(A11yID.History.syncEnabled(healthKitSyncEnabled))
-        .background(DesignTokens.Colors.surfaceGrouped)
-        .toolbarVisibility(.hidden, for: .navigationBar)
-        .onAppear {
-            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.1)) {
-                animateChart = true
+        mainContent
+            .sheet(isPresented: $showHealthHelp) {
+                HealthAccessHelpSheet()
             }
-        }
-        .task(id: LoadTrigger(
-            syncEnabled: healthKitSyncEnabled,
-            activityModeRaw: activityModeRaw,
-            aiAvailable: foundationModelsService.availability.isAvailable,
-        )) {
-            await loadData(forceRefreshAnalysis: false)
-        }
-        .refreshable {
-            await loadData(forceRefreshAnalysis: true)
-        }
+            .uiTestMarker(A11yID.History.marker)
+            .uiTestMarker(A11yID.History.todaySteps(trackingService.todaySteps))
+            .uiTestMarker(A11yID.History.syncEnabled(healthKitSyncEnabled))
+            .background {
+                AmbientZenithBackground()
+            }
+            .navigationTitle(L10n.localized("History", comment: "History screen title"))
+            .navigationBarTitleDisplayMode(.large)
+            .onAppear {
+                withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.1)) {
+                    animateChart = true
+                }
+            }
+            .task(id: LoadTrigger(
+                syncEnabled: healthKitSyncEnabled,
+                activityModeRaw: activityModeRaw,
+                aiAvailable: foundationModelsService.availability.isAvailable
+            )) {
+                await loadData(forceRefreshAnalysis: false)
+            }
+            .refreshable {
+                await loadData(forceRefreshAnalysis: true)
+            }
     }
 
     private func loadData(forceRefreshAnalysis: Bool = false) async {
@@ -121,17 +121,17 @@ struct HistoryView: View {
 
     private var weeklyAnalysisEmergencyFallback: WeeklyTrendAnalysis {
         WeeklyTrendAnalysis(
-            summary: String(
-                localized: "No Activity Data",
+            summary: L10n.localized(
+                "No Activity Data",
                 comment: "Weekly trend summary when no data is available"
             ),
             trend: .stable,
-            observation: String(
-                localized: "Start walking to see your activity history here. Make sure Health access is enabled in Settings.",
+            observation: L10n.localized(
+                "Start walking to see your activity history here. Make sure Health access is enabled in Settings.",
                 comment: "Weekly trend observation when no data is available"
             ),
-            recommendation: String(
-                localized: "Enable HealthKit Sync in Settings to see your activity history.",
+            recommendation: L10n.localized(
+                "Enable HealthKit Sync in Settings to see your activity history.",
                 comment: "Weekly trend recommendation when no data is available"
             )
         )
@@ -139,8 +139,6 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        // Sync off is a deterministic state: don't show a spinner while we "load"
-        // something we will never load.
         if !healthKitSyncEnabled {
             syncDisabledState
         } else if healthAuthorization.status == .shouldRequest {
@@ -183,8 +181,7 @@ struct HistoryView: View {
             Text(message)
         } actions: {
             Button(L10n.localized("Try Again", comment: "Retry button"), action: retryLoad)
-                .buttonStyle(.bordered)
-                .tint(DesignTokens.Colors.textPrimary)
+                .glassSecondaryButton()
         }
     }
 
@@ -211,8 +208,6 @@ struct HistoryView: View {
         } description: {
             Text(L10n.localized("Enable HealthKit Sync in Settings to see your activity history.", comment: "History empty state description when HealthKit sync disabled"))
         }
-        // Do NOT set accessibilityIdentifier on the container: SwiftUI may apply it
-        // to child text nodes, breaking per-element identifiers used by UI tests.
         .accessibilityElement(children: .contain)
         .uiTestMarker(A11yID.History.syncOffView)
     }
@@ -228,6 +223,7 @@ struct HistoryView: View {
         } actions: {
             Button(L10n.localized("Grant Access", comment: "Button to request Health access"), action: requestHealthAccess)
                 .glassButton()
+                .controlSize(.large)
         }
         .accessibilityElement(children: .contain)
         .uiTestMarker(A11yID.History.healthAccessNeededView)
@@ -248,8 +244,6 @@ struct HistoryView: View {
     }
 
     private var shouldShowHealthTroubleshootingState: Bool {
-        // History depends on HealthKit (Apple Watch inclusive). If we are falling back to Motion for today,
-        // and HealthKit summaries are entirely empty/zero, guide the user to Settings.
         guard activityMode == .steps else { return false }
         guard trackingService.isUsingMotionFallback else { return false }
         guard trackingService.todaySteps > 0 else { return false }
@@ -264,8 +258,8 @@ struct HistoryView: View {
             )
         } description: {
             Text(
-                String(
-                    localized: "Your steps are available via Motion & Fitness, but Health history isn't loading. Enable Health access in Settings to show Apple Watch and history data.",
+                L10n.localized(
+                    "Your steps are available via Motion & Fitness, but Health history isn't loading. Enable Health access in Settings to show Apple Watch and history data.",
                     comment: "History troubleshooting description when using Motion fallback and HealthKit history is empty"
                 )
             )
@@ -274,6 +268,7 @@ struct HistoryView: View {
                 showHealthHelp = true
             }
             .glassButton()
+            .controlSize(.large)
         }
         .accessibilityElement(children: .contain)
     }
@@ -289,23 +284,15 @@ struct HistoryView: View {
         }
     }
 
-    private var headerSection: some View {
-        HStack {
-            Text(L10n.localized("History", comment: "History screen title"))
-                .font(DesignTokens.Typography.largeTitle.bold())
-            Spacer()
-        }
-        .padding(.horizontal, DesignTokens.Spacing.md)
-        .padding(.vertical, DesignTokens.Spacing.sm)
-    }
-
     private var scrollContent: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.md) {
+            VStack(spacing: DesignTokens.Spacing.lg) {
                 weeklySummaryCard
+                dailyBreakdownCard
                 aiTrendCard
-                historyRows
             }
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+            .padding(.top, DesignTokens.Spacing.sm)
         }
         .tabBarAwareScrollContentBottomInset()
     }
@@ -318,45 +305,74 @@ struct HistoryView: View {
                 isLoading: isLoadingAnalysis,
                 error: nil,
                 onRetry: {
-                    // Owned by the current load: a newer load discards this retry's result.
                     let generation = loadGeneration
                     Task {
                         await loadWeeklyAnalysis(forceRefresh: true, isCurrent: { loadGeneration == generation })
                     }
                 }
             )
-            .padding(.horizontal, DesignTokens.Spacing.md)
         } else if case .unavailable(let reason) = foundationModelsService.availability {
             AIAvailabilityBanner(reason: reason)
-                .padding(.horizontal, DesignTokens.Spacing.md)
         }
     }
 
-    @ViewBuilder
     private var weeklySummaryCard: some View {
-        if LaunchConfiguration.isUITesting() {
-            weeklySummaryContent
-                .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if #available(iOS 26, *) {
-            GlassEffectContainer(spacing: DesignTokens.Spacing.sm) {
-                weeklySummaryContent
-            }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else {
-            weeklySummaryContent
-                .padding(.horizontal, DesignTokens.Spacing.md)
-        }
-    }
+        let summaries = trackingService.weeklySummaries
+        let selectedSummary = summaries.first { $0.date == selectedSummaryID }
+        let average = summaries.isEmpty ? 0 : summaries.reduce(0) { $0 + $1.steps } / summaries.count
+        let goalMetCount = summaries.count(where: \.goalMet)
+        let headlineValue = selectedSummary?.steps ?? average
+        let headlineSubtitle = selectedSummary?.dateString
+            ?? L10n.localized("Daily Average", comment: "History chart headline for 7-day daily average")
 
-    private var weeklySummaryContent: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(L10n.localized("Weekly Summary", comment: "History section header"))
-                .font(DesignTokens.Typography.headline)
+        return VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    Text(headlineSubtitle)
+                        .font(DesignTokens.Typography.footnote.weight(.medium))
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+                    HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+                        Text(headlineValue.formattedSteps)
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+
+                        Text(activityMode.unitName)
+                            .font(DesignTokens.Typography.subheadline)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    }
+                }
+
+                Spacer()
+
+                HStack(spacing: DesignTokens.Spacing.xs) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(DesignTokens.Typography.caption)
+                        .foregroundStyle(DesignTokens.Colors.success)
+                        .accessibilityHidden(true)
+                    Text("\(goalMetCount)/\(summaries.count)")
+                        .font(DesignTokens.Typography.footnote.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
+                }
+                .padding(.horizontal, DesignTokens.Spacing.smPlus)
+                .padding(.vertical, DesignTokens.Spacing.xsPlus)
+                .background(DesignTokens.Colors.success.opacity(0.12), in: Capsule())
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    Localization.format(
+                        "%lld of %lld",
+                        comment: "Days goal met out of total days",
+                        Int64(goalMetCount),
+                        Int64(summaries.count)
+                    )
+                )
+            }
 
             barChart
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .padding(DesignTokens.Spacing.mdPlus)
+        .calmCard()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             Localization.format(
@@ -369,28 +385,63 @@ struct HistoryView: View {
 
     private var barChart: some View {
         let summaries = trackingService.weeklySummaries
-        let maxSteps = summaries.maxStepsValue
+        let goalReference = summaries.last?.goal ?? trackingService.currentGoal
+        let maxSteps = max(summaries.maxStepsValue, goalReference, 1)
+        let goalRatio = min(CGFloat(goalReference) / CGFloat(maxSteps), 1.0)
 
-        return HStack(alignment: .bottom, spacing: DesignTokens.Spacing.sm) {
-            ForEach(summaries.enumerated(), id: \.element.id) { index, summary in
-                BarChartColumn(
-                    summary: summary,
-                    maxSteps: maxSteps,
-                    activityMode: activityMode,
-                    animate: animateChart,
-                    delay: Double(index) * 0.05
-                )
+        return ZStack(alignment: .bottom) {
+            if goalReference > 0 {
+                GeometryReader { proxy in
+                    let barAreaHeight = DesignTokens.Sizing.chartBarMaxHeight
+                    let yOffset = max(0, barAreaHeight * (1 - goalRatio))
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: yOffset))
+                        path.addLine(to: CGPoint(x: proxy.size.width, y: yOffset))
+                    }
+                    .stroke(
+                        DesignTokens.Colors.borderMuted,
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                    )
+                }
+                .frame(height: DesignTokens.Sizing.chartBarMaxHeight)
+                .padding(.bottom, 22)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+
+            HStack(alignment: .bottom, spacing: DesignTokens.Spacing.sm) {
+                ForEach(summaries.enumerated(), id: \.element.id) { index, summary in
+                    BarChartColumn(
+                        summary: summary,
+                        maxSteps: maxSteps,
+                        activityMode: activityMode,
+                        isSelected: selectedSummaryID == summary.date,
+                        animate: animateChart,
+                        delay: Double(index) * 0.04
+                    ) {
+                        HapticService.shared.selection()
+                        withAnimation(reduceMotion ? nil : DesignTokens.Animation.snappy) {
+                            selectedSummaryID = selectedSummaryID == summary.date ? nil : summary.date
+                        }
+                    }
+                }
             }
         }
         .frame(minHeight: DesignTokens.Sizing.chartHeight)
     }
 
-    private var historyRows: some View {
-        ForEach(trackingService.weeklySummaries.sortedByDateDescending) { summary in
-            HistoryRow(summary: summary, activityMode: activityMode)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .scrollFadeIn()
+    private var dailyBreakdownCard: some View {
+        let sorted = trackingService.weeklySummaries.sortedByDateDescending
+        return VStack(spacing: DesignTokens.Spacing.none) {
+            ForEach(sorted.enumerated(), id: \.element.id) { index, summary in
+                HistoryRow(summary: summary, activityMode: activityMode)
+                if index < sorted.count - 1 {
+                    Divider()
+                        .padding(.leading, DesignTokens.Spacing.mdPlus)
+                }
+            }
         }
+        .calmCard()
     }
 }
 
@@ -398,55 +449,69 @@ struct BarChartColumn: View {
     let summary: DailyStepSummary
     let maxSteps: Int
     let activityMode: ActivityTrackingMode
+    var isSelected: Bool = false
     let animate: Bool
     let delay: Double
+    var onSelect: (() -> Void)? = nil
 
     private var heightRatio: CGFloat {
         CGFloat(summary.steps) / CGFloat(max(maxSteps, 1))
     }
 
     private var barFill: LinearGradient {
-        summary.goalMet
-            ? LinearGradient(
-                colors: [DesignTokens.Colors.mint, DesignTokens.Colors.cyan],
+        if summary.goalMet {
+            LinearGradient(
+                colors: [DesignTokens.Colors.accent, DesignTokens.Colors.mint],
                 startPoint: .bottom,
                 endPoint: .top
             )
-            : LinearGradient(
+        } else {
+            LinearGradient(
                 colors: [DesignTokens.Colors.accentSoft, DesignTokens.Colors.accentMuted],
                 startPoint: .bottom,
                 endPoint: .top
             )
+        }
     }
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xs) {
-            Spacer()
+        let minBarHeight: CGFloat = summary.steps > 0 ? 6 : 3
+        let barHeight = animate
+            ? max(DesignTokens.Sizing.chartBarMaxHeight * heightRatio, minBarHeight)
+            : minBarHeight
 
-            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs)
-                .fill(barFill)
-                .frame(height: animate ? DesignTokens.Sizing.chartBarMaxHeight * heightRatio : 0)
-                .overlay(alignment: .top) {
-                    // A bright cap that reads as the "peak" of a goal-met day.
-                    if summary.goalMet {
-                        Circle()
-                            .fill(DesignTokens.Colors.inverseText)
-                            .frame(width: DesignTokens.Spacing.xs, height: DesignTokens.Spacing.xs)
-                            .padding(.top, DesignTokens.Spacing.xxs)
-                            .opacity(animate ? 1 : 0)
-                            .shadow(color: DesignTokens.Colors.cyan.opacity(0.6), radius: DesignTokens.Spacing.xs)
+        Button {
+            onSelect?()
+        } label: {
+            VStack(spacing: DesignTokens.Spacing.xsPlus) {
+                Spacer(minLength: 0)
+
+                Capsule()
+                    .fill(barFill)
+                    .frame(maxWidth: 26)
+                    .frame(height: barHeight)
+                    .opacity(isSelected ? 1 : 0.92)
+                    .overlay {
+                        if isSelected {
+                            Capsule()
+                                .strokeBorder(DesignTokens.Colors.textPrimary.opacity(0.45), lineWidth: 1.5)
+                        }
                     }
-                }
-                .motionAwareAnimation(
-                    DesignTokens.Animation.springy.delay(delay),
-                    value: animate
-                )
+                    .motionAwareAnimation(
+                        DesignTokens.Animation.springy.delay(delay),
+                        value: animate
+                    )
 
-            Text(summary.dayName)
-                .font(DesignTokens.Typography.caption2)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                Text(summary.dayName)
+                    .font(DesignTokens.Typography.caption2.weight(isSelected ? .bold : .medium))
+                    .foregroundStyle(isSelected ? DesignTokens.Colors.textPrimary : DesignTokens.Colors.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityLabel("\(summary.dayName): \(summary.steps.formattedSteps) \(activityMode.unitName), \(summary.goalMet ? L10n.localized("goal met") : L10n.localized("goal not met"))")
     }
 }
@@ -456,26 +521,27 @@ struct HistoryRow: View {
     let activityMode: ActivityTrackingMode
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(summary.dateString)
-                    .font(DesignTokens.Typography.headline)
-                GoalStatusBadge(met: summary.goalMet)
-            }
+        HStack(spacing: DesignTokens.Spacing.md) {
+            GoalStatusIndicator(met: summary.goalMet)
+
+            Text(summary.dateString)
+                .font(DesignTokens.Typography.body.weight(.medium))
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
 
             Spacer()
 
             HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xxs) {
                 Text(summary.steps.formattedSteps)
-                    .font(DesignTokens.Typography.title3.bold().monospacedDigit())
+                    .font(DesignTokens.Typography.headline.monospacedDigit())
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
                     .contentTransition(.numericText())
                 Text(activityMode.unitName)
                     .font(DesignTokens.Typography.caption)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .accessibleCard(
             label: "\(summary.dateString), \(summary.steps.formattedSteps) \(activityMode.unitName)",
             hint: summary.goalMet ? L10n.localized("Goal achieved") : L10n.localized("Goal not achieved")
@@ -483,12 +549,28 @@ struct HistoryRow: View {
     }
 }
 
+/// Quiet, accessible goal status dot/check. Hides the SF Symbol from VoiceOver so
+/// `xmark.circle.fill` never leaks as "Close"/"Fechar"; the row's card hint speaks the status.
+struct GoalStatusIndicator: View {
+    let met: Bool
+
+    var body: some View {
+        Image(systemName: met ? "checkmark.circle.fill" : "circle")
+            .font(DesignTokens.Typography.callout.weight(.semibold))
+            .foregroundStyle(met ? DesignTokens.Colors.success : DesignTokens.Colors.borderMuted)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Retained for previews and callers that render the explicit capsule status badge, with the
+/// decorative icon hidden from VoiceOver so it never reads as "Close"/"Fechar".
 struct GoalStatusBadge: View {
     let met: Bool
 
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.xxs) {
-            Image(systemName: met ? "checkmark.circle.fill" : "xmark.circle.fill")
+            Image(systemName: met ? "checkmark.circle.fill" : "circle")
+                .accessibilityHidden(true)
             Text(
                 met
                     ? L10n.localized("Goal Met", comment: "Badge label for when daily goal was met")
@@ -501,10 +583,10 @@ struct GoalStatusBadge: View {
         .background(
             met
                 ? DesignTokens.Colors.success.opacity(0.15)
-                : DesignTokens.Colors.warning.opacity(0.15),
+                : DesignTokens.Colors.surfaceQuaternary,
             in: Capsule()
         )
-        .foregroundStyle(met ? DesignTokens.Colors.success : DesignTokens.Colors.warning)
+        .foregroundStyle(met ? DesignTokens.Colors.success : DesignTokens.Colors.textSecondary)
     }
 }
 
@@ -524,34 +606,20 @@ struct GoalStatusBadge: View {
         goalService: goalService,
         dataStore: SharedDataStore()
     )
-    HistoryView()
-        .environment(StepTrackingService(
-            healthKitService: healthKitService,
-            motionService: MotionService(),
-            healthAuthorization: healthAuthorization,
-            goalService: goalService,
-            badgeService: badgeService,
-            dataStore: SharedDataStore(),
-            streakCalculator: streakCalculator
-        ))
-        .environment(healthAuthorization)
-        .environment(insightService)
-        .environment(foundationModelsService)
-        .environment(demoModeStore)
-}
-
-#Preview("HistoryRow - Steps") {
-    HistoryRow(
-        summary: DailyStepSummary(date: .now, steps: 8500, distance: 6000, floors: 5, calories: 300, goal: 10000),
-        activityMode: .steps
-    )
-    .padding(DesignTokens.Spacing.md)
-}
-
-#Preview("HistoryRow - Wheelchair") {
-    HistoryRow(
-        summary: DailyStepSummary(date: .now, steps: 3200, distance: 2400, floors: 2, calories: 120, goal: 3000),
-        activityMode: .wheelchairPushes
-    )
-    .padding(DesignTokens.Spacing.md)
+    NavigationStack {
+        HistoryView()
+    }
+    .environment(StepTrackingService(
+        healthKitService: healthKitService,
+        motionService: MotionService(),
+        healthAuthorization: healthAuthorization,
+        goalService: goalService,
+        badgeService: badgeService,
+        dataStore: SharedDataStore(),
+        streakCalculator: streakCalculator
+    ))
+    .environment(healthAuthorization)
+    .environment(insightService)
+    .environment(foundationModelsService)
+    .environment(demoModeStore)
 }

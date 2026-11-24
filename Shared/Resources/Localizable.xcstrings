@@ -308,6 +308,23 @@
         }
       }
     },
+    "%lld of %lld" : {
+      "comment" : "Days met out of days shown in history",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld de %2$lld"
+          }
+        }
+      }
+    },
     "%lld of %lld earned" : {
       "comment" : "Badge progress summary",
       "localizations" : {
@@ -1469,6 +1486,23 @@
         }
       }
     },
+    "Battery saver" : {
+      "comment" : "Compact subtitle for expedition battery saver mode",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Battery saver"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Economia de bateria"
+          }
+        }
+      }
+    },
     "Beginner" : {
       "comment" : "Fitness level",
       "localizations" : {
@@ -2101,6 +2135,23 @@
         }
       }
     },
+    "Current streak: %@" : {
+      "comment" : "AI tool response for current streak",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current streak: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sequência atual: %@"
+          }
+        }
+      }
+    },
     "Current streak: %lld days" : {
       "comment" : "Resposta para sequência atual em dias",
       "localizations" : {
@@ -2135,6 +2186,23 @@
         }
       }
     },
+    "Daily %@ goal" : {
+      "comment" : "Accessibility label for daily goal slider with unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily %@ goal"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meta diária de %@"
+          }
+        }
+      }
+    },
     "Daily %@ progress" : {
       "localizations" : {
         "en" : {
@@ -2164,6 +2232,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Progresso da meta diária"
+          }
+        }
+      }
+    },
+    "Daily Average" : {
+      "comment" : "History chart header showing daily average",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily Average"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Média Diária"
           }
         }
       }
@@ -2420,6 +2505,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Estimativa de Distância"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "comment" : "Accessibility label for dismiss banner button",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispensar"
           }
         }
       }

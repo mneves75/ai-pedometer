@@ -319,7 +319,7 @@ struct SmartNotificationServiceTests {
 
         await service.scheduleSmartNotification()
 
-        let formattedSteps = 2222.formatted()
+        let formattedSteps = 2222.formattedSteps
 
         #expect(notificationCenter.addedRequests.count == 1)
         #expect(healthKit.fetchDailySummariesCallCount == 0)
@@ -365,7 +365,7 @@ struct SmartNotificationServiceTests {
         await service.scheduleSmartNotification()
 
         #expect(notificationCenter.addedRequests.count == 1)
-        #expect(foundationModels.lastPrompt?.contains(3456.formatted()) ?? false)
+        #expect(foundationModels.lastPrompt?.contains(3456.formattedSteps) ?? false)
     }
 
     @Test("Smart notifications skip when shared data is stale and sync is disabled")

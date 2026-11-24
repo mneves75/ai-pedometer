@@ -8,7 +8,6 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
     private let isHealthDataAvailable: @MainActor () -> Bool
     private let userDefaults: UserDefaults
 
-    private var useFakeDataFallback = false
     private var unavailableError: HealthKitError?
 
     init(
@@ -31,11 +30,10 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             return
         }
         if demoModeStore.shouldUseFakeData {
-            _ = enableFakeDataFallback(reason: "fake_data_enabled")
+            logFakeDataFallback(reason: "fake_data_enabled")
             return
         }
         guard isHealthDataAvailable() else {
-            if enableFakeDataFallback(reason: "healthkit_unavailable") { return }
             unavailableError = .notAvailable
             Loggers.health.info("healthkit.unavailable_graceful", metadata: ["action": "will_return_empty_data"])
             throw HealthKitError.notAvailable
@@ -43,15 +41,14 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
 
         do {
             try await primary.requestAuthorization()
-            useFakeDataFallback = false
             unavailableError = nil
         } catch {
-            if enableFakeDataFallback(reason: "authorization_failed", error: error) { return }
             if let typed = error as? HealthKitError {
-                unavailableError = typed
+                if typed == .notAvailable {
+                    unavailableError = typed
+                }
                 throw typed
             }
-            unavailableError = .authorizationFailed
             throw HealthKitError.authorizationFailed
         }
     }
@@ -210,7 +207,8 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
             // failed query nor a reason to switch to demo data, and callers must not cache a fallback for it.
             throw CancellationError()
         } catch {
-            if enableFakeDataFallback(reason: "query_failed", error: error) {
+            if demoModeStore.shouldUseFakeData {
+                logFakeDataFallback(reason: "query_failed", error: error)
                 let result = try await fakeData()
                 return isSyncEnabled ? result : emptyValue
             }
@@ -230,11 +228,19 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
                 "action": "returning_empty_data"
             ])
             return emptyValue
-        case .notAvailable, .authorizationFailed:
+        case .notAvailable:
             unavailableError = error
             Loggers.health.info("healthkit.expected_error_graceful", metadata: [
                 "error": error.localizedDescription,
                 "action": "throwing_unavailable_error"
+            ])
+            throw error
+        case .authorizationFailed:
+            // Do not latch `.authorizationFailed`: the user can grant access in Settings and return
+            // without relaunching the app.
+            Loggers.health.info("healthkit.expected_error_graceful", metadata: [
+                "error": error.localizedDescription,
+                "action": "throwing_authorization_error"
             ])
             throw error
         case .queryFailed:
@@ -247,31 +253,18 @@ final class HealthKitServiceFallback: HealthKitServiceProtocol, Sendable {
     }
 
     private func shouldServeFakeData() -> Bool {
-        if useFakeDataFallback { return true }
-        if demoModeStore.shouldUseFakeData {
-            useFakeDataFallback = true
-            Loggers.health.info("healthkit.using_fake_data", metadata: [
-                "reason": "fake_data_explicitly_enabled"
-            ])
-            return true
-        }
-        return false
+        demoModeStore.shouldUseFakeData
     }
 
-    private func enableFakeDataFallback(reason: String, error: (any Error)? = nil) -> Bool {
-        guard demoModeStore.shouldUseFakeData else { return false }
-        if !useFakeDataFallback {
-            var metadata: [String: String] = [
-                "reason": reason,
-                "fake_data_setting": "\(demoModeStore.useFakeData)"
-            ]
-            if let error {
-                metadata["error"] = error.localizedDescription
-            }
-            Loggers.health.warning("healthkit.fake_data_fallback_enabled", metadata: metadata)
-            useFakeDataFallback = true
+    private func logFakeDataFallback(reason: String, error: (any Error)? = nil) {
+        var metadata: [String: String] = [
+            "reason": reason,
+            "fake_data_setting": "\(demoModeStore.useFakeData)"
+        ]
+        if let error {
+            metadata["error"] = error.localizedDescription
         }
-        return true
+        Loggers.health.warning("healthkit.fake_data_fallback_enabled", metadata: metadata)
     }
 
     private var isSyncEnabled: Bool {

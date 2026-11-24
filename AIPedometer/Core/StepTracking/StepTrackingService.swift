@@ -295,7 +295,13 @@ final class StepTrackingService: StepTrackingServiceProtocol {
     func refreshStreak() async {
         invalidateStreakRefresh()
         let generation = streakRefreshGeneration
-        guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else { return }
+        guard HealthKitSyncSettings.isEnabled(userDefaults: userDefaults) else {
+            if currentStreak != 0 {
+                currentStreak = 0
+                updateSharedData()
+            }
+            return
+        }
         do {
             let result = try await streakCalculator.calculateCurrentStreak()
             guard generation == streakRefreshGeneration,

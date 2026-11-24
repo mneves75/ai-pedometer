@@ -88,8 +88,9 @@ struct AttributedStringRenderer {
             return markdown
         }
 
+        // Strip actual HTML tags and comments without mangling prose comparisons like "< 5,000 and > 2,000".
         return markdown.replacingOccurrences(
-            of: "<[^>]+>",
+            of: #"</?[A-Za-z][A-Za-z0-9-]*(?:\s[^>]*)?/?>|<!--[\s\S]*?-->"#,
             with: "",
             options: .regularExpression
         )

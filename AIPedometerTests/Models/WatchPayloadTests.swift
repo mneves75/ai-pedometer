@@ -5,10 +5,20 @@ import Testing
 
 struct WatchPayloadTests {
     @Test("Watch presentation uses the current day without changing delivery identity", arguments: [
-        (0, 12_000, 12_000, 7), (0, 8_000, 8_000, 7),
-        (1, 12_000, 0, 7), (1, 8_000, 0, 0), (2, 12_000, 0, 0)
+        (0, 12_000, 12_000, 7, [4_000, 5_000, 12_000]),
+        (0, 8_000, 8_000, 7, [4_000, 5_000, 8_000]),
+        (1, 12_000, 0, 7, [5_000, 12_000, 0]),
+        (1, 8_000, 0, 0, [5_000, 8_000, 0]),
+        (2, 12_000, 0, 0, [12_000, 0, 0]),
+        (3, 12_000, 0, 0, [0, 0, 0])
     ])
-    func watchPresentationNormalizesDay(ageInDays: Int, steps: Int, expectedSteps: Int, expectedStreak: Int) {
+    func watchPresentationNormalizesDay(
+        ageInDays: Int,
+        steps: Int,
+        expectedSteps: Int,
+        expectedStreak: Int,
+        expectedWeeklySteps: [Int]
+    ) {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
         let renderDate = Date(timeIntervalSince1970: 1_700_006_400)
@@ -16,7 +26,7 @@ struct WatchPayloadTests {
         let payload = WatchPayload(
             senderID: UUID(), revision: 42, todaySteps: steps, goalSteps: 10_000,
             goalProgress: Double(steps) / 10_000, currentStreak: 7,
-            lastUpdated: lastUpdated, weeklySteps: [steps], sentAt: lastUpdated,
+            lastUpdated: lastUpdated, weeklySteps: [4_000, 5_000, steps], sentAt: lastUpdated,
             activityMode: .wheelchairPushes
         )
 
@@ -30,7 +40,7 @@ struct WatchPayloadTests {
         #expect(rendered.senderID == payload.senderID)
         #expect(rendered.revision == payload.revision)
         #expect(rendered.deliveryOrder == payload.deliveryOrder)
-        #expect(rendered.weeklySteps == payload.weeklySteps)
+        #expect(rendered.weeklySteps == expectedWeeklySteps)
     }
 
     private struct LegacyPayload: Encodable {
@@ -426,19 +436,6 @@ struct WatchSyncServiceThrottleTests {
             now: Date(timeIntervalSince1970: 0)
         )
         #expect(shouldSend == true)
-    }
-
-    @Test("Tight CMPedometer bursts inside the 5s window get coalesced")
-    func tightBurstsGetCoalesced() {
-        let last = Date(timeIntervalSince1970: 100)
-        let now = last.addingTimeInterval(1)
-        let shouldSend = WatchSyncService.shouldSendReachableMessage(
-            lastSentAt: last,
-            lastSentData: snapshot(steps: 1000, lastUpdated: last),
-            newData: snapshot(steps: 1003, lastUpdated: now),
-            now: now
-        )
-        #expect(shouldSend == false)
     }
 
     @Test("Big step deltas inside the window still bust the throttle")

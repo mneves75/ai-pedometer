@@ -501,6 +501,36 @@ struct TrainingPlanServiceTests {
         #expect(record.weeklyTargets.count == 4)
         #expect(record.weeklyTargets.allSatisfy { !$0.focusTip.isEmpty })
     }
+
+    @Test("Cancelling generatePlan does not persist a fallback plan record")
+    func cancelledGeneratePlanDoesNotPersistFallback() async throws {
+        let persistence = PersistenceController(inMemory: true)
+        let context = persistence.container.mainContext
+        let foundationModels = MockFoundationModelsService()
+        foundationModels.respondResult = .success(makeAITrainingPlan())
+        foundationModels.respondDelayNanoseconds = 500_000_000
+
+        let service = TrainingPlanService(
+            foundationModelsService: foundationModels,
+            healthKitService: MockHealthKitService(),
+            goalService: GoalService(persistence: persistence),
+            modelContext: context
+        )
+
+        let task = Task {
+            let record = try await service.generatePlan(goal: .reach10k, level: .beginner, daysPerWeek: 5)
+            return record.id
+        }
+        try await Task.sleep(for: .milliseconds(30))
+        task.cancel()
+
+        await #expect(throws: AIServiceError.self) {
+            _ = try await task.value
+        }
+
+        let persisted = try context.fetch(FetchDescriptor<TrainingPlanRecord>())
+        #expect(persisted.isEmpty)
+    }
 }
 
 private func makeAITrainingPlan(

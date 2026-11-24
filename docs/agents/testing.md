@@ -21,7 +21,7 @@ List devices with Argent and select an available simulator whose runtime the pro
 - Static analysis: `xcodebuild -scheme AIPedometer -destination 'platform=iOS Simulator,name=<SimName>,OS=<OSVersion>' analyze`.
 - Script regressions: `bash -c 'set -euo pipefail; for test_script in Scripts/tests/*.sh; do bash "$test_script"; done'`.
 - Shell/workflow lint: `shellcheck Scripts/*.sh Scripts/tests/*.sh Scripts/tests/fixtures/*.sh Scripts/lib/*.sh .githooks/pre-commit` and `actionlint`.
-- Development dependency audit: `pnpm audit --audit-level moderate`. Include dev dependencies; `--prod` omits the Wrangler toolchain and cannot verify it.
+- Development dependency audit: `pnpm audit --audit-level moderate`. Include dev dependencies (never pass `--prod`).
 - Renderer request boundary: `node --test brag-output/work/static-handler.test.mjs`. The real localhost handler must serve valid files, reject traversal and escaping symlinks, and remain available after malformed URL requests.
 - Project invariants: `bash Scripts/verify-entitlements.sh`, `bash Scripts/verify-swift-build-settings.sh`, `bash Scripts/check-agents-sync.sh` and `bash Scripts/verify-device-identifiers.sh`. All of these run together via `bash Scripts/preflight.sh`.
 - Staged candidate: `bash .githooks/pre-commit` after explicit staging.

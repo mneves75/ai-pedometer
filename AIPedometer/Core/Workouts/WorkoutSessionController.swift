@@ -140,6 +140,9 @@ final class WorkoutSessionController {
             await orphanedActivityCleanup.value
             self.orphanedActivityCleanup = nil
         }
+        if !recoveryLookupSucceeded {
+            loadRecoverableSession()
+        }
         guard recoveryLookupSucceeded, recoverableSession == nil else { return }
         guard activeSession == nil else {
             isPresenting = true
@@ -199,8 +202,11 @@ final class WorkoutSessionController {
             return
         }
         liveActivityManager.start(type: type)
-        startMetricsLoop()
         await refreshMetrics()
+        guard !isTerminatingSession, case .active = state, activeSession?.id == session.id else {
+            return
+        }
+        startMetricsLoop(delayFirstRefresh: true)
     }
 
     func pauseWorkout() {
@@ -231,7 +237,7 @@ final class WorkoutSessionController {
         }
 
         if let pauseStartedAt {
-            totalPausedDuration += resumedAt.timeIntervalSince(pauseStartedAt)
+            totalPausedDuration += max(resumedAt.timeIntervalSince(pauseStartedAt), 0)
             self.pauseStartedAt = nil
         }
         lastError = nil
@@ -250,12 +256,16 @@ final class WorkoutSessionController {
         isTerminatingSession = true
         defer { isTerminatingSession = false }
 
-        let endTime = now()
+        let endTime = max(now(), session.startTime)
         let previousEndTime = session.endTime
         let previousUpdatedAt = session.updatedAt
         let previousSteps = session.steps
         let previousDistance = session.distance
         let previousActiveCalories = session.activeCalories
+        let previousExportStateRaw = session.healthKitExportStateRaw
+        let previousExportIdentifier = session.healthKitExportIdentifier
+        let previousFailureAt = session.healthKitExportLastFailureAt
+        let previousErrorCode = session.healthKitExportLastErrorCode
         captureLatestMetrics()
         session.endTime = endTime
         session.updatedAt = endTime
@@ -278,6 +288,10 @@ final class WorkoutSessionController {
             session.steps = previousSteps
             session.distance = previousDistance
             session.activeCalories = previousActiveCalories
+            session.healthKitExportStateRaw = previousExportStateRaw
+            session.healthKitExportIdentifier = previousExportIdentifier
+            session.healthKitExportLastFailureAt = previousFailureAt
+            session.healthKitExportLastErrorCode = previousErrorCode
             lastError = .saveFailed(error.localizedDescription)
             return
         }
@@ -493,12 +507,17 @@ private extension WorkoutSessionController {
         state = stateMachine.state
     }
 
-    func startMetricsLoop() {
+    func startMetricsLoop(delayFirstRefresh: Bool = false) {
         updateTask?.cancel()
         updateTask = Task { [weak self] in
             guard let self else { return }
+            var shouldDelay = delayFirstRefresh
             while !Task.isCancelled {
-                await self.refreshMetrics()
+                if shouldDelay {
+                    shouldDelay = false
+                } else {
+                    await self.refreshMetrics()
+                }
                 do {
                     try await Task.sleep(for: .seconds(self.metricsRefreshIntervalSeconds))
                 } catch is CancellationError {

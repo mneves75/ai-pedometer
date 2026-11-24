@@ -76,7 +76,10 @@ struct AIPedometerApp: App {
                 try context.save()
             }
         )
-        let streakCalculator = StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
+        let streakCalculator = StreakCalculator(
+            stepAggregator: StepDataAggregator(healthStore: sharedHealthStore),
+            goalService: goalService
+        )
         let fmService = FoundationModelsService()
         let modelContext = persistence.container.mainContext
         if LaunchConfiguration.shouldSeedUnfinishedWorkout() {

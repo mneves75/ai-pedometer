@@ -45,13 +45,6 @@ struct SettingsView: View {
         nonmutating set { distanceModeRaw = newValue.rawValue }
     }
 
-    private var useFakeDataBinding: Binding<Bool> {
-        Binding(
-            get: { demoModeStore.useFakeData },
-            set: { demoModeStore.useFakeData = $0 }
-        )
-    }
-
     private var showsCustomBackButton: Bool {
         isPresented && LaunchConfiguration.isUITesting()
     }
@@ -85,7 +78,7 @@ struct SettingsView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(DesignTokens.Colors.surfaceGrouped)
+        .background(AmbientZenithBackground())
         .task {
             await refreshNotificationStatus()
             await healthAuthorization.refreshStatus()
@@ -94,9 +87,12 @@ struct SettingsView: View {
             await enforceSmartReminderAccessIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
-            // Returning from iOS Settings is how the permission changes; reread it.
+            // Returning from iOS Settings is how permissions change; reread both.
             guard phase == .active else { return }
-            Task { await refreshNotificationStatus() }
+            Task {
+                await refreshNotificationStatus()
+                await healthAuthorization.refreshStatus()
+            }
         }
         .sheet(isPresented: $showGoalEditor) {
             GoalEditorSheet(
@@ -112,7 +108,8 @@ struct SettingsView: View {
                     }
                 )
             }
-            .presentationDetents([.medium])
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showHealthHelp) {
             HealthAccessHelpSheet()
@@ -390,6 +387,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var debugSection: some View {
         #if DEBUG
+        @Bindable var demoModeStore = demoModeStore
         Section {
             NavigationLink {
                 HealthKitDebugView()
@@ -397,7 +395,7 @@ struct SettingsView: View {
                 Label(L10n.localized("Debug do HealthKit", comment: "A title for this view."), systemImage: "heart.text.square")
             }
 
-            Toggle(isOn: useFakeDataBinding) {
+            Toggle(isOn: $demoModeStore.useFakeData) {
                 HStack {
                     Image(systemName: "waveform.path.ecg.rectangle")
                         .foregroundStyle(DesignTokens.Colors.warning)
@@ -477,13 +475,13 @@ struct SettingsView: View {
         case .shouldRequest:
             return L10n.localized("Tap to allow Health access.", comment: "Health access detail when not requested")
         case .requested:
-            return String(
-                localized: "Health access was already requested. If data isn't showing, enable it in Settings.",
+            return L10n.localized(
+                "Health access was already requested. If data isn't showing, enable it in Settings.",
                 comment: "HealthKit authorization guidance after requesting"
             )
         case .unavailable:
-            return String(
-                localized: "Health data is not available on this device.",
+            return L10n.localized(
+                "Health data is not available on this device.",
                 comment: "HealthKit not available error"
             )
         }
@@ -724,42 +722,68 @@ struct GoalEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: DesignTokens.Spacing.xl) {
-                Spacer()
+            ZStack {
+                AmbientZenithBackground()
 
-                Text(Int(tempGoal).formattedSteps)
-                    .font(.system(size: boundedGoalValueFontSize, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .contentTransition(.numericText())
-                    .accessibilityIdentifier(A11yID.GoalEditor.value)
+                VStack(spacing: DesignTokens.Spacing.xl) {
+                    Spacer(minLength: DesignTokens.Spacing.sm)
 
-                Text(
-                    Localization.format(
-                        "%@ per day",
-                        comment: "Label in goal editor showing unit per day",
-                        unitName
-                    )
-                )
-                    .font(DesignTokens.Typography.title3)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    VStack(spacing: DesignTokens.Spacing.xxs) {
+                        Text(Int(tempGoal).formattedSteps)
+                            .font(.system(size: boundedGoalValueFontSize, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .contentTransition(.numericText(value: tempGoal))
+                            .accessibilityIdentifier(A11yID.GoalEditor.value)
 
-                Slider(value: $tempGoal, in: 1000...30000, step: 500)
-                    .padding(.horizontal, DesignTokens.Spacing.xl)
-                    .tint(DesignTokens.Colors.accent)
-                    .accessibilityIdentifier(A11yID.GoalEditor.slider)
-                    .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for step goal slider"))
-                    .accessibilityValue(
-                        Localization.format(
-                            "%@ %@",
-                            comment: "Accessibility value showing current goal and unit",
-                            Int(tempGoal).formattedSteps,
-                            unitName
+                        Text(
+                            Localization.format(
+                                "%@ per day",
+                                comment: "Label in goal editor showing unit per day",
+                                unitName
+                            )
                         )
-                    )
+                        .font(DesignTokens.Typography.subheadline.weight(.medium))
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    }
 
-                Spacer()
+                    VStack(spacing: DesignTokens.Spacing.md) {
+                        VStack(spacing: DesignTokens.Spacing.sm) {
+                            HStack(spacing: DesignTokens.Spacing.sm) {
+                                goalPresetButtons(OnboardingGoalPreset.values.prefix(2))
+                            }
+                            HStack(spacing: DesignTokens.Spacing.sm) {
+                                goalPresetButtons(OnboardingGoalPreset.values.suffix(2))
+                            }
+                        }
+                        .glassContainer(spacing: DesignTokens.Spacing.sm)
+
+                        Slider(value: $tempGoal, in: 1000...30000, step: 500)
+                            .tint(DesignTokens.Colors.accent)
+                            .accessibilityIdentifier(A11yID.GoalEditor.slider)
+                            .accessibilityLabel(
+                                Localization.format(
+                                    "Daily %@ goal",
+                                    comment: "Accessibility label for daily goal slider with unit",
+                                    unitName
+                                )
+                            )
+                            .accessibilityValue(
+                                Localization.format(
+                                    "%@ %@",
+                                    comment: "Accessibility value showing current goal and unit",
+                                    Int(tempGoal).formattedSteps,
+                                    unitName
+                                )
+                            )
+                    }
+                    .padding(DesignTokens.Spacing.mdPlus)
+                    .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
+                    .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                }
             }
             .navigationTitle(L10n.localized("Daily Goal", comment: "Goal editor navigation title"))
             .navigationBarTitleDisplayMode(.inline)
@@ -799,6 +823,32 @@ struct GoalEditorSheet: View {
             ) {
                 Button(L10n.localized("OK", comment: "Dismiss alert button"), role: .cancel) {}
             }
+        }
+    }
+
+    private func goalPresetButtons(_ values: ArraySlice<Int>) -> some View {
+        ForEach(values, id: \.self) { value in
+            let isSelected = Int(tempGoal) == value
+            Button {
+                HapticService.shared.tap()
+                tempGoal = Double(value)
+            } label: {
+                Text(value.formattedSteps)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(isSelected ? DesignTokens.Colors.onAccent : DesignTokens.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(Capsule())
+                    .background(
+                        isSelected ? DesignTokens.Colors.accent : DesignTokens.Colors.surfaceQuaternary,
+                        in: Capsule()
+                    )
+                    .glassCapsuleSurface(interactive: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
         }
     }
 }

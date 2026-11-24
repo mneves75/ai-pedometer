@@ -1,14 +1,5 @@
 import SwiftUI
 
-enum OnboardingGoalPersistenceAction: Equatable {
-    case complete
-    case showSaveError
-
-    init(didPersistGoal: Bool) {
-        self = didPersistGoal ? .complete : .showSaveError
-    }
-}
-
 /// One-tap daily goals on the goal page. They sit on the slider's grid, so choosing one and then
 /// dragging lands on the same values.
 enum OnboardingGoalPreset {
@@ -28,14 +19,14 @@ struct OnboardingView: View {
     @State private var dailyGoal: Double = Double(AppConstants.defaultDailyGoal)
     @State private var isRequestingPermissions = false
     @State private var showGoalSaveError = false
-    @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.md
+    @ScaledMetric(relativeTo: .largeTitle) private var goalValueFontSize = DesignTokens.FontSize.lg
 
     private static let pageCount = 3
     private var isLastPage: Bool { currentPage == Self.pageCount - 1 }
 
     var body: some View {
         ZStack {
-            DesignTokens.Colors.surfaceGrouped.ignoresSafeArea()
+            AmbientZenithBackground()
 
             TabView(selection: $currentPage) {
                 welcomePage
@@ -74,35 +65,38 @@ struct OnboardingView: View {
     // MARK: - Pages
 
     private var welcomePage: some View {
-        onboardingScrollPage {
-            Image(systemName: "figure.walk")
-                .font(.system(size: DesignTokens.FontSize.xl))
-                .foregroundStyle(DesignTokens.Colors.accent)
-                .padding(DesignTokens.Spacing.sm)
-                .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
-                .breathingGlow(DesignTokens.Colors.accent)
-                .applyIfMotionEnabled { view in
-                    view.symbolEffect(.bounce, options: .repeating.speed(0.4))
+        onboardingScrollPage(spacing: DesignTokens.Spacing.xl) {
+            VStack(spacing: DesignTokens.Spacing.lg) {
+                ZStack {
+                    Circle()
+                        .fill(DesignTokens.Colors.accent.opacity(0.14))
+                        .frame(width: 96, height: 96)
+
+                    Image(systemName: "figure.walk")
+                        .font(.system(size: 42, weight: .semibold))
+                        .foregroundStyle(DesignTokens.Colors.accent)
                 }
+                .glassCapsuleSurface(interactive: false)
                 .accessibilityHidden(true)
 
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(L10n.localized("Welcome to AI Pedometer", comment: "Onboarding welcome title"))
-                    .font(DesignTokens.Typography.largeTitle)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
+                VStack(spacing: DesignTokens.Spacing.xs) {
+                    Text(L10n.localized("Welcome to AI Pedometer", comment: "Onboarding welcome title"))
+                        .font(DesignTokens.Typography.largeTitle)
+                        .bold()
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
-                Text(L10n.localized(
-                    "Steps, workouts and an AI coach that runs on your device.",
-                    comment: "Onboarding welcome subtitle"
-                ))
-                .font(DesignTokens.Typography.title3)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    Text(L10n.localized(
+                        "Steps, workouts and an AI coach that runs on your device.",
+                        comment: "Onboarding welcome subtitle"
+                    ))
+                    .font(DesignTokens.Typography.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                }
             }
 
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                 OnboardingFeatureRow(
                     symbol: "sparkles",
                     title: L10n.localized("AI on your device", comment: "Onboarding feature title"),
@@ -111,6 +105,7 @@ struct OnboardingView: View {
                         comment: "Onboarding feature detail for on-device AI"
                     )
                 )
+                Divider().padding(.leading, 44)
                 OnboardingFeatureRow(
                     symbol: "lock.shield.fill",
                     title: L10n.localized("Private by design", comment: "Onboarding feature title"),
@@ -119,6 +114,7 @@ struct OnboardingView: View {
                         comment: "Onboarding feature detail for privacy"
                     )
                 )
+                Divider().padding(.leading, 44)
                 OnboardingFeatureRow(
                     symbol: "applewatch",
                     title: L10n.localized("iPhone, Apple Watch and widgets", comment: "Onboarding feature title"),
@@ -127,6 +123,7 @@ struct OnboardingView: View {
                         comment: "Onboarding feature detail for watch and widgets"
                     )
                 )
+                Divider().padding(.leading, 44)
                 OnboardingFeatureRow(
                     symbol: "checkmark.seal.fill",
                     title: L10n.localized("Everything included", comment: "Onboarding feature title"),
@@ -136,45 +133,68 @@ struct OnboardingView: View {
                     )
                 )
             }
-            .padding(DesignTokens.Spacing.md)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.vertical, DesignTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
+            .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
         }
     }
 
     private var goalPage: some View {
-        onboardingScrollPage(spacing: DesignTokens.Spacing.xl) {
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(L10n.localized("Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
-                    .font(DesignTokens.Typography.title)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
+        onboardingScrollPage(spacing: DesignTokens.Spacing.lg) {
+            VStack(spacing: DesignTokens.Spacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(DesignTokens.Colors.accent.opacity(0.14))
+                        .frame(width: 84, height: 84)
 
-                Text(L10n.localized(
-                    "Pick a goal you can reach on most days.",
-                    comment: "Onboarding goal page subtitle"
-                ))
-                .font(DesignTokens.Typography.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    Image(systemName: "target")
+                        .font(.system(size: 38, weight: .semibold))
+                        .foregroundStyle(DesignTokens.Colors.accent)
+                }
+                .glassCapsuleSurface(interactive: false)
+                .accessibilityHidden(true)
+
+                VStack(spacing: DesignTokens.Spacing.sm) {
+                    Text(L10n.localized("Set Your Daily Goal", comment: "Onboarding page title for goal setting"))
+                        .font(DesignTokens.Typography.title)
+                        .bold()
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
+
+                    Text(L10n.localized(
+                        "Pick a goal you can reach on most days.",
+                        comment: "Onboarding goal page subtitle"
+                    ))
+                    .font(DesignTokens.Typography.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
-            VStack(spacing: DesignTokens.Spacing.md) {
-                Text(
-                    Localization.format(
-                        "%@ steps",
-                        comment: "Step count with unit",
-                        Int(dailyGoal).formattedSteps
+            VStack(spacing: DesignTokens.Spacing.lg) {
+                VStack(spacing: DesignTokens.Spacing.xxs) {
+                    Text(Int(dailyGoal).formattedSteps)
+                        .font(.system(size: min(goalValueFontSize, DesignTokens.FontSize.xxl), weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .contentTransition(.numericText(value: dailyGoal))
+                        .animation(reduceMotion ? nil : DesignTokens.Animation.snappy, value: dailyGoal)
+
+                    Text(
+                        Localization.format(
+                            "%@ per day",
+                            comment: "Label in goal editor showing unit per day",
+                            ActivityTrackingMode.steps.unitName
+                        )
                     )
-                )
-                    .font(.system(size: goalValueFontSize, weight: .bold))
-                    .foregroundStyle(DesignTokens.Colors.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .contentTransition(.numericText(value: dailyGoal))
-                    .animation(reduceMotion ? nil : DesignTokens.Animation.snappy, value: dailyGoal)
-                    .accessibilityHidden(true)
+                    .font(DesignTokens.Typography.subheadline.weight(.medium))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                }
+                .accessibilityHidden(true)
 
                 goalPresets
 
@@ -183,20 +203,20 @@ struct OnboardingView: View {
                     in: OnboardingGoalPreset.sliderRange,
                     step: OnboardingGoalPreset.sliderStep
                 )
-                    .tint(DesignTokens.Colors.accent)
-                    .accessibilityIdentifier(A11yID.Onboarding.goalSlider)
-                    .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for daily step goal slider"))
-                    .accessibilityValue(
-                        Localization.format(
-                            "%@ steps",
-                            comment: "Step count with unit",
-                            Int(dailyGoal).formattedSteps
-                        )
+                .tint(DesignTokens.Colors.accent)
+                .accessibilityIdentifier(A11yID.Onboarding.goalSlider)
+                .accessibilityLabel(L10n.localized("Daily step goal", comment: "Accessibility label for daily step goal slider"))
+                .accessibilityValue(
+                    Localization.format(
+                        "%@ steps",
+                        comment: "Step count with unit",
+                        Int(dailyGoal).formattedSteps
                     )
-                    .accessibilityHint(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
+                )
+                .accessibilityHint(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
             }
-            .padding(DesignTokens.Spacing.md)
-            .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
+            .padding(DesignTokens.Spacing.lg)
+            .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
 
             Text(L10n.localized("You can change this later in settings.", comment: "Onboarding note about goal settings"))
                 .font(DesignTokens.Typography.subheadline)
@@ -207,17 +227,11 @@ struct OnboardingView: View {
     }
 
     private var goalPresets: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: DesignTokens.Spacing.xs) { goalPresetButtons }
-            VStack(spacing: DesignTokens.Spacing.xs) {
-                HStack(spacing: DesignTokens.Spacing.xs) { goalPresetButtons(OnboardingGoalPreset.values.prefix(2)) }
-                HStack(spacing: DesignTokens.Spacing.xs) { goalPresetButtons(OnboardingGoalPreset.values.suffix(2)) }
-            }
+        VStack(spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: DesignTokens.Spacing.sm) { goalPresetButtons(OnboardingGoalPreset.values.prefix(2)) }
+            HStack(spacing: DesignTokens.Spacing.sm) { goalPresetButtons(OnboardingGoalPreset.values.suffix(2)) }
         }
-    }
-
-    private var goalPresetButtons: some View {
-        goalPresetButtons(OnboardingGoalPreset.values[...])
+        .glassContainer(spacing: DesignTokens.Spacing.sm)
     }
 
     private func goalPresetButtons(_ values: ArraySlice<Int>) -> some View {
@@ -229,11 +243,18 @@ struct OnboardingView: View {
             } label: {
                 Text(value.formattedSteps)
                     .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(isSelected ? DesignTokens.Colors.onAccent : DesignTokens.Colors.textPrimary)
                     .lineLimit(1)
-                    .frame(maxWidth: .infinity, minHeight: DesignTokens.TouchTarget.minimum)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(Capsule())
+                    .background(
+                        isSelected ? DesignTokens.Colors.accent : DesignTokens.Colors.surfaceQuaternary,
+                        in: Capsule()
+                    )
+                    .glassCapsuleSurface(interactive: true)
             }
-            .buttonStyle(.bordered)
-            .tint(isSelected ? DesignTokens.Colors.accent : DesignTokens.Colors.textSecondary)
+            .buttonStyle(.plain)
             .accessibilityIdentifier(A11yID.Onboarding.goalPreset(value))
             .accessibilityLabel(Localization.format("%@ steps", comment: "Step count with unit", value.formattedSteps))
             .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -241,29 +262,39 @@ struct OnboardingView: View {
     }
 
     private var permissionsPage: some View {
-        onboardingScrollPage {
-            Image(systemName: "heart.text.square.fill")
-                .font(.system(size: DesignTokens.FontSize.lg))
-                .foregroundStyle(DesignTokens.Colors.accent)
+        onboardingScrollPage(spacing: DesignTokens.Spacing.xl) {
+            VStack(spacing: DesignTokens.Spacing.lg) {
+                ZStack {
+                    Circle()
+                        .fill(DesignTokens.Colors.accent.opacity(0.14))
+                        .frame(width: 84, height: 84)
+
+                    Image(systemName: "heart.text.square.fill")
+                        .font(.system(size: 38, weight: .semibold))
+                        .foregroundStyle(DesignTokens.Colors.accent)
+                }
+                .glassCapsuleSurface(interactive: false)
                 .accessibilityHidden(true)
 
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text(L10n.localized("Connect Apple Health", comment: "Onboarding permissions page title"))
-                    .font(DesignTokens.Typography.title)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
+                VStack(spacing: DesignTokens.Spacing.xs) {
+                    Text(L10n.localized("Connect Apple Health", comment: "Onboarding permissions page title"))
+                        .font(DesignTokens.Typography.largeTitle)
+                        .bold()
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
-                Text(L10n.localized(
-                    "AI Pedometer counts your steps with Apple Health and your device's motion sensor. iOS asks for each one next.",
-                    comment: "Onboarding permissions explanation"
-                ))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(DesignTokens.Colors.textPrimary)
-                .accessibilityIdentifier(A11yID.Onboarding.permissionsExplanation)
+                    Text(L10n.localized(
+                        "AI Pedometer counts your steps with Apple Health and your device's motion sensor. iOS asks for each one next.",
+                        comment: "Onboarding permissions explanation"
+                    ))
+                    .font(DesignTokens.Typography.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .accessibilityIdentifier(A11yID.Onboarding.permissionsExplanation)
+                }
             }
 
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                 OnboardingFeatureRow(
                     symbol: "heart.fill",
                     title: L10n.localized("Health", comment: "Permission label for Apple Health access"),
@@ -272,6 +303,7 @@ struct OnboardingView: View {
                         comment: "Onboarding explanation of the Health permission"
                     )
                 )
+                Divider().padding(.leading, 44)
                 OnboardingFeatureRow(
                     symbol: "figure.walk.motion",
                     title: L10n.localized("Motion & Fitness", comment: "Permission label for Motion & Fitness access"),
@@ -280,6 +312,7 @@ struct OnboardingView: View {
                         comment: "Onboarding explanation of the Motion & Fitness permission"
                     )
                 )
+                Divider().padding(.leading, 44)
                 OnboardingFeatureRow(
                     symbol: "lock.fill",
                     title: L10n.localized("Stays with you", comment: "Onboarding privacy row title"),
@@ -289,21 +322,23 @@ struct OnboardingView: View {
                     )
                 )
             }
-            .padding(DesignTokens.Spacing.md)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.vertical, DesignTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard(cornerRadius: DesignTokens.CornerRadius.xl)
+            .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
         }
     }
 
     // MARK: - Footer
 
     private var footer: some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
+        VStack(spacing: DesignTokens.Spacing.md) {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 ForEach(0..<Self.pageCount, id: \.self) { index in
                     Capsule()
                         .fill(index == currentPage ? DesignTokens.Colors.accent : DesignTokens.Colors.textQuaternary)
-                        .frame(width: index == currentPage ? 20 : 8, height: 8)
+                        .frame(width: index == currentPage ? 22 : 8, height: 8)
+                        .animation(reduceMotion ? nil : DesignTokens.Animation.snappy, value: currentPage)
                         .accessibilityHidden(true)
                 }
             }
@@ -331,10 +366,21 @@ struct OnboardingView: View {
         }
         .frame(maxWidth: DesignTokens.Sizing.onboardingContentMaxWidth)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, DesignTokens.Spacing.md)
-        .padding(.top, DesignTokens.Spacing.sm)
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+        .padding(.top, DesignTokens.Spacing.md)
         .padding(.bottom, DesignTokens.Spacing.md)
-        .background(.bar)
+        .background(
+            LinearGradient(
+                colors: [
+                    DesignTokens.Colors.surfaceGrouped.opacity(0),
+                    DesignTokens.Colors.surfaceGrouped.opacity(0.92),
+                    DesignTokens.Colors.surfaceGrouped
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .accessibilityElement(children: .contain)
     }
 
@@ -350,8 +396,8 @@ struct OnboardingView: View {
                 }
                 .frame(maxWidth: DesignTokens.Sizing.onboardingContentMaxWidth)
                 .frame(maxWidth: .infinity)
-                .padding(DesignTokens.Spacing.md)
-                .padding(.top, DesignTokens.Spacing.xl)
+                .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+                .padding(.top, DesignTokens.Spacing.xxl)
                 .padding(.bottom, DesignTokens.Sizing.onboardingPageBottomInset)
                 // On iPad a short page would sit in the top half; center it there, keep iPhone top-aligned.
                 .frame(minHeight: horizontalSizeClass == .regular ? proxy.size.height : nil)
@@ -391,13 +437,15 @@ struct OnboardingView: View {
             skipOnboarding()
         } label: {
             Text(L10n.localized("Skip", comment: "Onboarding skip button"))
+                .font(DesignTokens.Typography.footnote.weight(.semibold))
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(minWidth: DesignTokens.TouchTarget.minimum, minHeight: DesignTokens.TouchTarget.minimum)
-                .contentShape(Rectangle())
+                .contentShape(Capsule())
         }
-        .font(DesignTokens.Typography.footnote.weight(.semibold))
-        .foregroundStyle(DesignTokens.Colors.textSecondary)
+        .glassCapsuleSurface(interactive: true)
         .padding(.horizontal, DesignTokens.Spacing.md)
-        .padding(.top, DesignTokens.Spacing.md)
+        .padding(.top, DesignTokens.Spacing.sm)
         .accessibilityIdentifier("onboarding_skip_button")
         .accessibleButton(label: L10n.localized("Skip", comment: "Onboarding skip button"))
     }
@@ -448,7 +496,7 @@ struct OnboardingView: View {
     }
 
     private func handleGoalPersistence(_ didPersistGoal: Bool) -> Bool {
-        guard OnboardingGoalPersistenceAction(didPersistGoal: didPersistGoal) == .complete else {
+        guard didPersistGoal else {
             HapticService.shared.error()
             showGoalSaveError = true
             return false
@@ -494,22 +542,27 @@ private struct OnboardingFeatureRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: symbol)
-                .font(DesignTokens.Typography.title3)
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DesignTokens.Colors.accent)
-                .frame(minWidth: DesignTokens.IconSize.md)
+                .frame(width: 32, height: 32)
+                .background(
+                    DesignTokens.Colors.accent.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs, style: .continuous)
+                )
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(title)
-                    .font(DesignTokens.Typography.headline)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
-                    .font(DesignTokens.Typography.subheadline)
+                    .font(DesignTokens.Typography.footnote)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .padding(.vertical, DesignTokens.Spacing.sm)
         .accessibilityElement(children: .combine)
     }
 }

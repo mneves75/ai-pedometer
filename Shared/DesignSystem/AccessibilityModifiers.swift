@@ -9,9 +9,9 @@ extension View {
     }
 
     func accessibleProgress(label: String, value: Double, total: Double = 1.0, valueDescription: String? = nil) -> some View {
-        let safeTotal = total > 0 ? total : 1
-        let rawPercentage = (value / safeTotal) * 100
-        let percentage = max(0, min(Int(rawPercentage.rounded()), 100))
+        let safeTotal = total.isFinite && total > 0 ? total : 1
+        let ratio = ProgressClamp.unitInterval(value / safeTotal)
+        let percentage = Int((ratio * 100).rounded())
         let percentageText = Localization.format(
             "%lld percent",
             comment: "A value that indicates the percentage of a task that has been completed.",
@@ -50,11 +50,11 @@ extension View {
 
 struct AIDisclaimerText: View {
     var body: some View {
-        Text(String(
-            localized: "AI guidance is general fitness information and not medical advice.",
+        Text(L10n.localized(
+            "AI guidance is general fitness information and not medical advice.",
             comment: "AI disclaimer shown across AI features"
         ))
-            .font(DesignTokens.Typography.caption2)
-            .foregroundStyle(DesignTokens.Colors.textSecondary)
+        .font(DesignTokens.Typography.caption2)
+        .foregroundStyle(DesignTokens.Colors.textTertiary)
     }
 }

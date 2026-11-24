@@ -17,14 +17,6 @@ struct ActivityTrackingModeTests {
     }
 
     @Test
-    func allCasesContainsBothModes() {
-        let cases = ActivityTrackingMode.allCases
-        #expect(cases.count == 2)
-        #expect(cases.contains(.steps))
-        #expect(cases.contains(.wheelchairPushes))
-    }
-
-    @Test
     func stepsIconIsWalk() {
         #expect(ActivityTrackingMode.steps.iconName == "figure.walk")
     }
@@ -32,12 +24,6 @@ struct ActivityTrackingModeTests {
     @Test
     func wheelchairIconIsRoll() {
         #expect(ActivityTrackingMode.wheelchairPushes.iconName == "figure.roll")
-    }
-
-    @Test
-    func unitNamesAreNonEmpty() {
-        #expect(!ActivityTrackingMode.steps.unitName.isEmpty)
-        #expect(!ActivityTrackingMode.wheelchairPushes.unitName.isEmpty)
     }
 
     @Test

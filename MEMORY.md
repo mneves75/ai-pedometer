@@ -5,7 +5,24 @@ open gaps only. Procedures live in [docs/agents/](docs/agents/), engineering fai
 modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
 [CHANGELOG.md](CHANGELOG.md). Delete entries here when the source contradicts them.
 
-## Current state (2026-10-31)
+## Current state (2026-11-24)
+
+- **1.1.0 (72) is in TestFlight** (2026-11-24): ASC build `822e9be9-5ca9-4f7f-8d96-76d7136f4f1b` `VALID`,
+  export compliance `exempt`, `READY_FOR_BETA_TESTING`, added to existing `Internal Testers` group
+  (`1e4aaacb-ea1c-420c-86ac-70f776ba0f12`, no testers invited); archived from clean `git archive` of
+  `fb1a13d` (tree `be18d567`) with Xcode 27.2 (`27B52`), `validate-release-artifact.py` OK on archive +
+  IPA, signed entitlements inspected (`beta-reports-active=true`, `get-task-allow=false`, universal
+  `arm64/arm64e` iOS + `arm64/arm64_32` watchOS), IPA SHA-256 `6750e6de…57962121`, tag
+  `v1.1.0-beta1` → `fb1a13d`. Security gate (`mneves-security`): Internal TestFlight (`staging`) **PASS**
+  (`0` confirmed findings, `SEC-13` closed with `0` npm vulnerabilities after removing unused `wrangler`),
+  App Store production **BLOCKED** (`SEC-11 SEC-12 SEC-16 SEC-17 SEC-18 SEC-21 SEC-23 CMP-03 CMP-04 CMP-06
+  gate:independent-acceptance`; records `.scratch/security-gate/fb1a13d81d60a8b37f4e46aa8698c48e8165c6ef/staging.{md,json}`).
+  Release build `1.1.0 (72)` (with embedded watch app) installed and launched on `owner-iPhone` (iOS 27.3).
+  PR #24 (`feat/liquid-glass-redesign-and-hardening` → `master`) ships the full iOS 26+ Liquid Glass UI/UX
+  redesign, core/AI/HealthKit/watch hardening, `ast-grep` rules, and `StoreListingTests` (8/8 on `1.1.0 (72)`).
+  Prior version `1.0.11` (`c30c19eb`) is currently `PENDING_DEVELOPER_RELEASE` in App Store Connect (untouched).
+
+## Previous state (2026-10-31)
 
 - **1.0.11 (71) is in TestFlight** (2026-10-31): ASC build `04bdc934` `VALID`, internal
   `READY_FOR_BETA_TESTING`; archived from `af8081a` with Xcode 27.2, IPA SHA-256 `9d752368…3c32b8`, tag

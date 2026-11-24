@@ -49,23 +49,20 @@ struct DashboardView: View {
     @AppStorage(AppConstants.UserDefaultsKeys.activityTrackingMode) private var activityModeRaw = ActivityTrackingMode.steps.rawValue
     @AppStorage(AppConstants.UserDefaultsKeys.healthKitSyncEnabled) private var healthKitSyncEnabled = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(StepTrackingService.self) private var trackingService
     @Environment(InsightService.self) private var insightService
     @Environment(FoundationModelsService.self) private var aiService
     @Environment(HealthKitAuthorization.self) private var healthAuthorization
 
     @State private var animateProgress = false
-    @State private var revealStats = false
     @State private var dailyInsight: DailyInsight?
     @State private var insightError: AIServiceError?
     @State private var insightRequestID = UUID()
     @State private var showHealthHelp = false
     @ScaledMetric(relativeTo: .largeTitle) private var progressValueFontSize = DesignTokens.FontSize.md
 
-    // Hidden easter egg: tapping the ring's center a few times in a row throws a
-    // confetti burst. No UI affordance hints at it; it is purely local and
-    // renders nothing under Reduce Motion (ConfettiView self-disables).
+    // Hidden easter egg: tapping the ring's center triggers a local confetti burst
+    // (automatically suppressed under Reduce Motion).
     @State private var secretTapCount = 0
     @State private var celebrateSecret = false
     private static let secretTapThreshold = 7
@@ -96,7 +93,6 @@ struct DashboardView: View {
     }
 
     /// Quarter-goal bucket (0...4) used to fire a light haptic at 25/50/75%.
-    /// Static and pure so the threshold behavior is unit-testable.
     static func milestoneBucket(progress: Double) -> Int {
         guard progress > 0 else { return 0 }
         return min(Int(progress * 4), 4)
@@ -121,12 +117,13 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: DesignTokens.Spacing.lg) {
-                headerSection
+                heroSection
+                statsGridSection
                 healthPermissionBanner
                 aiInsightSection
-                progressRingSection
-                statsGridSection
             }
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+            .padding(.top, DesignTokens.Spacing.sm)
         }
         .overlay {
             if celebrateSecret {
@@ -141,19 +138,23 @@ struct DashboardView: View {
             A11yID.AIAvailability.banner,
             when: !aiService.availability.isAvailable
         )
-        .background(DesignTokens.Colors.surfaceGrouped)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(.hidden, for: .navigationBar)
+        .background {
+            AmbientZenithBackground()
+        }
+        .navigationTitle(L10n.localized("Today", comment: "Dashboard header label for current day"))
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                profileButton
+            }
+        }
         .onAppear {
-            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.2)) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Animation.smooth.delay(0.1)) {
                 animateProgress = true
             }
-            revealStats = true
         }
         .sensoryFeedback(.success, trigger: goalReached) { _, newValue in newValue }
         .sensoryFeedback(trigger: Self.milestoneBucket(progress: progress)) { oldValue, newValue in
-            // Light tick at each quarter of the goal; the goal itself is
-            // celebrated by the `.success` feedback above.
             (newValue > oldValue && newValue < 4) ? .impact(weight: .light) : nil
         }
         .sheet(isPresented: $showHealthHelp) {
@@ -164,147 +165,38 @@ struct DashboardView: View {
         }
         .task(id: InsightTrigger(
             activityModeRaw: activityModeRaw,
-            aiAvailable: aiService.availability.isAvailable,
+            aiAvailable: aiService.availability.isAvailable
         )) {
             await loadDailyInsight()
         }
     }
 
-    @ViewBuilder
-    private var healthPermissionBanner: some View {
-        if healthKitSyncEnabled && (healthAuthorization.status == .shouldRequest || trackingService.isUsingMotionFallback) {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    Image(systemName: "heart.slash")
-                        .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    Text(L10n.localized("Health Access Needed", comment: "Dashboard banner title when HealthKit is not authorized"))
-                        .font(DesignTokens.Typography.headline)
-                    Spacer()
-                }
-
-                Text(bannerDescription)
-                    .font(DesignTokens.Typography.subheadline.weight(.medium))
-                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                    .accessibilityIdentifier(A11yID.Dashboard.healthBannerDescription)
-
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    if healthAuthorization.status == .shouldRequest {
-                        Button(L10n.localized("Grant Access", comment: "Button to request Health access")) {
-                            Task {
-                                do {
-                                    try await healthAuthorization.requestAuthorization()
-                                } catch {
-                                    Loggers.health.warning("dashboard.healthkit_request_failed", metadata: [
-                                        "error": error.localizedDescription
-                                    ])
-                                }
-                                await healthAuthorization.refreshStatus()
-                                await trackingService.refreshTodayData()
-                            }
-                        }
-                        .glassButton()
-                        .accessibilityIdentifier(A11yID.Dashboard.healthBannerGrantAccessButton)
-                    } else {
-                        Button(L10n.localized("How to enable", comment: "Button to open Health access instructions")) {
-                            showHealthHelp = true
-                        }
-                        .glassButton()
-                    }
-
-                    Spacer()
-                }
-            }
-            .padding(DesignTokens.Spacing.md)
-            .glassCard(cornerRadius: DesignTokens.CornerRadius.xl, interactive: false)
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        }
-    }
-
-    private var bannerDescription: String {
-        if trackingService.isUsingMotionFallback {
-            return String(
-                localized: "We're using Motion & Fitness data. Enable Health access to include Apple Watch steps and improve history.",
-                comment: "Dashboard banner description when falling back to Motion due to missing HealthKit read access"
-            )
-        }
-        return L10n.localized("Enable Health access to improve history and insights.", comment: "Dashboard banner description when HealthKit not authorized")
-    }
-
-    // MARK: - AI Insight
-
-    @ViewBuilder
-    private var aiInsightSection: some View {
-        if aiService.availability.isAvailable {
-            AIInsightCard(
-                insight: dailyInsight,
-                isLoading: insightService.isGeneratingDailyInsight,
-                error: insightError,
-                onRefresh: { Task { await loadDailyInsight(forceRefresh: true) } },
-                onRetry: { Task { await loadDailyInsight() } }
-            )
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if case .unavailable(let reason) = aiService.availability {
-            AIAvailabilityBanner(reason: reason)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-        }
-    }
-
-    private func loadDailyInsight(forceRefresh: Bool = false) async {
-        let requestID = UUID()
-        insightRequestID = requestID
-        let requestedMode = activityMode
-        guard aiService.availability.isAvailable else { return }
-
-        insightError = nil
-        do {
-            let insight = try await insightService.generateDailyInsight(forceRefresh: forceRefresh)
-            guard !Task.isCancelled, insightRequestID == requestID,
-                  activityMode == requestedMode, aiService.availability.isAvailable else { return }
-            dailyInsight = insight
-            insightError = nil
-        } catch {
-            guard !Task.isCancelled, insightRequestID == requestID,
-                  activityMode == requestedMode, aiService.availability.isAvailable else { return }
-            insightError = error
-        }
-    }
-
-    // MARK: - Header
-
-    private var headerSection: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(L10n.localized("Today", comment: "Dashboard header label for current day"))
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-                Text(L10n.localized("Dashboard", comment: "Dashboard screen title"))
-                    .font(DesignTokens.Typography.largeTitle.bold())
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(L10n.localized("Today's Dashboard", comment: "Accessibility label for dashboard header"))
-
-            Spacer()
-
-            profileButton
-        }
-        .padding(.horizontal, DesignTokens.Spacing.md)
-    }
+    // MARK: - Toolbar
 
     private var profileButton: some View {
         NavigationLink {
             SettingsView()
         } label: {
             Image(systemName: "person.circle.fill")
-                .font(DesignTokens.Typography.title)
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
         }
-        .glassCard(cornerRadius: DesignTokens.CornerRadius.xxl, interactive: true)
         .accessibilityIdentifier("profile_button")
-        .accessibleButton(label: L10n.localized("Profile", comment: "Accessibility label for profile button"), hint: L10n.localized("Opens your profile settings", comment: "Accessibility hint for profile button"))
+        .accessibleButton(
+            label: L10n.localized("Profile", comment: "Accessibility label for profile button"),
+            hint: L10n.localized("Opens your profile settings", comment: "Accessibility hint for profile button")
+        )
     }
 
-    // MARK: - Progress Ring
+    // MARK: - Hero (Unobstructed First-Viewport Focus)
+
+    private var heroSection: some View {
+        VStack(spacing: DesignTokens.Spacing.mdPlus) {
+            progressRingSection
+            streakPill
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DesignTokens.Spacing.sm)
+    }
 
     private var progressRingSection: some View {
         ZStack {
@@ -319,10 +211,6 @@ struct DashboardView: View {
         }
         .frame(width: progressRingSize, height: progressRingSize)
         .goalCelebration(trigger: goalReached)
-        .padding(.vertical, DesignTokens.Spacing.md)
-        // Merge the visible count and goal into this single progress element. Using `.ignore`
-        // made older accessibility auditors treat the rendered text as unrepresented even though
-        // VoiceOver received the replacement label and value below.
         .accessibilityElement(children: .combine)
         .accessibleProgress(
             label: Localization.format(
@@ -346,7 +234,7 @@ struct DashboardView: View {
     private var progressRingBackground: some View {
         Circle()
             .stroke(lineWidth: progressRingLineWidth)
-            .foregroundStyle(DesignTokens.Colors.textQuaternary)
+            .foregroundStyle(DesignTokens.Colors.borderMuted.opacity(0.45))
     }
 
     private var progressRingForeground: some View {
@@ -370,20 +258,18 @@ struct DashboardView: View {
             .breathingGlow(DesignTokens.Colors.accent, isActive: animateProgress && progress > 0)
     }
 
-    /// A bright dot riding the leading edge of the progress arc. It reads as the
-    /// "live" head of the ring and intensifies the closer the goal gets.
     private var progressRingTip: some View {
         let radius = (progressRingSize - progressRingLineWidth) / 2
         let angle = Angle.degrees((animateProgress ? progress : 0) * 360 - 90)
         return Circle()
             .fill(DesignTokens.Colors.inverseText)
-            .frame(width: progressRingLineWidth * 0.7, height: progressRingLineWidth * 0.7)
+            .frame(width: progressRingLineWidth * 0.65, height: progressRingLineWidth * 0.65)
             .overlay {
                 Circle()
                     .fill(DesignTokens.Colors.accent)
-                    .frame(width: progressRingLineWidth * 0.34, height: progressRingLineWidth * 0.34)
+                    .frame(width: progressRingLineWidth * 0.32, height: progressRingLineWidth * 0.32)
             }
-            .shadow(color: DesignTokens.Colors.accent.opacity(0.6), radius: DesignTokens.Spacing.sm)
+            .shadow(color: DesignTokens.Colors.accent.opacity(0.45), radius: DesignTokens.Spacing.xsPlus)
             .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
             .opacity(progress > 0 ? 1 : 0)
             .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: animateProgress)
@@ -398,6 +284,7 @@ struct DashboardView: View {
                 .minimumScaleFactor(0.8)
                 .accessibilityIdentifier(A11yID.Dashboard.progressValue)
                 .contentTransition(.numericText())
+
             Text(
                 Localization.format(
                     "of %@ %@",
@@ -406,29 +293,54 @@ struct DashboardView: View {
                     activityMode.unitName
                 )
             )
+            .font(DesignTokens.Typography.subheadline)
+            .foregroundStyle(DesignTokens.Colors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, 2)
+            .accessibilityIdentifier(A11yID.Dashboard.progressGoal)
+
+            Text("\(ProgressClamp.percent(progress))%")
+                .font(DesignTokens.Typography.footnote.weight(.semibold).monospacedDigit())
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// Anchors the streak directly under the hero ring so the metrics grid stays a clean 2x2 with zero orphan card.
+    private var streakPill: some View {
+        let title = L10n.localized("Streak", comment: "Dashboard stat card title for current streak")
+        let value = Localization.streakDays(trackingService.currentStreak)
+
+        return HStack(spacing: DesignTokens.Spacing.sm) {
+            Image(systemName: "flame.fill")
+                .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                .foregroundStyle(DesignTokens.Colors.orange)
+                .accessibilityHidden(true)
+
+            Text(title)
                 .font(DesignTokens.Typography.subheadline)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
-                .accessibilityIdentifier(A11yID.Dashboard.progressGoal)
+                .accessibilityIdentifier(A11yID.Dashboard.statCardTitle(A11yID.Dashboard.streakStatCard))
+
+            Circle()
+                .fill(DesignTokens.Colors.textSecondary)
+                .frame(width: 3, height: 3)
+                .accessibilityHidden(true)
+
+            Text(value)
+                .font(DesignTokens.Typography.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
+                .contentTransition(.numericText())
+                .accessibilityIdentifier(A11yID.Dashboard.statCardValue(A11yID.Dashboard.streakStatCard))
         }
+        .padding(.horizontal, DesignTokens.Spacing.md)
+        .padding(.vertical, DesignTokens.Spacing.sm)
+        .glassCapsuleSurface(interactive: false)
+        .accessibleStatistic(title: title, value: value)
+        .accessibilityIdentifier(A11yID.Dashboard.streakStatCard)
     }
 
-    // MARK: - Stats Grid
-
-    @ViewBuilder
-    private var statsGridSection: some View {
-        if LaunchConfiguration.isUITesting() && !LaunchConfiguration.shouldUseProductionGlass() {
-            statsGrid
-                .padding(.horizontal, DesignTokens.Spacing.md)
-        } else if #available(iOS 26, *) {
-            GlassEffectContainer(spacing: DesignTokens.Spacing.md) {
-                statsGrid
-            }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-        } else {
-            statsGrid
-                .padding(.horizontal, DesignTokens.Spacing.md)
-        }
-    }
+    // MARK: - Balanced 2x2 Metrics Grid
 
     private var statItems: [StatItem] {
         [
@@ -452,8 +364,8 @@ struct DashboardView: View {
             StatItem(
                 icon: "figure.stairs",
                 title: L10n.localized("Floors", comment: "Dashboard stat card title"),
-                value: .text("\(trackingService.todayFloors)", accessibilityValue: nil),
-                color: DesignTokens.Colors.green,
+                value: .text(Formatters.stepCountString(trackingService.todayFloors), accessibilityValue: nil),
+                color: DesignTokens.Colors.mint,
                 accessibilityIdentifier: A11yID.Dashboard.floorsStatCard
             ),
             StatItem(
@@ -462,28 +374,19 @@ struct DashboardView: View {
                 value: .heartRate(trackingService.todayHeartRateSample),
                 color: DesignTokens.Colors.red,
                 accessibilityIdentifier: A11yID.Dashboard.heartRateStatCard
-            ),
-            StatItem(
-                icon: "flame.circle",
-                title: L10n.localized("Streak", comment: "Dashboard stat card title for current streak"),
-                value: .text(Localization.streakDays(trackingService.currentStreak), accessibilityValue: nil),
-                color: DesignTokens.Colors.accent,
-                accessibilityIdentifier: A11yID.Dashboard.streakStatCard
             )
         ]
     }
 
-    private var statsGrid: some View {
+    private var statsGridSection: some View {
         LazyVGrid(
             columns: dynamicTypeSize.isAccessibilitySize
                 ? [GridItem(.flexible())]
-                : [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: DesignTokens.Spacing.md
+                : [GridItem(.flexible(), spacing: DesignTokens.Spacing.smPlus), GridItem(.flexible(), spacing: DesignTokens.Spacing.smPlus)],
+            spacing: DesignTokens.Spacing.smPlus
         ) {
-            ForEach(statItems.enumerated(), id: \.element.id) { index, item in
+            ForEach(statItems) { item in
                 statCard(for: item)
-                .staggeredReveal(index: index, isRevealed: revealStats)
-                .scrollFadeIn()
             }
         }
     }
@@ -514,6 +417,110 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Secondary Banners (Never Above Hero Focus)
+
+    @ViewBuilder
+    private var healthPermissionBanner: some View {
+        if healthKitSyncEnabled && (healthAuthorization.status == .shouldRequest || trackingService.isUsingMotionFallback) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    Image(systemName: "heart.slash")
+                        .font(DesignTokens.Typography.callout.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.accent)
+                        .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+                        .background(DesignTokens.Colors.accentSoft, in: Circle())
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text(L10n.localized("Health Access Needed", comment: "Dashboard banner title when HealthKit is not authorized"))
+                            .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                            .foregroundStyle(DesignTokens.Colors.textPrimary)
+
+                        Text(bannerDescription)
+                            .font(DesignTokens.Typography.footnote)
+                            .foregroundStyle(DesignTokens.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier(A11yID.Dashboard.healthBannerDescription)
+                    }
+                }
+
+                if healthAuthorization.status == .shouldRequest {
+                    Button(L10n.localized("Grant Access", comment: "Button to request Health access")) {
+                        Task {
+                            do {
+                                try await healthAuthorization.requestAuthorization()
+                            } catch {
+                                Loggers.health.warning("dashboard.healthkit_request_failed", metadata: [
+                                    "error": error.localizedDescription
+                                ])
+                            }
+                            await healthAuthorization.refreshStatus()
+                            await trackingService.refreshTodayData()
+                        }
+                    }
+                    .glassButton()
+                    .controlSize(.regular)
+                    .accessibilityIdentifier(A11yID.Dashboard.healthBannerGrantAccessButton)
+                } else {
+                    Button(L10n.localized("How to enable", comment: "Button to open Health access instructions")) {
+                        showHealthHelp = true
+                    }
+                    .glassSecondaryButton()
+                    .controlSize(.regular)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(DesignTokens.Spacing.mdPlus)
+            .calmCard()
+        }
+    }
+
+    private var bannerDescription: String {
+        if trackingService.isUsingMotionFallback {
+            return L10n.localized(
+                "We're using Motion & Fitness data. Enable Health access to include Apple Watch steps and improve history.",
+                comment: "Dashboard banner description when falling back to Motion due to missing HealthKit read access"
+            )
+        }
+        return L10n.localized("Enable Health access to improve history and insights.", comment: "Dashboard banner description when HealthKit not authorized")
+    }
+
+    // MARK: - AI Insight
+
+    @ViewBuilder
+    private var aiInsightSection: some View {
+        if aiService.availability.isAvailable {
+            AIInsightCard(
+                insight: dailyInsight,
+                isLoading: insightService.isGeneratingDailyInsight,
+                error: insightError,
+                onRefresh: { Task { await loadDailyInsight(forceRefresh: true) } },
+                onRetry: { Task { await loadDailyInsight() } }
+            )
+        } else if case .unavailable(let reason) = aiService.availability {
+            AIAvailabilityBanner(reason: reason)
+        }
+    }
+
+    private func loadDailyInsight(forceRefresh: Bool = false) async {
+        let requestID = UUID()
+        insightRequestID = requestID
+        let requestedMode = activityMode
+        guard aiService.availability.isAvailable else { return }
+
+        insightError = nil
+        do {
+            let insight = try await insightService.generateDailyInsight(forceRefresh: forceRefresh)
+            guard !Task.isCancelled, insightRequestID == requestID,
+                  activityMode == requestedMode, aiService.availability.isAvailable else { return }
+            dailyInsight = insight
+            insightError = nil
+        } catch {
+            guard !Task.isCancelled, insightRequestID == requestID,
+                  activityMode == requestedMode, aiService.availability.isAvailable else { return }
+            insightError = error
+        }
+    }
 }
 
 // MARK: - Stat Item
@@ -530,8 +537,6 @@ private struct StatItem: Identifiable {
     let color: Color
     let accessibilityIdentifier: String
 
-    // Stable identity for ForEach: the title is unique per card and does not
-    // change as the value updates, so reveal/transition state is preserved.
     var id: String { title }
 }
 
@@ -548,32 +553,34 @@ struct StatCard: View {
     let accessibilityIdentifier: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.smPlus) {
             Image(systemName: icon)
-                .font(DesignTokens.Typography.title2)
+                .font(DesignTokens.Typography.callout.weight(.semibold))
                 .foregroundStyle(color)
-                .applyIfMotionEnabled { view in
-                    view.symbolEffect(.pulse, options: .repeating.speed(0.5))
-                }
+                .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+                .background(color.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(value)
                     .font(DesignTokens.Typography.title3.bold())
                     .monospacedDigit()
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier(A11yID.Dashboard.statCardValue(accessibilityIdentifier))
                     .contentTransition(.numericText())
                     .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: value)
+
                 Text(title)
                     .font(DesignTokens.Typography.caption)
-                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier(A11yID.Dashboard.statCardTitle(accessibilityIdentifier))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .calmCard()
         .accessibleStatistic(title: title, value: value, accessibilityValue: accessibilityValue)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -589,23 +596,25 @@ struct StatCard: View {
     let goalService = GoalService(persistence: persistence)
     let streakCalculator = StreakCalculator(stepAggregator: StepDataAggregator(), goalService: goalService)
     let badgeService = BadgeService(persistence: persistence)
-    return DashboardView()
-        .environment(StepTrackingService(
-            healthKitService: healthKitService,
-            motionService: MotionService(),
-            healthAuthorization: healthAuthorization,
-            goalService: goalService,
-            badgeService: badgeService,
-            dataStore: SharedDataStore(),
-            streakCalculator: streakCalculator
-        ))
-        .environment(healthAuthorization)
-        .environment(fmService)
-        .environment(InsightService(
-            foundationModelsService: fmService,
-            healthKitService: healthKitService,
-            goalService: goalService,
-            dataStore: SharedDataStore()
-        ))
-        .environment(demoModeStore)
+    return NavigationStack {
+        DashboardView()
+    }
+    .environment(StepTrackingService(
+        healthKitService: healthKitService,
+        motionService: MotionService(),
+        healthAuthorization: healthAuthorization,
+        goalService: goalService,
+        badgeService: badgeService,
+        dataStore: SharedDataStore(),
+        streakCalculator: streakCalculator
+    ))
+    .environment(healthAuthorization)
+    .environment(fmService)
+    .environment(InsightService(
+        foundationModelsService: fmService,
+        healthKitService: healthKitService,
+        goalService: goalService,
+        dataStore: SharedDataStore()
+    ))
+    .environment(demoModeStore)
 }

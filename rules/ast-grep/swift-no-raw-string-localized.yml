@@ -1,0 +1,27 @@
+id: swift-no-raw-string-localized
+language: Swift
+severity: error
+message: Use L10n.localized(...) or Localization.format(...) instead of raw String(localized:).
+note: Only pt-BR uses Portuguese; other locales must resolve to English via L10n.localized (see AGENTS.md).
+rule:
+  kind: call_expression
+  all:
+    - has:
+        kind: simple_identifier
+        regex: "^String$"
+    - has:
+        kind: call_suffix
+        has:
+          kind: value_arguments
+          has:
+            kind: value_argument
+            has:
+              kind: value_argument_label
+              regex: "^localized$"
+files:
+  - "AIPedometer/**/*.swift"
+  - "Shared/**/*.swift"
+  - "AIPedometerWatch/**/*.swift"
+  - "AIPedometerWidgets/**/*.swift"
+ignores:
+  - "Shared/Utilities/L10n.swift"

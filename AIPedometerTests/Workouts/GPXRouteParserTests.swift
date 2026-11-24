@@ -463,6 +463,44 @@ struct GPXRouteParserTests {
         #expect(route.name.allSatisfy { $0 == "A" })
     }
 
+    @Test("antipodal coordinates produce finite distance and duration without NaN")
+    func antipodalPointsProduceFiniteDistance() throws {
+        let data = Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1">
+          <trk><trkseg>
+            <trkpt lat="0" lon="0"><ele>0</ele></trkpt>
+            <trkpt lat="0" lon="180"><ele>0</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """.utf8)
+
+        let route = try GPXRouteParser.parse(data: data, sourceFilename: "antipodal.gpx")
+        #expect(route.distanceMeters.isFinite)
+        #expect(route.distanceMeters > 20_000_000)
+        #expect(route.estimatedDuration.isFinite)
+    }
+
+    @Test("empty metadata name falls back to track name")
+    func emptyMetadataNameFallsBackToTrackName() throws {
+        let data = Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1">
+          <metadata><name>   </name></metadata>
+          <trk>
+            <name>Sunset Ridge</name>
+            <trkseg>
+              <trkpt lat="37.33182" lon="-122.03118"><ele>10</ele></trkpt>
+              <trkpt lat="37.33282" lon="-122.03218"><ele>15</ele></trkpt>
+            </trkseg>
+          </trk>
+        </gpx>
+        """.utf8)
+
+        let route = try GPXRouteParser.parse(data: data, sourceFilename: "fallback.gpx")
+        #expect(route.name == "Sunset Ridge")
+    }
+
     private func writeTemporaryGPX(filename: String, contents: String) throws -> URL {
         try writeTemporaryGPX(filename: filename, data: Data(contents.utf8))
     }

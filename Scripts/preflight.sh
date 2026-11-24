@@ -138,7 +138,7 @@ gate() {
   fi
 }
 
-command -v ast-grep >/dev/null 2>&1 && gate "ast-grep scan" ast-grep scan --config sgconfig.yml
+command -v ast-grep >/dev/null 2>&1 && gate "ast-grep scan" ast-grep scan --config sgconfig.yml --no-ignore hidden --no-ignore dot --no-ignore exclude --no-ignore global --no-ignore parent --no-ignore vcs --error=unused-suppression --error=no-suppress-all
 command -v actionlint >/dev/null 2>&1 && gate "actionlint" actionlint
 gate "check-agents-sync.sh" /bin/bash Scripts/check-agents-sync.sh
 gate "verify-device-identifiers.sh" /bin/bash Scripts/verify-device-identifiers.sh

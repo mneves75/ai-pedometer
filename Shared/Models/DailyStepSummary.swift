@@ -1,6 +1,6 @@
 import Foundation
 
-struct DailyStepSummary: Sendable, Identifiable {
+struct DailyStepSummary: Sendable, Equatable, Identifiable {
     var id: Date { date }
 
     let date: Date
