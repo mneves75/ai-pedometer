@@ -18,9 +18,20 @@ modes in [FOR_YOU_KNOW.md](FOR_YOU_KNOW.md), and release history in
   App Store production **BLOCKED** (`SEC-11 SEC-12 SEC-16 SEC-17 SEC-18 SEC-21 SEC-23 CMP-03 CMP-04 CMP-06
   gate:independent-acceptance`; records `.scratch/security-gate/fb1a13d81d60a8b37f4e46aa8698c48e8165c6ef/staging.{md,json}`).
   Release build `1.1.0 (72)` (with embedded watch app) installed and launched on `owner-iPhone` (iOS 27.3).
-  PR #24 (`feat/liquid-glass-redesign-and-hardening` → `master`) ships the full iOS 26+ Liquid Glass UI/UX
-  redesign, core/AI/HealthKit/watch hardening, `ast-grep` rules, and `StoreListingTests` (8/8 on `1.1.0 (72)`).
-  Prior version `1.0.11` (`c30c19eb`) is currently `PENDING_DEVELOPER_RELEASE` in App Store Connect (untouched).
+  PR #24 (`feat/liquid-glass-redesign-and-hardening` → `master`) squashed and merged (`9cde2a3`; `CodeQL`
+  and `Dependency Review` passed; GitHub `CI/Build & Test` failed in `Run E2E (iOS Simulator)`, ignored per
+  owner instruction).
+- **1.1.0 (72) is in App Review (`WAITING_FOR_REVIEW`)** (2026-11-24): version
+  `c1800743-fe0c-4a11-b343-b5cb34098a55`, build `822e9be9-5ca9-4f7f-8d96-76d7136f4f1b`, submission
+  `900d3a1a-03ff-45ce-9514-ae61342e78c0`, release type `MANUAL`, `en-US` and `pt-BR` `whatsNew` applied via
+  `asc metadata apply`, `asc validate` 0 blocking errors. Owner explicitly waived the 11 production blockers
+  (`SEC-11 SEC-12 SEC-16 SEC-17 SEC-18 SEC-21 SEC-23 CMP-03 CMP-04 CMP-06 gate:independent-acceptance`,
+  physical-device checks, and `NV-01`) for build `1.1.0 (72)` (`fb1a13d`) only (recorded in
+  `.scratch/security-gate/fb1a13d81d60a8b37f4e46aa8698c48e8165c6ef/production.{md,json}`). After Apple
+  approval: `asc versions release --version-id c1800743-fe0c-4a11-b343-b5cb34098a55 --confirm`, then tag
+  `v1.1.0` on `fb1a13d`.
+- **1.0.11 (71) is `READY_FOR_DISTRIBUTION` in the App Store** (2026-11-24): released version
+  `c30c19eb-4b4e-4f39-8e42-44b94275a2e6` and tagged `v1.0.11` → `af8081a`.
 
 ## Previous state (2026-10-31)
 
