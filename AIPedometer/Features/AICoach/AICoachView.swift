@@ -44,7 +44,9 @@ struct AICoachView: View {
         coachContent
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(A11yID.AICoach.view)
-            .background(DesignTokens.Colors.surfaceGrouped)
+            .background {
+                AmbientZenithBackground()
+            }
             .navigationTitle(L10n.localized("AI Coach", comment: "AI Coach navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             // Model-generated links must pass policy and explicit user confirmation.
@@ -108,14 +110,13 @@ struct AICoachView: View {
     private var coachContent: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
             if case .unavailable(let reason) = aiService.availability {
+                Spacer(minLength: DesignTokens.Spacing.lg)
                 AIUnavailableStateView(reason: reason)
-                    .padding(.horizontal, DesignTokens.Spacing.md)
-                    .padding(.top, DesignTokens.Spacing.xl)
+                    .padding(.horizontal, DesignTokens.Spacing.mdPlus)
                 Spacer(minLength: DesignTokens.Spacing.xl)
             } else {
                 messagesScrollView
-                disclaimerText
-                inputSection
+                composerFooter
             }
         }
         .uiTestMarker(A11yID.AICoach.marker)
@@ -152,7 +153,8 @@ struct AICoachView: View {
                         errorBanner(error)
                     }
                 }
-                .padding(DesignTokens.Spacing.md)
+                .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+                .padding(.vertical, DesignTokens.Spacing.md)
                 .animation(reduceMotion ? nil : DesignTokens.Animation.smooth, value: coachService.messages.count)
             }
             .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -189,63 +191,61 @@ struct AICoachView: View {
     }
 
     private var welcomeSection: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            Image(systemName: "sparkles")
-                .font(.system(size: DesignTokens.FontSize.md))
-                .foregroundStyle(DesignTokens.Colors.accent)
-                .applyIfMotionEnabled { view in
-                    view.symbolEffect(.pulse, options: .repeating.speed(0.5))
+        VStack(spacing: DesignTokens.Spacing.xl) {
+            VStack(spacing: DesignTokens.Spacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(DesignTokens.Colors.accentSoft)
+                        .frame(width: 68, height: 68)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(DesignTokens.Colors.accent)
                 }
+                .glassCard(cornerRadius: 34)
+                .accessibilityHidden(true)
 
-            VStack(spacing: DesignTokens.Spacing.sm) {
                 Text(L10n.localized("Hi, I'm your AI Coach!", comment: "AI Coach welcome greeting"))
                     .font(DesignTokens.Typography.title2.bold())
-
-                Text(L10n.localized("Ask me anything about your fitness progress, goals, or get personalized recommendations.", comment: "AI Coach welcome description"))
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
             suggestedQuestionsSection
         }
-        .padding(.vertical, DesignTokens.Spacing.xl)
+        .padding(.top, DesignTokens.Spacing.xl)
     }
 
     private var suggestedQuestionsSection: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(L10n.localized("Try asking:", comment: "Label for suggested questions"))
-                .font(DesignTokens.Typography.subheadline.weight(.medium))
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-
-            FlowLayout(spacing: DesignTokens.Spacing.sm) {
-                ForEach(coachService.suggestedQuestions, id: \.self) { question in
-                    Button {
-                        Task { await coachService.send(message: question) }
-                    } label: {
-                        Text(question)
-                            .font(DesignTokens.Typography.subheadline)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
-                            .padding(.horizontal, DesignTokens.Spacing.md)
-                            .padding(.vertical, DesignTokens.Spacing.sm)
-                            .frame(minHeight: DesignTokens.TouchTarget.minimum)
-                            .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+        FlowLayout(spacing: DesignTokens.Spacing.sm) {
+            ForEach(coachService.suggestedQuestions, id: \.self) { question in
+                Button {
+                    HapticService.shared.tap()
+                    Task { await coachService.send(message: question) }
+                } label: {
+                    Text(question)
+                        .font(DesignTokens.Typography.subheadline.weight(.medium))
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, DesignTokens.Spacing.md)
+                        .padding(.vertical, DesignTokens.Spacing.smPlus)
+                        .frame(minHeight: DesignTokens.TouchTarget.minimum)
+                        .glassCapsuleSurface(interactive: true)
                 }
+                .buttonStyle(.plain)
             }
         }
+        .glassContainer(spacing: DesignTokens.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var streamingMessageView: some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: "sparkles")
-                .font(DesignTokens.Typography.caption)
+                .font(DesignTokens.Typography.caption.weight(.semibold))
                 .foregroundStyle(DesignTokens.Colors.accent)
                 .frame(width: DesignTokens.IconSize.sm, height: DesignTokens.IconSize.sm)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 if coachService.currentStreamedContent.isEmpty {
@@ -256,57 +256,58 @@ struct AICoachView: View {
                             .font(DesignTokens.Typography.subheadline)
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                     }
+                } else if coachService.currentStreamedContent.count <= CoachService.maxLiveMarkdownChars {
+                    Text(coachService.currentStreamedRenderedContent)
                 } else {
-                    if coachService.currentStreamedContent.count <= CoachService.maxLiveMarkdownChars {
-                        Text(coachService.currentStreamedRenderedContent)
-                    } else {
-                        Text(coachService.currentStreamedContent)
-                            .font(DesignTokens.Typography.subheadline)
-                            .foregroundStyle(DesignTokens.Colors.textPrimary)
-                    }
+                    Text(coachService.currentStreamedContent)
+                        .font(DesignTokens.Typography.body)
+                        .foregroundStyle(DesignTokens.Colors.textPrimary)
                 }
             }
 
             Spacer()
         }
         .padding(DesignTokens.Spacing.md)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
+        .calmCard(cornerRadius: DesignTokens.CornerRadius.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var inputSection: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            Divider()
-
-            HStack(spacing: DesignTokens.Spacing.sm) {
+    private var composerFooter: some View {
+        VStack(spacing: DesignTokens.Spacing.xs) {
+            HStack(alignment: .bottom, spacing: DesignTokens.Spacing.sm) {
                 TextField(L10n.localized("Ask your coach...", comment: "AI Coach input placeholder"), text: $inputText, axis: .vertical)
                     .textFieldStyle(.plain)
+                    .font(DesignTokens.Typography.body)
                     .lineLimit(1...4)
                     .focused($isInputFocused)
                     .submitLabel(.send)
                     .onSubmit(sendMessage)
+                    .padding(.vertical, DesignTokens.Spacing.xsPlus)
+                    .padding(.leading, DesignTokens.Spacing.sm)
                     .accessibilityLabel(L10n.localized("Message", comment: "AI Coach message input label"))
                     .accessibilityIdentifier(A11yID.AICoach.input)
 
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(DesignTokens.Typography.title2)
+                        .font(.system(size: 30))
                         .foregroundStyle(canSend ? DesignTokens.Colors.accent : DesignTokens.Colors.textTertiary)
+                        .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
                 }
-                .frame(width: DesignTokens.IconSize.touchTarget, height: DesignTokens.IconSize.touchTarget)
+                .buttonStyle(.plain)
                 .disabled(!canSend)
                 .accessibilityLabel(L10n.localized("Send Message", comment: "AI Coach send button accessibility label"))
                 .accessibilityIdentifier(A11yID.AICoach.sendButton)
             }
-            .padding(DesignTokens.Spacing.md)
-            .background(.bar)
-        }
-    }
+            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.vertical, DesignTokens.Spacing.xs)
+            .glassCard(cornerRadius: DesignTokens.CornerRadius.xxl)
 
-    private var disclaimerText: some View {
-        AIDisclaimerText()
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .padding(.top, DesignTokens.Spacing.sm)
+            AIDisclaimerText()
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+        .padding(.top, DesignTokens.Spacing.xs)
+        .padding(.bottom, DesignTokens.Spacing.sm)
     }
 
     private var canSend: Bool {
@@ -325,27 +326,27 @@ struct AICoachView: View {
     }
 
     private func errorBanner(_ error: AIServiceError) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Label {
-                Text(error.localizedDescription)
-                    .font(DesignTokens.Typography.subheadline)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(DesignTokens.Colors.warning)
-            }
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(DesignTokens.Colors.warning)
+                .accessibilityHidden(true)
+
+            Text(error.localizedDescription)
+                .font(DesignTokens.Typography.subheadline)
+                .foregroundStyle(DesignTokens.Colors.textSecondary)
+
+            Spacer()
 
             if canRetryLastMessage && !coachService.isGenerating {
                 Button(L10n.localized("Try Again", comment: "Retry button")) {
                     Task { await coachService.retryLastMessage() }
                 }
-                .buttonStyle(.borderedProminent)
-                .foregroundStyle(DesignTokens.Colors.onAccent)
+                .glassSecondaryButton()
                 .controlSize(.small)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DesignTokens.Spacing.md)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
+        .calmCard(cornerRadius: DesignTokens.CornerRadius.lg)
     }
 
     private func sendMessage() {
@@ -401,18 +402,28 @@ struct ChatMessageView: View {
 
             if !isUser {
                 Image(systemName: "sparkles")
-                    .font(DesignTokens.Typography.caption)
+                    .font(DesignTokens.Typography.caption.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.accent)
                     .frame(width: DesignTokens.IconSize.sm, height: DesignTokens.IconSize.sm)
+                    .accessibilityHidden(true)
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: DesignTokens.Spacing.xxs) {
                 Group { messageContent }
-                .padding(DesignTokens.Spacing.md)
-                .background(
-                    isUser ? AnyShapeStyle(DesignTokens.Colors.accent) : AnyShapeStyle(.ultraThinMaterial),
-                    in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
-                )
+                    .padding(.horizontal, DesignTokens.Spacing.md)
+                    .padding(.vertical, DesignTokens.Spacing.smPlus)
+                    .background(
+                        isUser
+                            ? AnyShapeStyle(DesignTokens.Colors.accent)
+                            : AnyShapeStyle(DesignTokens.Colors.surfaceElevated),
+                        in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg, style: .continuous)
+                    )
+                    .overlay {
+                        if !isUser {
+                            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg, style: .continuous)
+                                .strokeBorder(DesignTokens.Colors.borderMuted.opacity(0.45), lineWidth: 0.75)
+                        }
+                    }
 
                 if let terminalError = message.terminalError, !isUser {
                     Label {
@@ -438,15 +449,13 @@ struct ChatMessageView: View {
     private var messageContent: some View {
         if isUser {
             Text(message.content)
-                .font(DesignTokens.Typography.subheadline)
-                .foregroundStyle(DesignTokens.Colors.inverseText)
+                .font(DesignTokens.Typography.body)
+                .foregroundStyle(DesignTokens.Colors.onAccent)
         } else if let rendered = message.renderedContent {
-            // Keep assistant styles embedded in AttributedString (links/code spans).
             Text(rendered)
         } else {
-            // Fallback if rendering failed or message was produced by an older build.
             Text(message.content)
-                .font(DesignTokens.Typography.subheadline)
+                .font(DesignTokens.Typography.body)
                 .foregroundStyle(DesignTokens.Colors.textPrimary)
         }
     }
@@ -471,19 +480,19 @@ enum AICoachErrorPresentationPolicy {
     static func isSameErrorKind(_ lhs: AIServiceError, _ rhs: AIServiceError) -> Bool {
         switch (lhs, rhs) {
         case (.sessionNotConfigured, .sessionNotConfigured):
-            return true
+            true
         case let (.modelUnavailable(leftReason), .modelUnavailable(rightReason)):
-            return leftReason == rightReason
+            leftReason == rightReason
         case (.generationFailed, .generationFailed):
-            return true
+            true
         case (.tokenLimitExceeded, .tokenLimitExceeded):
-            return true
+            true
         case (.guardrailViolation, .guardrailViolation):
-            return true
+            true
         case (.invalidResponse, .invalidResponse):
-            return true
+            true
         default:
-            return false
+            false
         }
     }
 }
@@ -492,8 +501,7 @@ struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = layout(proposal: proposal, subviews: subviews)
-        return result.size
+        layout(proposal: proposal, subviews: subviews).size
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
@@ -536,12 +544,14 @@ struct FlowLayout: Layout {
     let fmService = FoundationModelsService()
     let demoModeStore = DemoModeStore()
     let healthKitService = HealthKitServiceFallback(demoModeStore: demoModeStore)
-    return AICoachView()
-        .environment(CoachService(
-            foundationModelsService: fmService,
-            healthKitService: healthKitService,
-            goalService: GoalService(persistence: PersistenceController.shared)
-        ))
-        .environment(fmService)
-        .environment(demoModeStore)
+    return NavigationStack {
+        AICoachView()
+    }
+    .environment(CoachService(
+        foundationModelsService: fmService,
+        healthKitService: healthKitService,
+        goalService: GoalService(persistence: PersistenceController.shared)
+    ))
+    .environment(fmService)
+    .environment(demoModeStore)
 }

@@ -96,23 +96,33 @@ a deliberate design pass.
 - hero: 100 (About hero circle)
 
 ## Component Sizing
-- progressRing: 230, progressRingLineWidth: 16
-- workoutCardWidth: 190
-- routePreviewHeight: 104
-- badgeCardMinHeight: 180 (uses minHeight for Dynamic Type)
-- chartHeight: 150 (uses minHeight for Dynamic Type)
-- chartBarMaxHeight: 120
+- progressRing: 252, progressRingLineWidth: 18
+- workoutCardWidth: 204
+- routePreviewHeight: 132
+- badgeCardMinHeight: 152 (uses minHeight for Dynamic Type)
+- chartHeight: 176 (uses minHeight for Dynamic Type)
+- chartBarMaxHeight: 132
 - chatBubbleGutter: 40
 - onboardingPageBottomInset: 132
 
 ## Surfaces and Components
+- calmCard(cornerRadius):
+  - Elevated grouped surface (`surfaceElevated`) with subtle hairline border (`borderMuted`) for dense or scannable data cards, reserving Liquid Glass for interactive controls, floating chrome, and focal accents (iOS 26+ HIG).
+- AmbientZenithBackground(tint):
+  - Subtle 220pt top radial wash (`0.10` dark / `0.06` light) giving floating Liquid Glass navigation bars, medallions, and capsules soft light to refract without lowering body-copy contrast.
 - glassCard(cornerRadius, interactive):
   - iOS 26+: .glassEffect(.regular) or .glassEffect(.regular.interactive())
   - iOS < 26 and UI tests: .ultraThinMaterial background
+- glassCapsuleSurface(interactive, tinted):
+  - iOS 26+: .glassEffect(.regular[.tint(...)][.interactive()], in: .capsule) for interactive pills, streak badge, and floating composer/controls.
 - glassButton():
-  - iOS 26+: .glassProminent
+  - iOS 26+: .glassProminent with `onAccent` foreground
   - iOS < 26 and UI tests: .borderedProminent
-- glassContainer(spacing): wraps children in GlassEffectContainer on iOS 26+
+- glassSecondaryButton():
+  - iOS 26+: .glass
+  - iOS < 26 and UI tests: .bordered
+- glassContainer(spacing): wraps grouped Liquid Glass controls in GlassEffectContainer on iOS 26+
+- TabBar: native iOS 26 floating Liquid Glass tab bar with `.tabBarMinimizeBehavior(.onScrollDown)` outside UI tests.
 
 ## Iconography
 - SF Symbols only. Weight and size vary by context but remain within SF Symbols set.

@@ -8,30 +8,33 @@ struct ActiveWorkoutView: View {
     var body: some View {
         @Bindable var workoutController = workoutController
         ScrollView {
-            VStack(spacing: DesignTokens.Spacing.lg) {
-                statusHeader
-
-                metricsSection
+            VStack(spacing: DesignTokens.Spacing.xl) {
+                heroCockpit
+                metricsStrip
 
                 if let targetSteps = workoutController.metrics?.targetSteps {
                     targetProgressSection(targetSteps: targetSteps)
                 }
             }
-            .padding(DesignTokens.Spacing.md)
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+            .padding(.top, DesignTokens.Spacing.lg)
             .padding(.bottom, DesignTokens.Spacing.xl)
         }
         .accessibilityIdentifier(A11yID.ActiveWorkout.view)
-        .background(DesignTokens.Colors.surfaceGrouped)
+        .background {
+            AmbientZenithBackground(tint: statusTint)
+        }
         .safeAreaInset(edge: .bottom) {
             actionButtons
-                .padding(DesignTokens.Spacing.md)
-                .background(.regularMaterial)
+                .padding(.horizontal, DesignTokens.Spacing.mdPlus)
+                .padding(.top, DesignTokens.Spacing.sm)
+                .padding(.bottom, DesignTokens.Spacing.md)
         }
-        .navigationTitle(statusTitle)
+        .navigationTitle(workoutTypeTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
+                Button(role: .destructive) {
                     showDiscardConfirmation = true
                 } label: {
                     Image(systemName: "trash")
@@ -71,49 +74,94 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    private var statusHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(workoutTypeTitle)
-                    .font(DesignTokens.Typography.title2.bold())
-            }
+    // MARK: - Hero Live Cockpit
 
-            Spacer()
-
+    private var heroCockpit: some View {
+        VStack(spacing: DesignTokens.Spacing.lg) {
             statusBadge
+
+            VStack(spacing: DesignTokens.Spacing.xs) {
+                Text(elapsedText)
+                    .font(.system(size: 56, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .contentTransition(.numericText())
+
+                Text(L10n.localized("Elapsed", comment: "Workout metric title"))
+                    .font(DesignTokens.Typography.footnote.weight(.medium))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+            .accessibleStatistic(
+                title: L10n.localized("Elapsed", comment: "Workout metric title"),
+                value: elapsedText
+            )
+
+            VStack(spacing: DesignTokens.Spacing.xxs) {
+                Text(workoutController.metrics?.steps.formattedSteps ?? "0")
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(DesignTokens.Colors.accent)
+                    .contentTransition(.numericText())
+
+                Text(L10n.localized("Steps", comment: "Workout metric title"))
+                    .font(DesignTokens.Typography.footnote.weight(.medium))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+            .accessibleStatistic(
+                title: L10n.localized("Steps", comment: "Workout metric title"),
+                value: workoutController.metrics?.steps.formattedSteps ?? "0"
+            )
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DesignTokens.Spacing.lg)
     }
 
-    private var metricsSection: some View {
+    private var metricsStrip: some View {
         let metrics = workoutController.metrics
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignTokens.Spacing.md) {
-            metricCard(
-                title: L10n.localized("Steps", comment: "Workout metric title"),
-                value: metrics?.steps.formattedSteps ?? "0",
-                icon: "figure.walk",
-                tint: DesignTokens.Colors.green
-            )
-            metricCard(
+        return HStack(spacing: DesignTokens.Spacing.smPlus) {
+            metricTile(
                 title: L10n.localized("Distance", comment: "Workout metric title"),
                 value: metrics?.distance.formattedDistance() ?? 0.formattedDistance(),
-                icon: "map",
+                icon: "map.fill",
                 tint: DesignTokens.Colors.blue
             )
-            metricCard(
+            metricTile(
                 title: L10n.localized("Calories", comment: "Workout metric title"),
-                value: metrics?.calories.formattedCalories() ?? "0",
-                icon: "flame",
+                value: "\(metrics?.calories.formattedCalories() ?? "0") \(L10n.localized("kcal", comment: "Calories unit"))",
+                icon: "flame.fill",
                 tint: DesignTokens.Colors.orange
             )
-            metricCard(
-                title: L10n.localized("Elapsed", comment: "Workout metric title"),
-                value: elapsedText,
-                icon: "clock",
-                tint: DesignTokens.Colors.purple
-            )
         }
+    }
+
+    private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            Image(systemName: icon)
+                .font(DesignTokens.Typography.callout.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+                .background(tint.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(value)
+                    .font(DesignTokens.Typography.title3.bold().monospacedDigit())
+                    .foregroundStyle(DesignTokens.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .contentTransition(.numericText())
+
+                Text(title)
+                    .font(DesignTokens.Typography.caption)
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignTokens.Spacing.md)
+        .calmCard()
+        .accessibleStatistic(title: title, value: value)
     }
 
     private func targetProgressSection(targetSteps: Int) -> some View {
@@ -123,10 +171,11 @@ struct ActiveWorkoutView: View {
         return VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack {
                 Text(L10n.localized("Target", comment: "Workout target label"))
-                    .font(DesignTokens.Typography.headline)
-                Spacer()
-                Text("\(currentSteps.formattedSteps)/\(targetSteps.formattedSteps)")
                     .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                Spacer()
+                Text("\(currentSteps.formattedSteps) / \(targetSteps.formattedSteps)")
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold).monospacedDigit())
             }
 
             ProgressView(value: progress)
@@ -136,48 +185,35 @@ struct ActiveWorkoutView: View {
                     value: progress
                 )
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .padding(DesignTokens.Spacing.mdPlus)
+        .calmCard()
     }
+
+    // MARK: - Floating Liquid Glass Action Controls
 
     private var actionButtons: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             Button(action: togglePause) {
                 Label(pauseButtonTitle, systemImage: pauseButtonIcon)
+                    .font(DesignTokens.Typography.headline)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, DesignTokens.Spacing.xs)
             }
-            .buttonStyle(.bordered)
-            .tint(DesignTokens.Colors.textPrimary)
+            .glassSecondaryButton()
 
             Button {
                 showEndConfirmation = true
             } label: {
                 Text(L10n.localized("End Workout", comment: "Button to end workout"))
+                    .font(DesignTokens.Typography.headline)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, DesignTokens.Spacing.xs)
             }
-            .buttonStyle(.borderedProminent)
-            .foregroundStyle(DesignTokens.Colors.onAccent)
+            .glassButton()
             .accessibilityIdentifier(A11yID.ActiveWorkout.endButton)
         }
         .controlSize(.large)
-        .tint(DesignTokens.Colors.accent)
-    }
-
-    private func metricCard(title: String, value: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
-                .font(DesignTokens.Typography.title3)
-            Text(value)
-                .font(DesignTokens.Typography.title3.bold())
-            Text(title)
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
-        .accessibleStatistic(title: title, value: value)
+        .glassContainer(spacing: DesignTokens.Spacing.md)
     }
 
     private func togglePause() {
@@ -191,40 +227,38 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    private var statusTitle: String {
-        switch workoutController.state {
-        case .paused:
-            return L10n.localized("Workout Paused", comment: "Title when workout is paused")
-        default:
-            return L10n.localized("Active Workout", comment: "Title when workout is active")
-        }
-    }
-
     private var statusSubtitle: String {
         switch workoutController.state {
         case .paused:
-            return L10n.localized("Paused", comment: "Workout status subtitle")
+            L10n.localized("Paused", comment: "Workout status subtitle")
         default:
-            return L10n.localized("In Progress", comment: "Workout status subtitle")
+            L10n.localized("In Progress", comment: "Workout status subtitle")
         }
     }
 
     private var statusTint: Color {
         switch workoutController.state {
         case .paused:
-            return DesignTokens.Colors.warning
+            DesignTokens.Colors.warning
         default:
-            return DesignTokens.Colors.success
+            DesignTokens.Colors.success
         }
     }
 
     private var statusBadge: some View {
-        Text(statusSubtitle.uppercased())
-            .font(DesignTokens.Typography.caption.weight(.bold))
-            .padding(.horizontal, DesignTokens.Spacing.sm)
-            .padding(.vertical, DesignTokens.Spacing.xxs)
-            .background(statusTint.opacity(0.15), in: Capsule())
-            .foregroundStyle(statusTint)
+        HStack(spacing: DesignTokens.Spacing.xsPlus) {
+            Circle()
+                .fill(statusTint)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+
+            Text(statusSubtitle)
+                .font(DesignTokens.Typography.footnote.weight(.semibold))
+                .foregroundStyle(statusTint)
+        }
+        .padding(.horizontal, DesignTokens.Spacing.smPlus)
+        .padding(.vertical, DesignTokens.Spacing.xsPlus)
+        .background(statusTint.opacity(0.14), in: Capsule())
     }
 
     private var workoutTypeTitle: String {
@@ -243,15 +277,14 @@ struct ActiveWorkoutView: View {
     private var pauseButtonIcon: String {
         switch workoutController.state {
         case .paused:
-            return "play.fill"
+            "play.fill"
         default:
-            return "pause.fill"
+            "pause.fill"
         }
     }
 
     private var elapsedText: String {
-        let formatter = Self.elapsedFormatter
-        return formatter.string(from: workoutController.elapsedTime) ?? "0:00"
+        Self.elapsedFormatter.string(from: workoutController.elapsedTime) ?? "00:00:00"
     }
 
     private static let elapsedFormatter: DateComponentsFormatter = {
@@ -274,6 +307,8 @@ struct ActiveWorkoutView: View {
         liveActivityManager: NoopLiveActivityManager()
     )
 
-    ActiveWorkoutView()
-        .environment(controller)
+    NavigationStack {
+        ActiveWorkoutView()
+    }
+    .environment(controller)
 }

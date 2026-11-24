@@ -167,14 +167,14 @@ enum DesignTokens {
     }
 
     enum Sizing {
-        static let progressRing: CGFloat = 230
-        static let progressRingLineWidth: CGFloat = 16
-        static let workoutCardWidth: CGFloat = 190
-        static let routePreviewHeight: CGFloat = 104
-        static let badgeCardMinHeight: CGFloat = 180
-        static let chartHeight: CGFloat = 150
-        static let chartBarMaxHeight: CGFloat = 120
-        static let chatBubbleGutter: CGFloat = 40
+        static let progressRing: CGFloat = 252
+        static let progressRingLineWidth: CGFloat = 18
+        static let workoutCardWidth: CGFloat = 204
+        static let routePreviewHeight: CGFloat = 132
+        static let badgeCardMinHeight: CGFloat = 152
+        static let chartHeight: CGFloat = 176
+        static let chartBarMaxHeight: CGFloat = 132
+        static let chatBubbleGutter: CGFloat = 44
         static let onboardingPageBottomInset: CGFloat = 132
         /// Readable width for onboarding content and its button on iPad and in landscape.
         static let onboardingContentMaxWidth: CGFloat = 560

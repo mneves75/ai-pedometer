@@ -14,18 +14,20 @@ struct AboutView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: DesignTokens.Spacing.xl) {
+            VStack(spacing: DesignTokens.Spacing.lg) {
                 heroSection
                 supportSection
                 featuresSection
                 linksSection
                 versionSection
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.horizontal, DesignTokens.Spacing.mdPlus)
             .padding(.bottom, DesignTokens.Spacing.xxl)
         }
+        .scrollIndicators(.hidden)
+        .tabBarAwareScrollContentBottomInset()
         .accessibilityIdentifier(A11yID.About.view)
-        .background(DesignTokens.Colors.surfaceGrouped)
+        .background(AmbientZenithBackground())
         .navigationTitle(L10n.localized("About", comment: "Navigation title for About screen"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -70,22 +72,20 @@ struct AboutView: View {
     // MARK: - Hero
     
     private var heroSection: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
+        VStack(spacing: DesignTokens.Spacing.md) {
             ZStack {
                 Circle()
                     .fill(DesignTokens.Colors.accent.gradient)
-                    .frame(width: DesignTokens.IconSize.hero, height: DesignTokens.IconSize.hero)
+                    .frame(width: 84, height: 84)
                 
                 Image(systemName: "figure.walk")
-                    .font(.system(size: DesignTokens.FontSize.sm, weight: .medium))
-                    .foregroundStyle(DesignTokens.Colors.inverseText)
-                    .applyIfMotionEnabled { view in
-                        view.symbolEffect(.pulse.byLayer, options: .repeating.speed(0.3))
-                    }
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundStyle(DesignTokens.Colors.onAccent)
             }
-            .shadow(color: DesignTokens.Colors.accent.opacity(0.3), radius: 20, y: 10)
+            .shadow(color: DesignTokens.Colors.accent.opacity(0.24), radius: 16, y: 8)
+            .accessibilityHidden(true)
             
-            VStack(spacing: DesignTokens.Spacing.xs) {
+            VStack(spacing: DesignTokens.Spacing.xxs) {
                 Text(L10n.localized("AI Pedometer", comment: "App name"))
                     .font(DesignTokens.Typography.title.bold())
                 
@@ -94,7 +94,7 @@ struct AboutView: View {
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
             }
         }
-        .padding(.top, DesignTokens.Spacing.xl)
+        .padding(.top, DesignTokens.Spacing.lg)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(L10n.localized("AI Pedometer - Your intelligent walking companion", comment: "Accessibility label for app name and tagline"))
     }
@@ -102,57 +102,60 @@ struct AboutView: View {
     // MARK: - Features
     
     private var featuresSection: some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
-            FeatureRow(
+        let columns = [
+            GridItem(.flexible(), spacing: DesignTokens.Spacing.sm),
+            GridItem(.flexible(), spacing: DesignTokens.Spacing.sm)
+        ]
+
+        return LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.sm) {
+            FeatureTile(
                 icon: "brain.head.profile",
                 color: DesignTokens.Colors.accent,
                 title: L10n.localized("AI-Powered Insights", comment: "Feature title"),
                 subtitle: L10n.localized("Personalized coaching powered by Apple Intelligence", comment: "Feature description")
             )
             
-            FeatureRow(
+            FeatureTile(
                 icon: "heart.fill",
                 color: DesignTokens.Colors.red,
                 title: L10n.localized("HealthKit Integration", comment: "Feature title"),
                 subtitle: L10n.localized("Seamlessly syncs with Apple Health", comment: "Feature description")
             )
             
-            FeatureRow(
+            FeatureTile(
                 icon: "lock.shield.fill",
                 color: DesignTokens.Colors.green,
                 title: L10n.localized("Privacy First", comment: "Feature title"),
                 subtitle: L10n.localized("All AI processing happens on-device", comment: "Feature description")
             )
             
-            FeatureRow(
+            FeatureTile(
                 icon: "applewatch",
                 color: DesignTokens.Colors.orange,
                 title: L10n.localized("Apple Watch", comment: "Feature title"),
                 subtitle: L10n.localized("Track your steps from your wrist", comment: "Feature description")
             )
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
     }
     
     // MARK: - Links
     
     private var linksSection: some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             LinkRow(
                 icon: "star.fill",
                 color: DesignTokens.Colors.yellow,
                 title: L10n.localized("Rate on App Store", comment: "Link title"),
                 action: openAppStoreReview
             )
-            
+            Divider().padding(.leading, 48)
             LinkRow(
                 icon: "questionmark.bubble.fill",
                 color: DesignTokens.Colors.accent,
                 title: L10n.localized("Send Feedback", comment: "Link title"),
                 action: openSupport
             )
-            
+            Divider().padding(.leading, 48)
             LinkRow(
                 icon: "doc.text.fill",
                 color: DesignTokens.Colors.neutral,
@@ -160,8 +163,9 @@ struct AboutView: View {
                 action: openPrivacyPolicy
             )
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .padding(.horizontal, DesignTokens.Spacing.md)
+        .padding(.vertical, DesignTokens.Spacing.xxs)
+        .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
     }
 
     // MARK: - Support
@@ -170,31 +174,33 @@ struct AboutView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: "cup.and.saucer.fill")
-                    .font(DesignTokens.Typography.title3)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(DesignTokens.Colors.brown)
-                    .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
-                    .background(DesignTokens.Colors.brown.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                    .frame(width: 34, height: 34)
+                    .background(DesignTokens.Colors.brown.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs, style: .continuous))
+                    .accessibilityHidden(true)
 
-                Text(L10n.localized("Support AI Pedometer", comment: "Support section title in About screen"))
-                    .font(DesignTokens.Typography.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.localized("Support AI Pedometer", comment: "Support section title in About screen"))
+                        .font(DesignTokens.Typography.headline)
+                    Text(L10n.localized("One-time tip to support ongoing development.", comment: "Tip jar description in About"))
+                        .font(DesignTokens.Typography.footnote)
+                        .foregroundStyle(DesignTokens.Colors.textSecondary)
+                }
             }
-
-            Text(L10n.localized("One-time tip to support ongoing development.", comment: "Tip jar description in About"))
-                .font(DesignTokens.Typography.subheadline)
-                .foregroundStyle(DesignTokens.Colors.textSecondary)
-
-            Text(L10n.localized("Tips are optional and do not unlock features.", comment: "Tip jar disclaimer"))
-                .font(DesignTokens.Typography.caption)
-                .foregroundStyle(DesignTokens.Colors.textTertiary)
 
             if case .failed(let message) = tipJarStore.loadState {
                 tipJarUnavailableView(message: message)
             } else {
                 supportButton
             }
+
+            Text(L10n.localized("Tips are optional and do not unlock features.", comment: "Tip jar disclaimer"))
+                .font(DesignTokens.Typography.caption)
+                .foregroundStyle(DesignTokens.Colors.textTertiary)
         }
-        .padding(DesignTokens.Spacing.md)
-        .glassCard()
+        .padding(DesignTokens.Spacing.mdPlus)
+        .calmCard(cornerRadius: DesignTokens.CornerRadius.xl)
         .accessibilityElement(children: .contain)
     }
 
@@ -207,8 +213,7 @@ struct AboutView: View {
             Button(L10n.localized("Try Again", comment: "Retry button")) {
                 Task { await tipJarStore.reloadProduct() }
             }
-            .buttonStyle(.bordered)
-            .tint(DesignTokens.Colors.textPrimary)
+            .glassSecondaryButton()
             .controlSize(.small)
             .accessibilityIdentifier("tipjar_retry_button")
         }
@@ -230,6 +235,7 @@ struct AboutView: View {
                 ? L10n.localized("Supports ongoing development", comment: "Tip jar accessibility hint")
                 : L10n.localized("Tip jar is unavailable", comment: "Tip jar unavailable hint")
         )
+        .accessibilityValue(tipPriceText)
     }
 
     private var supportButtonLabel: some View {
@@ -237,16 +243,18 @@ struct AboutView: View {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 if tipJarStore.isPurchasing {
                     ProgressView()
+                        .tint(DesignTokens.Colors.onAccent)
                         .controlSize(.small)
                 }
                 Text(L10n.localized("Buy me a coffee", comment: "Tip jar button title"))
                     .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.onAccent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.9)
                 Spacer()
                 Text(tipPriceText)
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.onAccent.opacity(0.9))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .layoutPriority(1)
@@ -255,16 +263,18 @@ struct AboutView: View {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     if tipJarStore.isPurchasing {
                         ProgressView()
+                            .tint(DesignTokens.Colors.onAccent)
                             .controlSize(.small)
                     }
                     Text(L10n.localized("Buy me a coffee", comment: "Tip jar button title"))
                         .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                        .foregroundStyle(DesignTokens.Colors.onAccent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
                 }
                 Text(tipPriceText)
-                    .font(DesignTokens.Typography.subheadline)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
+                    .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                    .foregroundStyle(DesignTokens.Colors.onAccent.opacity(0.9))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
@@ -348,34 +358,35 @@ private enum TipJarAlert: Identifiable {
     }
 }
 
-// MARK: - Feature Row
+// MARK: - Feature Tile
 
-private struct FeatureRow: View {
+private struct FeatureTile: View {
     let icon: String
     let color: Color
     let title: String
     let subtitle: String
     
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
-                .font(DesignTokens.Typography.title3)
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(color)
-                .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
-                .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                .frame(width: 34, height: 34)
+                .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs, style: .continuous))
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(title)
-                    .font(DesignTokens.Typography.subheadline.weight(.medium))
-
-                Text(subtitle)
-                    .font(DesignTokens.Typography.caption)
-                    .foregroundStyle(DesignTokens.Colors.textSecondary)
-            }
-            
-            Spacer()
+            Text(title)
+                .font(DesignTokens.Typography.subheadline.weight(.semibold))
+                .foregroundStyle(DesignTokens.Colors.textPrimary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+        .padding(DesignTokens.Spacing.md)
+        .calmCard(cornerRadius: DesignTokens.CornerRadius.lg)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityHint(subtitle)
     }
 }
 
@@ -392,12 +403,13 @@ private struct LinkRow: View {
             HapticService.shared.tap()
             action()
         }) {
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: icon)
-                    .font(DesignTokens.Typography.title3)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(color)
-                    .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
-                    .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+                    .frame(width: 32, height: 32)
+                    .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs, style: .continuous))
+                    .accessibilityHidden(true)
                 
                 Text(title)
                     .font(DesignTokens.Typography.subheadline.weight(.medium))
@@ -408,7 +420,10 @@ private struct LinkRow: View {
                 Image(systemName: "chevron.right")
                     .font(DesignTokens.Typography.caption.weight(.semibold))
                     .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .accessibilityHidden(true)
             }
+            .padding(.vertical, DesignTokens.Spacing.sm)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

@@ -20,10 +20,10 @@ struct TrainingPlansView: View {
 
     var body: some View {
         ZStack {
+            AmbientZenithBackground()
             content
         }
         .uiTestMarker(A11yID.TrainingPlans.marker)
-        .accessibilityIdentifier(A11yID.TrainingPlans.marker)
         .navigationTitle(L10n.localized("Training Plans", comment: "Training plans navigation title"))
         .toolbar {
             if canCreatePlan {
@@ -77,8 +77,7 @@ struct TrainingPlansView: View {
                     } label: {
                         Text(L10n.localized("Create Plan", comment: "Empty state button to create plan"))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .foregroundStyle(DesignTokens.Colors.onAccent)
+                    .glassButton()
                     .accessibilityIdentifier(A11yID.TrainingPlans.createButton)
                 }
             }
@@ -104,6 +103,7 @@ struct TrainingPlansView: View {
                     .padding(.vertical, DesignTokens.Spacing.xs)
             }
         }
+        .scrollContentBackground(.hidden)
     }
 
     private func deletePlans(at offsets: IndexSet) {
@@ -225,7 +225,7 @@ struct PlanDetailView: View {
             }
 
             Section(L10n.localized("Weekly Targets", comment: "Training plan weekly targets section header")) {
-                ForEach(plan.weeklyTargets.enumerated(), id: \.offset) { index, target in
+                ForEach(plan.weeklyTargets.enumerated(), id: \.element.weekNumber) { index, target in
                     WeeklyTargetRow(
                         week: index + 1,
                         target: target,
@@ -426,7 +426,7 @@ struct CreatePlanSheet: View {
                                 .font(DesignTokens.Typography.subheadline)
                         }
                         .padding(DesignTokens.Spacing.lg)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg))
+                        .glassCard(cornerRadius: DesignTokens.CornerRadius.xl, interactive: false)
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(L10n.localized("Creating your personalized plan...", comment: "Training plan creation loading text"))
                     }
