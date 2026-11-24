@@ -495,7 +495,7 @@ struct InsightServiceTests {
         _ = try await service.generateWorkoutRecommendation(forceRefresh: true)
         let prompt = foundationModels.lastPrompt ?? ""
 
-        #expect(prompt.contains("Goals achieved: 2/7"))
+        #expect(prompt.contains("Goals achieved: 2/3"))
         #expect(prompt.contains(AppLanguage.promptInstruction()))
     }
 

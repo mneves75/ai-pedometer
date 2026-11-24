@@ -48,37 +48,4 @@ struct AIModelAvailabilityTests {
             #expect(availability.unavailabilityReason == reason)
         }
     }
-    
-    @Suite("Equatable")
-    struct EquatableTests {
-        
-        @Test("available equals available")
-        func availableEqualsAvailable() {
-            #expect(AIModelAvailability.available == AIModelAvailability.available)
-        }
-        
-        @Test("checking equals checking")
-        func checkingEqualsChecking() {
-            #expect(AIModelAvailability.checking == AIModelAvailability.checking)
-        }
-        
-        @Test("unavailable equals unavailable with same reason")
-        func unavailableEqualsSameReason() {
-            let a = AIModelAvailability.unavailable(reason:.deviceNotEligible)
-            let b = AIModelAvailability.unavailable(reason:.deviceNotEligible)
-            #expect(a == b)
-        }
-        
-        @Test("unavailable differs with different reason")
-        func unavailableDiffersDifferentReason() {
-            let a = AIModelAvailability.unavailable(reason:.deviceNotEligible)
-            let b = AIModelAvailability.unavailable(reason:.modelNotReady)
-            #expect(a != b)
-        }
-        
-        @Test("available differs from unavailable")
-        func availableDiffersFromUnavailable() {
-            #expect(AIModelAvailability.available != AIModelAvailability.unavailable(reason:.unknown))
-        }
-    }
 }

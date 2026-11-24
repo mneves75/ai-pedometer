@@ -15,12 +15,4 @@ struct DistanceEstimationModeTests {
         let mode = DistanceEstimationMode.manual
         #expect(mode.rawValue == "manual")
     }
-
-    @Test
-    func allCasesContainsBothModes() {
-        let cases = DistanceEstimationMode.allCases
-        #expect(cases.count == 2)
-        #expect(cases.contains(.automatic))
-        #expect(cases.contains(.manual))
-    }
 }

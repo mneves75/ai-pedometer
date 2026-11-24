@@ -118,4 +118,12 @@ if run_selector "${XCODE_26}" "${XCODE_26}" "${XCODE_26}" "26 27" "${XCODE_25}" 
 fi
 grep -q "AIPEDOMETER_XCODE_DEVELOPER_DIR=${XCODE_25}" "${LOG}" || fail "Expected the bad-pin error."
 
+# NEGATIVE CONTROL 3: bash 3.2 under `set -u` must not crash with unbound `rejected[@]` when every candidate is empty.
+LOG="${TMP_DIR}/all-empty.log"
+if run_selector "" "" "" >"${LOG}" 2>&1; then
+  fail "Expected empty candidates to fail."
+fi
+grep -q "nenhum Xcode suportado encontrado" "${LOG}" \
+  || { cat "${LOG}" >&2; fail "Expected clean no-toolchain error without unbound variable crash."; }
+
 echo "xcode-toolchain.sh tests passed."

@@ -160,4 +160,14 @@ struct GoalServiceTests {
 
         #expect(service.goal(for: midpoint) == 10000)
     }
+
+    @Test("setGoal rejects zero and negative goals without mutating existing goals", arguments: [0, -1, -5_000])
+    func setGoalRejectsNonPositiveGoals(invalidGoal: Int) throws {
+        let persistence = PersistenceController(inMemory: true)
+        let service = GoalService(persistence: persistence)
+        #expect(service.setGoal(9_500))
+
+        #expect(service.setGoal(invalidGoal) == false)
+        #expect(service.currentGoal == 9_500)
+    }
 }

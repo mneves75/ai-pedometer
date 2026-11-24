@@ -1,0 +1,14 @@
+id: swift-no-raw-string-localized
+valid:
+  - |
+      let title = L10n.localized("Daily Goal", comment: "Goal title")
+  - |
+      let formatted = Localization.format("%@ steps", comment: "Steps", count.formattedSteps)
+invalid:
+  - |
+      let title = String(localized: "Daily Goal", comment: "Goal title")
+  - |
+      let title = String(
+          localized: "Health data is not available on this device.",
+          comment: "HealthKit error"
+      )

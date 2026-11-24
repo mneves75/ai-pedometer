@@ -315,13 +315,14 @@ struct HealthKitServiceFallbackTests {
         #expect(sample == nil)
     }
 
-    @Test("Authorization denial does not permanently latch empty reads after recovery")
+    @Test("Authorization denial does not latch future reads after user grants access in Settings")
     func authorizationDenialCanRecoverWithoutRelaunch() async throws {
         let (store, defaults, cleanup) = makeDemoStore(useFakeData: false)
         defer { cleanup() }
 
         let primary = MutableHealthKitService()
         primary.authorizationError = HealthKitError.authorizationFailed
+        primary.stepsToReturn = 4321
         let service = HealthKitServiceFallback(
             primary: primary,
             demoModeStore: store,
@@ -334,16 +335,32 @@ struct HealthKitServiceFallbackTests {
             try await service.requestAuthorization()
         }
 
-        await #expect(throws: HealthKitError.self) {
-            _ = try await service.fetchTodaySteps()
-        }
-
-        primary.authorizationError = nil
-        primary.stepsToReturn = 4321
-
-        try await service.requestAuthorization()
+        // Subsequent reads should still hit primary without requiring another requestAuthorization() call
+        // because HealthKit read access may be enabled out-of-band in iOS Settings.
         let recoveredSteps = try await service.fetchTodaySteps()
         #expect(recoveredSteps == 4321)
+    }
+
+    @Test("Disabling fake data mode restores live HealthKit reads without relaunch")
+    func disablingFakeDataRestoresLiveReads() async throws {
+        let (store, defaults, cleanup) = makeDemoStore(useFakeData: true)
+        defer { cleanup() }
+
+        let primary = MutableHealthKitService()
+        primary.stepsToReturn = 7_654
+        let service = HealthKitServiceFallback(
+            primary: primary,
+            demoModeStore: store,
+            calendar: Calendar(identifier: .gregorian),
+            isHealthDataAvailable: { true },
+            userDefaults: defaults
+        )
+
+        _ = try await service.fetchTodaySteps()
+        store.useFakeData = false
+
+        let liveSteps = try await service.fetchTodaySteps()
+        #expect(liveSteps == 7_654)
     }
 
     @Test("Workout save is deferred while HealthKit sync is disabled")

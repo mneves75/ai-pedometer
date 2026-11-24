@@ -4,8 +4,5 @@
     "check:full": "bash Scripts/preflight.sh --with-tests",
     "audit:deps": "pnpm audit --audit-level moderate"
   },
-  "devDependencies": {
-    "wrangler": "4.144.0"
-  },
   "packageManager": "pnpm@11.20.0"
 }

@@ -107,10 +107,12 @@ aipedometer_select_xcode() {
 
   if [[ -z "${selected_dir}" ]]; then
     echo "ERRO: nenhum Xcode suportado encontrado (majors aceitos: ${supported_majors})." >&2
-    local entry
-    for entry in "${rejected[@]}"; do
-      echo "  rejeitado: ${entry}" >&2
-    done
+    if [[ "${#rejected[@]}" -gt 0 ]]; then
+      local entry
+      for entry in "${rejected[@]}"; do
+        echo "  rejeitado: ${entry}" >&2
+      done
+    fi
     echo "  Defina AIPEDOMETER_XCODE_DEVELOPER_DIR para um Xcode suportado, ou ajuste AIPEDOMETER_SUPPORTED_XCODE_MAJORS." >&2
     return 1
   fi

@@ -1,5 +1,6 @@
 import BackgroundTasks
 import Foundation
+import os
 import Testing
 
 @testable import AIPedometer
@@ -19,13 +20,23 @@ final class MockBackgroundScheduler: BackgroundTaskScheduling {
     }
 }
 
-final class FakeAppRefreshTask: AppRefreshTaskProtocol {
-    var expirationHandler: (() -> Void)?
-    private(set) var completed: Bool?
+final class FakeAppRefreshTask: AppRefreshTaskProtocol, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedHandler: (() -> Void)?
+    private var storedCompleted: Bool?
     private let completionProbe = AppRefreshCompletionProbe()
 
+    var expirationHandler: (() -> Void)? {
+        get { lock.withLock { storedHandler } }
+        set { lock.withLock { storedHandler = newValue } }
+    }
+
+    var completed: Bool? {
+        lock.withLock { storedCompleted }
+    }
+
     func setTaskCompleted(success: Bool) {
-        completed = success
+        lock.withLock { storedCompleted = success }
         let completionProbe = completionProbe
         Task {
             await completionProbe.record(success)
@@ -192,7 +203,7 @@ struct BackgroundTaskServiceTests {
         #expect(tracker.flushCallCount == 1)
     }
 
-    @Test("handleAppRefresh expiration does not get overwritten by late success")
+    @Test("handleAppRefresh expiration from a background queue cancels refresh and does not get overwritten by late success")
     func handleAppRefreshExpirationWins() async {
         let scheduler = MockBackgroundScheduler()
         let tracker = BlockingStepTrackingService()
@@ -206,31 +217,17 @@ struct BackgroundTaskServiceTests {
 
         service.handleAppRefresh(task: task)
         await tracker.waitUntilRefreshStarts()
-        task.expirationHandler?()
+        DispatchQueue.global(qos: .utility).async {
+            task.expirationHandler?()
+        }
         await tracker.waitUntilCancellationIsObserved()
         let completed = await task.waitUntilCompleted()
 
         #expect(!completed)
         #expect(task.completed == false)
-        #expect(reconciliationCount == 0)
-        #expect(tracker.flushCallCount == 0)
-    }
-
-    @Test("Expiration cancels blocked refresh and prevents commit or flush")
-    func expirationCancelsBlockedRefresh() async {
-        let scheduler = MockBackgroundScheduler()
-        let tracker = BlockingStepTrackingService()
-        let service = BackgroundTaskService(stepTrackingService: tracker, scheduler: scheduler)
-        let task = FakeAppRefreshTask()
-
-        service.handleAppRefresh(task: task)
-        await tracker.waitUntilRefreshStarts()
-        task.expirationHandler?()
-        await tracker.waitUntilCancellationIsObserved()
-
-        #expect(task.completed == false)
         #expect(tracker.cancellationObserved)
         #expect(!tracker.committed)
+        #expect(reconciliationCount == 0)
         #expect(tracker.flushCallCount == 0)
     }
 

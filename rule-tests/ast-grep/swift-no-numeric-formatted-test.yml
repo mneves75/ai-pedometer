@@ -1,0 +1,11 @@
+id: swift-no-numeric-formatted
+valid:
+  - |
+      let text = steps.formattedSteps
+  - |
+      let dateText = startDate.formatted(date: .abbreviated, time: .omitted)
+invalid:
+  - |
+      let text = steps.formatted()
+  - |
+      let text = "\(goal.formatted()) steps"

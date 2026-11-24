@@ -15,6 +15,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pages: read
@@ -24,14 +25,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify static site inputs
+      - name: Verify and stage public static site
         run: |
-          test -s docs/index.html
-          test -s docs/styles.css
-          test -s docs/app.js
-          test -s docs/site.webmanifest
+          set -euo pipefail
+          STAGE="${RUNNER_TEMP}/pages-site"
+          rm -rf "${STAGE}"
+          mkdir -p "${STAGE}"
+
+          for file in index.html privacy.html styles.css app.js favicon.png site.webmanifest robots.txt sitemap.xml; do
+            test -s "docs/${file}"
+            cp "docs/${file}" "${STAGE}/${file}"
+          done
+          test -f docs/.nojekyll
+          cp docs/.nojekyll "${STAGE}/.nojekyll"
           test -s docs/assets/product/app-icon.png
           test -s docs/assets/product/onboarding.webp
+          cp -R docs/assets "${STAGE}/assets"
+
+          # Ensure internal docs (agents, appstore, refactor, handoffs) are never published.
+          if find "${STAGE}" -name '*.md' -print -quit | grep -q .; then
+            echo "ERROR: Markdown files must not be staged in GitHub Pages output." >&2
+            exit 1
+          fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
@@ -39,7 +54,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs
+          path: ${{ runner.temp }}/pages-site
           include-hidden-files: true
 
   deploy:
@@ -47,6 +62,7 @@ jobs:
     # workflow_dispatch accepts any ref; only master may publish.
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       pages: write
       id-token: write

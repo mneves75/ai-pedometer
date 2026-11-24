@@ -1,5 +1,5 @@
 // Score + SFX synthesized as one piece: C major, 120 BPM (beat 0.5 s), cues locked to index.html.
-// Instruments reused from the whatsimovel brag synth; arrangement is new. Output: work/mix.wav.
+// Procedural synth instruments; arrangement is tailored to this reel. Output: work/mix.wav.
 import fs from "node:fs";
 
 const SR = 48000, DUR = 21.0, N = Math.ceil(SR * DUR);

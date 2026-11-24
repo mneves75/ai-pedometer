@@ -40,6 +40,8 @@ struct AIChatLinkPolicyTests {
     @Test("Rejects loopback and local network hostnames")
     func rejectsLocalHosts() {
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://localhost/path")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://sub.localhost/path")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://a.b.localhost./path")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "http://127.0.0.1:3000")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://[::1]/")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://my-mac.local")!))
@@ -81,6 +83,9 @@ struct AIChatLinkPolicyTests {
     func rejectsObfuscatedNumericHosts() {
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://2130706433")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://127.1")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://127.0.0.0x1")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://127.0x1")!))
+        #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://10.0x1")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://0x7f000001")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://0177.0.0.1")!))
         #expect(!AIChatLinkPolicy.isAllowed(URL(string: "https://localhost.")!))
